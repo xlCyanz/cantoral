@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS tracks (
   fav       INTEGER NOT NULL DEFAULT 0,
   missing   INTEGER NOT NULL DEFAULT 0,
   video     INTEGER NOT NULL DEFAULT 0,
+  cover_path TEXT,
   added_at  TEXT NOT NULL
 );
 
@@ -75,6 +76,8 @@ CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     let conn = Connection::open(path)?;
     conn.execute_batch(SCHEMA)?;
+    // Migration for databases created before cover art support (ignore if present).
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_path TEXT", []);
     Ok(conn)
 }
 
@@ -90,7 +93,8 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
                 t.tono, t.bpm, t.ocasion, t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
                 (SELECT group_concat(tg.name, ',') FROM track_tags tt
-                   JOIN tags tg ON tg.id = tt.tag_id WHERE tt.track_id = t.id)
+                   JOIN tags tg ON tg.id = tt.tag_id WHERE tt.track_id = t.id),
+                t.cover_path
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
          ORDER BY t.id",
     )?;
@@ -120,6 +124,7 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
             carpeta: r.get(13)?,
             tags,
             added: id,
+            cover: r.get::<_, Option<String>>(15)?,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -192,6 +197,14 @@ pub fn upsert_track(
     )?;
     let id: i64 = conn.query_row("SELECT id FROM tracks WHERE path=?1", params![path], |r| r.get(0))?;
     Ok(id)
+}
+
+pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE tracks SET cover_path=?1 WHERE id=?2",
+        params![cover_path, id],
+    )?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------- folders

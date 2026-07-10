@@ -1,13 +1,15 @@
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, ListMusic, Play, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Play, Trash2, Video } from "lucide-react";
 import { eff, plDur, useStore } from "../store";
-import { coverStyle, gradientFor } from "../lib/covers";
+import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge } from "../lib/styles";
 import type { Track } from "../lib/types";
+import Empty, { emptyBtnSecondary } from "./Empty";
 
 const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 58px";
 
 function CoverInner({ t }: { t: Track }) {
+  if (hasCover(t)) return null;
   if (t.missing)
     return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>;
   if (t.video)
@@ -118,17 +120,31 @@ export default function PlaylistView() {
       </div>
 
       {/* track list */}
-      <div style={{ padding: "8px 24px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "8px 8px 9px", borderBottom: "1px solid var(--border)", fontSize: 11, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>
-          <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style={{ textAlign: "right" }}>Dur.</span><span />
+      {rows.length === 0 ? (
+        <Empty
+          compact
+          icon={<ListMusic size={42} strokeWidth={1.6} />}
+          title="Esta lista está vacía"
+          desc="Agrega pistas desde la Biblioteca para armar el repertorio de este culto."
+          action={
+            <button onClick={s.showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
+              <Library size={16} />Ir a la biblioteca
+            </button>
+          }
+        />
+      ) : (
+        <div style={{ padding: "8px 24px 0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "8px 8px 9px", borderBottom: "1px solid var(--border)", fontSize: 11, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>
+            <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style={{ textAlign: "right" }}>Dur.</span><span />
+          </div>
+          {rows.map((t, i) => (
+            <PlRow key={t.id} t={t} num={i + 1} />
+          ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 8px", color: "var(--text-3)", fontSize: "12.5px" }}>
+            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto.
+          </div>
         </div>
-        {rows.map((t, i) => (
-          <PlRow key={t.id} t={t} num={i + 1} />
-        ))}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 8px", color: "var(--text-3)", fontSize: "12.5px" }}>
-          <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto.
-        </div>
-      </div>
+      )}
     </div>
   );
 }

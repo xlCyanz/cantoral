@@ -1,6 +1,7 @@
 // Thin seam over the Tauri backend. Every call is guarded so the UI also
 // runs in a plain browser (`pnpm dev`) against the in-store seed data.
 
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Folder, Playlist, Track } from "./types";
 
 export function isTauri(): boolean {
@@ -82,8 +83,17 @@ export async function pickSavePath(): Promise<string | null> {
 /** Convert an absolute path into an asset:// URL playable by <audio>/<video>. */
 export async function toAssetUrl(path: string): Promise<string> {
   if (!isTauri()) return path;
-  const { convertFileSrc } = await import("@tauri-apps/api/core");
   return convertFileSrc(path);
+}
+
+/** Synchronous asset:// URL for local files (cover art). No-op in the browser. */
+export function assetUrl(path: string): string {
+  if (!isTauri() || !path) return path;
+  try {
+    return convertFileSrc(path);
+  } catch {
+    return path;
+  }
 }
 
 // ---------------------------------------------------------------- library API

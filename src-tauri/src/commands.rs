@@ -44,7 +44,8 @@ pub fn add_and_scan_folder(app: AppHandle, db: State<Db>, path: String) -> CmdRe
         .unwrap_or(path.as_str())
         .to_string();
     let fid = db::add_folder(&conn, &path, &nombre).map_err(e)?;
-    scanner::scan_folder(&app, &conn, fid, &path).map_err(e)?;
+    let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
+    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir).map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 
@@ -55,7 +56,8 @@ pub fn rescan_folder(app: AppHandle, db: State<Db>, id: String) -> CmdResult<Sna
     let path: String = conn
         .query_row("SELECT path FROM folders WHERE id=?1", params![fid], |r| r.get(0))
         .map_err(e)?;
-    scanner::scan_folder(&app, &conn, fid, &path).map_err(e)?;
+    let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
+    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir).map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 

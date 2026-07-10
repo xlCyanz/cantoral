@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type {
-  DemoKind,
   Folder,
   GroupBy,
   LibState,
@@ -15,6 +14,7 @@ import type {
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS } from "./lib/seed";
 import {
   addAndScanFolder,
+  assetUrl,
   backupDatabase,
   getLibrary,
   isTauri,
@@ -88,7 +88,6 @@ export interface CantoralState {
   showBiblioteca: () => void;
   showColecciones: () => void;
   showConfig: () => void;
-  showSistema: () => void;
   onFolderClick: () => void;
   openPlaylist: (id: string) => void;
   toggleTheme: () => void;
@@ -126,7 +125,6 @@ export interface CantoralState {
   closeDialog: () => void;
   confirmAddFolder: () => void;
   indexFolder: (path?: string) => void;
-  onDemo: (kind: DemoKind) => void;
   startScan: () => void;
   cancelScan: () => void;
   retryError: () => void;
@@ -162,14 +160,16 @@ export const useStore = create<CantoralState>((set, get) => {
   const applySnapshot = (snap: Snapshot) => {
     const plOrder: Record<string, string[]> = {};
     snap.playlists.forEach((p) => (plOrder[p.id] = p.ids.slice()));
+    // Turn cover file paths into asset:// URLs the webview can load.
+    const tracks = snap.tracks.map((t) => (t.cover ? { ...t, cover: assetUrl(t.cover) } : t));
     const st = get();
     const curPlaylist = snap.playlists.some((p) => p.id === st.curPlaylist)
       ? st.curPlaylist
       : snap.playlists[0]?.id || st.curPlaylist;
-    const playerId = snap.tracks.some((t) => t.id === st.playerId)
+    const playerId = tracks.some((t) => t.id === st.playerId)
       ? st.playerId
-      : snap.tracks[0]?.id || st.playerId;
-    set({ tracks: snap.tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId });
+      : tracks[0]?.id || st.playerId;
+    set({ tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId });
   };
 
   return {
@@ -219,7 +219,6 @@ export const useStore = create<CantoralState>((set, get) => {
     showBiblioteca: () => set({ view: "biblioteca" }),
     showColecciones: () => set({ view: "colecciones" }),
     showConfig: () => set({ view: "config" }),
-    showSistema: () => set({ view: "sistema" }),
     onFolderClick: () =>
       set({ view: "biblioteca", libState: "content", qf: null, ocasion: null }),
     openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
@@ -250,8 +249,19 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     onOpenExternal: (id) => {
       const t = get().tracks.find((x) => x.id === id);
-      if (isTauri() && t?.path) void openExternalPath(t.path);
+      if (!isTauri()) {
+        toast("Abriendo en el reproductor del sistema…");
+        return;
+      }
+      if (!t?.path) {
+        toast("Sin archivo para abrir");
+        return;
+      }
       toast("Abriendo en el reproductor del sistema…");
+      void openExternalPath(t.path).catch((err) => {
+        console.error("openExternalPath failed", err);
+        toast("No se pudo abrir el archivo");
+      });
     },
 
     // ---------- player ----------
@@ -262,8 +272,10 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("El archivo no se encuentra en el disco");
         return;
       }
-      if (t.video) {
-        toast("Abriendo el video en el reproductor del sistema…");
+      // Videos always, and any track when "abrir en el sistema" is on, open in
+      // the OS default player instead of the integrated one.
+      if (t.video || get().openExt) {
+        get().onOpenExternal(id);
         return;
       }
       set({ playerId: id, playing: true, posSec: 0 });
@@ -369,11 +381,6 @@ export const useStore = create<CantoralState>((set, get) => {
       } else {
         get().startScan();
       }
-    },
-    onDemo: (kind) => {
-      set({ view: "biblioteca" });
-      if (kind === "scanning") get().startScan();
-      else set({ libState: kind });
     },
     startScan: () => {
       if (scanTimer) clearInterval(scanTimer);

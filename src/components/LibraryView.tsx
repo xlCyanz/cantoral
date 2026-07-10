@@ -1,8 +1,9 @@
-import { Clock, FolderPlus, Heart, Play, RefreshCw, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
+import { Clock, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, useStore } from "../store";
 import { SCAN_FILES } from "../lib/seed";
-import { coverStyle } from "../lib/covers";
+import { coverStyle, hasCover } from "../lib/covers";
+import Empty, { emptyBtnSecondary } from "./Empty";
 import { favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
 import type { SortKey, Track } from "../lib/types";
 
@@ -10,6 +11,7 @@ const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 48px 62px 72px";
 
 /** White glyph shown inside a cover swatch, keyed by track state. */
 function CoverInner({ t }: { t: Track }) {
+  if (hasCover(t)) return null;
   if (t.missing)
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
@@ -241,6 +243,21 @@ export default function LibraryView() {
 
   const list = applyFilters(s);
   const groups = buildGroups(s, list);
+
+  if (list.length === 0) {
+    return (
+      <Empty
+        icon={<Search size={40} />}
+        title="Sin resultados"
+        desc={s.query ? `No encontramos nada para «${s.query}».` : "Ninguna canción coincide con este filtro."}
+        action={
+          <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null })} className="hb-s2" style={emptyBtnSecondary}>
+            Limpiar filtros
+          </button>
+        }
+      />
+    );
+  }
 
   return (
     <div style={{ padding: "6px 16px 22px" }}>

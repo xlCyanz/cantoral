@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { Check, ChevronDown, Play, Save, Settings, SquareArrowOutUpRight, Tag, X } from "lucide-react";
 import { eff, useStore } from "../store";
-import { coverStyle } from "../lib/covers";
+import { coverStyle, hasCover } from "../lib/covers";
 import { OCASIONES, TONOS } from "../lib/seed";
 import type { Track } from "../lib/types";
 
@@ -10,6 +10,7 @@ const fieldStyle: CSSProperties = { width: "100%", height: 38, border: "1px soli
 const sectionLabel: CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: "var(--text-3)" };
 
 function BigCoverInner({ t }: { t: Track }) {
+  if (hasCover(t)) return null;
   if (t.missing)
     return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ width: 40, height: 40 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>;
   if (t.video)

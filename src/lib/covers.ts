@@ -26,9 +26,10 @@ export function fmt(s: number): string {
   return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 }
 
-/** Inline style for a track's generated cover swatch (ported from cover()). */
+/** Inline style for a track's cover (real embedded art if present, else a
+ *  generated gradient swatch — ported from cover()). */
 export function coverStyle(
-  t: Pick<Track, "id" | "missing"> | null | undefined,
+  t: Pick<Track, "id" | "missing" | "cover"> | null | undefined,
   size: number,
 ): CSSProperties {
   const r = size >= 64 ? "14px" : size >= 48 ? "11px" : "8px";
@@ -49,8 +50,22 @@ export function coverStyle(
       filter: "saturate(.5)",
     };
   }
+  if (t && t.cover) {
+    return {
+      ...base,
+      backgroundColor: "var(--surface-3)",
+      backgroundImage: `url("${t.cover}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    };
+  }
   const p = COVERS[hash(t ? t.id : "x") % COVERS.length];
   return { ...base, background: `linear-gradient(140deg,${p[0]},${p[1]})` };
+}
+
+/** Whether a track shows real cover art (so the white glyph overlay is hidden). */
+export function hasCover(t: Pick<Track, "missing" | "cover"> | null | undefined): boolean {
+  return !!(t && t.cover && !t.missing);
 }
 
 /** Linear-gradient background for a playlist cover, keyed by id. */

@@ -20,19 +20,6 @@ export function chipStyle(active: boolean): CSSProperties {
   };
 }
 
-export function demoBtnStyle(active: boolean): CSSProperties {
-  return {
-    height: "28px",
-    padding: "0 10px",
-    borderRadius: "8px",
-    fontSize: "11.5px",
-    fontWeight: 600,
-    transition: "all .12s",
-    background: active ? "var(--primary)" : "transparent",
-    color: active ? "var(--on-primary)" : "var(--text-2)",
-  };
-}
-
 export function navStyle(active: boolean): CSSProperties {
   return {
     display: "flex",

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
 import { Heart, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, SquareArrowOutUpRight, Volume2, VolumeX } from "lucide-react";
 import { cur, useStore } from "../store";
-import { coverStyle, fmt } from "../lib/covers";
+import { coverStyle, fmt, hasCover } from "../lib/covers";
 import { isTauri, osShortName, toAssetUrl } from "../lib/api";
 
 /** Draggable progress / volume track (ported from dragBar). */
@@ -106,9 +106,11 @@ export default function PlayerBar() {
       {/* now playing */}
       <div style={{ display: "flex", alignItems: "center", gap: 13, width: 280, minWidth: 0 }}>
         <div style={coverStyle(track, 56)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
-            <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-          </svg>
+          {!hasCover(track) && (
+            <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
+              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+            </svg>
+          )}
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: "13.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track ? track.titulo : "—"}</div>

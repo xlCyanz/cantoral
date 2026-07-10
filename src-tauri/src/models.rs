@@ -25,6 +25,8 @@ pub struct Track {
     pub added: i64,
     pub video: bool,
     pub path: String,
+    /// Absolute path to the extracted embedded cover art, if any.
+    pub cover: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

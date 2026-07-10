@@ -8,7 +8,6 @@ import type { GroupBy } from "../lib/types";
 const titleMap: Record<string, string> = {
   colecciones: "Listas para cultos",
   config: "Configuración",
-  sistema: "Sistema de diseño",
 };
 
 export default function TopBar() {

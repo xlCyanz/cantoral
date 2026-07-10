@@ -3,19 +3,6 @@ import { useStore } from "../store";
 import { navCountStyle, navStyle, qfStyle } from "../lib/styles";
 import type { CSSProperties } from "react";
 
-/** The "Sistema de diseño" glyph — inlined from the design for an exact match. */
-function PaletteGlyph({ size = 18 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size, flex: "0 0 auto" }}>
-      <circle cx="13.5" cy="6.5" r="2.5" />
-      <circle cx="17.5" cy="10.5" r="2.5" />
-      <circle cx="8.5" cy="7.5" r="2.5" />
-      <circle cx="6.5" cy="12.5" r="2.5" />
-      <path d="M12 2a10 10 0 1 0 10 10c0-1.44-1.14-2.5-2.5-2.5H16" />
-    </svg>
-  );
-}
-
 const sectionLabel: CSSProperties = {
   fontSize: "10.5px",
   fontWeight: 700,
@@ -35,7 +22,6 @@ export default function Sidebar() {
   const showBiblioteca = useStore((s) => s.showBiblioteca);
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
-  const showSistema = useStore((s) => s.showSistema);
   const onQuickFilter = useStore((s) => s.onQuickFilter);
   const onFolderClick = useStore((s) => s.onFolderClick);
   const openAddFolder = useStore((s) => s.openAddFolder);
@@ -43,7 +29,6 @@ export default function Sidebar() {
   const libActive = view === "biblioteca";
   const colActive = view === "colecciones" || view === "lista";
   const cfgActive = view === "config";
-  const sysActive = view === "sistema";
 
   return (
     <aside
@@ -149,10 +134,6 @@ export default function Sidebar() {
         <button onClick={showConfig} className={cfgActive ? undefined : "hb-s2"} style={navStyle(cfgActive)}>
           <Settings size={18} style={{ flex: "0 0 auto" }} />
           <span style={{ flex: 1, textAlign: "left" }}>Configuración</span>
-        </button>
-        <button onClick={showSistema} className={sysActive ? undefined : "hb-s2"} style={navStyle(sysActive)}>
-          <PaletteGlyph />
-          <span style={{ flex: 1, textAlign: "left" }}>Sistema de diseño</span>
         </button>
       </div>
     </aside>

@@ -1,13 +1,12 @@
 // Domain types — mirror the SQLite schema and the UI view models.
 
 export type Theme = "light" | "dark";
-export type View = "biblioteca" | "colecciones" | "lista" | "config" | "sistema";
+export type View = "biblioteca" | "colecciones" | "lista" | "config";
 export type LibState = "content" | "empty" | "scanning" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
 export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
 export type SortKey = "titulo" | "album" | "ocasion" | "tono" | "bpm" | "dur";
 export type SortDir = "asc" | "desc";
-export type DemoKind = "content" | "empty" | "scanning" | "error";
 
 export interface Track {
   id: string;
@@ -33,6 +32,8 @@ export interface Track {
   video?: boolean;
   /** Absolute path on disk (backend only). */
   path?: string;
+  /** Cover art URL (asset:// in the app), if the file had embedded art. */
+  cover?: string;
 }
 
 export interface Folder {

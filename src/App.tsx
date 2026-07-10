@@ -8,12 +8,10 @@ import LibraryView from "./components/LibraryView";
 import CollectionsView from "./components/CollectionsView";
 import PlaylistView from "./components/PlaylistView";
 import ConfigView from "./components/ConfigView";
-import DesignSystemView from "./components/DesignSystemView";
 import DetailPanel from "./components/DetailPanel";
 import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
 import Toast from "./components/Toast";
-import DemoPill from "./components/DemoPill";
 
 export default function App() {
   const theme = useStore((s) => s.theme);
@@ -60,14 +58,12 @@ export default function App() {
             {view === "colecciones" && <CollectionsView />}
             {view === "lista" && <PlaylistView />}
             {view === "config" && <ConfigView />}
-            {view === "sistema" && <DesignSystemView />}
           </main>
         </div>
 
         <DetailPanel />
       </div>
 
-      <DemoPill />
       <PlayerBar />
       <AddFolderDialog />
       <Toast />

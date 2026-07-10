@@ -1,6 +1,7 @@
 import { Calendar, ListMusic, Plus } from "lucide-react";
 import { plDur, useStore } from "../store";
 import { gradientFor } from "../lib/covers";
+import Empty, { emptyBtnPrimary } from "./Empty";
 
 export default function CollectionsView() {
   const playlists = useStore((s) => s.playlists);
@@ -8,6 +9,21 @@ export default function CollectionsView() {
   const openPlaylist = useStore((s) => s.openPlaylist);
   const newList = useStore((s) => s.newList);
   const s = useStore();
+
+  if (playlists.length === 0) {
+    return (
+      <Empty
+        icon={<ListMusic size={42} strokeWidth={1.6} />}
+        title="Aún no hay listas"
+        desc="Crea tu primera lista para armar el repertorio de un culto o ensayo."
+        action={
+          <button onClick={newList} className="hb-primary" style={emptyBtnPrimary}>
+            <Plus size={18} strokeWidth={2.2} />Nueva lista
+          </button>
+        }
+      />
+    );
+  }
 
   return (
     <div style={{ padding: "22px 24px 40px" }}>

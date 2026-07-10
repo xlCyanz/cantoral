@@ -1,5 +1,6 @@
 use anyhow::Result;
 use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::picture::PictureType;
 use lofty::probe::Probe;
 use lofty::tag::Accessor;
 use rusqlite::Connection;
@@ -21,8 +22,11 @@ fn is_media(ext: &str) -> bool {
     AUDIO_EXTS.contains(&ext) || VIDEO_EXTS.contains(&ext)
 }
 
-/// Best-effort metadata read via lofty. Returns (title, artist, album, dur_sec).
-fn read_meta(path: &Path) -> (Option<String>, Option<String>, Option<String>, i64) {
+/// (title, artist, album, dur_sec, cover as (bytes, extension)).
+type Meta = (Option<String>, Option<String>, Option<String>, i64, Option<(Vec<u8>, String)>);
+
+/// Best-effort metadata + embedded cover read via lofty.
+fn read_meta(path: &Path) -> Meta {
     match Probe::open(path).and_then(|p| p.read()) {
         Ok(tagged) => {
             let dur = tagged.properties().duration().as_secs() as i64;
@@ -30,9 +34,23 @@ fn read_meta(path: &Path) -> (Option<String>, Option<String>, Option<String>, i6
             let title = tag.and_then(|t| t.title()).map(|c| c.to_string());
             let artist = tag.and_then(|t| t.artist()).map(|c| c.to_string());
             let album = tag.and_then(|t| t.album()).map(|c| c.to_string());
-            (title, artist, album, dur)
+            let cover = tag.and_then(|t| {
+                let pics = t.pictures();
+                pics.iter()
+                    .find(|p| p.pic_type() == PictureType::CoverFront)
+                    .or_else(|| pics.first())
+                    .map(|p| {
+                        let ext = match p.mime_type().map(|m| m.to_string().to_lowercase()) {
+                            Some(s) if s.contains("png") => "png",
+                            Some(s) if s.contains("gif") => "gif",
+                            _ => "jpg",
+                        };
+                        (p.data().to_vec(), ext.to_string())
+                    })
+            });
+            (title, artist, album, dur, cover)
         }
-        Err(_) => (None, None, None, 0),
+        Err(_) => (None, None, None, 0, None),
     }
 }
 
@@ -43,7 +61,10 @@ pub fn scan_folder(
     conn: &Connection,
     folder_id: i64,
     root: &str,
+    cover_dir: &Path,
 ) -> Result<i64> {
+    let _ = std::fs::create_dir_all(cover_dir);
+
     // Collect media paths first so progress has a denominator.
     let files: Vec<_> = WalkDir::new(root)
         .into_iter()
@@ -61,10 +82,10 @@ pub fn scan_folder(
         let video = VIDEO_EXTS.contains(&ext.as_str());
         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Sin título");
 
-        let (title, artist, album, dur) = read_meta(path);
+        let (title, artist, album, dur, cover) = read_meta(path);
         let titulo = title.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| stem.to_string());
 
-        db::upsert_track(
+        let id = db::upsert_track(
             conn,
             folder_id,
             &path.to_string_lossy(),
@@ -75,6 +96,12 @@ pub fn scan_folder(
             &ext.to_uppercase(),
             video,
         )?;
+        if let Some((bytes, cover_ext)) = cover {
+            let cover_path = cover_dir.join(format!("{}.{}", id, cover_ext));
+            if std::fs::write(&cover_path, &bytes).is_ok() {
+                let _ = db::set_cover_path(conn, id, &cover_path.to_string_lossy());
+            }
+        }
         count += 1;
 
         let pct = ((i + 1) as f64 / total as f64) * 100.0;
