@@ -1,0 +1,105 @@
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap");
+@import "tailwindcss";
+
+/* Enable `dark:` utilities to follow the app's [data-theme="dark"] attribute. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ============================================================
+   Design tokens — ported verbatim from design/Cantoral.dc.html
+   ============================================================ */
+:root {
+  --bg: #faf7f2; --bg-2: #f1ebe1; --surface: #ffffff; --surface-2: #f6f1ea; --surface-3: #eee7dc;
+  --border: #e8e0d4; --border-2: #d9cebe;
+  --text: #221d18; --text-2: #6b6155; --text-3: #9e9384;
+  --primary: #a9502e; --primary-hover: #93441f; --primary-soft: #f4e7df; --primary-soft-2: #ebd6c8; --on-primary: #ffffff;
+  --success: #3d7b54; --success-soft: #e4efe7; --warning: #8f6413; --warning-soft: #f5ead3; --danger: #b8412f; --danger-soft: #f6e1dc;
+  --ring: rgba(169, 80, 46, 0.3);
+  --sh-sm: 0 1px 2px rgba(40, 30, 20, 0.06), 0 1px 1px rgba(40, 30, 20, 0.04);
+  --sh-md: 0 6px 20px rgba(40, 30, 20, 0.09), 0 2px 6px rgba(40, 30, 20, 0.05);
+  --sh-lg: 0 24px 60px rgba(30, 22, 14, 0.2), 0 8px 20px rgba(30, 22, 14, 0.12);
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --bg: #161311; --bg-2: #100e0c; --surface: #211b16; --surface-2: #2b241d; --surface-3: #352c23;
+  --border: #332b23; --border-2: #453a2e;
+  --text: #f2ebe0; --text-2: #b1a695; --text-3: #7b7163;
+  --primary: #d07a4f; --primary-hover: #de8a61; --primary-soft: #33251c; --primary-soft-2: #432d20; --on-primary: #2a1206;
+  --success: #63a87d; --success-soft: #1d2b22; --warning: #d6a343; --warning-soft: #2e2413; --danger: #e0715e; --danger-soft: #2e1b17;
+  --ring: rgba(208, 122, 79, 0.34);
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --sh-lg: 0 28px 70px rgba(0, 0, 0, 0.62), 0 10px 24px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+input, button, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { color: var(--primary-hover); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+button:focus:not(:focus-visible) { outline: none; }
+::selection { background: var(--primary-soft); color: var(--text); }
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 9px; border: 3px solid var(--bg); }
+*::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+*::-webkit-scrollbar-corner { background: transparent; }
+.serif { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; }
+
+/* ============================================================
+   Keyframes — ported verbatim from the design
+   ============================================================ */
+@keyframes canPanel { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes canOverlay { from { opacity: 0; } to { opacity: 1; } }
+@keyframes canDialog { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes canSpin { to { transform: rotate(360deg); } }
+@keyframes canEq { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+@keyframes canToast { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes canFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes canScanPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* ============================================================
+   Hover / focus utility classes
+   React can't express :hover inline, so the design's `style-hover`
+   values become small reusable classes applied alongside inline styles.
+   ============================================================ */
+/* !important is required so these override an element's inline `background`,
+   which otherwise wins over :hover rules on specificity. */
+.hb-s2:hover { background: var(--surface-2) !important; }
+.hb-s3:hover { background: var(--surface-3) !important; }
+.hb-s2t:hover { background: var(--surface-2) !important; color: var(--text) !important; }
+.hb-s3t:hover { background: var(--surface-3) !important; color: var(--text) !important; }
+.hb-primary:hover { background: var(--primary-hover) !important; }
+.hb-close:hover { background: #e0483a !important; color: #fff !important; }
+.hb-danger:hover { background: var(--danger-soft) !important; color: var(--danger) !important; }
+.hb-text:hover { color: var(--text) !important; }
+.hb-primsoft2:hover { background: var(--primary-soft-2) !important; }
+.hb-active:active { transform: translateY(1px); }
+.hb-active-scale:active { transform: scale(0.97); }
+
+/* row play button reveal */
+.row-play { opacity: 0; transition: opacity 0.12s; }
+.lib-row:hover .row-play { opacity: 1; }
+.row-play:hover { background: var(--surface-3) !important; }
+
+/* playlist card */
+.pl-card { transition: transform 0.14s, box-shadow 0.14s, border-color 0.14s; }
+.pl-card:hover { transform: translateY(-3px); box-shadow: var(--sh-md); border-color: var(--border-2); }
+
+/* new-list dashed tile */
+.pl-new { transition: all 0.14s; }
+.pl-new:hover { border-color: var(--primary) !important; color: var(--primary) !important; background: var(--primary-soft) !important; }
+
+/* inputs */
+.in-focus:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px var(--ring); }
+
+/* generic row hover background */
+.lib-row:hover { background: var(--surface-2); }

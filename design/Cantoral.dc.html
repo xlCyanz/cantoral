@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF7F2; --bg-2:#F1EBE1; --surface:#FFFFFF; --surface-2:#F6F1EA; --surface-3:#EEE7DC;
+  --border:#E8E0D4; --border-2:#D9CEBE;
+  --text:#221D18; --text-2:#6B6155; --text-3:#9E9384;
+  --primary:#A9502E; --primary-hover:#93441F; --primary-soft:#F4E7DF; --primary-soft-2:#EBD6C8; --on-primary:#FFFFFF;
+  --success:#3D7B54; --success-soft:#E4EFE7; --warning:#8F6413; --warning-soft:#F5EAD3; --danger:#B8412F; --danger-soft:#F6E1DC;
+  --ring:rgba(169,80,46,.30);
+  --sh-sm:0 1px 2px rgba(40,30,20,.06),0 1px 1px rgba(40,30,20,.04);
+  --sh-md:0 6px 20px rgba(40,30,20,.09),0 2px 6px rgba(40,30,20,.05);
+  --sh-lg:0 24px 60px rgba(30,22,14,.20),0 8px 20px rgba(30,22,14,.12);
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  --bg:#161311; --bg-2:#100E0C; --surface:#211B16; --surface-2:#2B241D; --surface-3:#352C23;
+  --border:#332B23; --border-2:#453A2E;
+  --text:#F2EBE0; --text-2:#B1A695; --text-3:#7B7163;
+  --primary:#D07A4F; --primary-hover:#DE8A61; --primary-soft:#33251C; --primary-soft-2:#432D20; --on-primary:#2A1206;
+  --success:#63A87D; --success-soft:#1D2B22; --warning:#D6A343; --warning-soft:#2E2413; --danger:#E0715E; --danger-soft:#2E1B17;
+  --ring:rgba(208,122,79,.34);
+  --sh-sm:0 1px 2px rgba(0,0,0,.4);
+  --sh-md:0 8px 24px rgba(0,0,0,.5);
+  --sh-lg:0 28px 70px rgba(0,0,0,.62),0 10px 24px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+input,button,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+a{color:var(--primary);text-decoration:none}
+a:hover{color:var(--primary-hover)}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+button:focus:not(:focus-visible){outline:none}
+::selection{background:var(--primary-soft);color:var(--text)}
+*::-webkit-scrollbar{width:12px;height:12px}
+*::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:9px;border:3px solid var(--bg)}
+*::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
+*::-webkit-scrollbar-corner{background:transparent}
+.serif{font-family:'Instrument Serif',Georgia,serif;font-weight:400}
+@keyframes canPanel{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes canOverlay{from{opacity:0}to{opacity:1}}
+@keyframes canDialog{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes canSpin{to{transform:rotate(360deg)}}
+@keyframes canEq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes canToast{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes canFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes canScanPulse{0%,100%{opacity:.55}50%{opacity:1}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" style="height:100vh;width:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--text)">
+
+  <!-- ===== TITLE BAR (Windows 11) ===== -->
+  <div style="height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 4px 0 12px;user-select:none">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:16px;height:16px;border-radius:5px;background:linear-gradient(140deg,#C77A4E,#A9502E);display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </div>
+      <span style="font-size:12px;font-weight:600;letter-spacing:.2px;color:var(--text-2)">Cantoral</span>
+    </div>
+    <div style="display:flex;align-items:center">
+      <div style="width:46px;height:34px;display:grid;place-items:center;color:var(--text-2)" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:12px;height:12px"><path d="M4 12h16"/></svg></div>
+      <div style="width:46px;height:34px;display:grid;place-items:center;color:var(--text-2)" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:11px;height:11px"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></div>
+      <div style="width:46px;height:34px;display:grid;place-items:center;color:var(--text-2)" style-hover="background:#e0483a;color:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:12px;height:12px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></div>
+    </div>
+  </div>
+
+  <!-- ===== BODY: sidebar + main + detail ===== -->
+  <div style="flex:1;display:flex;min-height:0;min-width:0">
+
+    <!-- ---- SIDEBAR ---- -->
+    <aside style="width:260px;flex:0 0 auto;background:var(--bg-2);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0">
+      <div style="flex:1;overflow-y:auto;padding:14px 12px 8px">
+        <!-- brand -->
+        <div style="display:flex;align-items:center;gap:11px;padding:6px 8px 16px">
+          <div style="width:36px;height:36px;border-radius:11px;background:linear-gradient(140deg,#C77A4E,#A9502E);display:grid;place-items:center;box-shadow:0 4px 12px rgba(169,80,46,.32),inset 0 1px 0 rgba(255,255,255,.3)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div style="line-height:1.05">
+            <div class="serif" style="font-size:23px;letter-spacing:.2px">Cantoral</div>
+            <div style="font-size:10.5px;color:var(--text-3);font-weight:500;letter-spacing:.3px;margin-top:1px">Música de la iglesia</div>
+          </div>
+        </div>
+
+        <!-- primary nav -->
+        <nav style="display:flex;flex-direction:column;gap:2px">
+          <button onClick="{{ showBiblioteca }}" style="{{ navLibStyle }}" style-hover="background:var(--surface-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex:0 0 auto"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>
+            <span style="flex:1;text-align:left">Biblioteca</span>
+            <span style="{{ navLibCountStyle }}">{{ totalLabel }}</span>
+          </button>
+          <button onClick="{{ showColecciones }}" style="{{ navColStyle }}" style-hover="background:var(--surface-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex:0 0 auto"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
+            <span style="flex:1;text-align:left">Listas para cultos</span>
+            <span style="{{ navColCountStyle }}">{{ plCountLabel }}</span>
+          </button>
+        </nav>
+
+        <!-- quick filters -->
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text-3);padding:18px 8px 7px">Filtros rápidos</div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <button data-qf="fav" onClick="{{ onQuickFilter }}" style="{{ qfFavStyle }}" style-hover="background:var(--surface-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;flex:0 0 auto"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <span style="flex:1;text-align:left">Favoritas</span>
+          </button>
+          <button data-qf="recent" onClick="{{ onQuickFilter }}" style="{{ qfRecentStyle }}" style-hover="background:var(--surface-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span style="flex:1;text-align:left">Recién agregadas</span>
+          </button>
+          <button data-qf="missing" onClick="{{ onQuickFilter }}" style="{{ qfMissingStyle }}" style-hover="background:var(--surface-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span style="flex:1;text-align:left">Archivos faltantes</span>
+            <span style="{{ missingCountStyle }}">{{ missingCount }}</span>
+          </button>
+        </div>
+
+        <!-- folders -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 8px 7px">
+          <span style="font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text-3)">Carpetas indexadas</span>
+          <button onClick="{{ openAddFolder }}" title="Agregar carpeta" style="width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--text-2)" style-hover="background:var(--surface-2);color:var(--text)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          </button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{ folders }}" as="f" hint-placeholder-count="3">
+            <button data-id="{{ f.id }}" onClick="{{ onFolderClick }}" style="display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:9px;color:var(--text-2);transition:background .14s" style-hover="background:var(--surface-2)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:0 0 auto;color:var(--text-3)"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+              <span style="flex:1;text-align:left;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.nombre }}</span>
+              <span style="font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums">{{ f.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- sidebar footer -->
+      <div style="flex:0 0 auto;border-top:1px solid var(--border);padding:8px 12px">
+        <button onClick="{{ showConfig }}" style="{{ navCfgStyle }}" style-hover="background:var(--surface-2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex:0 0 auto"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span style="flex:1;text-align:left">Configuración</span>
+        </button>
+        <button onClick="{{ showSistema }}" style="{{ navSysStyle }}" style-hover="background:var(--surface-2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex:0 0 auto"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 10 10c0-1.44-1.14-2.5-2.5-2.5H16"/></svg>
+          <span style="flex:1;text-align:left">Sistema de diseño</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ---- MAIN COLUMN ---- -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)">
+
+      <!-- top bar -->
+      <header style="flex:0 0 auto;background:var(--bg);border-bottom:1px solid var(--border);position:relative;z-index:5">
+        <div style="height:60px;display:flex;align-items:center;gap:14px;padding:0 20px">
+          <!-- left: search (biblioteca) or title -->
+          <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1 1 0;min-width:0;max-width:440px;position:relative;display:flex;align-items:center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;position:absolute;left:13px;color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input value="{{ query }}" onInput="{{ onQuery }}" placeholder="Buscar por título, artista, tono o etiqueta…" style="width:100%;height:38px;border:1px solid var(--border-2);background:var(--surface);border-radius:10px;padding:0 34px 0 38px;font-size:13.5px;outline:none;transition:border-color .14s,box-shadow .14s" style-focus="border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)">
+              <sc-if value="{{ hasQuery }}">
+                <button onClick="{{ clearQuery }}" title="Limpiar" style="position:absolute;right:9px;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--text-3)" style-hover="background:var(--surface-2);color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:13px;height:13px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showTitle }}">
+            <div style="flex:0 1 auto;display:flex;align-items:center;gap:10px;min-width:0">
+              <sc-if value="{{ isLista }}">
+                <button onClick="{{ showColecciones }}" style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--text-2);border:1px solid var(--border)" style-hover="background:var(--surface-2);color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="m15 18-6-6 6-6"/></svg></button>
+              </sc-if>
+              <h1 style="font-size:19px;font-weight:700;letter-spacing:-.2px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pageTitle }}</h1>
+            </div>
+          </sc-if>
+
+          <div style="flex:1"></div>
+
+          <div style="flex:1"></div>
+
+          <!-- theme toggle -->
+          <button onClick="{{ toggleTheme }}" title="Cambiar tema" style="width:38px;height:38px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);display:grid;place-items:center;color:var(--text-2);transition:background .14s,color .14s" style-hover="background:var(--surface-2);color:var(--text)">
+            <sc-if value="{{ isDark }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></sc-if>
+            <sc-if value="{{ isLight }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></sc-if>
+          </button>
+
+          <!-- add folder -->
+          <button onClick="{{ openAddFolder }}" style="height:38px;flex:0 0 auto;white-space:nowrap;display:flex;align-items:center;gap:8px;padding:0 15px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:13.5px;font-weight:600;box-shadow:var(--sh-sm);transition:background .14s,transform .08s" style-hover="background:var(--primary-hover)" style-active="transform:translateY(1px)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+            Agregar carpeta
+          </button>
+        </div>
+
+        <!-- filter bar (biblioteca content) -->
+        <sc-if value="{{ showFilterBar }}" hint-placeholder-val="{{ true }}">
+          <div style="height:52px;display:flex;align-items:center;gap:12px;padding:0 20px;border-top:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;flex:1;padding-bottom:1px">
+              <sc-for list="{{ ocasionChips }}" as="c" hint-placeholder-count="6">
+                <button data-oc="{{ c.value }}" onClick="{{ onOcasion }}" style="{{ c.style }}">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">
+              <div style="position:relative;display:flex;align-items:center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;position:absolute;left:10px;color:var(--text-3);pointer-events:none"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+                <select value="{{ groupBy }}" onChange="{{ onGroupBy }}" style="appearance:none;height:34px;border:1px solid var(--border-2);background:var(--surface);border-radius:9px;padding:0 28px 0 30px;font-size:12.5px;font-weight:500;color:var(--text);outline:none;cursor:pointer">
+                  <option value="none">Sin agrupar</option>
+                  <option value="ocasion">Agrupar: Ocasión</option>
+                  <option value="album">Agrupar: Álbum</option>
+                  <option value="carpeta">Agrupar: Carpeta</option>
+                </select>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;position:absolute;right:9px;color:var(--text-3);pointer-events:none"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div style="font-size:12.5px;color:var(--text-3);font-weight:500;white-space:nowrap;padding-left:2px">{{ visibleLabel }}</div>
+            </div>
+          </div>
+        </sc-if>
+      </header>
+
+      <!-- view area -->
+      <main style="flex:1;overflow-y:auto;min-height:0;position:relative">
+
+        <!-- ===== BIBLIOTECA ===== -->
+        <sc-if value="{{ isBiblioteca }}" hint-placeholder-val="{{ true }}">
+
+          <!-- content: track table -->
+          <sc-if value="{{ libContent }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:6px 16px 22px">
+              <!-- column header -->
+              <div style="position:sticky;top:0;z-index:2;display:grid;grid-template-columns:32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 48px 62px 72px;align-items:center;gap:8px;padding:10px 10px 9px;background:var(--bg);border-bottom:1px solid var(--border)">
+                <span style="font-size:11px;color:var(--text-3);text-align:center;font-weight:600">#</span>
+                <button data-key="titulo" onClick="{{ onSortHeader }}" style="{{ thTituloStyle }}">Título {{ thTituloArrow }}</button>
+                <button data-key="album" onClick="{{ onSortHeader }}" style="{{ thAlbumStyle }}">Álbum {{ thAlbumArrow }}</button>
+                <button data-key="ocasion" onClick="{{ onSortHeader }}" style="{{ thOcasionStyle }}">Ocasión {{ thOcasionArrow }}</button>
+                <button data-key="tono" onClick="{{ onSortHeader }}" style="{{ thTonoStyle }}">Tono {{ thTonoArrow }}</button>
+                <button data-key="dur" onClick="{{ onSortHeader }}" style="{{ thDurStyle }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> {{ thDurArrow }}</button>
+                <span></span>
+              </div>
+
+              <!-- groups + rows -->
+              <sc-for list="{{ groups }}" as="g" hint-placeholder-count="1">
+                <sc-if value="{{ g.showHeader }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:16px 12px 7px">
+                    <span style="font-size:13px;font-weight:700;letter-spacing:.2px">{{ g.label }}</span>
+                    <span style="font-size:11.5px;color:var(--text-3);font-weight:500">{{ g.countLabel }}</span>
+                    <div style="flex:1;height:1px;background:var(--border)"></div>
+                  </div>
+                </sc-if>
+                <sc-for list="{{ g.tracks }}" as="tr" hint-placeholder-count="8">
+                  <div data-id="{{ tr.id }}" onClick="{{ onRowClick }}" onDblClick="{{ onRowDbl }}" style="{{ tr.rowStyle }}" style-hover="background:var(--surface-2)">
+                    <!-- index / play -->
+                    <div style="width:32px;height:34px;display:grid;place-items:center;position:relative">
+                      <sc-if value="{{ tr.showEq }}">
+                        <div style="display:flex;align-items:flex-end;gap:2px;height:15px">
+                          <span style="width:3px;height:14px;background:var(--primary);border-radius:2px;transform-origin:bottom;animation:canEq .9s ease-in-out infinite"></span>
+                          <span style="width:3px;height:14px;background:var(--primary);border-radius:2px;transform-origin:bottom;animation:canEq .9s ease-in-out .3s infinite"></span>
+                          <span style="width:3px;height:14px;background:var(--primary);border-radius:2px;transform-origin:bottom;animation:canEq .9s ease-in-out .6s infinite"></span>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ tr.showIndex }}">
+                        <span style="font-size:12.5px;color:var(--text-3);font-variant-numeric:tabular-nums">{{ tr.num }}</span>
+                        <button data-id="{{ tr.id }}" onClick="{{ onPlayRow }}" title="{{ tr.playTitle }}" style="position:absolute;inset:0;display:grid;place-items:center;color:var(--text);border-radius:7px;opacity:0;transition:opacity .12s" style-hover="opacity:1;background:var(--surface-3)">
+                          <sc-if value="{{ tr.notVideo }}"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width:14px;height:14px"><polygon points="6 3 20 12 6 21 6 3"/></svg></sc-if>
+                          <sc-if value="{{ tr.isVideo }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></sc-if>
+                        </button>
+                      </sc-if>
+                    </div>
+                    <!-- title cell -->
+                    <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                      <div style="{{ tr.cover }}">
+                        <sc-if value="{{ tr.missing }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></sc-if>
+                        <sc-if value="{{ tr.videoOk }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></sc-if>
+                        <sc-if value="{{ tr.audioOk }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></sc-if>
+                      </div>
+                      <div style="min-width:0">
+                        <div style="{{ tr.titleStyle }}">{{ tr.titulo }}</div>
+                        <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
+                          <span style="font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tr.artista }}</span>
+                          <sc-if value="{{ tr.missing }}"><span style="flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--danger);background:var(--danger-soft);padding:1px 6px;border-radius:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="width:10px;height:10px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Sin archivo</span></sc-if>
+                          <sc-if value="{{ tr.isVideo }}"><span style="flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--text-2);background:var(--surface-3);padding:1px 6px;border-radius:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>Video</span></sc-if>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- album -->
+                    <div style="font-size:12.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tr.album }}</div>
+                    <!-- ocasion -->
+                    <div><span style="{{ tr.ocasionStyle }}">{{ tr.ocasion }}</span></div>
+                    <!-- tono -->
+                    <div style="font-size:12.5px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums">{{ tr.tono }}</div>
+                    <!-- dur -->
+                    <div style="font-size:12.5px;color:var(--text-2);font-variant-numeric:tabular-nums">{{ tr.dur }}</div>
+                    <!-- actions -->
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px">
+                      <button data-id="{{ tr.id }}" onClick="{{ onFav }}" title="Favorita" style="{{ tr.favBtnStyle }}" style-hover="background:var(--surface-3)">
+                        <svg viewBox="0 0 24 24" fill="{{ tr.favFill }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                      </button>
+                      <button data-id="{{ tr.id }}" onClick="{{ onOpenExternal }}" title="Abrir en reproductor de Windows" style="width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--text-3)" style-hover="background:var(--surface-3);color:var(--text)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </sc-for>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- empty -->
+          <sc-if value="{{ libEmpty }}">
+            <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;animation:canFade .3s ease">
+              <div style="width:104px;height:104px;border-radius:50%;background:var(--primary-soft);display:grid;place-items:center;margin-bottom:26px;position:relative">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:46px;height:46px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                <div style="position:absolute;bottom:-2px;right:-2px;width:38px;height:38px;border-radius:50%;background:var(--primary);display:grid;place-items:center;border:3px solid var(--bg);box-shadow:var(--sh-sm)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--on-primary)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M5 12h14"/><path d="M12 5v14"/></svg></div>
+              </div>
+              <h2 class="serif" style="font-size:32px;margin:0 0 10px">Tu biblioteca está vacía</h2>
+              <p style="font-size:14.5px;color:var(--text-2);max-width:420px;line-height:1.55;margin:0 0 26px">Agrega una carpeta con tus pistas y coros. Cantoral la revisará y organizará tu música automáticamente, sin mover ni copiar tus archivos.</p>
+              <div style="display:flex;gap:12px">
+                <button onClick="{{ openAddFolder }}" style="height:44px;display:flex;align-items:center;gap:9px;padding:0 20px;border-radius:11px;background:var(--primary);color:var(--on-primary);font-size:14px;font-weight:600;box-shadow:var(--sh-sm);transition:background .14s" style-hover="background:var(--primary-hover)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                  Agregar carpeta de música
+                </button>
+                <button style="height:44px;display:flex;align-items:center;gap:8px;padding:0 18px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;transition:background .14s" style-hover="background:var(--surface-2)">¿Cómo funciona?</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- scanning -->
+          <sc-if value="{{ libScanning }}">
+            <div style="height:100%;display:flex;align-items:center;justify-content:center;padding:40px;animation:canFade .3s ease">
+              <div style="width:100%;max-width:460px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--sh-md);padding:30px 30px 26px;text-align:center">
+                <div style="width:66px;height:66px;margin:0 auto 20px;position:relative;display:grid;place-items:center">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--border-2)" stroke-width="2" style="width:66px;height:66px;position:absolute"><circle cx="12" cy="12" r="10"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" style="width:66px;height:66px;position:absolute;animation:canSpin 1s linear infinite"><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                </div>
+                <h2 style="font-size:19px;font-weight:700;margin:0 0 6px">Escaneando tu música…</h2>
+                <p style="font-size:13px;color:var(--text-2);margin:0 0 22px">Indexando metadatos. Puedes seguir usando la app mientras tanto.</p>
+                <div style="height:9px;border-radius:6px;background:var(--surface-3);overflow:hidden;margin-bottom:11px">
+                  <div style="{{ scanFill }}"></div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-2)">
+                  <span style="display:flex;align-items:center;gap:7px;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:0 0 auto;animation:canScanPulse 1s ease-in-out infinite"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,monospace;font-size:11px">{{ scanFile }}</span></span>
+                  <span style="flex:0 0 auto;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;padding-left:12px">{{ scanCountLabel }}</span>
+                </div>
+                <button onClick="{{ cancelScan }}" style="margin-top:22px;height:36px;padding:0 16px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:13px;font-weight:600" style-hover="background:var(--surface-2)">Cancelar</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- error -->
+          <sc-if value="{{ libError }}">
+            <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;animation:canFade .3s ease">
+              <div style="width:96px;height:96px;border-radius:50%;background:var(--danger-soft);display:grid;place-items:center;margin-bottom:24px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              </div>
+              <h2 style="font-size:22px;font-weight:700;margin:0 0 10px">No pudimos leer esta carpeta</h2>
+              <p style="font-size:14px;color:var(--text-2);max-width:430px;line-height:1.55;margin:0 0 8px">La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.</p>
+              <code style="font-size:12px;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border);padding:5px 11px;border-radius:8px;margin-bottom:26px">D:\Alabanza\Pistas 2025</code>
+              <div style="display:flex;gap:12px">
+                <button onClick="{{ retryError }}" style="height:44px;display:flex;align-items:center;gap:9px;padding:0 20px;border-radius:11px;background:var(--primary);color:var(--on-primary);font-size:14px;font-weight:600;box-shadow:var(--sh-sm);transition:background .14s" style-hover="background:var(--primary-hover)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                  Reintentar
+                </button>
+                <button onClick="{{ showConfig }}" style="height:44px;display:flex;align-items:center;gap:8px;padding:0 18px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;transition:background .14s" style-hover="background:var(--surface-2)">Administrar carpetas</button>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <!-- ===== OTHER VIEWS (filled next) ===== -->
+        <sc-if value="{{ isColecciones }}">
+          <div style="padding:22px 24px 40px">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px">
+              <p style="font-size:13.5px;color:var(--text-2);margin:0;max-width:520px;line-height:1.5">Arma el repertorio de cada culto o ensayo. Reordena arrastrando, reproduce toda la lista y expórtala para el equipo.</p>
+              <button onClick="{{ newList }}" style="flex:0 0 auto;height:38px;display:flex;align-items:center;gap:8px;padding:0 15px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:13.5px;font-weight:600;box-shadow:var(--sh-sm);transition:background .14s" style-hover="background:var(--primary-hover)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Nueva lista</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:18px">
+              <sc-for list="{{ coleccionesList }}" as="p" hint-placeholder-count="5">
+                <div data-id="{{ p.id }}" onClick="{{ openPlaylist }}" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:12px;transition:transform .14s,box-shadow .14s,border-color .14s" style-hover="transform:translateY(-3px);box-shadow:var(--sh-md);border-color:var(--border-2)">
+                  <div style="position:relative;width:100%;aspect-ratio:1;border-radius:11px;overflow:hidden;box-shadow:var(--sh-sm)">
+                    <div style="{{ p.coverBg }}"></div>
+                    <div style="position:absolute;inset:0;display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:42px;height:42px"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg></div>
+                    <div style="position:absolute;left:9px;top:9px;background:rgba(20,14,9,.42);backdrop-filter:blur(4px);color:#fff;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:6px">{{ p.ocasion }}</div>
+                  </div>
+                  <div style="padding:12px 4px 4px">
+                    <div style="font-size:14.5px;font-weight:700;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.nombre }}</div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;color:var(--text-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex:0 0 auto"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.fecha }}</span></div>
+                    <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;font-weight:500">{{ p.metaLabel }}</div>
+                  </div>
+                </div>
+              </sc-for>
+              <button onClick="{{ newList }}" style="cursor:pointer;background:none;border:1.5px dashed var(--border-2);border-radius:15px;min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;color:var(--text-3);transition:all .14s" style-hover="border-color:var(--primary);color:var(--primary);background:var(--primary-soft)">
+                <div style="width:46px;height:46px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M5 12h14"/><path d="M12 5v14"/></svg></div>
+                <span style="font-size:13px;font-weight:600">Crear nueva lista</span>
+              </button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isLista }}">
+          <div style="padding:0 0 40px">
+            <!-- hero -->
+            <div style="display:flex;gap:22px;padding:28px 24px 24px;align-items:flex-end;background:linear-gradient(180deg,var(--surface-2),transparent)">
+              <div style="position:relative;width:148px;height:148px;flex:0 0 auto;border-radius:16px;overflow:hidden;box-shadow:var(--sh-md)">
+                <div style="{{ curPlCoverBg }}"></div>
+                <div style="position:absolute;inset:0;display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="width:58px;height:58px"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg></div>
+              </div>
+              <div style="min-width:0;padding-bottom:2px">
+                <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--primary);background:var(--primary-soft);padding:3px 10px;border-radius:7px;margin-bottom:10px">Lista para culto</span>
+                <h1 style="font-size:34px;font-weight:800;letter-spacing:-.8px;line-height:1.05;margin:0 0 10px;text-wrap:balance">{{ curPlName }}</h1>
+                <div style="display:flex;align-items:center;gap:14px;color:var(--text-2);font-size:13px;font-weight:500;flex-wrap:wrap">
+                  <span style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>{{ curPlFecha }}</span>
+                  <span style="width:3px;height:3px;border-radius:50%;background:var(--text-3)"></span>
+                  <span>{{ curPlMeta }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:18px">
+                  <button onClick="{{ playAll }}" style="height:42px;display:flex;align-items:center;gap:9px;padding:0 20px;border-radius:11px;background:var(--primary);color:var(--on-primary);font-size:14px;font-weight:700;box-shadow:var(--sh-sm);transition:background .14s,transform .08s" style-hover="background:var(--primary-hover)" style-active="transform:scale(.97)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:17px;height:17px"><polygon points="6 3 20 12 6 21 6 3"/></svg>Reproducir todo</button>
+                  <button onClick="{{ exportPl }}" style="height:42px;display:flex;align-items:center;gap:8px;padding:0 16px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;transition:background .14s" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Exportar</button>
+                  <button title="Más acciones" style="width:42px;height:42px;display:grid;place-items:center;border-radius:11px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2)" style-hover="background:var(--surface-2);color:var(--text)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- track list -->
+            <div style="padding:8px 24px 0">
+              <div style="display:grid;grid-template-columns:26px 26px minmax(150px,3fr) 116px 50px 58px 58px;align-items:center;gap:8px;padding:8px 8px 9px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-3)">
+                <span></span><span style="text-align:center">#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style="text-align:right">Dur.</span><span></span>
+              </div>
+              <sc-for list="{{ plTracks }}" as="tr" hint-placeholder-count="6">
+                <div data-id="{{ tr.id }}" draggable="true" onDragStart="{{ onDragStart }}" onDragOver="{{ onDragOver }}" onDrop="{{ onDrop }}" onDragEnd="{{ onDragEnd }}" onDblClick="{{ playPlTrack }}" style="{{ tr.rowStyle }}" style-hover="background:var(--surface-2)">
+                  <div title="Arrastrar para reordenar" style="display:grid;place-items:center;color:var(--text-3);cursor:grab" style-hover="color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></div>
+                  <span style="text-align:center;font-size:12.5px;color:var(--text-3);font-variant-numeric:tabular-nums">{{ tr.num }}</span>
+                  <div style="display:flex;align-items:center;gap:11px;min-width:0">
+                    <div style="{{ tr.cover }}">
+                      <sc-if value="{{ tr.missing }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></sc-if>
+                      <sc-if value="{{ tr.videoOk }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></sc-if>
+                      <sc-if value="{{ tr.audioOk }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></sc-if>
+                    </div>
+                    <div style="min-width:0"><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tr.titulo }}</div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tr.artista }}</span><sc-if value="{{ tr.isVideo }}"><span style="flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:var(--text-2);background:var(--surface-3);padding:1px 5px;border-radius:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>Video</span></sc-if></div></div>
+                  </div>
+                  <div><span style="{{ tr.ocasionStyle }}">{{ tr.ocasion }}</span></div>
+                  <div style="font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums">{{ tr.tono }}</div>
+                  <div style="font-size:12.5px;color:var(--text-2);text-align:right;font-variant-numeric:tabular-nums">{{ tr.dur }}</div>
+                  <div style="display:flex;justify-content:flex-end">
+                    <button data-id="{{ tr.id }}" onClick="{{ removeFromPl }}" title="Quitar de la lista" style="width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--text-3)" style-hover="background:var(--danger-soft);color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="display:flex;align-items:center;gap:8px;padding:14px 8px;color:var(--text-3);font-size:12.5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>Arrastra las pistas para cambiar el orden del culto.</div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isConfig }}">
+          <div style="max-width:680px;margin:0 auto;padding:28px 24px 44px">
+
+            <!-- apariencia -->
+            <div style="margin-bottom:30px">
+              <h2 style="font-size:15px;font-weight:700;margin:0 0 3px">Apariencia</h2>
+              <p style="font-size:13px;color:var(--text-2);margin:0 0 14px">Elige cómo se ve Cantoral.</p>
+              <div style="display:flex;gap:12px">
+                <button data-theme="light" onClick="{{ setThemeTo }}" style="{{ themeLightBtn }}">
+                  <div style="width:100%;height:52px;border-radius:8px;background:#FAF7F2;border:1px solid #E8E0D4;display:flex;overflow:hidden"><div style="width:26px;background:#F1EBE1;border-right:1px solid #E8E0D4"></div><div style="flex:1;padding:7px"><div style="width:60%;height:6px;border-radius:3px;background:#A9502E;margin-bottom:5px"></div><div style="width:85%;height:5px;border-radius:3px;background:#D9CEBE"></div></div></div>
+                  <span style="font-size:13px;font-weight:600">Claro</span>
+                </button>
+                <button data-theme="dark" onClick="{{ setThemeTo }}" style="{{ themeDarkBtn }}">
+                  <div style="width:100%;height:52px;border-radius:8px;background:#161311;border:1px solid #332B23;display:flex;overflow:hidden"><div style="width:26px;background:#211B16;border-right:1px solid #332B23"></div><div style="flex:1;padding:7px"><div style="width:60%;height:6px;border-radius:3px;background:#D07A4F;margin-bottom:5px"></div><div style="width:85%;height:5px;border-radius:3px;background:#453A2E"></div></div></div>
+                  <span style="font-size:13px;font-weight:600">Oscuro</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- carpetas -->
+            <div style="margin-bottom:30px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div><h2 style="font-size:15px;font-weight:700;margin:0 0 3px">Carpetas indexadas</h2><p style="font-size:13px;color:var(--text-2);margin:0">Cantoral revisa estas ubicaciones. Tus archivos nunca se mueven ni se copian.</p></div>
+                <button onClick="{{ openAddFolder }}" style="flex:0 0 auto;height:34px;display:flex;align-items:center;gap:7px;padding:0 13px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:12.5px;font-weight:600" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Agregar</button>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface)">
+                <sc-for list="{{ folders }}" as="f" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;border-bottom:1px solid var(--border)">
+                    <div style="width:38px;height:38px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;flex:0 0 auto"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
+                    <div style="min-width:0;flex:1"><div style="font-size:13.5px;font-weight:600">{{ f.nombre }}</div><div style="font-size:11.5px;color:var(--text-3);font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.ruta }}</div></div>
+                    <span style="font-size:12px;color:var(--text-2);font-weight:500;flex:0 0 auto">{{ f.count }} pistas</span>
+                    <button data-id="{{ f.id }}" onClick="{{ rescanFolder }}" title="Volver a escanear" style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--text-3);flex:0 0 auto" style-hover="background:var(--surface-2);color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+                    <button data-id="{{ f.id }}" onClick="{{ removeFolder }}" title="Quitar carpeta" style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--text-3);flex:0 0 auto" style-hover="background:var(--danger-soft);color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                  </div>
+                </sc-for>
+                <div style="padding:11px 14px;font-size:12px;color:var(--text-3);background:var(--surface-2)">Última actualización: hoy a las 9:14 · 239 pistas en total</div>
+              </div>
+            </div>
+
+            <!-- reproduccion -->
+            <div style="margin-bottom:30px">
+              <h2 style="font-size:15px;font-weight:700;margin:0 0 12px">Reproducción</h2>
+              <label onClick="{{ toggleOpenExt }}" style="display:flex;align-items:center;gap:14px;padding:15px;border:1px solid var(--border);border-radius:13px;background:var(--surface);cursor:pointer">
+                <div style="flex:1"><div style="font-size:13.5px;font-weight:600">Abrir siempre en el reproductor de Windows</div><div style="font-size:12.5px;color:var(--text-2);margin-top:2px">Al pulsar reproducir, usa la app predeterminada del sistema en vez del reproductor integrado.</div></div>
+                <div style="{{ openExtTrackStyle }}"><div style="{{ openExtKnobStyle }}"></div></div>
+              </label>
+            </div>
+
+            <!-- base de datos -->
+            <div style="margin-bottom:30px">
+              <h2 style="font-size:15px;font-weight:700;margin:0 0 3px">Base de datos</h2>
+              <p style="font-size:13px;color:var(--text-2);margin:0 0 12px">Tu catálogo, listas y etiquetas se guardan en una base local. Haz copias periódicas.</p>
+              <div style="border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:16px;display:flex;align-items:center;gap:14px">
+                <div style="width:42px;height:42px;border-radius:11px;background:var(--success-soft);display:grid;place-items:center;flex:0 0 auto"><svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></div>
+                <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">cantoral.db</div><div style="font-size:12px;color:var(--text-3);font-family:ui-monospace,monospace">C:\Users\Alabanza\AppData\Cantoral · 4.2 MB</div></div>
+                <button onClick="{{ restore }}" style="flex:0 0 auto;height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:12.5px;font-weight:600" style-hover="background:var(--surface-2)">Restaurar…</button>
+                <button onClick="{{ backup }}" style="flex:0 0 auto;height:36px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:9px;background:var(--primary);color:var(--on-primary);font-size:12.5px;font-weight:600" style-hover="background:var(--primary-hover)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Crear copia</button>
+              </div>
+            </div>
+
+            <div style="text-align:center;color:var(--text-3);font-size:12px;padding-top:8px">Cantoral 1.0 · Hecho con cuidado para el ministerio de alabanza</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isSistema }}">
+          <div style="max-width:880px;margin:0 auto;padding:28px 24px 48px">
+            <p style="font-size:14px;color:var(--text-2);line-height:1.6;margin:0 0 6px;max-width:620px">El lenguaje visual de Cantoral: cálido, tranquilo y legible para listas largas. Cambia el tema arriba a la derecha para ver ambos modos. Los valores muestran <strong style="color:var(--text)">claro · oscuro</strong>.</p>
+
+            <!-- COLOR -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin:30px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)">Paleta de color</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--primary)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Primario</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#A9502E · #D07A4F</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--primary-soft)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Primario suave</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#F4E7DF · #33251C</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--border)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Fondo</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#FAF7F2 · #161311</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Superficie</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#FFFFFF · #211B16</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Superficie 2</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#F6F1EA · #2B241D</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--text)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Texto</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#221D18 · #F2EBE0</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--success)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Éxito</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#3D7B54 · #63A87D</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--warning)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Advertencia</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#8F6413 · #D6A343</div></div></div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)"><div style="height:60px;background:var(--danger)"></div><div style="padding:9px 11px"><div style="font-size:12.5px;font-weight:600">Error</div><div style="font-size:10px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px">#B8412F · #E0715E</div></div></div>
+            </div>
+
+            <!-- TIPOGRAFIA -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin:34px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)">Tipografía</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
+              <div style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:20px">
+                <div class="serif" style="font-size:40px;line-height:1;margin-bottom:6px">Cantoral</div>
+                <div style="font-size:12px;color:var(--text-2)">Instrument Serif — títulos de portada y estados vacíos</div>
+              </div>
+              <div style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:20px;display:flex;flex-direction:column;gap:11px;justify-content:center">
+                <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:24px;font-weight:700;letter-spacing:-.3px">Título 24/700</span></div>
+                <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:18px;font-weight:600">Subtítulo 18/600</span></div>
+                <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:14px">Cuerpo 14/400 — Hanken Grotesk</span></div>
+                <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:12.5px;color:var(--text-2)">Secundario 13/400</span></div>
+                <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3)">Etiqueta 11/700</span></div>
+              </div>
+            </div>
+
+            <!-- ESPACIADO / RADIOS / SOMBRAS -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;margin-top:22px">
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:12px">Espaciado · base 4</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;gap:10px"><div style="width:8px;height:14px;background:var(--primary);border-radius:2px"></div><span style="font-size:11.5px;color:var(--text-2)">8</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><div style="width:12px;height:14px;background:var(--primary);border-radius:2px"></div><span style="font-size:11.5px;color:var(--text-2)">12</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><div style="width:16px;height:14px;background:var(--primary);border-radius:2px"></div><span style="font-size:11.5px;color:var(--text-2)">16</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><div style="width:24px;height:14px;background:var(--primary);border-radius:2px"></div><span style="font-size:11.5px;color:var(--text-2)">24</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:14px;background:var(--primary);border-radius:2px"></div><span style="font-size:11.5px;color:var(--text-2)">32</span></div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:12px">Radios</div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px">
+                  <div style="width:52px;height:52px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:6px;display:grid;place-items:end center;font-size:10px;color:var(--text-2);padding-bottom:4px">6</div>
+                  <div style="width:52px;height:52px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;display:grid;place-items:end center;font-size:10px;color:var(--text-2);padding-bottom:4px">8</div>
+                  <div style="width:52px;height:52px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:11px;display:grid;place-items:end center;font-size:10px;color:var(--text-2);padding-bottom:4px">11</div>
+                  <div style="width:52px;height:52px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:15px;display:grid;place-items:end center;font-size:10px;color:var(--text-2);padding-bottom:4px">15</div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:12px">Sombras</div>
+                <div style="display:flex;gap:12px">
+                  <div style="flex:1;height:52px;background:var(--surface);border-radius:10px;box-shadow:var(--sh-sm);display:grid;place-items:center;font-size:10.5px;color:var(--text-2)">sm</div>
+                  <div style="flex:1;height:52px;background:var(--surface);border-radius:10px;box-shadow:var(--sh-md);display:grid;place-items:center;font-size:10.5px;color:var(--text-2)">md</div>
+                  <div style="flex:1;height:52px;background:var(--surface);border-radius:10px;box-shadow:var(--sh-lg);display:grid;place-items:center;font-size:10.5px;color:var(--text-2)">lg</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- COMPONENTES -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin:34px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)">Componentes</div>
+            <div style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:22px;display:flex;flex-wrap:wrap;gap:26px;align-items:center">
+              <div style="display:flex;align-items:center;gap:10px">
+                <button style="height:38px;padding:0 16px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:13.5px;font-weight:600">Primario</button>
+                <button style="height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600">Secundario</button>
+                <button style="height:38px;padding:0 12px;border-radius:10px;background:none;color:var(--text-2);font-size:13.5px;font-weight:600">Fantasma</button>
+              </div>
+              <div style="width:1px;height:34px;background:var(--border)"></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;background:var(--surface-3);color:var(--text-2)">Adoración</span>
+                <span style="font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;background:var(--primary);color:var(--on-primary)">Activo</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:7px;background:var(--danger-soft);color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="width:10px;height:10px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Sin archivo</span>
+              </div>
+              <div style="width:1px;height:34px;background:var(--border)"></div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="height:38px;width:170px;display:flex;align-items:center;gap:8px;border:1px solid var(--border-2);background:var(--surface-2);border-radius:10px;padding:0 12px;font-size:13px;color:var(--text-3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Buscar…</div>
+                <div style="width:42px;height:24px;border-radius:20px;background:var(--primary);padding:2px;display:flex;justify-content:flex-end"><div style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div></div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+      </main>
+    </div>
+
+    <!-- ---- DETAIL PANEL ---- -->
+    <sc-if value="{{ detailOpen }}">
+      <aside style="width:360px;flex:0 0 auto;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:0;animation:canPanel .26s cubic-bezier(.22,1,.36,1);box-shadow:-8px 0 24px rgba(30,22,14,.05)">
+        <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 14px 12px;border-bottom:1px solid var(--border)">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text-3)">Detalle de pista</span>
+          <button onClick="{{ closeDetail }}" title="Cerrar" style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--text-2)" style-hover="background:var(--surface-2);color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:16px;height:16px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:20px 18px 22px">
+          <!-- cover + primary meta -->
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:20px">
+            <div style="{{ selCover }}">
+              <sc-if value="{{ selMissing }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></sc-if>
+              <sc-if value="{{ selVideoOk }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg></sc-if>
+              <sc-if value="{{ selAudioOk }}"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></sc-if>
+            </div>
+            <h2 style="font-size:19px;font-weight:700;letter-spacing:-.2px;margin:16px 0 3px;text-wrap:balance">{{ selTitulo }}</h2>
+            <p style="font-size:13.5px;color:var(--text-2);margin:0">{{ selArtista }}</p>
+            <sc-if value="{{ selMissing }}">
+              <div style="margin-top:12px;display:flex;align-items:center;gap:8px;background:var(--danger-soft);color:var(--danger);padding:8px 12px;border-radius:10px;font-size:12.5px;font-weight:500;text-align:left;line-height:1.35">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px;flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                El archivo no se encuentra en el disco. Vuelve a indexar la carpeta o localízalo manualmente.
+              </div>
+            </sc-if>
+            <sc-if value="{{ selVideoInfo }}">
+              <div style="margin-top:12px;display:flex;align-items:center;gap:9px;background:var(--surface-2);color:var(--text-2);padding:9px 12px;border-radius:10px;font-size:12.5px;font-weight:500;text-align:left;line-height:1.35;border:1px solid var(--border)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px;flex:0 0 auto"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                Los videos se abren en el reproductor predeterminado de Windows, no dentro de la app.
+              </div>
+            </sc-if>
+            <div style="display:flex;gap:8px;margin-top:16px;width:100%">
+              <button data-id="{{ selId }}" onClick="{{ onPlaySelected }}" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:13.5px;font-weight:600;transition:background .14s" style-hover="background:var(--primary-hover)"><sc-if value="{{ selAudio }}"><svg viewBox="0 0 24 24" fill="currentColor" style="width:15px;height:15px"><polygon points="6 3 20 12 6 21 6 3"/></svg></sc-if><sc-if value="{{ selVideo }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></sc-if>{{ selPlayLabel }}</button>
+              <button data-id="{{ selId }}" onClick="{{ onOpenExternal }}" title="Abrir en reproductor de Windows" style="width:44px;height:40px;display:grid;place-items:center;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2)" style-hover="background:var(--surface-2);color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></button>
+            </div>
+          </div>
+
+          <!-- editable church fields -->
+          <div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3)">Datos de la iglesia</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:5px">Tono</label>
+              <div style="position:relative;display:flex;align-items:center">
+                <select value="{{ selTono }}" onChange="{{ onEditTono }}" style="appearance:none;width:100%;height:38px;border:1px solid var(--border-2);background:var(--surface-2);border-radius:9px;padding:0 28px 0 12px;font-size:13.5px;font-weight:600;color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)">
+                  <sc-for list="{{ tonos }}" as="tn" hint-placeholder-count="6"><option value="{{ tn }}">{{ tn }}</option></sc-for>
+                </select>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;position:absolute;right:10px;color:var(--text-3);pointer-events:none"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:5px">Tempo (BPM)</label>
+              <div style="position:relative;display:flex;align-items:center">
+                <input type="number" value="{{ selBpm }}" onInput="{{ onEditBpm }}" style="width:100%;height:38px;border:1px solid var(--border-2);background:var(--surface-2);border-radius:9px;padding:0 12px;font-size:13.5px;font-weight:600;color:var(--text);outline:none;-moz-appearance:textfield" style-focus="border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)">
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:5px">Ocasión</label>
+            <div style="position:relative;display:flex;align-items:center">
+              <select value="{{ selOcasion }}" onChange="{{ onEditOcasion }}" style="appearance:none;width:100%;height:38px;border:1px solid var(--border-2);background:var(--surface-2);border-radius:9px;padding:0 28px 0 12px;font-size:13.5px;font-weight:500;color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)">
+                <sc-for list="{{ ocasiones }}" as="oc" hint-placeholder-count="6"><option value="{{ oc }}">{{ oc }}</option></sc-for>
+              </select>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;position:absolute;right:10px;color:var(--text-3);pointer-events:none"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:7px">Etiquetas</label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+              <sc-for list="{{ selTags }}" as="tag" hint-placeholder-count="2">
+                <span style="display:inline-flex;align-items:center;gap:5px;height:27px;padding:0 6px 0 10px;border-radius:8px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:600">
+                  {{ tag }}
+                  <button data-tag="{{ tag }}" onClick="{{ onRemoveTag }}" style="width:17px;height:17px;border-radius:5px;display:grid;place-items:center;color:var(--primary)" style-hover="background:var(--primary-soft-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" style="width:10px;height:10px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                </span>
+              </sc-for>
+              <sc-if value="{{ selNoTags }}"><span style="font-size:12px;color:var(--text-3);padding:4px 0">Sin etiquetas todavía</span></sc-if>
+            </div>
+            <div style="position:relative;display:flex;align-items:center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;position:absolute;left:11px;color:var(--text-3);pointer-events:none"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+              <input value="{{ tagDraft }}" onInput="{{ onTagDraft }}" onKeyDown="{{ onTagKey }}" placeholder="Agregar etiqueta y Enter…" style="width:100%;height:36px;border:1px solid var(--border-2);background:var(--surface);border-radius:9px;padding:0 12px 0 32px;font-size:13px;outline:none" style-focus="border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)">
+            </div>
+          </div>
+
+          <!-- read-only metadata -->
+          <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:9px">Información del archivo</div>
+          <div style="display:flex;flex-direction:column;gap:1px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-2)">Álbum</span><span style="font-weight:500;text-align:right">{{ selAlbum }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-2)">Duración</span><span style="font-weight:500;font-variant-numeric:tabular-nums">{{ selDur }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-2)">Formato</span><span style="font-weight:500">{{ selFormato }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0"><span style="color:var(--text-2);flex:0 0 auto">Ubicación</span><span style="font-weight:500;font-family:ui-monospace,monospace;font-size:11px;text-align:right;word-break:break-all;color:var(--text-2)">{{ selRuta }}</span></div>
+          </div>
+        </div>
+        <div style="flex:0 0 auto;border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px">
+          <button onClick="{{ saveDetail }}" style="{{ saveBtnStyle }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px">{{ saveIconPath }}</svg>{{ saveLabel }}</button>
+          <span style="font-size:12px;color:var(--text-3)">Guardado automático</span>
+        </div>
+      </aside>
+    </sc-if>
+  </div>
+
+  <!-- ===== DEMO STATE PILL (ayuda de revisión) ===== -->
+  <div style="position:fixed;left:276px;bottom:100px;z-index:30;display:flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;border:1px dashed var(--border-2);border-radius:12px;background:var(--surface);box-shadow:var(--sh-md)">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text-3);text-transform:uppercase">Demo</span>
+    <div style="display:flex;gap:2px">
+      <button data-kind="content" onClick="{{ onDemo }}" title="Con contenido" style="{{ demoContentStyle }}">Contenido</button>
+      <button data-kind="empty" onClick="{{ onDemo }}" title="Primera vez / vacío" style="{{ demoEmptyStyle }}">Vacío</button>
+      <button data-kind="scanning" onClick="{{ onDemo }}" title="Escaneando" style="{{ demoScanStyle }}">Escaneo</button>
+      <button data-kind="error" onClick="{{ onDemo }}" title="Error de carpeta" style="{{ demoErrorStyle }}">Error</button>
+    </div>
+  </div>
+
+  <!-- ===== PLAYER BAR ===== -->
+  <footer style="height:88px;flex:0 0 auto;background:var(--bg-2);border-top:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:6">
+    <!-- now playing -->
+    <div style="display:flex;align-items:center;gap:13px;width:280px;min-width:0">
+      <div style="{{ curCover }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </div>
+      <div style="min-width:0">
+        <div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ curTitulo }}</div>
+        <div style="font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ curArtista }}</div>
+      </div>
+      <button data-id="{{ curId }}" onClick="{{ onFav }}" title="Favorita" style="{{ curFavStyle }}" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="{{ curFavFill }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+
+    <!-- transport + progress -->
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:640px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onClick="{{ toggleShuffle }}" title="Aleatorio" style="{{ shuffleStyle }}" style-hover="color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg></button>
+        <button onClick="{{ prev }}" title="Anterior" style="width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--text)" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:17px;height:17px"><polygon points="19 20 9 12 19 4 19 20"/><rect x="4" y="4" width="2.4" height="16" rx="1"/></svg></button>
+        <button onClick="{{ togglePlay }}" title="Reproducir/Pausar" style="width:46px;height:46px;border-radius:50%;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;box-shadow:var(--sh-sm);transition:transform .1s,background .14s" style-hover="background:var(--primary-hover)" style-active="transform:scale(.94)">
+          <sc-if value="{{ playing }}"><svg viewBox="0 0 24 24" fill="currentColor" style="width:19px;height:19px"><rect x="6" y="4" width="4.5" height="16" rx="1.3"/><rect x="13.5" y="4" width="4.5" height="16" rx="1.3"/></svg></sc-if>
+          <sc-if value="{{ paused }}"><svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;margin-left:2px"><polygon points="6 3 20 12 6 21 6 3"/></svg></sc-if>
+        </button>
+        <button onClick="{{ next }}" title="Siguiente" style="width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--text)" style-hover="background:var(--surface-2)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:17px;height:17px"><polygon points="5 4 15 12 5 20 5 4"/><rect x="17.6" y="4" width="2.4" height="16" rx="1"/></svg></button>
+        <button onClick="{{ toggleRepeat }}" title="Repetir" style="{{ repeatStyle }}" style-hover="color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;width:100%">
+        <span style="font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums;width:34px;text-align:right">{{ posLabel }}</span>
+        <div onPointerDown="{{ onSeekDown }}" style="flex:1;height:16px;display:flex;align-items:center;cursor:pointer;touch-action:none">
+          <div style="width:100%;height:5px;border-radius:4px;background:var(--surface-3);position:relative">
+            <div style="{{ progFill }}"></div>
+            <div style="{{ progThumb }}"></div>
+          </div>
+        </div>
+        <span style="font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums;width:34px">{{ durLabel }}</span>
+      </div>
+    </div>
+
+    <!-- right controls -->
+    <div style="display:flex;align-items:center;gap:12px;width:280px;justify-content:flex-end">
+      <button data-id="{{ curId }}" onClick="{{ onOpenExternal }}" title="Abrir en reproductor de Windows" style="height:32px;display:flex;align-items:center;gap:7px;padding:0 11px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;transition:background .14s,color .14s" style-hover="background:var(--surface-2);color:var(--text)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        Windows
+      </button>
+      <div style="display:flex;align-items:center;gap:8px;width:132px">
+        <button onClick="{{ toggleMute }}" title="Silenciar" style="width:28px;height:28px;display:grid;place-items:center;color:var(--text-2);border-radius:7px" style-hover="background:var(--surface-2);color:var(--text)">
+          <sc-if value="{{ muted }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg></sc-if>
+          <sc-if value="{{ unmuted }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></sc-if>
+        </button>
+        <div onPointerDown="{{ onVolDown }}" style="flex:1;height:16px;display:flex;align-items:center;cursor:pointer;touch-action:none">
+          <div style="width:100%;height:5px;border-radius:4px;background:var(--surface-3);position:relative">
+            <div style="{{ volFill }}"></div>
+            <div style="{{ volThumb }}"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== ADD FOLDER DIALOG ===== -->
+  <sc-if value="{{ dialogAddFolder }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:40;background:rgba(25,18,12,.42);backdrop-filter:blur(2px);display:grid;place-items:center;padding:24px;animation:canOverlay .18s ease">
+      <div onClick="{{ stopProp }}" style="width:100%;max-width:520px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--sh-lg);overflow:hidden;animation:canDialog .24s cubic-bezier(.22,1,.36,1)">
+        <div style="padding:22px 24px 18px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:13px">
+            <div style="width:42px;height:42px;border-radius:12px;background:var(--primary-soft);display:grid;place-items:center;flex:0 0 auto"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
+            <div><h2 style="font-size:18px;font-weight:700;margin:0 0 2px">Agregar carpeta de música</h2><p style="font-size:13px;color:var(--text-2);margin:0">Cantoral indexará los archivos sin moverlos ni copiarlos.</p></div>
+          </div>
+        </div>
+        <div style="padding:20px 24px">
+          <label style="display:block;font-size:12.5px;font-weight:600;color:var(--text-2);margin-bottom:7px">Ubicación de la carpeta</label>
+          <div style="display:flex;gap:8px;margin-bottom:18px">
+            <div style="flex:1;height:42px;display:flex;align-items:center;gap:9px;border:1px solid var(--border-2);background:var(--surface-2);border-radius:10px;padding:0 12px;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text-2)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:0 0 auto"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>C:\Música\Iglesia\Coros 2025</div>
+            <button style="height:42px;padding:0 15px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:13px;font-weight:600" style-hover="background:var(--surface-2)">Explorar…</button>
+          </div>
+          <label style="display:flex;align-items:flex-start;gap:11px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);cursor:pointer;margin-bottom:10px">
+            <div style="width:20px;height:20px;border-radius:6px;background:var(--primary);display:grid;place-items:center;flex:0 0 auto;margin-top:1px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--on-primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M20 6 9 17l-5-5"/></svg></div>
+            <div><div style="font-size:13.5px;font-weight:600">Incluir subcarpetas</div><div style="font-size:12px;color:var(--text-2);margin-top:1px">Revisa también las carpetas que estén dentro de esta.</div></div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:11px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);cursor:pointer">
+            <div style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--border-2);background:var(--surface);flex:0 0 auto;margin-top:1px"></div>
+            <div><div style="font-size:13.5px;font-weight:600">Vigilar cambios automáticamente</div><div style="font-size:12px;color:var(--text-2);margin-top:1px">Re-indexa cuando agregues o quites archivos en esta carpeta.</div></div>
+          </label>
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:var(--surface-2)">
+          <button onClick="{{ closeDialog }}" style="height:40px;padding:0 18px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600" style-hover="background:var(--surface-3)">Cancelar</button>
+          <button onClick="{{ confirmAddFolder }}" style="height:40px;padding:0 18px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:var(--sh-sm)" style-hover="background:var(--primary-hover)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Indexar carpeta</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== TOAST ===== -->
+  <sc-if value="{{ toastVisible }}">
+    <div style="position:fixed;left:50%;bottom:108px;z-index:60;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:var(--text);color:var(--bg);padding:11px 16px;border-radius:11px;box-shadow:var(--sh-lg);font-size:13px;font-weight:500;animation:canToast .24s cubic-bezier(.22,1,.36,1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--primary)"><path d="M20 6 9 17l-5-5"/></svg>
+      {{ toastMsg }}
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  COVERS = [['#C77A4E','#A9502E'],['#8F9668','#6E7549'],['#6E8E8A','#4F6E6A'],['#A9787F','#87565E'],['#C4A46A','#A5834A'],['#7C8AA6','#5C6A86'],['#B08157','#8E6039'],['#9C7BA0','#7B5A80']];
+  ocasiones = ['Adoración','Alabanza','Comunión','Reflexión','Resurrección','Ofrenda','Entrada','Navidad'];
+  tonos = ['Do','Do#','Reb','Re','Mib','Mi','Fa','Fa#','Sol','Lab','La','Sib','Si','Lam','Mim','Rem','Solm'];
+  scanFiles = ['Himnos\\Sublime Gracia.mp3','Himnos\\Santo Santo Santo.mp3','Coros\\Castillo Fuerte.wav','Pistas 2025\\Al Mundo Paz.mp3','Himnos\\Roca de la Eternidad.flac','Coros\\Firmes y Adelante.mp3','Pistas 2025\\Tuya Es la Gloria.wav','Himnos\\En la Cruz.mp3'];
+  folders = [
+    {id:'f1',nombre:'Himnos',ruta:'C:\\Música\\Iglesia\\Himnos',count:128},
+    {id:'f2',nombre:'Pistas 2025',ruta:'D:\\Alabanza\\Pistas 2025',count:64},
+    {id:'f3',nombre:'Coros',ruta:'C:\\Users\\Alabanza\\Coros',count:47},
+  ];
+  tracks = [
+    {id:'t1',titulo:'Sublime Gracia',artista:'Coro Congregacional',album:'Himnos Clásicos, Vol. 1',dur:'4:12',durSec:252,tono:'Sol',bpm:68,ocasion:'Adoración',formato:'MP3',carpeta:'Himnos',tags:['clásico','lento'],fav:true,missing:false,added:6},
+    {id:'t2',titulo:'Santo, Santo, Santo',artista:'Ensamble Getsemaní',album:'Himnos Clásicos, Vol. 1',dur:'3:48',durSec:228,tono:'Re',bpm:72,ocasion:'Adoración',formato:'MP3',carpeta:'Himnos',tags:['clásico'],fav:false,missing:false,added:5},
+    {id:'t3',titulo:'Castillo Fuerte',artista:'Coro Congregacional',album:'Herencia de la Reforma',dur:'3:20',durSec:200,tono:'Do',bpm:96,ocasion:'Alabanza',formato:'WAV',carpeta:'Coros',tags:['júbilo'],fav:false,missing:false,added:4},
+    {id:'t4',titulo:'Cuán Grande Es Él',artista:'Voces de Gracia',album:'Adoración en Vivo',dur:'5:02',durSec:302,tono:'Sib',bpm:66,ocasion:'Adoración',formato:'MP3',carpeta:'Himnos',tags:['clásico','lento'],fav:true,missing:true,added:9},
+    {id:'t5',titulo:'Al Mundo Paz',artista:'Coro Navideño',album:'Navidad Congregacional',dur:'3:05',durSec:185,tono:'Re',bpm:100,ocasion:'Navidad',formato:'MP3',carpeta:'Pistas 2025',tags:['júbilo'],fav:false,missing:false,added:10},
+    {id:'t6',titulo:'Roca de la Eternidad',artista:'Ensamble Getsemaní',album:'Himnos Clásicos, Vol. 2',dur:'4:30',durSec:270,tono:'Mi',bpm:64,ocasion:'Comunión',formato:'FLAC',carpeta:'Himnos',tags:['lento','instrumental'],fav:false,missing:false,added:3},
+    {id:'t7',titulo:'A Solas al Huerto',artista:'Adoración Central',album:'Momentos de Reflexión',dur:'4:44',durSec:284,tono:'Fa',bpm:70,ocasion:'Reflexión',formato:'MP3',carpeta:'Coros',tags:['lento','instrumental'],fav:false,missing:false,added:2},
+    {id:'t8',titulo:'Firmes y Adelante',artista:'Coro Congregacional',album:'Himnos de Fe',dur:'3:12',durSec:192,tono:'Sol',bpm:112,ocasion:'Alabanza',formato:'MP3',carpeta:'Coros',tags:['júbilo'],fav:false,missing:false,added:7},
+    {id:'t9',titulo:'Tuya Es la Gloria',artista:'Voces de Gracia',album:'Resurrección',dur:'3:58',durSec:238,tono:'La',bpm:104,ocasion:'Resurrección',formato:'WAV',carpeta:'Pistas 2025',tags:['júbilo','bilingüe'],fav:true,missing:false,added:8},
+    {id:'t10',titulo:'Mil Voces Para Celebrar',artista:'Coro Congregacional',album:'Himnos de Fe',dur:'3:30',durSec:210,tono:'Sol',bpm:120,ocasion:'Alabanza',formato:'MP3',carpeta:'Himnos',tags:['júbilo'],fav:false,missing:false,added:1},
+    {id:'t11',titulo:'Cariñoso Salvador',artista:'Adoración Central',album:'Comunión',dur:'4:08',durSec:248,tono:'Reb',bpm:60,ocasion:'Comunión',formato:'MP3',carpeta:'Coros',tags:['lento'],fav:false,missing:false,added:5},
+    {id:'t12',titulo:'Dulce Comunión',artista:'Ensamble Getsemaní',album:'Comunión',dur:'3:36',durSec:216,tono:'Mib',bpm:74,ocasion:'Comunión',formato:'MP3',carpeta:'Himnos',tags:['clásico'],fav:false,missing:false,added:4},
+    {id:'t13',titulo:'Cristo Ya Resucitó',artista:'Voces de Gracia',album:'Resurrección',dur:'3:22',durSec:202,tono:'Do',bpm:118,ocasion:'Resurrección',formato:'WAV',carpeta:'Pistas 2025',tags:['júbilo'],fav:false,missing:false,added:8},
+    {id:'t14',titulo:'Oh Dios, Nuestro Auxilio',artista:'Coro Congregacional',album:'Himnos Clásicos, Vol. 2',dur:'4:00',durSec:240,tono:'La',bpm:80,ocasion:'Adoración',formato:'MP3',carpeta:'Himnos',tags:['clásico'],fav:false,missing:false,added:2},
+    {id:'t15',titulo:'Alma, Bendice al Señor',artista:'Adoración Central',album:'Adoración en Vivo',dur:'4:20',durSec:260,tono:'Fa',bpm:88,ocasion:'Adoración',formato:'MP3',carpeta:'Coros',tags:['clásico','júbilo'],fav:true,missing:false,added:6},
+    {id:'t16',titulo:'En la Cruz',artista:'Ensamble Getsemaní',album:'Momentos de Reflexión',dur:'4:55',durSec:295,tono:'Sol',bpm:66,ocasion:'Reflexión',formato:'MP3',carpeta:'Pistas 2025',tags:['lento'],fav:false,missing:true,added:3},
+    {id:'t17',titulo:'Sublime Gracia — Video con letra',artista:'Proyección',album:'Recursos de Proyección',dur:'4:20',durSec:260,tono:'Sol',bpm:68,ocasion:'Adoración',formato:'MP4',carpeta:'Pistas 2025',tags:['proyección','letras'],fav:false,missing:false,added:10,video:true},
+    {id:'t18',titulo:'Fondo de Adoración (loop)',artista:'Recurso Visual',album:'Recursos de Proyección',dur:'6:00',durSec:360,tono:'—',bpm:0,ocasion:'Reflexión',formato:'MOV',carpeta:'Pistas 2025',tags:['fondo','instrumental'],fav:false,missing:false,added:9,video:true},
+    {id:'t19',titulo:'Cristo Ya Resucitó — Video',artista:'Proyección',album:'Resurrección',dur:'3:22',durSec:202,tono:'Do',bpm:118,ocasion:'Resurrección',formato:'MP4',carpeta:'Coros',tags:['proyección'],fav:false,missing:false,added:7,video:true},
+  ];
+  playlists = [
+    {id:'p1',nombre:'Culto Domingo 13 Jul',fecha:'Domingo 13 de julio, 2025',ocasion:'Servicio dominical',ids:['t2','t15','t1','t6','t12','t8']},
+    {id:'p2',nombre:'Servicio de Jóvenes',fecha:'Viernes 11 de julio, 2025',ocasion:'Reunión juvenil',ids:['t3','t8','t10','t9','t13','t5']},
+    {id:'p3',nombre:'Santa Cena · Agosto',fecha:'Domingo 3 de agosto, 2025',ocasion:'Comunión',ids:['t11','t6','t12','t7','t1']},
+    {id:'p4',nombre:'Ensayo del Coro',fecha:'Miércoles 9 de julio, 2025',ocasion:'Ensayo',ids:['t1','t2','t14','t15','t4','t10','t8']},
+    {id:'p5',nombre:'Noche de Adoración',fecha:'Viernes 25 de julio, 2025',ocasion:'Adoración especial',ids:['t1','t4','t15','t6','t14','t7']},
+  ];
+
+  state = {
+    theme:'light', view:'biblioteca', libState:'content',
+    query:'', qf:null, ocasion:null, groupBy:'none', sortKey:'titulo', sortDir:'asc',
+    selId:null, detailOpen:false, edit:{}, tagDraft:'', saved:false,
+    dialog:null, scanPct:0, scanIdx:0,
+    playerId:'t1', playing:false, posSec:47, volume:0.72, muted:false, shuffle:false, repeat:false,
+    curPlaylist:'p1', plOrder:{}, openExt:false,
+    toast:null,
+  };
+
+  componentDidMount(){
+    const o={}; this.playlists.forEach(p=>o[p.id]=p.ids.slice()); this.setState({plOrder:o});
+    this._tick=setInterval(()=>{
+      if(this.state.playing){ const t=this.cur(); if(t){ const p=this.state.posSec+1; if(p>=t.durSec){ this.next(); } else this.setState({posSec:p}); } }
+    },1000);
+  }
+  componentWillUnmount(){ clearInterval(this._tick); clearInterval(this._scanT); clearTimeout(this._toastT); }
+
+  // ---------- helpers ----------
+  hash(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; }
+  fmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+  cover(t,size){
+    const r=size>=64?'14px':(size>=48?'11px':'8px');
+    const base={width:size+'px',height:size+'px',borderRadius:r,flex:'0 0 auto',display:'grid',placeItems:'center',boxShadow:'inset 0 1px 0 rgba(255,255,255,.2), inset 0 -10px 20px rgba(0,0,0,.14)'};
+    if(t&&t.missing) return {...base,background:'linear-gradient(140deg,#8a8178,#5f574e)',filter:'saturate(.5)'};
+    const p=this.COVERS[this.hash((t?t.id:'x'))%this.COVERS.length];
+    return {...base,background:`linear-gradient(140deg,${p[0]},${p[1]})`};
+  }
+  eff(t){ const e=this.state.edit[t.id]; return e?{...t,...e}:t; }
+  cur(){ const t=this.tracks.find(x=>x.id===this.state.playerId); return t?this.eff(t):null; }
+  toast(m){ clearTimeout(this._toastT); this.setState({toast:m}); this._toastT=setTimeout(()=>this.setState({toast:null}),2200); }
+
+  applyFilters(){
+    const s=this.state; let list=this.tracks.map(t=>this.eff(t));
+    if(s.qf==='fav') list=list.filter(t=>t.fav);
+    else if(s.qf==='missing') list=list.filter(t=>t.missing);
+    else if(s.qf==='recent'){ list=list.slice().sort((a,b)=>b.added-a.added).slice(0,8); }
+    if(s.ocasion) list=list.filter(t=>t.ocasion===s.ocasion);
+    if(s.query){ const q=s.query.toLowerCase(); list=list.filter(t=>[t.titulo,t.artista,t.album,t.tono,t.ocasion,(t.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)); }
+    if(s.qf!=='recent'){
+      const dir=s.sortDir==='asc'?1:-1, k=s.sortKey;
+      list.sort((a,b)=>{ let av=a[k],bv=b[k]; if(k==='dur'){av=a.durSec;bv=b.durSec;} if(typeof av==='number') return (av-bv)*dir; return String(av).localeCompare(String(bv),'es')*dir; });
+    }
+    return list;
+  }
+  decorate(t,i){
+    const playing=this.state.playerId===t.id&&this.state.playing;
+    const sel=this.state.selId===t.id&&this.state.detailOpen;
+    return {...t, num:String(i+1), cover:this.cover(t,40),
+      showEq:playing, showIndex:!playing, ok:!t.missing, isVideo:!!t.video, notVideo:!t.video, videoOk:!t.missing&&!!t.video, audioOk:!t.missing&&!t.video, playTitle:t.video?'Abrir en el reproductor de Windows':'Reproducir',
+      rowStyle:`display:grid;grid-template-columns:32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 48px 62px 72px;align-items:center;gap:8px;padding:8px 10px;border-radius:11px;cursor:default;transition:background .13s;${sel?'background:var(--primary-soft);box-shadow:inset 0 0 0 1px var(--primary-soft-2);':''}${t.missing?'opacity:.72;':''}`,
+      titleStyle:`font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${sel?'color:var(--primary);':''}`,
+      ocasionStyle:`display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:7px;background:var(--surface-3);color:var(--text-2)`,
+      favBtnStyle:`width:28px;height:28px;border-radius:7px;display:grid;place-items:center;transition:background .13s;color:${t.fav?'var(--primary)':'var(--text-3)'}`,
+      favFill:t.fav?'currentColor':'none',
+    };
+  }
+  buildGroups(list){
+    const s=this.state;
+    if(s.groupBy==='none'||s.qf==='recent') return [{showHeader:false,tracks:list.map((t,i)=>this.decorate(t,i))}];
+    const key=s.groupBy; const map=new Map();
+    list.forEach(t=>{ const g=t[key]||'—'; if(!map.has(g)) map.set(g,[]); map.get(g).push(t); });
+    const keys=[...map.keys()].sort((a,b)=>String(a).localeCompare(String(b),'es'));
+    let n=0;
+    return keys.map(g=>{ const arr=map.get(g).map(t=>this.decorate(t,n++)); return {showHeader:true,label:g,countLabel:arr.length+(arr.length===1?' pista':' pistas'),tracks:arr}; });
+  }
+  th(key,label){
+    const active=this.state.sortKey===key;
+    const style=`display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:${active?'var(--text)':'var(--text-3)'};transition:color .13s;background:none`;
+    const arrow=active?(this.state.sortDir==='asc'?'↑':'↓'):'';
+    return {style,arrow};
+  }
+  chipStyle(active){ return `flex:0 0 auto;height:32px;padding:0 14px;border-radius:9px;font-size:12.5px;font-weight:600;white-space:nowrap;transition:all .13s;border:1px solid ${active?'transparent':'var(--border-2)'};background:${active?'var(--primary)':'var(--surface)'};color:${active?'var(--on-primary)':'var(--text-2)'}`; }
+  demoBtn(active){ return `height:28px;padding:0 10px;border-radius:8px;font-size:11.5px;font-weight:600;transition:all .12s;background:${active?'var(--primary)':'transparent'};color:${active?'var(--on-primary)':'var(--text-2)'}`; }
+  navStyle(active){ return `display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;font-size:14px;font-weight:${active?'600':'500'};transition:background .13s,color .13s;color:${active?'var(--primary)':'var(--text-2)'};background:${active?'var(--primary-soft)':'transparent'}`; }
+  navCount(active){ return `font-size:11px;font-weight:600;padding:1px 8px;border-radius:20px;font-variant-numeric:tabular-nums;background:${active?'var(--primary-soft-2)':'var(--surface-3)'};color:${active?'var(--primary)':'var(--text-3)'}`; }
+  qfStyle(active){ return `display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:10px;font-size:13.5px;font-weight:${active?'600':'500'};transition:background .13s;color:${active?'var(--primary)':'var(--text-2)'};background:${active?'var(--primary-soft)':'transparent'}`; }
+
+  // ---------- nav ----------
+  showBiblioteca=()=>this.setState({view:'biblioteca'});
+  showColecciones=()=>this.setState({view:'colecciones'});
+  showConfig=()=>this.setState({view:'config'});
+  showSistema=()=>this.setState({view:'sistema'});
+  onFolderClick=(e)=>{ this.setState({view:'biblioteca',libState:'content',qf:null,ocasion:null}); };
+  openPlaylist=(e)=>{ this.setState({view:'lista',curPlaylist:e.currentTarget.dataset.id}); };
+  toggleTheme=()=>this.setState(s=>({theme:s.theme==='light'?'dark':'light'}));
+
+  // ---------- library filters ----------
+  onQuery=(e)=>this.setState({query:e.target.value});
+  clearQuery=()=>this.setState({query:''});
+  onQuickFilter=(e)=>{ const q=e.currentTarget.dataset.qf; this.setState(s=>({qf:s.qf===q?null:q,view:'biblioteca',libState:'content'})); };
+  onOcasion=(e)=>{ const o=e.currentTarget.dataset.oc||null; this.setState(s=>({ocasion:s.ocasion===o?null:(o||null)})); };
+  onGroupBy=(e)=>this.setState({groupBy:e.target.value});
+  onSortHeader=(e)=>{ const k=e.currentTarget.dataset.key; this.setState(s=>({sortKey:k,sortDir:s.sortKey===k?(s.sortDir==='asc'?'desc':'asc'):'asc'})); };
+
+  // ---------- rows ----------
+  onRowClick=(e)=>{ const id=e.currentTarget.dataset.id; this.setState({selId:id,detailOpen:true,tagDraft:'',saved:false}); };
+  onRowDbl=(e)=>{ this.play(e.currentTarget.dataset.id); };
+  onPlayRow=(e)=>{ e.stopPropagation(); this.play(e.currentTarget.dataset.id); };
+  onPlaySelected=(e)=>{ this.play(e.currentTarget.dataset.id); };
+  onFav=(e)=>{ e.stopPropagation(); const id=e.currentTarget.dataset.id; const t=this.tracks.find(x=>x.id===id); if(t){ t.fav=!t.fav; this.forceUpdate(); } };
+  onOpenExternal=(e)=>{ e.stopPropagation(); this.toast('Abriendo en el reproductor de Windows…'); };
+
+  // ---------- player ----------
+  play=(id)=>{ const t=this.tracks.find(x=>x.id===id); if(!t) return; if(t.missing){ this.toast('El archivo no se encuentra en el disco'); return; } if(t.video){ this.toast('Abriendo el video en el reproductor de Windows…'); return; } this.setState({playerId:id,playing:true,posSec:0}); };
+  togglePlay=()=>this.setState(s=>({playing:!s.playing}));
+  prev=()=>{ const ids=this.applyFilters().map(t=>t.id); const i=ids.indexOf(this.state.playerId); const n=ids.length?ids[(i-1+ids.length)%ids.length]:this.state.playerId; this.setState({playerId:n,posSec:0}); };
+  next=()=>{ const ids=this.applyFilters().map(t=>t.id); let i=ids.indexOf(this.state.playerId); let n; if(this.state.shuffle&&ids.length>1){ do{ n=ids[Math.floor(Math.random()*ids.length)]; }while(n===this.state.playerId);} else { n=ids.length?ids[(i+1)%ids.length]:this.state.playerId; } this.setState({playerId:n,posSec:0}); };
+  toggleShuffle=()=>this.setState(s=>({shuffle:!s.shuffle}));
+  toggleRepeat=()=>this.setState(s=>({repeat:!s.repeat}));
+  toggleMute=()=>this.setState(s=>({muted:!s.muted}));
+  onSeekDown=(e)=>this.dragBar(e,'seek');
+  onVolDown=(e)=>this.dragBar(e,'vol');
+  dragBar(e,kind){
+    const track=e.currentTarget.querySelector('div'); const rect=track.getBoundingClientRect();
+    const calc=(x)=>Math.min(1,Math.max(0,(x-rect.left)/rect.width));
+    const apply=(x)=>{ const f=calc(x); if(kind==='seek'){ const t=this.cur(); if(t) this.setState({posSec:Math.round(f*t.durSec)}); } else { this.setState({volume:f,muted:false}); } };
+    apply(e.clientX);
+    const mv=(ev)=>apply(ev.clientX);
+    const up=()=>{ document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); };
+    document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up);
+  }
+
+  // ---------- detail edit ----------
+  setEdit(field,val){ this.setState(s=>{ const cur=this.tracks.find(x=>x.id===s.selId); const base=s.edit[s.selId]||{tags:(cur.tags||[]).slice()}; return {edit:{...s.edit,[s.selId]:{...base,[field]:val}},saved:false}; }); }
+  onEditTono=(e)=>this.setEdit('tono',e.target.value);
+  onEditBpm=(e)=>this.setEdit('bpm',Number(e.target.value)||0);
+  onEditOcasion=(e)=>this.setEdit('ocasion',e.target.value);
+  onTagDraft=(e)=>this.setState({tagDraft:e.target.value});
+  onTagKey=(e)=>{ if(e.key==='Enter'){ const v=this.state.tagDraft.trim(); if(v){ const cur=this.eff(this.tracks.find(x=>x.id===this.state.selId)); const tags=(cur.tags||[]).slice(); if(!tags.includes(v)) tags.push(v); this.setEdit('tags',tags); this.setState({tagDraft:''}); } } };
+  onRemoveTag=(e)=>{ const tag=e.currentTarget.dataset.tag; const cur=this.eff(this.tracks.find(x=>x.id===this.state.selId)); this.setEdit('tags',(cur.tags||[]).filter(t=>t!==tag)); };
+  closeDetail=()=>this.setState({detailOpen:false});
+  saveDetail=()=>{ const t=this.tracks.find(x=>x.id===this.state.selId); const e=this.state.edit[this.state.selId]; if(t&&e) Object.assign(t,e); this.setState({saved:true}); this.toast('Cambios guardados'); };
+
+  // ---------- dialog / states ----------
+  stopProp=(e)=>e.stopPropagation();
+  openAddFolder=()=>this.setState({dialog:'addFolder'});
+  closeDialog=()=>this.setState({dialog:null});
+  confirmAddFolder=()=>{ this.setState({dialog:null}); this.startScan(); };
+  onDemo=(e)=>{ const k=e.currentTarget.dataset.kind; this.setState({view:'biblioteca'}); if(k==='scanning') this.startScan(); else this.setState({libState:k}); };
+  startScan=()=>{ clearInterval(this._scanT); this.setState({view:'biblioteca',libState:'scanning',scanPct:0,scanIdx:0});
+    this._scanT=setInterval(()=>{ this.setState(s=>{ const p=s.scanPct+Math.random()*7+3; if(p>=100){ clearInterval(this._scanT); this.toast('Biblioteca actualizada'); return {scanPct:100,libState:'content'}; } return {scanPct:p,scanIdx:Math.min(this.scanFiles.length-1,Math.floor(p/100*this.scanFiles.length))}; }); },160);
+  }
+  cancelScan=()=>{ clearInterval(this._scanT); this.setState({libState:'content'}); };
+  retryError=()=>this.startScan();
+
+  // ---------- collections / lists ----------
+  plDur(ids){ const s=ids.reduce((a,id)=>{ const t=this.tracks.find(x=>x.id===id); return a+(t?t.durSec:0); },0); return Math.round(s/60)+' min'; }
+  plDecorate(id,i){ const t=this.eff(this.tracks.find(x=>x.id===id)); const dragging=this.state.draggingId===id; const over=this.state.overId===id&&this.state.draggingId&&this.state.draggingId!==id;
+    return {...t, num:String(i+1), cover:this.cover(t,40), dragging, over, isVideo:!!t.video, videoOk:!t.missing&&!!t.video, audioOk:!t.missing&&!t.video,
+      rowStyle:`display:grid;grid-template-columns:26px 26px minmax(150px,3fr) 116px 50px 58px 58px;align-items:center;gap:8px;padding:7px 8px;border-radius:10px;transition:background .12s,box-shadow .12s,opacity .12s;${over?'box-shadow:inset 0 2px 0 0 var(--primary);':''}${dragging?'opacity:.4;':''}${t.missing?'opacity:.7;':''}`,
+      ocasionStyle:'display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:7px;background:var(--surface-3);color:var(--text-2)' };
+  }
+  playAll=()=>{ const ord=this.state.plOrder[this.state.curPlaylist]||[]; if(ord.length){ this.play(ord[0]); this.toast('Reproduciendo la lista completa'); } };
+  exportPl=()=>this.toast('Lista exportada como PDF');
+  newList=()=>this.toast('Nueva lista para culto');
+  removeFromPl=(e)=>{ e.stopPropagation(); const id=e.currentTarget.dataset.id; const cur=this.state.curPlaylist; this.setState(st=>({plOrder:{...st.plOrder,[cur]:(st.plOrder[cur]||[]).filter(x=>x!==id)}})); this.toast('Quitada de la lista'); };
+  playPlTrack=(e)=>{ e.stopPropagation(); this.play(e.currentTarget.dataset.id); };
+  onDragStart=(e)=>{ const id=e.currentTarget.dataset.id; this._drag=id; try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id);}catch(x){} this.setState({draggingId:id}); };
+  onDragOver=(e)=>{ e.preventDefault(); const over=e.currentTarget.dataset.id; if(over!==this.state.overId) this.setState({overId:over}); };
+  onDrop=(e)=>{ e.preventDefault(); const to=e.currentTarget.dataset.id; const from=this._drag; const cur=this.state.curPlaylist; if(from&&to&&from!==to){ const arr=(this.state.plOrder[cur]||[]).slice(); const fi=arr.indexOf(from), ti=arr.indexOf(to); if(fi>-1&&ti>-1){ arr.splice(fi,1); arr.splice(ti,0,from); this.setState(st=>({plOrder:{...st.plOrder,[cur]:arr}})); } } this.setState({draggingId:null,overId:null}); this._drag=null; };
+  onDragEnd=()=>{ this.setState({draggingId:null,overId:null}); this._drag=null; };
+  setThemeTo=(e)=>this.setState({theme:e.currentTarget.dataset.theme});
+  toggleOpenExt=()=>this.setState(st=>({openExt:!st.openExt}));
+  removeFolder=(e)=>{ e.stopPropagation(); const id=e.currentTarget.dataset.id; const i=this.folders.findIndex(f=>f.id===id); if(i>-1){ this.folders.splice(i,1); this.forceUpdate(); this.toast('Carpeta quitada de la biblioteca'); } };
+  rescanFolder=(e)=>{ e.stopPropagation(); this.startScan(); };
+  backup=()=>this.toast('Copia de seguridad creada correctamente');
+  restore=()=>this.toast('Selecciona un archivo de respaldo…');
+
+  // ---------- render ----------
+  renderVals(){
+    const s=this.state;
+    const list=this.applyFilters();
+    const groups=this.buildGroups(list);
+    const cur=this.cur()||this.tracks[0];
+    const durS=cur?cur.durSec:1;
+    const progPctNum=Math.min(100,(s.posSec/durS)*100);
+    const volPctNum=(s.muted?0:s.volume)*100;
+    const sel=s.selId?this.eff(this.tracks.find(x=>x.id===s.selId)):null;
+    const titleMap={biblioteca:'Biblioteca',colecciones:'Listas para cultos',lista:(this.playlists.find(p=>p.id===s.curPlaylist)||{}).nombre,config:'Configuración',sistema:'Sistema de diseño'};
+    const chips=[{value:'',label:'Todas'}].concat(this.ocasiones.map(o=>({value:o,label:o}))).map(c=>({...c,style:this.chipStyle(c.value?s.ocasion===c.value:!s.ocasion)}));
+
+    const R={
+      theme:s.theme, isDark:s.theme==='dark', isLight:s.theme==='light',
+      isBiblioteca:s.view==='biblioteca', isColecciones:s.view==='colecciones', isLista:s.view==='lista', isConfig:s.view==='config', isSistema:s.view==='sistema',
+      showSearch:s.view==='biblioteca', showTitle:s.view!=='biblioteca', pageTitle:titleMap[s.view]||'',
+      showFilterBar:s.view==='biblioteca'&&s.libState==='content',
+      libContent:s.libState==='content', libEmpty:s.libState==='empty', libScanning:s.libState==='scanning', libError:s.libState==='error',
+      navLibStyle:this.navStyle(s.view==='biblioteca'), navColStyle:this.navStyle(s.view==='colecciones'||s.view==='lista'), navCfgStyle:this.navStyle(s.view==='config'), navSysStyle:this.navStyle(s.view==='sistema'),
+      navLibCountStyle:this.navCount(s.view==='biblioteca'), navColCountStyle:this.navCount(s.view==='colecciones'||s.view==='lista'),
+      totalLabel:String(this.tracks.length), plCountLabel:String(this.playlists.length),
+      missingCount:String(this.tracks.filter(t=>t.missing).length), missingCountStyle:`font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;background:var(--danger-soft);color:var(--danger)`,
+      folders:this.folders, ocasiones:this.ocasiones, tonos:this.tonos, ocasionChips:chips,
+      query:s.query, onQuery:this.onQuery, hasQuery:!!s.query, clearQuery:this.clearQuery,
+      qfFavStyle:this.qfStyle(s.qf==='fav'), qfRecentStyle:this.qfStyle(s.qf==='recent'), qfMissingStyle:this.qfStyle(s.qf==='missing'),
+      onQuickFilter:this.onQuickFilter, onOcasion:this.onOcasion, onGroupBy:this.onGroupBy, groupBy:s.groupBy, onSortHeader:this.onSortHeader,
+      onFolderClick:this.onFolderClick, openPlaylist:this.openPlaylist,
+      showBiblioteca:this.showBiblioteca, showColecciones:this.showColecciones, showConfig:this.showConfig, showSistema:this.showSistema, toggleTheme:this.toggleTheme,
+      demoContentStyle:this.demoBtn(s.libState==='content'), demoEmptyStyle:this.demoBtn(s.libState==='empty'), demoScanStyle:this.demoBtn(s.libState==='scanning'), demoErrorStyle:this.demoBtn(s.libState==='error'), onDemo:this.onDemo,
+      openAddFolder:this.openAddFolder,
+      groups, visibleLabel:list.length+(list.length===1?' canción':' canciones'),
+      onRowClick:this.onRowClick, onRowDbl:this.onRowDbl, onPlayRow:this.onPlayRow, onFav:this.onFav, onOpenExternal:this.onOpenExternal,
+      // sort headers
+      thTituloStyle:this.th('titulo').style, thTituloArrow:this.th('titulo').arrow,
+      thAlbumStyle:this.th('album').style, thAlbumArrow:this.th('album').arrow,
+      thOcasionStyle:this.th('ocasion').style, thOcasionArrow:this.th('ocasion').arrow,
+      thTonoStyle:this.th('tono').style, thTonoArrow:this.th('tono').arrow,
+      thBpmStyle:this.th('bpm').style, thBpmArrow:this.th('bpm').arrow,
+      thDurStyle:this.th('dur').style+';', thDurArrow:this.th('dur').arrow,
+      // scan
+      scanFill:{width:s.scanPct+'%',height:'100%',borderRadius:'6px',background:'linear-gradient(90deg,var(--primary),var(--primary-hover))',transition:'width .16s linear'},
+      scanFile:this.scanFiles[s.scanIdx]||'', scanCountLabel:Math.round(s.scanPct)+'%',
+      cancelScan:this.cancelScan, retryError:this.retryError,
+      // detail
+      detailOpen:s.detailOpen&&!!sel, closeDetail:this.closeDetail,
+      selId:s.selId, selTitulo:sel?sel.titulo:'', selArtista:sel?sel.artista:'', selAlbum:sel?sel.album:'', selDur:sel?sel.dur:'', selFormato:sel?sel.formato:'', selRuta:sel?(this.folders.find(f=>f.nombre===sel.carpeta)||{}).ruta+'\\'+sel.titulo+'.'+(sel.formato||'').toLowerCase():'',
+      selCover:this.cover(sel,96), selMissing:sel?sel.missing:false,
+      selVideoOk:sel?(!sel.missing&&!!sel.video):false, selAudioOk:sel?(!sel.missing&&!sel.video):false,
+      selVideo:sel?!!sel.video:false, selAudio:sel?!sel.video:false, selVideoInfo:sel?(!!sel.video&&!sel.missing):false, selPlayLabel:(sel&&sel.video)?'Abrir video':'Reproducir',
+      selTono:sel?sel.tono:'', selBpm:sel?sel.bpm:0, selOcasion:sel?sel.ocasion:'', selTags:sel?(sel.tags||[]):[], selNoTags:sel?!(sel.tags&&sel.tags.length):false,
+      onEditTono:this.onEditTono, onEditBpm:this.onEditBpm, onEditOcasion:this.onEditOcasion, tagDraft:s.tagDraft, onTagDraft:this.onTagDraft, onTagKey:this.onTagKey, onRemoveTag:this.onRemoveTag, onPlaySelected:this.onPlaySelected,
+      saveDetail:this.saveDetail, saveLabel:s.saved?'Guardado':'Guardar cambios', saveIconPath:s.saved?'<path d="M20 6 9 17l-5-5"/>':'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+      saveBtnStyle:`flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;font-size:13.5px;font-weight:600;transition:all .14s;${s.saved?'background:var(--success-soft);color:var(--success)':'background:var(--primary);color:var(--on-primary)'}`,
+      // player
+      curId:cur?cur.id:'', curTitulo:cur?cur.titulo:'—', curArtista:cur?cur.artista:'', curCover:this.cover(cur,56),
+      curFavStyle:`width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:0 0 auto;transition:background .13s;color:${cur&&cur.fav?'var(--primary)':'var(--text-3)'}`, curFavFill:cur&&cur.fav?'currentColor':'none',
+      playing:s.playing, paused:!s.playing, togglePlay:this.togglePlay, prev:this.prev, next:this.next,
+      shuffleStyle:`width:30px;height:30px;border-radius:8px;display:grid;place-items:center;transition:color .13s;color:${s.shuffle?'var(--primary)':'var(--text-3)'}`,
+      repeatStyle:`width:30px;height:30px;border-radius:8px;display:grid;place-items:center;transition:color .13s;color:${s.repeat?'var(--primary)':'var(--text-3)'}`,
+      toggleShuffle:this.toggleShuffle, toggleRepeat:this.toggleRepeat,
+      posLabel:this.fmt(s.posSec), durLabel:cur?cur.dur:'0:00',
+      progFill:{position:'absolute',left:0,top:0,height:'100%',width:progPctNum+'%',borderRadius:'4px',background:'var(--primary)'},
+      progThumb:{position:'absolute',top:'50%',left:progPctNum+'%',width:'12px',height:'12px',borderRadius:'50%',background:'var(--primary)',transform:'translate(-50%,-50%)',boxShadow:'0 1px 3px rgba(0,0,0,.3)'},
+      onSeekDown:this.onSeekDown, onVolDown:this.onVolDown,
+      muted:s.muted, unmuted:!s.muted, toggleMute:this.toggleMute,
+      volFill:{position:'absolute',left:0,top:0,height:'100%',width:volPctNum+'%',borderRadius:'4px',background:'var(--text-2)'},
+      volThumb:{position:'absolute',top:'50%',left:volPctNum+'%',width:'11px',height:'11px',borderRadius:'50%',background:'var(--text)',transform:'translate(-50%,-50%)',boxShadow:'0 1px 3px rgba(0,0,0,.3)'},
+      // dialog / toast
+      dialogAddFolder:s.dialog==='addFolder', closeDialog:this.closeDialog, confirmAddFolder:this.confirmAddFolder, stopProp:this.stopProp,
+      // collections
+      coleccionesList:this.playlists.map(p=>{ const ids=s.plOrder[p.id]||p.ids; const pal=this.COVERS[this.hash(p.id)%this.COVERS.length]; return {id:p.id,nombre:p.nombre,fecha:p.fecha,ocasion:p.ocasion,metaLabel:ids.length+' pistas · '+this.plDur(ids), coverBg:{position:'absolute',inset:0,background:`linear-gradient(145deg,${pal[0]},${pal[1]})`}}; }),
+      newList:this.newList,
+      // lista
+      curPlName:(this.playlists.find(p=>p.id===s.curPlaylist)||{}).nombre||'', curPlFecha:(this.playlists.find(p=>p.id===s.curPlaylist)||{}).fecha||'', curPlOcasion:(this.playlists.find(p=>p.id===s.curPlaylist)||{}).ocasion||'',
+      curPlCoverBg:{position:'absolute',inset:0,background:`linear-gradient(145deg,${this.COVERS[this.hash(s.curPlaylist)%this.COVERS.length][0]},${this.COVERS[this.hash(s.curPlaylist)%this.COVERS.length][1]})`},
+      curPlMeta:((s.plOrder[s.curPlaylist]||[]).length)+' pistas · '+this.plDur(s.plOrder[s.curPlaylist]||[]),
+      plTracks:(s.plOrder[s.curPlaylist]||[]).map((id,i)=>this.plDecorate(id,i)),
+      onDragStart:this.onDragStart, onDragOver:this.onDragOver, onDrop:this.onDrop, onDragEnd:this.onDragEnd,
+      playAll:this.playAll, exportPl:this.exportPl, removeFromPl:this.removeFromPl, playPlTrack:this.playPlTrack,
+      // config
+      setThemeTo:this.setThemeTo,
+      themeLightBtn:`flex:1;padding:16px 14px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all .14s;cursor:pointer;border:1.5px solid ${s.theme==='light'?'var(--primary)':'var(--border-2)'};background:${s.theme==='light'?'var(--primary-soft)':'var(--surface)'};color:var(--text)`,
+      themeDarkBtn:`flex:1;padding:16px 14px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all .14s;cursor:pointer;border:1.5px solid ${s.theme==='dark'?'var(--primary)':'var(--border-2)'};background:${s.theme==='dark'?'var(--primary-soft)':'var(--surface)'};color:var(--text)`,
+      openExt:s.openExt, toggleOpenExt:this.toggleOpenExt,
+      openExtTrackStyle:`width:42px;height:24px;border-radius:20px;padding:2px;transition:background .16s;flex:0 0 auto;cursor:pointer;background:${s.openExt?'var(--primary)':'var(--border-2)'}`,
+      openExtKnobStyle:{width:'20px',height:'20px',borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.3)',transition:'transform .16s',transform:`translateX(${s.openExt?'18px':'0px'})`},
+      removeFolder:this.removeFolder, rescanFolder:this.rescanFolder, backup:this.backup, restore:this.restore,
+      toastVisible:!!s.toast, toastMsg:s.toast||'',
+    };
+    return R;
+  }
+}
+</script>
+</body>
+</html>
