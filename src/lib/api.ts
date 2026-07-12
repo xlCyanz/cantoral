@@ -1,7 +1,11 @@
 // Thin seam over the Tauri backend. Every call is guarded so the UI also
 // runs in a plain browser (`pnpm dev`) against the in-store seed data.
 
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Track } from "./types";
 
 export function isTauri(): boolean {
@@ -23,7 +27,6 @@ export function osShortName(): string {
 }
 
 async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 }
 
@@ -31,24 +34,20 @@ async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 
 export async function winMinimize(): Promise<void> {
   if (!isTauri()) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
   await getCurrentWindow().minimize();
 }
 export async function winToggleMaximize(): Promise<void> {
   if (!isTauri()) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
   await getCurrentWindow().toggleMaximize();
 }
 export async function winClose(): Promise<void> {
   if (!isTauri()) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
   await getCurrentWindow().close();
 }
 
 /** Subscribe to the window's maximized state (for the restore/maximize icon). */
 export async function watchMaximized(cb: (maximized: boolean) => void): Promise<() => void> {
   if (!isTauri()) return () => {};
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
   const w = getCurrentWindow();
   cb(await w.isMaximized());
   return w.onResized(async () => cb(await w.isMaximized()));
@@ -59,7 +58,6 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 /** Open a file/URL in the OS default application (e.g. Windows media player). */
 export async function openExternalPath(target: string): Promise<void> {
   if (!isTauri() || !target) return;
-  const { openPath, openUrl } = await import("@tauri-apps/plugin-opener");
   if (/^https?:\/\//.test(target)) await openUrl(target);
   else await openPath(target);
 }
@@ -67,7 +65,6 @@ export async function openExternalPath(target: string): Promise<void> {
 /** Native folder picker. Returns the chosen absolute path, or null. */
 export async function pickFolder(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { open } = await import("@tauri-apps/plugin-dialog");
   const res = await open({ directory: true, multiple: false });
   return typeof res === "string" ? res : null;
 }
@@ -75,7 +72,6 @@ export async function pickFolder(): Promise<string | null> {
 /** Native save dialog for the database backup. */
 export async function pickSavePath(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { save } = await import("@tauri-apps/plugin-dialog");
   const res = await save({ defaultPath: "cantoral-backup.db", filters: [{ name: "SQLite", extensions: ["db"] }] });
   return res ?? null;
 }
@@ -159,6 +155,5 @@ export async function backupDatabase(dest: string): Promise<void> {
 /** Subscribe to backend scan progress. Returns an unlisten function. */
 export async function onScanProgress(cb: (p: ScanProgressEvent) => void): Promise<() => void> {
   if (!isTauri()) return () => {};
-  const { listen } = await import("@tauri-apps/api/event");
   return listen<ScanProgressEvent>("scan-progress", (e) => cb(e.payload));
 }
