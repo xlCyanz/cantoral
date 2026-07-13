@@ -131,7 +131,7 @@ export default function Sidebar() {
 
       {/* sidebar footer */}
       <div style={{ flex: "0 0 auto", borderTop: "1px solid var(--border)", padding: "8px 12px" }}>
-        <button onClick={showConfig} className={cfgActive ? undefined : "hb-s2"} style={navStyle(cfgActive)}>
+        <button onClick={showConfig} className={cfgActive ? undefined : "hb-s2"} style={{ ...navStyle(cfgActive), width: "100%" }}>
           <Settings size={18} style={{ flex: "0 0 auto" }} />
           <span style={{ flex: 1, textAlign: "left" }}>Configuración</span>
         </button>

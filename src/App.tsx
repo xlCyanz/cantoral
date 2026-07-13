@@ -11,6 +11,8 @@ import ConfigView from "./components/ConfigView";
 import DetailPanel from "./components/DetailPanel";
 import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
+import NewListDialog from "./components/NewListDialog";
+import HelpDialog from "./components/HelpDialog";
 import Toast from "./components/Toast";
 
 export default function App() {
@@ -44,6 +46,26 @@ export default function App() {
     return () => un?.();
   }, []);
 
+  // Follow the OS appearance while the theme mode is "Sistema".
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => useStore.getState().applySystemTheme();
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // Native feel: suppress the browser context menu, except in editable fields.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest("input, textarea, [contenteditable='true']")) return;
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", handler);
+    return () => document.removeEventListener("contextmenu", handler);
+  }, []);
+
   return (
     <div style={{ height: "100vh", width: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }}>
       <TitleBar />
@@ -66,6 +88,8 @@ export default function App() {
 
       <PlayerBar />
       <AddFolderDialog />
+      <NewListDialog />
+      <HelpDialog />
       <Toast />
     </div>
   );

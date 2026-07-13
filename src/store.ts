@@ -7,22 +7,38 @@ import type {
   QuickFilter,
   SortKey,
   Theme,
+  ThemeMode,
   Track,
   TrackEdit,
   View,
 } from "./lib/types";
+
+function osPrefersDark(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+/** Effective theme for a preference mode. */
+function resolveTheme(mode: ThemeMode): Theme {
+  return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
+}
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS } from "./lib/seed";
 import {
   addAndScanFolder,
+  addToPlaylistCmd,
   assetUrl,
   backupDatabase,
+  createPlaylistCmd,
+  deletePlaylistCmd,
   getLibrary,
+  getSetting,
   isTauri,
   openExternalPath,
+  pickDbFile,
   pickSavePath,
   removeFolderCmd,
   rescanFolderCmd,
+  restoreDatabaseCmd,
   setPlaylistOrderCmd,
+  setSetting,
   setTrackFav,
   updateTrackCmd,
   type Snapshot,
@@ -42,6 +58,7 @@ export interface CantoralState {
 
   // ---- ui / navigation ----
   theme: Theme;
+  themeMode: ThemeMode;
   view: View;
   libState: LibState;
 
@@ -61,7 +78,7 @@ export interface CantoralState {
   saved: boolean;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | null;
+  dialog: "addFolder" | "newList" | "help" | null;
   scanPct: number;
   scanIdx: number;
   scanFile: string;
@@ -91,7 +108,8 @@ export interface CantoralState {
   onFolderClick: () => void;
   openPlaylist: (id: string) => void;
   toggleTheme: () => void;
-  setThemeTo: (t: Theme) => void;
+  setThemeMode: (m: ThemeMode) => void;
+  applySystemTheme: () => void;
 
   onQuery: (v: string) => void;
   clearQuery: () => void;
@@ -122,6 +140,7 @@ export interface CantoralState {
   saveDetail: () => void;
 
   openAddFolder: () => void;
+  openHelp: () => void;
   closeDialog: () => void;
   confirmAddFolder: () => void;
   indexFolder: (path?: string) => void;
@@ -133,6 +152,9 @@ export interface CantoralState {
   playAll: () => void;
   exportPl: () => void;
   newList: () => void;
+  createList: (nombre: string, fecha: string, ocasion: string) => void;
+  addToList: (playlistId: string, trackId: string) => void;
+  deleteCurrentList: () => void;
   removeFromPl: (id: string) => void;
   reorderPl: (toId: string) => void;
   setDragging: (id: string) => void;
@@ -178,7 +200,8 @@ export const useStore = create<CantoralState>((set, get) => {
     playlists: SEED_PLAYLISTS,
     plOrder: initialPlOrder,
 
-    theme: "light",
+    themeMode: "system",
+    theme: resolveTheme("system"),
     view: "biblioteca",
     libState: "content",
 
@@ -222,8 +245,17 @@ export const useStore = create<CantoralState>((set, get) => {
     onFolderClick: () =>
       set({ view: "biblioteca", libState: "content", qf: null, ocasion: null }),
     openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
-    toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
-    setThemeTo: (t) => set({ theme: t }),
+    toggleTheme: () => {
+      get().setThemeMode(get().theme === "dark" ? "light" : "dark");
+    },
+    setThemeMode: (m) => {
+      const theme = resolveTheme(m);
+      set({ themeMode: m, theme });
+      if (isTauri()) void setSetting("themeMode", m);
+    },
+    applySystemTheme: () => {
+      if (get().themeMode === "system") set({ theme: osPrefersDark() ? "dark" : "light" });
+    },
 
     // ---------- library filters ----------
     onQuery: (v) => set({ query: v }),
@@ -357,6 +389,7 @@ export const useStore = create<CantoralState>((set, get) => {
 
     // ---------- dialog / states ----------
     openAddFolder: () => set({ dialog: "addFolder" }),
+    openHelp: () => set({ dialog: "help" }),
     closeDialog: () => set({ dialog: null }),
     confirmAddFolder: () => {
       set({ dialog: null });
@@ -414,6 +447,25 @@ export const useStore = create<CantoralState>((set, get) => {
           applySnapshot(snap);
           set({ libState: snap.tracks.length ? "content" : "empty" });
         }
+        // Restore saved preferences.
+        const [modeS, themeS, openExtS] = await Promise.all([
+          getSetting("themeMode"),
+          getSetting("theme"),
+          getSetting("openExt"),
+        ]);
+        const patch: Partial<CantoralState> = {};
+        const mode: ThemeMode | null =
+          modeS === "light" || modeS === "dark" || modeS === "system"
+            ? modeS
+            : themeS === "light" || themeS === "dark"
+              ? themeS // migrate legacy "theme" setting
+              : null;
+        if (mode) {
+          patch.themeMode = mode;
+          patch.theme = resolveTheme(mode);
+        }
+        if (openExtS != null) patch.openExt = openExtS === "1";
+        if (Object.keys(patch).length) set(patch);
       } catch (err) {
         console.error("hydrate failed", err);
       }
@@ -428,7 +480,65 @@ export const useStore = create<CantoralState>((set, get) => {
       }
     },
     exportPl: () => toast("Lista exportada como PDF"),
-    newList: () => toast("Nueva lista para culto"),
+    newList: () => set({ dialog: "newList" }),
+    createList: (nombre, fecha, ocasion) => {
+      set({ dialog: null });
+      const name = nombre.trim() || "Lista sin título";
+      if (isTauri()) {
+        createPlaylistCmd(name, fecha, ocasion)
+          .then(async (id) => {
+            const snap = await getLibrary();
+            if (snap) applySnapshot(snap);
+            set({ view: "lista", curPlaylist: id });
+            toast("Lista creada");
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo crear la lista");
+          });
+      } else {
+        const id = "new-" + Date.now();
+        const pl: Playlist = { id, nombre: name, fecha, ocasion, ids: [] };
+        set((s) => ({
+          playlists: [...s.playlists, pl],
+          plOrder: { ...s.plOrder, [id]: [] },
+          view: "lista",
+          curPlaylist: id,
+        }));
+        toast("Lista creada");
+      }
+    },
+    addToList: (playlistId, trackId) => {
+      const cur = get().plOrder[playlistId] || [];
+      if (cur.includes(trackId)) {
+        toast("Ya está en la lista");
+        return;
+      }
+      const next = [...cur, trackId];
+      set((s) => ({ plOrder: { ...s.plOrder, [playlistId]: next } }));
+      const pl = get().playlists.find((p) => p.id === playlistId);
+      toast(`Agregada a «${pl?.nombre ?? "lista"}»`);
+      if (isTauri()) void addToPlaylistCmd(playlistId, trackId).then(applySnapshot).catch(console.error);
+    },
+    deleteCurrentList: () => {
+      const id = get().curPlaylist;
+      if (isTauri()) {
+        deletePlaylistCmd(id)
+          .then((snap) => {
+            applySnapshot(snap);
+            set({ view: "colecciones" });
+          })
+          .catch(console.error);
+      } else {
+        set((s) => {
+          const playlists = s.playlists.filter((p) => p.id !== id);
+          const plOrder = { ...s.plOrder };
+          delete plOrder[id];
+          return { playlists, plOrder, view: "colecciones", curPlaylist: playlists[0]?.id || s.curPlaylist };
+        });
+      }
+      toast("Lista eliminada");
+    },
     removeFromPl: (id) => {
       const cur2 = get().curPlaylist;
       const next = (get().plOrder[cur2] || []).filter((x) => x !== id);
@@ -464,7 +574,11 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     // ---------- config ----------
-    toggleOpenExt: () => set((st) => ({ openExt: !st.openExt })),
+    toggleOpenExt: () => {
+      const v = !get().openExt;
+      set({ openExt: v });
+      if (isTauri()) void setSetting("openExt", v ? "1" : "0");
+    },
     removeFolder: (id) => {
       if (isTauri()) {
         removeFolderCmd(id).then(applySnapshot).catch(console.error);
@@ -499,7 +613,25 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("Copia de seguridad creada correctamente");
       }
     },
-    restore: () => toast("Selecciona un archivo de respaldo…"),
+    restore: () => {
+      if (!isTauri()) {
+        toast("Selecciona un archivo de respaldo…");
+        return;
+      }
+      void pickDbFile().then((src) => {
+        if (!src) return;
+        restoreDatabaseCmd(src)
+          .then((snap) => {
+            applySnapshot(snap);
+            set({ libState: snap.tracks.length ? "content" : "empty" });
+            toast("Base de datos restaurada");
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo restaurar la base de datos");
+          });
+      });
+    },
 
     // ---------- player tick / toast ----------
     tick: () => {

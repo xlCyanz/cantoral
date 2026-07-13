@@ -139,6 +139,25 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
+export async function createPlaylistCmd(nombre: string, fecha: string, ocasion: string): Promise<string> {
+  return inv<string>("create_playlist", { nombre, fecha, ocasion });
+}
+export async function addToPlaylistCmd(playlist: string, track: string): Promise<Snapshot> {
+  return inv<Snapshot>("add_to_playlist", { playlist, track });
+}
+export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
+  return inv<Snapshot>("delete_playlist", { playlist });
+}
+export async function restoreDatabaseCmd(src: string): Promise<Snapshot> {
+  return inv<Snapshot>("restore_database", { src });
+}
+/** Native open dialog for a .db backup file. */
+export async function pickDbFile(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const res = await open({ multiple: false, filters: [{ name: "Base de datos", extensions: ["db"] }] });
+  return typeof res === "string" ? res : null;
+}
 export async function getSetting(key: string): Promise<string | null> {
   if (!isTauri()) return null;
   return (await inv<string | null>("get_setting", { key })) ?? null;
@@ -146,6 +165,15 @@ export async function getSetting(key: string): Promise<string | null> {
 export async function setSetting(key: string, value: string): Promise<void> {
   if (!isTauri()) return;
   await inv("set_setting", { key, value });
+}
+
+export interface DbInfo {
+  path: string;
+  size: number;
+}
+export async function getDbInfo(): Promise<DbInfo | null> {
+  if (!isTauri()) return null;
+  return inv<DbInfo>("get_db_info");
 }
 export async function backupDatabase(dest: string): Promise<void> {
   if (!isTauri()) return;

@@ -111,6 +111,42 @@ pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> 
 }
 
 #[tauri::command]
+pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::add_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, track.parse::<i64>().map_err(e)?)
+        .map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+#[tauri::command]
+pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::delete_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Replace the live database with a backup file, then return the fresh snapshot.
+#[tauri::command]
+pub fn restore_database(app: AppHandle, db: State<Db>, src: String) -> CmdResult<Snapshot> {
+    let db_path = app.path().app_data_dir().map_err(e)?.join("cantoral.db");
+    // Close the current file connection by swapping in a throwaway in-memory one.
+    {
+        let mut guard = db.0.lock().map_err(e)?;
+        *guard = rusqlite::Connection::open_in_memory().map_err(e)?;
+    }
+    let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
+    std::fs::copy(&src, &db_path).map_err(e)?;
+    let conn = db::open_and_migrate(&db_path).map_err(e)?;
+    let snap = snapshot(&conn).map_err(e)?;
+    {
+        let mut guard = db.0.lock().map_err(e)?;
+        *guard = conn;
+    }
+    Ok(snap)
+}
+
+#[tauri::command]
 pub fn get_setting(db: State<Db>, key: String) -> CmdResult<Option<String>> {
     let conn = db.0.lock().map_err(e)?;
     db::get_setting(&conn, &key).map_err(e)
@@ -122,10 +158,30 @@ pub fn set_setting(db: State<Db>, key: String, value: String) -> CmdResult<()> {
     db::set_setting(&conn, &key, &value).map_err(e)
 }
 
-/// Copy the SQLite database to `dest` (chosen via a save dialog on the JS side).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DbInfo {
+    pub path: String,
+    pub size: u64,
+}
+
+/// Real location and size of the local database file.
 #[tauri::command]
-pub fn backup_database(app: AppHandle, dest: String) -> CmdResult<()> {
+pub fn get_db_info(app: AppHandle) -> CmdResult<DbInfo> {
+    let path = app.path().app_data_dir().map_err(e)?.join("cantoral.db");
+    let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+    Ok(DbInfo { path: path.to_string_lossy().to_string(), size })
+}
+
+/// Copy the database to `dest`. The WAL is first checkpointed into the main file
+/// so the copy is complete — a plain copy alone would miss data still in the WAL.
+#[tauri::command]
+pub fn backup_database(app: AppHandle, db: State<Db>, dest: String) -> CmdResult<()> {
     let src = app.path().app_data_dir().map_err(e)?.join("cantoral.db");
+    {
+        let conn = db.0.lock().map_err(e)?;
+        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+    }
     std::fs::copy(&src, &dest).map_err(e)?;
     Ok(())
 }

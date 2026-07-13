@@ -1,6 +1,7 @@
 // Domain types — mirror the SQLite schema and the UI view models.
 
 export type Theme = "light" | "dark";
+export type ThemeMode = "light" | "dark" | "system";
 export type View = "biblioteca" | "colecciones" | "lista" | "config";
 export type LibState = "content" | "empty" | "scanning" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
@@ -41,6 +42,8 @@ export interface Folder {
   nombre: string;
   ruta: string;
   count: number;
+  /** RFC3339 timestamp of the last scan, if scanned. */
+  lastScan?: string;
 }
 
 export interface Playlist {

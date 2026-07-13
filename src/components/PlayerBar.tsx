@@ -99,8 +99,20 @@ export default function PlayerBar() {
     <footer style={{ height: 88, flex: "0 0 auto", background: "var(--bg-2)", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16, padding: "0 20px", zIndex: 6 }}>
       <audio
         ref={audioRef}
+        preload="metadata"
         onTimeUpdate={(e) => useStore.setState({ posSec: Math.floor((e.target as HTMLAudioElement).currentTime) })}
+        onLoadedMetadata={(e) => {
+          const d = Math.round((e.target as HTMLAudioElement).duration);
+          if (Number.isFinite(d) && d > 0) {
+            useStore.setState((st) => ({
+              tracks: st.tracks.map((t) => (t.id === st.playerId ? { ...t, durSec: d, dur: fmt(d) } : t)),
+            }));
+          }
+        }}
         onEnded={() => s.next()}
+        onError={() => {
+          if (audioRef.current?.src) useStore.getState().showToast("No se pudo reproducir el archivo");
+        }}
         style={{ display: "none" }}
       />
       {/* now playing */}

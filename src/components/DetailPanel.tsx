@@ -1,8 +1,8 @@
+import { useState } from "react";
 import type { CSSProperties } from "react";
-import { Check, ChevronDown, Play, Save, Settings, SquareArrowOutUpRight, Tag, X } from "lucide-react";
+import { Check, ChevronDown, ListMusic, Play, Save, SquareArrowOutUpRight, Tag, X } from "lucide-react";
 import { eff, useStore } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
-import { OCASIONES, TONOS } from "../lib/seed";
 import type { Track } from "../lib/types";
 
 const labelStyle: CSSProperties = { display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 5 };
@@ -20,6 +20,7 @@ function BigCoverInner({ t }: { t: Track }) {
 
 export default function DetailPanel() {
   const s = useStore();
+  const [listMenu, setListMenu] = useState(false);
   const sel = s.selId ? eff(s, s.tracks.find((t) => t.id === s.selId)!) : null;
   if (!s.detailOpen || !sel) return null;
 
@@ -81,35 +82,42 @@ export default function DetailPanel() {
           </div>
         </div>
 
-        {/* church fields */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 12px" }}>
-          <Settings size={14} color="var(--text-3)" />
-          <span style={sectionLabel}>Datos de la iglesia</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-          <div>
-            <label style={labelStyle}>Tono</label>
-            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <select value={sel.tono} onChange={(e) => s.setEdit("tono", e.target.value)} className="in-focus" style={{ ...fieldStyle, appearance: "none", padding: "0 28px 0 12px", cursor: "pointer" }}>
-                {TONOS.map((tn) => <option key={tn} value={tn}>{tn}</option>)}
-              </select>
-              <ChevronDown size={13} style={{ position: "absolute", right: 10, color: "var(--text-3)", pointerEvents: "none" }} />
-            </div>
+        {/* add to a playlist */}
+        {s.playlists.length > 0 && (
+          <div style={{ marginBottom: 16, position: "relative" }}>
+            <label style={labelStyle}>Agregar a una lista</label>
+            <button
+              onClick={() => setListMenu((v) => !v)}
+              className="hb-s3"
+              style={{ ...fieldStyle, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", cursor: "pointer", color: "var(--text-2)" }}
+            >
+              <span>Elegir lista…</span>
+              <ChevronDown size={14} style={{ color: "var(--text-3)", transform: listMenu ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
+            </button>
+            {listMenu && (
+              <>
+                <div onClick={() => setListMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                <div style={{ position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, maxHeight: 220, overflowY: "auto" }}>
+                  {s.playlists.map((p) => {
+                    const inList = (s.plOrder[p.id] || []).includes(sel.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => { s.addToList(p.id, sel.id); setListMenu(false); }}
+                        className="hb-s2"
+                        style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500, textAlign: "left", color: "var(--text)" }}
+                      >
+                        <ListMusic size={15} style={{ color: "var(--text-3)", flex: "0 0 auto" }} />
+                        <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</span>
+                        {inList && <Check size={14} strokeWidth={2.4} style={{ color: "var(--primary)", flex: "0 0 auto" }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
-          <div>
-            <label style={labelStyle}>Tempo (BPM)</label>
-            <input type="number" value={sel.bpm} onChange={(e) => s.setEdit("bpm", Number(e.target.value) || 0)} className="in-focus" style={{ ...fieldStyle, padding: "0 12px", MozAppearance: "textfield" } as CSSProperties} />
-          </div>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Ocasión</label>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <select value={sel.ocasion} onChange={(e) => s.setEdit("ocasion", e.target.value)} className="in-focus" style={{ ...fieldStyle, fontWeight: 500, appearance: "none", padding: "0 28px 0 12px", cursor: "pointer" }}>
-              {OCASIONES.map((oc) => <option key={oc} value={oc}>{oc}</option>)}
-            </select>
-            <ChevronDown size={13} style={{ position: "absolute", right: 10, color: "var(--text-3)", pointerEvents: "none" }} />
-          </div>
-        </div>
+        )}
 
         {/* tags */}
         <div style={{ marginBottom: 20 }}>

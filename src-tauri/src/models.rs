@@ -36,6 +36,8 @@ pub struct Folder {
     pub nombre: String,
     pub ruta: String,
     pub count: i64,
+    /// RFC3339 timestamp of the last scan, if scanned.
+    pub last_scan: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

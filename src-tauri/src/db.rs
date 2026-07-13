@@ -207,12 +207,26 @@ pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()
     Ok(())
 }
 
+/// Mark a folder's tracks whose file no longer exists as missing (present ones as found).
+pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<()> {
+    let mut stmt = conn.prepare("SELECT id, path FROM tracks WHERE folder_id=?1")?;
+    let rows: Vec<(i64, String)> = stmt
+        .query_map(params![folder_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    for (id, path) in rows {
+        let missing = !std::path::Path::new(&path).exists();
+        conn.execute("UPDATE tracks SET missing=?1 WHERE id=?2", params![missing as i64, id])?;
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- folders
 
 pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
     let mut stmt = conn.prepare(
         "SELECT f.id, f.nombre, f.path,
-                (SELECT COUNT(*) FROM tracks t WHERE t.folder_id=f.id)
+                (SELECT COUNT(*) FROM tracks t WHERE t.folder_id=f.id),
+                f.last_scan
          FROM folders f ORDER BY f.id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -222,6 +236,7 @@ pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
             nombre: r.get(1)?,
             ruta: r.get(2)?,
             count: r.get(3)?,
+            last_scan: r.get(4)?,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -284,6 +299,33 @@ pub fn set_playlist_order(conn: &Connection, playlist_id: i64, ids: &[i64]) -> R
             params![playlist_id, tid, pos as i64],
         )?;
     }
+    Ok(())
+}
+
+/// Append a track to the end of a playlist (no-op if already present).
+pub fn add_to_playlist(conn: &Connection, playlist_id: i64, track_id: i64) -> Result<()> {
+    let exists: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id=?1 AND track_id=?2",
+        params![playlist_id, track_id],
+        |r| r.get(0),
+    )?;
+    if exists > 0 {
+        return Ok(());
+    }
+    let pos: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position)+1,0) FROM playlist_tracks WHERE playlist_id=?1",
+        params![playlist_id],
+        |r| r.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
+        params![playlist_id, track_id, pos],
+    )?;
+    Ok(())
+}
+
+pub fn delete_playlist(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute("DELETE FROM playlists WHERE id=?1", params![id])?;
     Ok(())
 }
 

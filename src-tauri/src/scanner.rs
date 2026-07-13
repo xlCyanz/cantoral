@@ -117,6 +117,7 @@ pub fn scan_folder(
         );
     }
 
+    db::reconcile_missing(conn, folder_id)?;
     db::touch_folder_scan(conn, folder_id)?;
     let _ = app.emit(
         "scan-progress",

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Play, Trash2, Video } from "lucide-react";
 import { eff, plDur, useStore } from "../store";
@@ -78,6 +79,7 @@ function PlRow({ t, num }: { t: Track; num: number }) {
 
 export default function PlaylistView() {
   const s = useStore();
+  const [menuOpen, setMenuOpen] = useState(false);
   const pl = s.playlists.find((p) => p.id === s.curPlaylist);
   const order = s.plOrder[s.curPlaylist] || [];
   const rows = order
@@ -112,9 +114,21 @@ export default function PlaylistView() {
             <button onClick={s.exportPl} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <Download size={16} />Exportar
             </button>
-            <button title="Más acciones" className="hb-s2t" style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
-              <EllipsisVertical size={18} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <button title="Más acciones" onClick={() => setMenuOpen((v) => !v)} className="hb-s2t" style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
+                <EllipsisVertical size={18} />
+              </button>
+              {menuOpen && (
+                <>
+                  <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                  <div style={{ position: "absolute", right: 0, top: 48, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, minWidth: 190 }}>
+                    <button onClick={() => { setMenuOpen(false); s.deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+                      <Trash2 size={15} />Eliminar lista
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -157,6 +157,7 @@ function ColumnHeader() {
 
 function EmptyState() {
   const openAddFolder = useStore((s) => s.openAddFolder);
+  const openHelp = useStore((s) => s.openHelp);
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 40, animation: "canFade .3s ease" }}>
       <div style={{ width: 104, height: 104, borderRadius: "50%", background: "var(--primary-soft)", display: "grid", placeItems: "center", marginBottom: 26, position: "relative" }}>
@@ -175,7 +176,7 @@ function EmptyState() {
         <button onClick={openAddFolder} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
           <FolderPlus size={18} strokeWidth={2.2} />Agregar carpeta de música
         </button>
-        <button className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
+        <button onClick={openHelp} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
           ¿Cómo funciona?
         </button>
       </div>
