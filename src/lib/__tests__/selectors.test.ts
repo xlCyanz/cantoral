@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, plDur, playQueue, queueForView } from "../../store";
+import { applyFilters, buildGroups, ocasiones, plDur, playQueue, queueForView } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Track } from "../types";
 
@@ -155,5 +155,43 @@ describe("plDur", () => {
 
   it("reports zero for an empty list", () => {
     expect(plDur(state(), [])).toBe("0 min");
+  });
+});
+
+describe("ocasiones", () => {
+  it("lists the occasions present in the catalogue, deduplicated and sorted", () => {
+    expect(ocasiones(state())).toEqual(["Adoración", "Comunión"]);
+  });
+
+  it("is empty when no track carries an occasion", () => {
+    const sinOcasion = TRACKS.map((t) => ({ ...t, ocasion: "" }));
+    expect(ocasiones(state({ tracks: sinOcasion }))).toEqual([]);
+  });
+
+  it("ignores whitespace-only occasions", () => {
+    const s = state({ tracks: [track({ id: "1", ocasion: "   " })] });
+    expect(ocasiones(s)).toEqual([]);
+  });
+
+  it("sees occasions added by a pending edit", () => {
+    const s = state({ edit: { "1": { ocasion: "Bautismo" } } });
+    expect(ocasiones(s)).toContain("Bautismo");
+  });
+
+  it("keeps the active filter listed even once no track carries it", () => {
+    // Otherwise the chip disappears and the filter can never be switched off.
+    const sinOcasion = TRACKS.map((t) => ({ ...t, ocasion: "" }));
+    expect(ocasiones(state({ tracks: sinOcasion, ocasion: "Adoración" }))).toEqual(["Adoración"]);
+  });
+
+  it("sorts with Spanish collation", () => {
+    const s = state({
+      tracks: [
+        track({ id: "1", ocasion: "Zacarías" }),
+        track({ id: "2", ocasion: "Ñandú" }),
+        track({ id: "3", ocasion: "Adoración" }),
+      ],
+    });
+    expect(ocasiones(s)).toEqual(["Adoración", "Ñandú", "Zacarías"]);
   });
 });

@@ -15,16 +15,16 @@
 </div>
 
 **Cantoral** es una aplicación de escritorio para **organizar y catalogar la música
-de la iglesia**: carpetas, pistas, listas para cultos y metadatos ricos (título,
-artista, tono, tempo, ocasión, etiquetas). Corre en **macOS y Windows**, funciona
+de la iglesia**: carpetas, pistas, listas para cultos, etiquetas propias y los
+metadatos del archivo. Corre en **macOS y Windows**, funciona
 **100% local** y **nunca mueve ni copia** tus archivos de audio: solo los indexa.
 
 Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas largas.
 
 ## ✨ Funciones
 
-- 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes.
-- ⛪ **Metadatos de iglesia** — edita **tono, tempo (BPM), ocasión** y etiquetas por pista; se conservan al re-escanear.
+- 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija.
+- 🏷️ **Etiquetas** — etiqueta cada pista para encontrarla rápido; se conservan al re-escanear, igual que los favoritos.
 - 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando, edita nombre/fecha/ocasión y reproduce toda la lista.
 - 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con Cmd/Ctrl + P.
 - ▶️ **Reproducción** — reproductor integrado con cola que sigue el orden del culto; los videos de proyección se abren en el reproductor predeterminado del sistema.
@@ -33,6 +33,20 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría.
 - 🎨 **Claro y oscuro** — sistema de diseño cálido propio; sigue el tema del sistema o se fija a mano.
 - ⌨️ **Teclado** — espacio para reproducir/pausar, flechas para cambiar de pista, ⌘/Ctrl + F para buscar, ⌘/Ctrl + N para una lista nueva, Esc para cerrar y `?` para la ayuda.
+
+## ⚠️ Limitaciones conocidas
+
+- **Tono, tempo (BPM) y ocasión no se pueden editar desde la app.** Las columnas
+  existen en la base y el backend ya tiene el comando para escribirlas, pero el
+  panel de detalle solo edita etiquetas, así que esos tres campos quedan vacíos.
+  Como consecuencia, el filtro por ocasión no muestra nada hasta que exista ese
+  editor.
+- **Archivos faltantes no se pueden relocalizar** ni borrar pista por pista: si
+  mueves un archivo hay que quitar y volver a agregar la carpeta.
+- **Sin actualizaciones automáticas** y **sin firma de código** mientras no haya
+  certificados (ver «Firma de código»).
+- Solo se conservan entre sesiones el tema y la preferencia de reproductor
+  externo; volumen, orden, agrupación y filtros vuelven a su valor inicial.
 
 ## 🧱 Stack
 

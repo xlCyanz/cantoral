@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Search, Sun, X } from "lucide-react";
 import type { CSSProperties } from "react";
-import { applyFilters, useStore } from "../store";
-import { OCASIONES } from "../lib/seed";
+import { applyFilters, ocasiones, useStore } from "../store";
 import { chipStyle } from "../lib/styles";
 import type { GroupBy } from "../lib/types";
 
@@ -22,7 +21,10 @@ export default function TopBar() {
   const showFilterBar = view === "biblioteca" && libState === "content";
   const list = showFilterBar ? applyFilters(s) : [];
 
-  const chips = [{ value: "", label: "Todas" }, ...OCASIONES.map((o) => ({ value: o, label: o }))];
+  // Occasions come from the catalogue itself; a lone «Todas» chip would be
+  // noise, so the row only appears once there is something to filter by.
+  const ocs = showFilterBar ? ocasiones(s) : [];
+  const chips = ocs.length ? [{ value: "", label: "Todas" }, ...ocs.map((o) => ({ value: o, label: o }))] : [];
 
   return (
     <header

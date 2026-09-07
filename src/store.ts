@@ -801,6 +801,25 @@ export function cur(s: CantoralState): Track | null {
   return t ? eff(s, t) : null;
 }
 
+/**
+ * Occasions actually present in the catalogue, for the filter chips.
+ *
+ * Derived rather than hardcoded so a custom occasion shows up as a filter.
+ * Note that nothing currently writes `ocasion`, so outside the browser seed
+ * this is empty until a way to edit track metadata exists.
+ */
+export function ocasiones(s: CantoralState): string[] {
+  const found = new Set<string>();
+  s.tracks.forEach((t) => {
+    const o = eff(s, t).ocasion?.trim();
+    if (o) found.add(o);
+  });
+  // Keep the active filter listed even if its last track just changed occasion,
+  // otherwise its chip vanishes and the filter can no longer be switched off.
+  if (s.ocasion) found.add(s.ocasion);
+  return [...found].sort((a, b) => a.localeCompare(b, "es"));
+}
+
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
   if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();

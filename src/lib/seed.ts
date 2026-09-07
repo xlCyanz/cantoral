@@ -4,22 +4,6 @@ import type { Folder, Playlist, Track } from "./types";
 // Used by the dev/browser mock backend so the UI is fully explorable
 // without the Rust process. The real backend replaces this at runtime.
 
-export const OCASIONES = [
-  "Adoración",
-  "Alabanza",
-  "Comunión",
-  "Reflexión",
-  "Resurrección",
-  "Ofrenda",
-  "Entrada",
-  "Navidad",
-];
-
-export const TONOS = [
-  "Do", "Do#", "Reb", "Re", "Mib", "Mi", "Fa", "Fa#", "Sol", "Lab",
-  "La", "Sib", "Si", "Lam", "Mim", "Rem", "Solm",
-];
-
 export const SCAN_FILES = [
   "Himnos\\Sublime Gracia.mp3",
   "Himnos\\Santo Santo Santo.mp3",
