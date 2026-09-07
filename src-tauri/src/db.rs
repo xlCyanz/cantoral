@@ -7,7 +7,7 @@ use crate::models::{fmt_dur, Folder, Playlist, Track};
 /// Tauri-managed database handle.
 pub struct Db(pub Mutex<Connection>);
 
-const SCHEMA: &str = r#"
+pub const SCHEMA: &str = r#"
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 

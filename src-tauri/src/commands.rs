@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{self, Db};
 use crate::models::{Folder, Playlist, Track};
@@ -62,8 +62,18 @@ fn run_scan(
     let scan_conn = db::open_secondary(db_path).map_err(e)?;
     log::info!("scan start: {path} (recursive={recursive})");
     let started = std::time::Instant::now();
-    let count = scanner::scan_folder(app, &scan_conn, folder_id, path, &cover_dir, recursive, &cancel.0)
-        .map_err(e)?;
+    let count = scanner::scan_folder(
+        &scan_conn,
+        folder_id,
+        path,
+        &cover_dir,
+        recursive,
+        &cancel.0,
+        &|p| {
+            let _ = app.emit("scan-progress", p);
+        },
+    )
+    .map_err(e)?;
     log::info!("scan done: {count} files in {:?}", started.elapsed());
     Ok(())
 }
@@ -289,4 +299,45 @@ pub fn backup_database(app: AppHandle, db: State<Db>, dest: String) -> CmdResult
     }
     std::fs::copy(&src, &dest).map_err(e)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::export_playlist;
+
+    fn tmp(name: &str) -> String {
+        std::env::temp_dir().join(name).to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn export_writes_the_sheet_verbatim() {
+        let dest = tmp("cantoral-export-test.html");
+        let _ = std::fs::remove_file(&dest);
+
+        export_playlist(dest.clone(), "<h1>Culto</h1>".into()).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "<h1>Culto</h1>");
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    #[test]
+    fn export_refuses_anything_that_is_not_html() {
+        // The command must not double as a write-anything primitive.
+        for bad in ["cantoral-export-test.db", "cantoral-export-test.sh", "cantoral-export-test"] {
+            let dest = tmp(bad);
+            let _ = std::fs::remove_file(&dest);
+            assert!(export_playlist(dest.clone(), "x".into()).is_err(), "{bad} should be refused");
+            assert!(!std::path::Path::new(&dest).exists(), "{bad} must not be created");
+        }
+    }
+
+    #[test]
+    fn export_accepts_either_html_spelling_and_ignores_case() {
+        for ok in ["cantoral-export-test.htm", "cantoral-export-test.HTML"] {
+            let dest = tmp(ok);
+            let _ = std::fs::remove_file(&dest);
+            assert!(export_playlist(dest.clone(), "x".into()).is_ok(), "{ok} should be accepted");
+            let _ = std::fs::remove_file(&dest);
+        }
+    }
 }
