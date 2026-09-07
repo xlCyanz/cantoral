@@ -21,6 +21,7 @@ function resolveTheme(mode: ThemeMode): Theme {
   return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
 }
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS } from "./lib/seed";
+import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import {
   addAndScanFolder,
   addToPlaylistCmd,
@@ -28,11 +29,13 @@ import {
   backupDatabase,
   createPlaylistCmd,
   deletePlaylistCmd,
+  exportPlaylistCmd,
   getLibrary,
   getSetting,
   isTauri,
   openExternalPath,
   pickDbFile,
+  pickExportPath,
   pickSavePath,
   removeFolderCmd,
   rescanFolderCmd,
@@ -40,6 +43,7 @@ import {
   setPlaylistOrderCmd,
   setSetting,
   setTrackFav,
+  updatePlaylistCmd,
   updateTrackCmd,
   type Snapshot,
 } from "./lib/api";
@@ -48,6 +52,8 @@ import {
 let scanTimer: ReturnType<typeof setInterval> | null = null;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let dragId: string | null = null;
+/** Action to re-run from the error state — set whenever a backend call fails. */
+let lastFailedAction: (() => void) | null = null;
 
 export interface CantoralState {
   // ---- data ----
@@ -55,6 +61,8 @@ export interface CantoralState {
   folders: Folder[];
   playlists: Playlist[];
   plOrder: Record<string, string[]>;
+  /** Ordered track ids the transport walks through (a culto list, or the library). */
+  queue: string[];
 
   // ---- ui / navigation ----
   theme: Theme;
@@ -78,10 +86,12 @@ export interface CantoralState {
   saved: boolean;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "help" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | null;
   scanPct: number;
   scanIdx: number;
   scanFile: string;
+  /** Message from the last failed backend call, shown in the error state. */
+  scanError: string | null;
 
   // ---- player ----
   playerId: string;
@@ -122,8 +132,10 @@ export interface CantoralState {
   onFav: (id: string) => void;
   onOpenExternal: (id: string) => void;
 
-  play: (id: string) => void;
+  play: (id: string, queue?: string[]) => void;
   togglePlay: () => void;
+  /** Auto-advance when a track finishes (honours «repetir»). */
+  advance: () => void;
   prev: () => void;
   next: () => void;
   toggleShuffle: () => void;
@@ -143,7 +155,7 @@ export interface CantoralState {
   openHelp: () => void;
   closeDialog: () => void;
   confirmAddFolder: () => void;
-  indexFolder: (path?: string) => void;
+  indexFolder: (path?: string, recursive?: boolean) => void;
   startScan: () => void;
   cancelScan: () => void;
   retryError: () => void;
@@ -153,6 +165,8 @@ export interface CantoralState {
   exportPl: () => void;
   newList: () => void;
   createList: (nombre: string, fecha: string, ocasion: string) => void;
+  editCurrentList: () => void;
+  updateList: (nombre: string, fecha: string, ocasion: string) => void;
   addToList: (playlistId: string, trackId: string) => void;
   deleteCurrentList: () => void;
   removeFromPl: (id: string) => void;
@@ -174,6 +188,9 @@ export interface CantoralState {
 const initialPlOrder: Record<string, string[]> = {};
 SEED_PLAYLISTS.forEach((p) => (initialPlOrder[p.id] = p.ids.slice()));
 
+/** True in a plain browser (`pnpm dev`), where the seed stands in for the backend. */
+const MOCK = !isTauri();
+
 export const useStore = create<CantoralState>((set, get) => {
   const toast = (m: string) => get().showToast(m);
 
@@ -191,19 +208,26 @@ export const useStore = create<CantoralState>((set, get) => {
     const playerId = tracks.some((t) => t.id === st.playerId)
       ? st.playerId
       : tracks[0]?.id || st.playerId;
-    set({ tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId });
+    // Drop queued ids whose track vanished in the rescan.
+    const live = new Set(tracks.map((t) => t.id));
+    const queue = st.queue.filter((id) => live.has(id));
+    set({ tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId, queue });
   };
 
   return {
-    tracks: SEED_TRACKS.map((t) => ({ ...t })),
-    folders: SEED_FOLDERS.map((f) => ({ ...f })),
-    playlists: SEED_PLAYLISTS,
-    plOrder: initialPlOrder,
+    // The seed catalogue is browser-only scaffolding. Inside Tauri the store
+    // starts empty and `hydrate()` fills it from SQLite, so demo data can never
+    // flash on screen nor survive a failed load.
+    tracks: MOCK ? SEED_TRACKS.map((t) => ({ ...t })) : [],
+    folders: MOCK ? SEED_FOLDERS.map((f) => ({ ...f })) : [],
+    playlists: MOCK ? SEED_PLAYLISTS : [],
+    plOrder: MOCK ? initialPlOrder : {},
+    queue: [],
 
     themeMode: "system",
     theme: resolveTheme("system"),
     view: "biblioteca",
-    libState: "content",
+    libState: MOCK ? "content" : "empty",
 
     query: "",
     qf: null,
@@ -222,16 +246,17 @@ export const useStore = create<CantoralState>((set, get) => {
     scanPct: 0,
     scanIdx: 0,
     scanFile: "",
+    scanError: null,
 
-    playerId: "t1",
+    playerId: MOCK ? "t1" : "",
     playing: false,
-    posSec: 47,
+    posSec: MOCK ? 47 : 0,
     volume: 0.72,
     muted: false,
     shuffle: false,
     repeat: false,
 
-    curPlaylist: "p1",
+    curPlaylist: MOCK ? "p1" : "",
     openExt: false,
     draggingId: null,
     overId: null,
@@ -297,8 +322,9 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     // ---------- player ----------
-    play: (id) => {
-      const t = get().tracks.find((x) => x.id === id);
+    play: (id, queue) => {
+      const s = get();
+      const t = s.tracks.find((x) => x.id === id);
       if (!t) return;
       if (t.missing) {
         toast("El archivo no se encuentra en el disco");
@@ -306,22 +332,33 @@ export const useStore = create<CantoralState>((set, get) => {
       }
       // Videos always, and any track when "abrir en el sistema" is on, open in
       // the OS default player instead of the integrated one.
-      if (t.video || get().openExt) {
+      if (t.video || s.openExt) {
         get().onOpenExternal(id);
         return;
       }
-      set({ playerId: id, playing: true, posSec: 0 });
+      // Playing from a culto list queues that list, so the transport follows the
+      // service order instead of falling back to whatever the library shows.
+      set({ queue: queue ?? queueForView(s), playerId: id, playing: true, posSec: 0 });
     },
     togglePlay: () => set((s) => ({ playing: !s.playing })),
+    advance: () => {
+      // «Repetir» loops the current track; the queue already wraps by itself.
+      if (get().repeat) {
+        set({ posSec: 0, playing: true });
+        return;
+      }
+      get().next();
+    },
     prev: () => {
-      const ids = applyFilters(get()).map((t) => t.id);
-      const i = ids.indexOf(get().playerId);
-      const n = ids.length ? ids[(i - 1 + ids.length) % ids.length] : get().playerId;
+      const s = get();
+      const ids = playQueue(s);
+      const i = ids.indexOf(s.playerId);
+      const n = ids.length ? ids[(i - 1 + ids.length) % ids.length] : s.playerId;
       set({ playerId: n, posSec: 0 });
     },
     next: () => {
       const s = get();
-      const ids = applyFilters(s).map((t) => t.id);
+      const ids = playQueue(s);
       const i = ids.indexOf(s.playerId);
       let n: string;
       if (s.shuffle && ids.length > 1) {
@@ -395,13 +432,13 @@ export const useStore = create<CantoralState>((set, get) => {
       set({ dialog: null });
       get().indexFolder();
     },
-    indexFolder: (path) => {
+    indexFolder: (path, recursive = true) => {
       set({ dialog: null });
       if (isTauri() && path) {
         if (scanTimer) clearInterval(scanTimer);
         scanTimer = null;
         set({ view: "biblioteca", libState: "scanning", scanPct: 0, scanIdx: 0, scanFile: "" });
-        addAndScanFolder(path)
+        addAndScanFolder(path, recursive)
           .then((snap) => {
             applySnapshot(snap);
             set({ libState: "content", scanPct: 100 });
@@ -409,7 +446,8 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            set({ libState: "error" });
+            lastFailedAction = () => get().indexFolder(path, recursive);
+            set({ libState: "error", scanError: String(err) });
           });
       } else {
         get().startScan();
@@ -438,14 +476,29 @@ export const useStore = create<CantoralState>((set, get) => {
       scanTimer = null;
       set({ libState: "content" });
     },
-    retryError: () => get().startScan(),
+    retryError: () => {
+      set({ scanError: null });
+      // In the browser there is no backend, so replay the simulated scan.
+      if (isTauri()) {
+        const retry = lastFailedAction;
+        lastFailedAction = null;
+        if (retry) retry();
+        else void get().hydrate();
+        return;
+      }
+      get().startScan();
+    },
     hydrate: async () => {
       if (!isTauri()) return;
+      // Belt and braces: `MOCK` is decided at module-eval time. If that ever ran
+      // before Tauri injected its globals, drop the seed before the real
+      // catalogue lands so demo rows can never reach the screen.
+      if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], playerId: "", curPlaylist: "", posSec: 0 });
       try {
         const snap = await getLibrary();
         if (snap) {
           applySnapshot(snap);
-          set({ libState: snap.tracks.length ? "content" : "empty" });
+          set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
         }
         // Restore saved preferences.
         const [modeS, themeS, openExtS] = await Promise.all([
@@ -468,6 +521,8 @@ export const useStore = create<CantoralState>((set, get) => {
         if (Object.keys(patch).length) set(patch);
       } catch (err) {
         console.error("hydrate failed", err);
+        lastFailedAction = () => void get().hydrate();
+        set({ libState: "error", scanError: String(err) });
       }
     },
 
@@ -475,11 +530,49 @@ export const useStore = create<CantoralState>((set, get) => {
     playAll: () => {
       const ord = get().plOrder[get().curPlaylist] || [];
       if (ord.length) {
-        get().play(ord[0]);
+        get().play(ord[0], ord.slice());
         toast("Reproduciendo la lista completa");
       }
     },
-    exportPl: () => toast("Lista exportada como PDF"),
+    exportPl: () => {
+      const s = get();
+      const pl = s.playlists.find((p) => p.id === s.curPlaylist);
+      const ord = s.plOrder[s.curPlaylist] || [];
+      const rows = ord
+        .map((id) => s.tracks.find((t) => t.id === id))
+        .filter((t): t is Track => !!t)
+        .map((t) => eff(s, t));
+      if (!pl || rows.length === 0) {
+        toast("La lista está vacía");
+        return;
+      }
+      const html = playlistSheetHtml(pl, rows, plDur(s, ord));
+      const name = sheetFileName(pl.nombre);
+      if (!isTauri()) {
+        // Browser fallback so the sheet is testable with `pnpm dev`.
+        const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast("Hoja de la lista exportada");
+        return;
+      }
+      void pickExportPath(name).then((dest) => {
+        if (!dest) return;
+        exportPlaylistCmd(dest, html)
+          .then(() => {
+            toast("Hoja de la lista exportada");
+            // Opens in the default browser, where Cmd/Ctrl+P saves it as PDF.
+            return openExternalPath(dest);
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo exportar la lista");
+          });
+      });
+    },
     newList: () => set({ dialog: "newList" }),
     createList: (nombre, fecha, ocasion) => {
       set({ dialog: null });
@@ -506,6 +599,30 @@ export const useStore = create<CantoralState>((set, get) => {
           curPlaylist: id,
         }));
         toast("Lista creada");
+      }
+    },
+    editCurrentList: () => set({ dialog: "editList" }),
+    updateList: (nombre, fecha, ocasion) => {
+      const id = get().curPlaylist;
+      const name = nombre.trim() || "Lista sin título";
+      set({ dialog: null });
+      if (isTauri()) {
+        updatePlaylistCmd(id, name, fecha, ocasion)
+          .then((snap) => {
+            applySnapshot(snap);
+            toast("Lista actualizada");
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo actualizar la lista");
+          });
+      } else {
+        set((st) => ({
+          playlists: st.playlists.map((p) =>
+            p.id === id ? { ...p, nombre: name, fecha, ocasion } : p,
+          ),
+        }));
+        toast("Lista actualizada");
       }
     },
     addToList: (playlistId, trackId) => {
@@ -598,7 +715,8 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            set({ libState: "error" });
+            lastFailedAction = () => get().rescanFolder(id);
+            set({ libState: "error", scanError: String(err) });
           });
       } else {
         get().startScan();
@@ -623,7 +741,7 @@ export const useStore = create<CantoralState>((set, get) => {
         restoreDatabaseCmd(src)
           .then((snap) => {
             applySnapshot(snap);
-            set({ libState: snap.tracks.length ? "content" : "empty" });
+            set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
             toast("Base de datos restaurada");
           })
           .catch((err) => {
@@ -643,7 +761,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // posSec via timeupdate — the simulated timer only runs in the browser.
       if (isTauri() && t.path && !t.video && !t.missing) return;
       const p = s.posSec + 1;
-      if (p >= t.durSec) get().next();
+      if (p >= t.durSec) get().advance();
       else set({ posSec: p });
     },
     showToast: (m) => {
@@ -668,6 +786,19 @@ export function eff(s: Pick<CantoralState, "edit">, t: Track): Track {
 export function cur(s: CantoralState): Track | null {
   const t = s.tracks.find((x) => x.id === s.playerId);
   return t ? eff(s, t) : null;
+}
+
+/** Ids that form the play queue for the view the user pressed play in. */
+export function queueForView(s: CantoralState): string[] {
+  if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();
+  return applyFilters(s).map((t) => t.id);
+}
+
+/** Live play queue, minus ids whose track disappeared. Falls back to the library. */
+export function playQueue(s: CantoralState): string[] {
+  const ids = new Set(s.tracks.map((t) => t.id));
+  const live = s.queue.filter((id) => ids.has(id));
+  return live.length ? live : applyFilters(s).map((t) => t.id);
 }
 
 /** Filter + sort the library exactly like the design's applyFilters(). */

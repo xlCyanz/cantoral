@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
@@ -36,16 +36,21 @@ pub fn get_library(db: State<Db>) -> CmdResult<Snapshot> {
 }
 
 #[tauri::command]
-pub fn add_and_scan_folder(app: AppHandle, db: State<Db>, path: String) -> CmdResult<Snapshot> {
+pub fn add_and_scan_folder(
+    app: AppHandle,
+    db: State<Db>,
+    path: String,
+    recursive: bool,
+) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     let nombre = std::path::Path::new(&path)
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or(path.as_str())
         .to_string();
-    let fid = db::add_folder(&conn, &path, &nombre).map_err(e)?;
+    let fid = db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?;
     let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
-    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir).map_err(e)?;
+    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir, recursive).map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 
@@ -53,11 +58,10 @@ pub fn add_and_scan_folder(app: AppHandle, db: State<Db>, path: String) -> CmdRe
 pub fn rescan_folder(app: AppHandle, db: State<Db>, id: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     let fid = id.parse::<i64>().map_err(e)?;
-    let path: String = conn
-        .query_row("SELECT path FROM folders WHERE id=?1", params![fid], |r| r.get(0))
-        .map_err(e)?;
+    // Re-use the «include subfolders» choice made when the folder was added.
+    let (path, recursive) = db::folder_scan_target(&conn, fid).map_err(e)?;
     let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
-    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir).map_err(e)?;
+    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir, recursive).map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 
@@ -116,6 +120,36 @@ pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdRes
     db::add_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, track.parse::<i64>().map_err(e)?)
         .map_err(e)?;
     snapshot(&conn).map_err(e)
+}
+
+#[tauri::command]
+pub fn update_playlist(
+    db: State<Db>,
+    playlist: String,
+    nombre: String,
+    fecha: String,
+    ocasion: String,
+) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &fecha, &ocasion)
+        .map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Write a printable playlist sheet. The frontend renders the HTML; this only
+/// puts it on disk. Restricted to .html/.htm so the command cannot be used as a
+/// general-purpose write-anything primitive.
+#[tauri::command]
+pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
+    let ext = std::path::Path::new(&dest)
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    if ext != "html" && ext != "htm" {
+        return Err("El archivo exportado debe terminar en .html".into());
+    }
+    std::fs::write(&dest, html.as_bytes()).map_err(e)
 }
 
 #[tauri::command]

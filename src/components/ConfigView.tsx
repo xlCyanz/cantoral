@@ -200,7 +200,7 @@ export default function ConfigView() {
       </div>
 
       <div style={{ textAlign: "center", color: "var(--text-3)", fontSize: 12, paddingTop: 8 }}>
-        Cantoral 1.0 · Hecho con cuidado para el ministerio de alabanza
+        Cantoral {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza
       </div>
     </div>
   );

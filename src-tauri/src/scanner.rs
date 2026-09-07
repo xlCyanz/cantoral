@@ -54,19 +54,22 @@ fn read_meta(path: &Path) -> Meta {
     }
 }
 
-/// Recursively index a folder, upserting every media file and emitting
-/// `scan-progress` events. Returns the number of files indexed.
+/// Index a folder, upserting every media file and emitting `scan-progress`
+/// events. With `recursive` off only the folder's own files are read, never its
+/// subfolders. Returns the number of files indexed.
 pub fn scan_folder(
     app: &AppHandle,
     conn: &Connection,
     folder_id: i64,
     root: &str,
     cover_dir: &Path,
+    recursive: bool,
 ) -> Result<i64> {
     let _ = std::fs::create_dir_all(cover_dir);
 
     // Collect media paths first so progress has a denominator.
     let files: Vec<_> = WalkDir::new(root)
+        .max_depth(if recursive { usize::MAX } else { 1 })
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())

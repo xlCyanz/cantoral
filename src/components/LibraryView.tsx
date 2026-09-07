@@ -223,8 +223,10 @@ function ErrorState() {
       <p style={{ fontSize: 14, color: "var(--text-2)", maxWidth: 430, lineHeight: 1.55, margin: "0 0 8px" }}>
         La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
       </p>
-      <code style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "5px 11px", borderRadius: 8, marginBottom: 26 }}>D:\Alabanza\Pistas 2025</code>
-      <div style={{ display: "flex", gap: 12 }}>
+      {s.scanError && (
+        <code style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "5px 11px", borderRadius: 8, maxWidth: 460, textAlign: "left", overflowWrap: "anywhere" }}>{s.scanError}</code>
+      )}
+      <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
         <button onClick={s.retryError} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
           <RefreshCw size={17} strokeWidth={2.2} />Reintentar
         </button>

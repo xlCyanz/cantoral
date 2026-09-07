@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ListMusic } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ListMusic, Pencil } from "lucide-react";
 import { useStore } from "../store";
 
 const label = { display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 7 } as const;
@@ -15,23 +15,36 @@ const field = {
   outline: "none",
 } as const;
 
+/** Create-a-list dialog, reused in «edit» mode for an existing list. */
 export default function NewListDialog() {
-  const open = useStore((s) => s.dialog === "newList");
+  const dialog = useStore((s) => s.dialog);
   const closeDialog = useStore((s) => s.closeDialog);
   const createList = useStore((s) => s.createList);
+  const updateList = useStore((s) => s.updateList);
+  const current = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
+
+  const editing = dialog === "editList";
+  const open = dialog === "newList" || editing;
 
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState("");
   const [ocasion, setOcasion] = useState("");
 
+  // Seed the fields each time the dialog opens: blank for a new list, the
+  // list's own values when editing.
+  useEffect(() => {
+    if (!open) return;
+    setNombre(editing ? current?.nombre ?? "" : "");
+    setFecha(editing ? current?.fecha ?? "" : "");
+    setOcasion(editing ? current?.ocasion ?? "" : "");
+  }, [open, editing, current?.id, current?.nombre, current?.fecha, current?.ocasion]);
+
   if (!open) return null;
 
   const submit = () => {
     if (!nombre.trim()) return;
-    createList(nombre, fecha, ocasion);
-    setNombre("");
-    setFecha("");
-    setOcasion("");
+    if (editing) updateList(nombre, fecha, ocasion);
+    else createList(nombre, fecha, ocasion);
   };
 
   return (
@@ -39,11 +52,15 @@ export default function NewListDialog() {
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)" }}>
         <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 13 }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--primary-soft)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-            <ListMusic size={21} color="var(--primary)" />
+            {editing ? <Pencil size={20} color="var(--primary)" /> : <ListMusic size={21} color="var(--primary)" />}
           </div>
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>Nueva lista para culto</h2>
-            <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>Dale un nombre y arma el repertorio.</p>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>
+              {editing ? "Editar lista" : "Nueva lista para culto"}
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
+              {editing ? "Cambia el nombre, la fecha o la ocasión." : "Dale un nombre y arma el repertorio."}
+            </p>
           </div>
         </div>
 
@@ -71,7 +88,9 @@ export default function NewListDialog() {
 
         <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
           <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>Cancelar</button>
-          <button onClick={submit} disabled={!nombre.trim()} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nombre.trim() ? 1 : 0.55, cursor: nombre.trim() ? "pointer" : "not-allowed" }}>Crear lista</button>
+          <button onClick={submit} disabled={!nombre.trim()} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nombre.trim() ? 1 : 0.55, cursor: nombre.trim() ? "pointer" : "not-allowed" }}>
+            {editing ? "Guardar cambios" : "Crear lista"}
+          </button>
         </div>
       </div>
     </div>

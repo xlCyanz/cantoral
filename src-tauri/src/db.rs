@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS folders (
   path     TEXT NOT NULL UNIQUE,
   nombre   TEXT NOT NULL,
   added_at TEXT NOT NULL,
-  last_scan TEXT
+  last_scan TEXT,
+  recursive INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS tracks (
@@ -76,8 +77,12 @@ CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     let conn = Connection::open(path)?;
     conn.execute_batch(SCHEMA)?;
-    // Migration for databases created before cover art support (ignore if present).
+    // Migrations for databases created before a column existed (no-op if present).
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_path TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE folders ADD COLUMN recursive INTEGER NOT NULL DEFAULT 1",
+        [],
+    );
     Ok(conn)
 }
 
@@ -226,7 +231,7 @@ pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
     let mut stmt = conn.prepare(
         "SELECT f.id, f.nombre, f.path,
                 (SELECT COUNT(*) FROM tracks t WHERE t.folder_id=f.id),
-                f.last_scan
+                f.last_scan, f.recursive
          FROM folders f ORDER BY f.id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -237,19 +242,30 @@ pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
             ruta: r.get(2)?,
             count: r.get(3)?,
             last_scan: r.get(4)?,
+            recursive: r.get::<_, i64>(5)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
 }
 
-pub fn add_folder(conn: &Connection, path: &str, nombre: &str) -> Result<i64> {
+pub fn add_folder(conn: &Connection, path: &str, nombre: &str, recursive: bool) -> Result<i64> {
     conn.execute(
-        "INSERT INTO folders(path, nombre, added_at) VALUES(?1,?2,?3)
-         ON CONFLICT(path) DO UPDATE SET nombre=excluded.nombre",
-        params![path, nombre, now()],
+        "INSERT INTO folders(path, nombre, added_at, recursive) VALUES(?1,?2,?3,?4)
+         ON CONFLICT(path) DO UPDATE SET nombre=excluded.nombre, recursive=excluded.recursive",
+        params![path, nombre, now(), recursive as i64],
     )?;
     let id: i64 = conn.query_row("SELECT id FROM folders WHERE path=?1", params![path], |r| r.get(0))?;
     Ok(id)
+}
+
+/// Path and «include subfolders» setting a rescan of this folder should use.
+pub fn folder_scan_target(conn: &Connection, id: i64) -> Result<(String, bool)> {
+    let (path, recursive): (String, i64) = conn.query_row(
+        "SELECT path, recursive FROM folders WHERE id=?1",
+        params![id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    Ok((path, recursive != 0))
 }
 
 pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
@@ -320,6 +336,21 @@ pub fn add_to_playlist(conn: &Connection, playlist_id: i64, track_id: i64) -> Re
     conn.execute(
         "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
         params![playlist_id, track_id, pos],
+    )?;
+    Ok(())
+}
+
+/// Rename a playlist / change its service date and occasion.
+pub fn update_playlist(
+    conn: &Connection,
+    id: i64,
+    nombre: &str,
+    fecha: &str,
+    ocasion: &str,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE playlists SET nombre=?1, fecha=?2, ocasion=?3 WHERE id=?4",
+        params![nombre, fecha, ocasion, id],
     )?;
     Ok(())
 }

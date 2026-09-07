@@ -25,12 +25,13 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes.
 - ⛪ **Metadatos de iglesia** — edita **tono, tempo (BPM), ocasión** y etiquetas por pista; se conservan al re-escanear.
-- 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando y reproduce toda la lista.
-- ▶️ **Reproducción** — reproductor integrado, o abre en el reproductor predeterminado del sistema; soporta videos de proyección.
-- 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`); tus archivos permanecen donde están.
+- 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando, edita nombre/fecha/ocasión y reproduce toda la lista.
+- 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con Cmd/Ctrl + P.
+- ▶️ **Reproducción** — reproductor integrado con cola que sigue el orden del culto; los videos de proyección se abren en el reproductor predeterminado del sistema.
+- 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría.
-- 🎨 **Claro y oscuro** — sistema de diseño cálido propio, con panel «Sistema de diseño» integrado.
+- 🎨 **Claro y oscuro** — sistema de diseño cálido propio; sigue el tema del sistema o se fija a mano.
 
 ## 🧱 Stack
 
@@ -42,7 +43,8 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 
 ## 🚀 Desarrollo
 
-Requisitos: **Node 20+**, **pnpm**, **Rust** (stable). En Windows 11 WebView2 ya viene incluido.
+Requisitos: **Node 20+**, **pnpm**, **Rust** (stable). En Windows 11 WebView2 ya viene
+incluido; en Windows 10 lo instalan los instaladores NSIS/MSI.
 
 ```bash
 pnpm install
@@ -55,9 +57,9 @@ pnpm tauri dev
 ```
 
 En el navegador, `src/lib/api.ts` detecta que no hay runtime de Tauri y la app usa
-los datos de ejemplo de `src/lib/seed.ts` (toda la UI es explorable, incluido el
-panel «Demo» para ver los estados vacío / escaneo / error). Dentro de Tauri, la
-misma capa llama a los comandos de Rust y opera sobre la base local.
+los datos de ejemplo de `src/lib/seed.ts`, así que toda la UI es explorable sin
+compilar Rust. Dentro de Tauri no se carga ningún dato de ejemplo: la misma capa
+llama a los comandos de Rust y opera sobre la base local.
 
 ## 🖥️ Multiplataforma
 
@@ -81,8 +83,56 @@ pnpm tauri build
 
 Produce, según el sistema:
 
-- **Windows** — `Cantoral.exe` (**portable**, requiere WebView2 incluido en Windows 11), más `bundle/nsis/*.exe` y `bundle/msi/*.msi`.
+- **Windows** — `bundle/nsis/*-setup.exe` y `bundle/msi/*.msi` (instaladores), más
+  `Cantoral.exe` suelto (portable).
 - **macOS** — `bundle/macos/Cantoral.app` y `bundle/dmg/*.dmg`.
+
+Al publicar un tag `v*`, el workflow además **crea el GitHub Release** y adjunta los
+`.dmg`, `.msi` y `.exe`, para que se puedan descargar sin entrar a GitHub Actions.
+
+## ⬇️ Instalación
+
+**Windows** — usa el instalador `-setup.exe` (NSIS) o el `.msi`. Ambos instalan el
+runtime **WebView2** si falta, así que funcionan también en **Windows 10**.
+El `Cantoral.exe` portable **no** instala WebView2: úsalo solo en equipos que ya lo
+tengan (Windows 11 lo trae de fábrica).
+
+**macOS** — abre el `.dmg` y arrastra Cantoral a Aplicaciones. Si la compilación no
+está firmada (ver abajo), macOS dirá que la app «está dañada»; para abrirla igual:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Cantoral.app
+```
+
+## 🔏 Firma de código
+
+Sin firmar, macOS bloquea la app con «está dañada» y Windows muestra el aviso de
+SmartScreen. El workflow firma **si** existen los secrets; si no, compila igual y
+produce bundles sin firmar.
+
+Secrets en **Settings → Secrets and variables → Actions**:
+
+| Secret | Plataforma | Qué es |
+|--------|-----------|--------|
+| `APPLE_CERTIFICATE` | macOS | Certificado *Developer ID Application* `.p12` en base64 |
+| `APPLE_CERTIFICATE_PASSWORD` | macOS | Contraseña del `.p12` |
+| `APPLE_SIGNING_IDENTITY` | macOS | Ej. `Developer ID Application: Nombre (TEAMID)` |
+| `KEYCHAIN_PASSWORD` | macOS | Contraseña del llavero temporal del runner (cualquier valor) |
+| `APPLE_ID` | macOS | Apple ID para notarizar |
+| `APPLE_PASSWORD` | macOS | Contraseña específica de app (appleid.apple.com) |
+| `APPLE_TEAM_ID` | macOS | Team ID de la cuenta de desarrollador |
+| `WINDOWS_CERTIFICATE` | Windows | Certificado de firma `.pfx` en base64 |
+| `WINDOWS_CERTIFICATE_PASSWORD` | Windows | Contraseña del `.pfx` |
+
+Ambas plataformas requieren certificados de pago (Apple Developer Program, ~99 USD/año;
+un certificado Authenticode con proveedor comercial para Windows). Mientras no existan,
+los instaladores salen sin firmar y hay que usar el rodeo de `xattr` de arriba.
+
+Para pasar un `.p12`/`.pfx` a base64:
+
+```bash
+base64 -i certificado.p12 | pbcopy
+```
 
 ## 🗂️ Estructura
 
@@ -92,8 +142,9 @@ cantoral/
 ├── design/                 # Diseño de referencia (Cantoral.dc.html)
 ├── src/                    # Interfaz (React)
 │   ├── components/         # TitleBar, Sidebar, TopBar, LibraryView, DetailPanel,
-│   │                       # PlayerBar, Collections/Playlist, Config, DesignSystem, …
-│   ├── lib/                # types · seed (mock) · covers · styles · api (seam Tauri)
+│   │                       # PlayerBar, Collections/Playlist, Config, diálogos, …
+│   ├── lib/                # types · seed (mock) · covers · styles · exportSheet
+│   │                       # · api (seam Tauri)
 │   ├── store.ts            # Estado global (Zustand) + selectores derivados
 │   └── styles/global.css   # Tokens de diseño (claro/oscuro), fuentes, keyframes
 ├── src-tauri/src/          # Núcleo (Rust)
@@ -109,7 +160,8 @@ cantoral/
 
 La base local `cantoral.db` (SQLite) se crea en el directorio de datos del app
 (`~/Library/Application Support/com.cantoral.desktop/` en macOS,
-`%APPDATA%\com.cantoral.desktop\` en Windows). Tablas: `folders`, `tracks`,
+`%APPDATA%\com.cantoral.desktop\` en Windows). El esquema se migra solo al abrir.
+Tablas: `folders`, `tracks`,
 `playlists`, `playlist_tracks`, `tags`, `track_tags`, `settings`. Respalda desde
 **Configuración → Base de datos → Crear copia**.
 

@@ -38,6 +38,8 @@ pub struct Folder {
     pub count: i64,
     /// RFC3339 timestamp of the last scan, if scanned.
     pub last_scan: Option<String>,
+    /// Whether scans of this folder descend into subfolders.
+    pub recursive: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -44,6 +44,8 @@ export interface Folder {
   count: number;
   /** RFC3339 timestamp of the last scan, if scanned. */
   lastScan?: string;
+  /** Whether scans of this folder descend into subfolders (backend only). */
+  recursive?: boolean;
 }
 
 export interface Playlist {

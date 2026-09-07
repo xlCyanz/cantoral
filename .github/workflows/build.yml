@@ -2,6 +2,10 @@ name: build
 
 # Cantoral targets macOS and Windows. Each installer is produced on its own
 # native runner (cross-compiling Tauri desktop bundles is not supported).
+#
+# Code signing is entirely optional: every secret below may be absent, in which
+# case the bundles are still produced, just unsigned. See README → «Firma de
+# código» for the list of secrets and how to generate them.
 on:
   push:
     tags: ["v*"]
@@ -45,8 +49,49 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Windows Authenticode. Imports the .pfx into the runner's certificate
+      # store and reports its thumbprint, which the build step feeds to Tauri.
+      # No-ops (leaving the thumbprint output empty) when the secret is unset.
+      - name: Import Windows signing certificate
+        id: winsign
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) {
+            Write-Host "No WINDOWS_CERTIFICATE secret configured — building unsigned."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP "cantoral-signing.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pw = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pw
+          Remove-Item $pfx -Force
+          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+
       - name: Build Cantoral
-        run: pnpm tauri build
+        shell: bash
+        env:
+          # macOS signing + notarization. Tauri picks these up automatically;
+          # with none of them set the .app/.dmg are produced unsigned.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          thumbprint="${{ steps.winsign.outputs.thumbprint }}"
+          if [ -n "$thumbprint" ]; then
+            # Passed on the command line so the thumbprint never lands in the repo.
+            pnpm tauri build --config "{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$thumbprint\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"http://timestamp.digicert.com\"}}}"
+          else
+            pnpm tauri build
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -54,3 +99,58 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.paths }}
           if-no-files-found: warn
+
+  # Publishes the installers on the tag so people outside GitHub can download
+  # them. Artifacts alone are only reachable from the workflow run page.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # The .app bundle is a directory and is not useful as a release asset;
+          # the .dmg, .msi and .exe files are what people actually download.
+          assets=()
+          while IFS= read -r f; do assets+=("$f"); done < <(find artifacts -type f \
+            \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::no installers found in the build artifacts"
+            exit 1
+          fi
+          printf 'asset: %s\n' "${assets[@]}"
+
+          cat > notes.md <<'NOTES'
+          ## Instalación
+
+          **macOS** — abre el `.dmg` y arrastra Cantoral a Aplicaciones.
+          Si la compilación no está firmada, macOS dirá que la app «está dañada».
+          Para abrirla de todos modos:
+
+          ```bash
+          xattr -dr com.apple.quarantine /Applications/Cantoral.app
+          ```
+
+          **Windows** — usa el instalador `-setup.exe` (NSIS) o el `.msi`. Ambos
+          instalan el runtime WebView2 si hace falta, así que funcionan también en
+          Windows 10.
+
+          El `Cantoral.exe` suelto es portable pero **no** instala WebView2: úsalo
+          solo en equipos que ya lo tengan (Windows 11 lo trae de fábrica).
+          NOTES
+
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Cantoral $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            "${assets[@]}"

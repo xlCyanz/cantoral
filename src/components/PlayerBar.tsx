@@ -109,7 +109,18 @@ export default function PlayerBar() {
             }));
           }
         }}
-        onEnded={() => s.next()}
+        onEnded={() => {
+          const st = useStore.getState();
+          st.advance();
+          // Repeat-one: the element already fired `ended`, so rewind and restart it.
+          if (st.repeat) {
+            const a = audioRef.current;
+            if (a) {
+              a.currentTime = 0;
+              void a.play().catch(() => {});
+            }
+          }
+        }}
         onError={() => {
           if (audioRef.current?.src) useStore.getState().showToast("No se pudo reproducir el archivo");
         }}

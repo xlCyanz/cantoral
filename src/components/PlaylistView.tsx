@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Play, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Trash2, Video } from "lucide-react";
 import { eff, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge } from "../lib/styles";
@@ -122,6 +122,9 @@ export default function PlaylistView() {
                 <>
                   <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
                   <div style={{ position: "absolute", right: 0, top: 48, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, minWidth: 190 }}>
+                    <button onClick={() => { setMenuOpen(false); s.editCurrentList(); }} className="hb-s2" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--text)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+                      <Pencil size={15} />Editar lista
+                    </button>
                     <button onClick={() => { setMenuOpen(false); s.deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Trash2 size={15} />Eliminar lista
                     </button>

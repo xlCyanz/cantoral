@@ -69,6 +69,18 @@ export async function pickFolder(): Promise<string | null> {
   return typeof res === "string" ? res : null;
 }
 
+/** Native save dialog for an exported playlist sheet. */
+export async function pickExportPath(defaultPath: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  const res = await save({ defaultPath, filters: [{ name: "Página web", extensions: ["html"] }] });
+  return res ?? null;
+}
+
+/** Write the rendered playlist sheet to disk. */
+export async function exportPlaylistCmd(dest: string, html: string): Promise<void> {
+  await inv("export_playlist", { dest, html });
+}
+
 /** Native save dialog for the database backup. */
 export async function pickSavePath(): Promise<string | null> {
   if (!isTauri()) return null;
@@ -112,8 +124,8 @@ export async function getLibrary(): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("get_library");
 }
-export async function addAndScanFolder(path: string): Promise<Snapshot> {
-  return inv<Snapshot>("add_and_scan_folder", { path });
+export async function addAndScanFolder(path: string, recursive: boolean): Promise<Snapshot> {
+  return inv<Snapshot>("add_and_scan_folder", { path, recursive });
 }
 export async function rescanFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("rescan_folder", { id });
@@ -144,6 +156,14 @@ export async function createPlaylistCmd(nombre: string, fecha: string, ocasion: 
 }
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Snapshot> {
   return inv<Snapshot>("add_to_playlist", { playlist, track });
+}
+export async function updatePlaylistCmd(
+  playlist: string,
+  nombre: string,
+  fecha: string,
+  ocasion: string,
+): Promise<Snapshot> {
+  return inv<Snapshot>("update_playlist", { playlist, nombre, fecha, ocasion });
 }
 export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
   return inv<Snapshot>("delete_playlist", { playlist });
