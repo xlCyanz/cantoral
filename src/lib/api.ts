@@ -130,6 +130,16 @@ export async function addAndScanFolder(path: string, recursive: boolean): Promis
 export async function rescanFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("rescan_folder", { id });
 }
+/** Ask an in-flight backend scan to stop after the file it is on. */
+export async function cancelScanCmd(): Promise<void> {
+  if (!isTauri()) return;
+  await inv("cancel_scan");
+}
+/** Re-check every indexed file on disk (tracks deleted while the app was closed). */
+export async function reconcileLibraryCmd(): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("reconcile_library");
+}
 export async function removeFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("remove_folder", { id });
 }

@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   missing   INTEGER NOT NULL DEFAULT 0,
   video     INTEGER NOT NULL DEFAULT 0,
   cover_path TEXT,
-  added_at  TEXT NOT NULL
+  added_at  TEXT NOT NULL,
+  mtime     INTEGER NOT NULL DEFAULT 0,
+  fsize     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS playlists (
@@ -77,12 +79,26 @@ CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     let conn = Connection::open(path)?;
     conn.execute_batch(SCHEMA)?;
+    // A scan runs on its own connection, so both sides must wait rather than
+    // fail with SQLITE_BUSY while the other holds the write lock.
+    conn.execute_batch("PRAGMA busy_timeout = 15000;")?;
     // Migrations for databases created before a column existed (no-op if present).
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_path TEXT", []);
     let _ = conn.execute(
         "ALTER TABLE folders ADD COLUMN recursive INTEGER NOT NULL DEFAULT 1",
         [],
     );
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN fsize INTEGER NOT NULL DEFAULT 0", []);
+    Ok(conn)
+}
+
+/// Open a second connection to the same database, for work that must not hold
+/// the main mutex (scanning). WAL lets it write while the UI keeps reading;
+/// `busy_timeout` makes the two wait for each other instead of erroring.
+pub fn open_secondary(path: &std::path::Path) -> Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 15000;")?;
     Ok(conn)
 }
 
@@ -180,6 +196,7 @@ pub fn set_track_tags(conn: &Connection, id: i64, tags: &[String]) -> Result<()>
 
 /// Insert or update a scanned track by path. Preserves user-edited church
 /// fields (tono/bpm/ocasion/fav) on re-scan. Returns the track row id.
+#[allow(clippy::too_many_arguments)]
 pub fn upsert_track(
     conn: &Connection,
     folder_id: i64,
@@ -190,18 +207,39 @@ pub fn upsert_track(
     dur_sec: i64,
     formato: &str,
     video: bool,
+    mtime: i64,
+    fsize: i64,
 ) -> Result<i64> {
     conn.execute(
-        "INSERT INTO tracks (folder_id, path, titulo, artista, album, dur_sec, formato, video, missing, added_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,0,?9)
+        "INSERT INTO tracks (folder_id, path, titulo, artista, album, dur_sec, formato, video, missing, added_at, mtime, fsize)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,0,?9,?10,?11)
          ON CONFLICT(path) DO UPDATE SET
            folder_id=excluded.folder_id, titulo=excluded.titulo, artista=excluded.artista,
            album=excluded.album, dur_sec=excluded.dur_sec, formato=excluded.formato,
-           video=excluded.video, missing=0",
-        params![folder_id, path, titulo, artista, album, dur_sec, formato, video as i64, now()],
+           video=excluded.video, missing=0, mtime=excluded.mtime, fsize=excluded.fsize",
+        params![folder_id, path, titulo, artista, album, dur_sec, formato, video as i64, now(), mtime, fsize],
     )?;
     let id: i64 = conn.query_row("SELECT id FROM tracks WHERE path=?1", params![path], |r| r.get(0))?;
     Ok(id)
+}
+
+/// Row id plus the file stamp recorded for a path, if it is already indexed.
+pub fn track_stamp(conn: &Connection, path: &str) -> Result<Option<(i64, i64, i64)>> {
+    let mut stmt = conn.prepare("SELECT id, mtime, fsize FROM tracks WHERE path=?1")?;
+    let mut rows = stmt.query(params![path])?;
+    match rows.next()? {
+        Some(r) => Ok(Some((r.get(0)?, r.get(1)?, r.get(2)?))),
+        None => Ok(None),
+    }
+}
+
+/// Re-attach an unchanged track to its folder without re-reading its metadata.
+pub fn touch_existing_track(conn: &Connection, id: i64, folder_id: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE tracks SET folder_id=?1, missing=0 WHERE id=?2",
+        params![folder_id, id],
+    )?;
+    Ok(())
 }
 
 pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()> {
@@ -268,8 +306,53 @@ pub fn folder_scan_target(conn: &Connection, id: i64) -> Result<(String, bool)> 
     Ok((path, recursive != 0))
 }
 
+/// Delete a folder, first removing the extracted cover files of its tracks so
+/// the covers directory does not accumulate orphans after the cascade delete.
 pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
+    let mut stmt =
+        conn.prepare("SELECT cover_path FROM tracks WHERE folder_id=?1 AND cover_path IS NOT NULL")?;
+    let covers: Vec<String> = stmt
+        .query_map(params![id], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    drop(stmt);
+    for c in covers {
+        let _ = std::fs::remove_file(&c);
+    }
     conn.execute("DELETE FROM folders WHERE id=?1", params![id])?;
+    Ok(())
+}
+
+/// Existing folder whose tree overlaps `path`, if any. Indexing a folder that
+/// contains — or sits inside — an already indexed one would move its tracks
+/// between folders and desync the counts.
+pub fn overlapping_folder(conn: &Connection, path: &str) -> Result<Option<String>> {
+    let mut stmt = conn.prepare("SELECT path FROM folders")?;
+    let existing: Vec<String> = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    let new = std::path::Path::new(path);
+    for other in existing {
+        let o = std::path::Path::new(&other);
+        if new == o {
+            continue; // re-adding the same folder is a plain rescan
+        }
+        if new.starts_with(o) || o.starts_with(new) {
+            return Ok(Some(other));
+        }
+    }
+    Ok(None)
+}
+
+/// Re-check every indexed file, so tracks deleted while the app was closed are
+/// flagged (and restored ones un-flagged) without a full rescan.
+pub fn reconcile_all(conn: &Connection) -> Result<()> {
+    let ids: Vec<i64> = conn
+        .prepare("SELECT id FROM folders")?
+        .query_map([], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    for id in ids {
+        reconcile_missing(conn, id)?;
+    }
     Ok(())
 }
 
@@ -376,4 +459,163 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
         params![key, value],
     )?;
     Ok(())
+}
+
+// ---------------------------------------------------------------- tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Fresh in-memory database with the production schema.
+    fn mem() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        conn
+    }
+
+    fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
+        upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100).unwrap()
+    }
+
+    #[test]
+    fn upsert_preserves_user_edited_fields_on_rescan() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        update_track_meta(&conn, id, "Sol", 72, "Adoración").unwrap();
+        set_fav(&conn, id, true).unwrap();
+        set_track_tags(&conn, id, &["lento".into()]).unwrap();
+
+        // A rescan re-reads tag metadata but must not clobber church fields.
+        let again = add_track(&conn, fid, "/m/a.mp3", "A (retag)");
+        assert_eq!(again, id);
+
+        let t = &list_tracks(&conn).unwrap()[0];
+        assert_eq!(t.titulo, "A (retag)");
+        assert_eq!(t.tono, "Sol");
+        assert_eq!(t.bpm, 72);
+        assert_eq!(t.ocasion, "Adoración");
+        assert!(t.fav);
+        assert_eq!(t.tags, vec!["lento".to_string()]);
+    }
+
+    #[test]
+    fn track_stamp_reports_the_recorded_file_stamp() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        assert_eq!(track_stamp(&conn, "/m/a.mp3").unwrap(), Some((id, 10, 100)));
+        assert_eq!(track_stamp(&conn, "/m/missing.mp3").unwrap(), None);
+    }
+
+    #[test]
+    fn touch_existing_track_reattaches_without_touching_metadata() {
+        let conn = mem();
+        let f1 = add_folder(&conn, "/one", "one", true).unwrap();
+        let f2 = add_folder(&conn, "/two", "two", true).unwrap();
+        let id = add_track(&conn, f1, "/one/a.mp3", "A");
+        conn.execute("UPDATE tracks SET missing=1", []).unwrap();
+
+        touch_existing_track(&conn, id, f2).unwrap();
+
+        let t = &list_tracks(&conn).unwrap()[0];
+        assert!(!t.missing);
+        assert_eq!(t.carpeta, "two");
+        assert_eq!(t.titulo, "A");
+    }
+
+    #[test]
+    fn reconcile_marks_vanished_files_as_missing() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        add_track(&conn, fid, "/m/definitely-not-on-disk.mp3", "A");
+
+        reconcile_all(&conn).unwrap();
+
+        assert!(list_tracks(&conn).unwrap()[0].missing);
+    }
+
+    #[test]
+    fn overlapping_folder_rejects_nesting_but_allows_siblings() {
+        let conn = mem();
+        add_folder(&conn, "/music/himnos", "himnos", true).unwrap();
+
+        // A parent of an indexed folder, and a child of one, both overlap.
+        assert_eq!(
+            overlapping_folder(&conn, "/music").unwrap(),
+            Some("/music/himnos".into())
+        );
+        assert_eq!(
+            overlapping_folder(&conn, "/music/himnos/2025").unwrap(),
+            Some("/music/himnos".into())
+        );
+        // A sibling is fine, and re-adding the same folder is just a rescan.
+        assert_eq!(overlapping_folder(&conn, "/music/coros").unwrap(), None);
+        assert_eq!(overlapping_folder(&conn, "/music/himnos").unwrap(), None);
+    }
+
+    #[test]
+    fn remove_folder_deletes_its_tracks() {
+        let conn = mem();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        add_track(&conn, fid, "/m/a.mp3", "A");
+
+        remove_folder(&conn, fid).unwrap();
+
+        assert!(list_tracks(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn playlist_order_round_trips_and_add_is_idempotent() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let pid = create_playlist(&conn, "Culto", "hoy", "Adoración").unwrap();
+
+        add_to_playlist(&conn, pid, a).unwrap();
+        add_to_playlist(&conn, pid, b).unwrap();
+        add_to_playlist(&conn, pid, a).unwrap(); // already there
+
+        assert_eq!(list_playlists(&conn).unwrap()[0].ids, vec![a.to_string(), b.to_string()]);
+
+        set_playlist_order(&conn, pid, &[b, a]).unwrap();
+        assert_eq!(list_playlists(&conn).unwrap()[0].ids, vec![b.to_string(), a.to_string()]);
+    }
+
+    #[test]
+    fn update_playlist_changes_name_date_and_occasion() {
+        let conn = mem();
+        let pid = create_playlist(&conn, "Sin título", "", "").unwrap();
+
+        update_playlist(&conn, pid, "Culto 20 Jul", "Domingo 20", "Ensayo").unwrap();
+
+        let pl = &list_playlists(&conn).unwrap()[0];
+        assert_eq!(pl.nombre, "Culto 20 Jul");
+        assert_eq!(pl.fecha, "Domingo 20");
+        assert_eq!(pl.ocasion, "Ensayo");
+    }
+
+    #[test]
+    fn folder_scan_target_returns_the_stored_recursive_choice() {
+        let conn = mem();
+        let shallow = add_folder(&conn, "/shallow", "shallow", false).unwrap();
+        let deep = add_folder(&conn, "/deep", "deep", true).unwrap();
+
+        assert_eq!(folder_scan_target(&conn, shallow).unwrap(), ("/shallow".into(), false));
+        assert_eq!(folder_scan_target(&conn, deep).unwrap(), ("/deep".into(), true));
+    }
+
+    #[test]
+    fn settings_round_trip_and_overwrite() {
+        let conn = mem();
+        assert_eq!(get_setting(&conn, "themeMode").unwrap(), None);
+        set_setting(&conn, "themeMode", "dark").unwrap();
+        set_setting(&conn, "themeMode", "system").unwrap();
+        assert_eq!(get_setting(&conn, "themeMode").unwrap(), Some("system".into()));
+    }
 }

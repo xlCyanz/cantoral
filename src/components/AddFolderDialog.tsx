@@ -20,14 +20,14 @@ export default function AddFolderDialog() {
 
   return (
     <div onClick={closeDialog} style={{ position: "fixed", inset: 0, zIndex: 40, background: "rgba(25,18,12,.42)", backdropFilter: "blur(2px)", display: "grid", placeItems: "center", padding: 24, animation: "canOverlay .18s ease" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)" }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="add-folder-title" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)" }}>
         <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
             <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--primary-soft)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
               <FolderPlus size={21} color="var(--primary)" />
             </div>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>Agregar carpeta de música</h2>
+              <h2 id="add-folder-title" style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>Agregar carpeta de música</h2>
               <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>Cantoral indexará los archivos sin moverlos ni copiarlos.</p>
             </div>
           </div>

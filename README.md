@@ -32,6 +32,7 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría.
 - 🎨 **Claro y oscuro** — sistema de diseño cálido propio; sigue el tema del sistema o se fija a mano.
+- ⌨️ **Teclado** — espacio para reproducir/pausar, flechas para cambiar de pista, ⌘/Ctrl + F para buscar, ⌘/Ctrl + N para una lista nueva, Esc para cerrar y `?` para la ayuda.
 
 ## 🧱 Stack
 
@@ -54,6 +55,13 @@ pnpm dev            # http://localhost:1420
 
 # 2) App de escritorio completa (interfaz + backend Rust)
 pnpm tauri dev
+```
+
+Pruebas:
+
+```bash
+pnpm test                                        # selectores del store y hoja de exportación
+cargo test --manifest-path src-tauri/Cargo.toml   # esquema y consultas SQLite
 ```
 
 En el navegador, `src/lib/api.ts` detecta que no hay runtime de Tauri y la app usa
@@ -144,7 +152,7 @@ cantoral/
 │   ├── components/         # TitleBar, Sidebar, TopBar, LibraryView, DetailPanel,
 │   │                       # PlayerBar, Collections/Playlist, Config, diálogos, …
 │   ├── lib/                # types · seed (mock) · covers · styles · exportSheet
-│   │                       # · api (seam Tauri)
+│   │                       # · shortcuts · api (seam Tauri) · __tests__/
 │   ├── store.ts            # Estado global (Zustand) + selectores derivados
 │   └── styles/global.css   # Tokens de diseño (claro/oscuro), fuentes, keyframes
 ├── src-tauri/src/          # Núcleo (Rust)
@@ -164,6 +172,14 @@ La base local `cantoral.db` (SQLite) se crea en el directorio de datos del app
 Tablas: `folders`, `tracks`,
 `playlists`, `playlist_tracks`, `tags`, `track_tags`, `settings`. Respalda desde
 **Configuración → Base de datos → Crear copia**.
+
+Los re-escaneos son incrementales: solo se vuelve a leer la metadata de los archivos
+cuyo tamaño o fecha de modificación cambió. El escaneo corre en su propia conexión
+SQLite y hace commit por lotes, así la interfaz sigue respondiendo mientras indexa.
+
+Los errores que llegan a la interfaz también quedan en un log rotativo dentro del
+directorio de logs del app (`~/Library/Logs/com.cantoral.desktop/` en macOS,
+`%APPDATA%\com.cantoral.desktop\logs\` en Windows).
 
 ## 📄 Licencia
 

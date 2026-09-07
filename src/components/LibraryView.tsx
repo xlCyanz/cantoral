@@ -63,7 +63,23 @@ function TrackRow({ t, num }: { t: Track; num: number }) {
   };
 
   return (
-    <div className="lib-row" onClick={() => s.onRowClick(t.id)} onDoubleClick={() => s.play(t.id)} style={rowStyle}>
+    <div
+      className="lib-row"
+      tabIndex={0}
+      aria-label={`${t.titulo}, ${t.artista}${t.tono ? `, tono ${t.tono}` : ""}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
+      aria-selected={sel}
+      onClick={() => s.onRowClick(t.id)}
+      onDoubleClick={() => s.play(t.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          // Enter opens the detail panel; ⌘/Ctrl+Enter starts playback.
+          if (e.metaKey || e.ctrlKey) s.play(t.id);
+          else s.onRowClick(t.id);
+        }
+      }}
+      style={rowStyle}
+    >
       {/* index / play */}
       <div style={{ width: 32, height: 34, display: "grid", placeItems: "center", position: "relative" }}>
         {playing ? (
@@ -117,10 +133,10 @@ function TrackRow({ t, num }: { t: Track; num: number }) {
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       {/* actions */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
-        <button onClick={(e) => { e.stopPropagation(); s.onFav(t.id); }} title="Favorita" className="hb-s3" style={favBtnStyle(t.fav)}>
+        <button onClick={(e) => { e.stopPropagation(); s.onFav(t.id); }} title="Favorita" aria-label={t.fav ? `Quitar «${t.titulo}» de favoritas` : `Marcar «${t.titulo}» como favorita`} aria-pressed={t.fav} className="hb-s3" style={favBtnStyle(t.fav)}>
           <Heart size={15} fill={t.fav ? "currentColor" : "none"} />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); s.onOpenExternal(t.id); }} title="Abrir en el reproductor del sistema" className="hb-s3t" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+        <button onClick={(e) => { e.stopPropagation(); s.onOpenExternal(t.id); }} title="Abrir en el reproductor del sistema" aria-label={`Abrir «${t.titulo}» en el reproductor del sistema`} className="hb-s3t" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
           <SquareArrowOutUpRight size={14} />
         </button>
       </div>
@@ -145,7 +161,14 @@ function ColumnHeader() {
       {cols.map((c) => {
         const { style, arrow } = thProps(c.key, sortKey, sortDir);
         return (
-          <button key={c.key} onClick={() => onSortHeader(c.key)} style={style}>
+          <button
+            key={c.key}
+            onClick={() => onSortHeader(c.key)}
+            aria-label={`Ordenar por ${c.label || "duración"}${
+              sortKey === c.key ? (sortDir === "asc" ? ", ascendente" : ", descendente") : ""
+            }`}
+            style={style}
+          >
             {c.icon ? <Clock size={14} /> : c.label} {arrow}
           </button>
         );
@@ -196,7 +219,14 @@ function ScanningState() {
         </div>
         <h2 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 6px" }}>Escaneando tu música…</h2>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 22px" }}>Indexando metadatos. Puedes seguir usando la app mientras tanto.</p>
-        <div style={{ height: 9, borderRadius: 6, background: "var(--surface-3)", overflow: "hidden", marginBottom: 11 }}>
+        <div
+          role="progressbar"
+          aria-label="Progreso del escaneo"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(s.scanPct)}
+          style={{ height: 9, borderRadius: 6, background: "var(--surface-3)", overflow: "hidden", marginBottom: 11 }}
+        >
           <div style={{ width: s.scanPct + "%", height: "100%", borderRadius: 6, background: "linear-gradient(90deg,var(--primary),var(--primary-hover))", transition: "width .16s linear" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)" }}>

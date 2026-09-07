@@ -39,6 +39,7 @@ export default function TopBar() {
           <div style={{ flex: "1 1 0", minWidth: 0, maxWidth: 440, position: "relative", display: "flex", alignItems: "center" }}>
             <Search size={17} style={{ position: "absolute", left: 13, color: "var(--text-3)", pointerEvents: "none" }} />
             <input
+              data-search-input
               value={query}
               onChange={(e) => s.onQuery(e.target.value)}
               placeholder="Buscar por título, artista, tono o etiqueta…"

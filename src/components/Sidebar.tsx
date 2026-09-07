@@ -71,13 +71,13 @@ export default function Sidebar() {
         </div>
 
         {/* primary nav */}
-        <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <button onClick={showBiblioteca} className={libActive ? undefined : "hb-s2"} style={navStyle(libActive)}>
+        <nav aria-label="Secciones" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <button onClick={showBiblioteca} aria-current={libActive ? "page" : undefined} className={libActive ? undefined : "hb-s2"} style={navStyle(libActive)}>
             <Library size={18} style={{ flex: "0 0 auto" }} />
             <span style={{ flex: 1, textAlign: "left" }}>Biblioteca</span>
             <span style={navCountStyle(libActive)}>{total}</span>
           </button>
-          <button onClick={showColecciones} className={colActive ? undefined : "hb-s2"} style={navStyle(colActive)}>
+          <button onClick={showColecciones} aria-current={colActive ? "page" : undefined} className={colActive ? undefined : "hb-s2"} style={navStyle(colActive)}>
             <ListMusic size={18} style={{ flex: "0 0 auto" }} />
             <span style={{ flex: 1, textAlign: "left" }}>Listas para cultos</span>
             <span style={navCountStyle(colActive)}>{plCount}</span>
@@ -87,15 +87,15 @@ export default function Sidebar() {
         {/* quick filters */}
         <div style={{ ...sectionLabel, padding: "18px 8px 7px" }}>Filtros rápidos</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <button onClick={() => onQuickFilter("fav")} className={qf === "fav" ? undefined : "hb-s2"} style={qfStyle(qf === "fav")}>
+          <button onClick={() => onQuickFilter("fav")} aria-pressed={qf === "fav"} className={qf === "fav" ? undefined : "hb-s2"} style={qfStyle(qf === "fav")}>
             <Heart size={17} style={{ flex: "0 0 auto" }} />
             <span style={{ flex: 1, textAlign: "left" }}>Favoritas</span>
           </button>
-          <button onClick={() => onQuickFilter("recent")} className={qf === "recent" ? undefined : "hb-s2"} style={qfStyle(qf === "recent")}>
+          <button onClick={() => onQuickFilter("recent")} aria-pressed={qf === "recent"} className={qf === "recent" ? undefined : "hb-s2"} style={qfStyle(qf === "recent")}>
             <Clock size={17} style={{ flex: "0 0 auto" }} />
             <span style={{ flex: 1, textAlign: "left" }}>Recién agregadas</span>
           </button>
-          <button onClick={() => onQuickFilter("missing")} className={qf === "missing" ? undefined : "hb-s2"} style={qfStyle(qf === "missing")}>
+          <button onClick={() => onQuickFilter("missing")} aria-pressed={qf === "missing"} className={qf === "missing" ? undefined : "hb-s2"} style={qfStyle(qf === "missing")}>
             <TriangleAlert size={17} style={{ flex: "0 0 auto" }} />
             <span style={{ flex: 1, textAlign: "left" }}>Archivos faltantes</span>
             <span style={{ fontSize: "11px", fontWeight: 700, padding: "1px 7px", borderRadius: 20, background: "var(--danger-soft)", color: "var(--danger)" }}>

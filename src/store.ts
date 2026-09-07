@@ -26,6 +26,7 @@ import {
   addAndScanFolder,
   addToPlaylistCmd,
   assetUrl,
+  cancelScanCmd,
   backupDatabase,
   createPlaylistCmd,
   deletePlaylistCmd,
@@ -37,6 +38,7 @@ import {
   pickDbFile,
   pickExportPath,
   pickSavePath,
+  reconcileLibraryCmd,
   removeFolderCmd,
   rescanFolderCmd,
   restoreDatabaseCmd,
@@ -474,6 +476,9 @@ export const useStore = create<CantoralState>((set, get) => {
     cancelScan: () => {
       if (scanTimer) clearInterval(scanTimer);
       scanTimer = null;
+      // Stop the backend walk too — clearing the timer only ever hid the
+      // browser simulation, leaving a real scan running to completion.
+      void cancelScanCmd().catch(console.error);
       set({ libState: "content" });
     },
     retryError: () => {
@@ -519,6 +524,14 @@ export const useStore = create<CantoralState>((set, get) => {
         }
         if (openExtS != null) patch.openExt = openExtS === "1";
         if (Object.keys(patch).length) set(patch);
+
+        // Files can disappear while the app is closed; re-check them once the
+        // catalogue is on screen rather than blocking the first paint.
+        void reconcileLibraryCmd()
+          .then((fresh) => {
+            if (fresh) applySnapshot(fresh);
+          })
+          .catch((err) => console.error("reconcile failed", err));
       } catch (err) {
         console.error("hydrate failed", err);
         lastFailedAction = () => void get().hydrate();

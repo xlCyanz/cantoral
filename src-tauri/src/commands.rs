@@ -1,5 +1,6 @@
 use rusqlite::Connection;
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager, State};
 
 use crate::db::{self, Db};
@@ -23,10 +24,21 @@ fn snapshot(conn: &Connection) -> anyhow::Result<Snapshot> {
     })
 }
 
+/// Location of the live database. Scans open their own connection from it so
+/// they never hold the mutex the UI's own commands need.
+pub struct DbPath(pub std::path::PathBuf);
+
+/// Raised to ask an in-flight scan to stop; the scanner polls it between files.
+pub struct ScanCancel(pub AtomicBool);
+
 type CmdResult<T> = Result<T, String>;
 
+/// Convert an error for the frontend, recording it in the log file on the way
+/// out so failures are diagnosable after the fact.
 fn e<E: std::fmt::Display>(err: E) -> String {
-    err.to_string()
+    let msg = err.to_string();
+    log::error!("{msg}");
+    msg
 }
 
 #[tauri::command]
@@ -35,33 +47,92 @@ pub fn get_library(db: State<Db>) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
+/// Run a scan on its own connection, so the main mutex is held only for the
+/// short setup and snapshot steps rather than for the whole walk.
+fn run_scan(
+    app: &AppHandle,
+    db_path: &std::path::Path,
+    cancel: &ScanCancel,
+    folder_id: i64,
+    path: &str,
+    recursive: bool,
+) -> CmdResult<()> {
+    cancel.0.store(false, Ordering::Relaxed);
+    let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
+    let scan_conn = db::open_secondary(db_path).map_err(e)?;
+    log::info!("scan start: {path} (recursive={recursive})");
+    let started = std::time::Instant::now();
+    let count = scanner::scan_folder(app, &scan_conn, folder_id, path, &cover_dir, recursive, &cancel.0)
+        .map_err(e)?;
+    log::info!("scan done: {count} files in {:?}", started.elapsed());
+    Ok(())
+}
+
 #[tauri::command]
 pub fn add_and_scan_folder(
     app: AppHandle,
     db: State<Db>,
+    db_path: State<DbPath>,
+    cancel: State<ScanCancel>,
     path: String,
     recursive: bool,
 ) -> CmdResult<Snapshot> {
+    let fid = {
+        let conn = db.0.lock().map_err(e)?;
+        if let Some(other) = db::overlapping_folder(&conn, &path).map_err(e)? {
+            return Err(format!(
+                "«{}» se cruza con la carpeta ya indexada «{}». Quita una de las dos o elige otra ubicación.",
+                path, other
+            ));
+        }
+        let nombre = std::path::Path::new(&path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or(path.as_str())
+            .to_string();
+        db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?
+    };
+
+    run_scan(&app, &db_path.0, &cancel, fid, &path, recursive)?;
+
     let conn = db.0.lock().map_err(e)?;
-    let nombre = std::path::Path::new(&path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or(path.as_str())
-        .to_string();
-    let fid = db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?;
-    let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
-    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir, recursive).map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 
 #[tauri::command]
-pub fn rescan_folder(app: AppHandle, db: State<Db>, id: String) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
+pub fn rescan_folder(
+    app: AppHandle,
+    db: State<Db>,
+    db_path: State<DbPath>,
+    cancel: State<ScanCancel>,
+    id: String,
+) -> CmdResult<Snapshot> {
     let fid = id.parse::<i64>().map_err(e)?;
     // Re-use the «include subfolders» choice made when the folder was added.
-    let (path, recursive) = db::folder_scan_target(&conn, fid).map_err(e)?;
-    let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
-    scanner::scan_folder(&app, &conn, fid, &path, &cover_dir, recursive).map_err(e)?;
+    let (path, recursive) = {
+        let conn = db.0.lock().map_err(e)?;
+        db::folder_scan_target(&conn, fid).map_err(e)?
+    };
+
+    run_scan(&app, &db_path.0, &cancel, fid, &path, recursive)?;
+
+    let conn = db.0.lock().map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Ask the running scan to stop after the file it is on.
+#[tauri::command]
+pub fn cancel_scan(cancel: State<ScanCancel>) -> CmdResult<()> {
+    cancel.0.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Re-check every indexed file on disk. Called after startup so tracks deleted
+/// while the app was closed show up as missing without a full rescan.
+#[tauri::command]
+pub fn reconcile_library(db: State<Db>) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::reconcile_all(&conn).map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 

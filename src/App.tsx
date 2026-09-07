@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useStore } from "./store";
 import { onScanProgress } from "./lib/api";
+import { registerShortcuts } from "./lib/shortcuts";
+import ErrorBoundary from "./components/ErrorBoundary";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
@@ -55,6 +57,9 @@ export default function App() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).
+  useEffect(() => registerShortcuts(), []);
+
   // Native feel: suppress the browser context menu, except in editable fields.
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -67,6 +72,7 @@ export default function App() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <div style={{ height: "100vh", width: "100%", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)", color: "var(--text)" }}>
       <TitleBar />
 
@@ -92,5 +98,6 @@ export default function App() {
       <HelpDialog />
       <Toast />
     </div>
+    </ErrorBoundary>
   );
 }
