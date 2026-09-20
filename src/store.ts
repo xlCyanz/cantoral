@@ -260,6 +260,23 @@ export const useStore = create<CantoralState>((set, get) => {
     set({ tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId, queue });
   };
 
+  /**
+   * Apply a new playlist order at once and persist it, putting the previous one
+   * back if the backend refuses.
+   *
+   * The order used to be saved with a bare `void setPlaylistOrderCmd(...)`, so a
+   * write that failed left the screen showing an order the database never got —
+   * and the user found out at the next launch, when their culto had reverted.
+   */
+  const saveOrder = (playlistId: string, next: string[], prev: string[]) => {
+    set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: next } }));
+    setPlaylistOrderCmd(playlistId, next).catch((err) => {
+      console.error("set_playlist_order failed", err);
+      set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: prev } }));
+      get().showToast("No se pudo guardar el orden de la lista", "error");
+    });
+  };
+
   return {
     // The seed catalogue is browser-only scaffolding. Inside Tauri the store
     // starts empty and `hydrate()` fills it from SQLite, so demo data can never
@@ -736,9 +753,9 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     removeFromPl: (id) => {
       const cur2 = get().curPlaylist;
-      const next = (get().plOrder[cur2] || []).filter((x) => x !== id);
-      set((st) => ({ plOrder: { ...st.plOrder, [cur2]: next } }));
-      void setPlaylistOrderCmd(cur2, next);
+      const prev = get().plOrder[cur2] || [];
+      const next = prev.filter((x) => x !== id);
+      saveOrder(cur2, next, prev);
       toast("Quitada de la lista");
     },
     setDragging: (id) => {
@@ -754,10 +771,10 @@ export const useStore = create<CantoralState>((set, get) => {
         const fi = arr.indexOf(from);
         const ti = arr.indexOf(toId);
         if (fi > -1 && ti > -1) {
+          const prev = (get().plOrder[cur2] || []).slice();
           arr.splice(fi, 1);
           arr.splice(ti, 0, from);
-          set((st) => ({ plOrder: { ...st.plOrder, [cur2]: arr } }));
-          void setPlaylistOrderCmd(cur2, arr);
+          saveOrder(cur2, arr, prev);
         }
       }
       set({ draggingId: null, overId: null });
