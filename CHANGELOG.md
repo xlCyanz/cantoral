@@ -9,6 +9,15 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Confirmación en las tres acciones que no se pueden deshacer**: quitar una
+  carpeta indexada, eliminar una lista para culto y restaurar un respaldo. El
+  diálogo dice con números reales qué se pierde —«se borrarán 128 pistas junto con
+  sus etiquetas, favoritos, tono y ocasión»— y recuerda qué **no** se toca. Al
+  restaurar, compara la biblioteca actual con la del respaldo antes de reemplazarla.
+  «Cancelar» arranca con el foco, así que pulsar Enter por inercia no destruye nada.
+
 ### Seguridad
 
 - **Restaurar un respaldo ya no puede destruir la biblioteca.** El archivo se abre

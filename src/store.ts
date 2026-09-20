@@ -33,6 +33,7 @@ import {
   exportPlaylistCmd,
   getLibrary,
   getSetting,
+  inspectBackup,
   isTauri,
   openExternalPath,
   pickDbFile,
@@ -56,6 +57,25 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let dragId: string | null = null;
 /** Action to re-run from the error state — set whenever a backend call fails. */
 let lastFailedAction: (() => void) | null = null;
+
+/**
+ * A destructive action waiting to be confirmed.
+ *
+ * Every field is filled at the moment the user asks for the action, so the
+ * dialog can name what is about to be lost with real numbers rather than a
+ * generic «¿estás seguro?».
+ */
+export interface ConfirmRequest {
+  title: string;
+  /** What is about to happen, in plain words. */
+  message: string;
+  /** Exactly what is lost — counts, names. Rendered as a highlighted block. */
+  detail?: string;
+  /** Reassurance about what is *not* touched. */
+  safe?: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+}
 
 export type ToastType = "success" | "error" | "info";
 export interface ToastNotice {
@@ -118,6 +138,9 @@ export interface CantoralState {
 
   // ---- toast ----
   toast: ToastNotice | null;
+
+  /** Destructive action awaiting confirmation, or null. */
+  confirm: ConfirmRequest | null;
 
   // ---- actions ----
   showBiblioteca: () => void;
@@ -191,6 +214,10 @@ export interface CantoralState {
 
   tick: () => void;
   showToast: (m: string, type?: ToastType) => void;
+
+  askConfirm: (req: ConfirmRequest) => void;
+  acceptConfirm: () => void;
+  closeConfirm: () => void;
 }
 
 const initialPlOrder: Record<string, string[]> = {};
@@ -270,6 +297,7 @@ export const useStore = create<CantoralState>((set, get) => {
     overId: null,
 
     toast: null,
+    confirm: null,
 
     // ---------- nav ----------
     showBiblioteca: () => set({ view: "biblioteca" }),
@@ -657,23 +685,43 @@ export const useStore = create<CantoralState>((set, get) => {
       if (isTauri()) void addToPlaylistCmd(playlistId, trackId).then(applySnapshot).catch(console.error);
     },
     deleteCurrentList: () => {
-      const id = get().curPlaylist;
-      if (isTauri()) {
-        deletePlaylistCmd(id)
-          .then((snap) => {
-            applySnapshot(snap);
-            set({ view: "colecciones" });
-          })
-          .catch(console.error);
-      } else {
-        set((s) => {
-          const playlists = s.playlists.filter((p) => p.id !== id);
-          const plOrder = { ...s.plOrder };
-          delete plOrder[id];
-          return { playlists, plOrder, view: "colecciones", curPlaylist: playlists[0]?.id || s.curPlaylist };
-        });
-      }
-      toast("Lista eliminada");
+      const st = get();
+      const id = st.curPlaylist;
+      const pl = st.playlists.find((p) => p.id === id);
+      if (!pl) return;
+      const n = (st.plOrder[id] || []).length;
+      st.askConfirm({
+        title: "¿Eliminar esta lista?",
+        message: `«${pl.nombre}» se borrará de las listas para cultos.`,
+        detail:
+          n > 0
+            ? `La lista tiene ${n} ${n === 1 ? "pista" : "pistas"} en su orden de culto. Ese orden se pierde y no se puede deshacer.`
+            : "La lista está vacía.",
+        safe: "Las pistas siguen en tu biblioteca; solo se borra la lista.",
+        confirmLabel: "Eliminar lista",
+        onConfirm: () => {
+          if (isTauri()) {
+            deletePlaylistCmd(id)
+              .then((snap) => {
+                applySnapshot(snap);
+                set({ view: "colecciones" });
+                toast("Lista eliminada");
+              })
+              .catch((err) => {
+                console.error(err);
+                toast("No se pudo eliminar la lista", "error");
+              });
+          } else {
+            set((s) => {
+              const playlists = s.playlists.filter((p) => p.id !== id);
+              const plOrder = { ...s.plOrder };
+              delete plOrder[id];
+              return { playlists, plOrder, view: "colecciones", curPlaylist: playlists[0]?.id || s.curPlaylist };
+            });
+            toast("Lista eliminada");
+          }
+        },
+      });
     },
     removeFromPl: (id) => {
       const cur2 = get().curPlaylist;
@@ -716,12 +764,33 @@ export const useStore = create<CantoralState>((set, get) => {
       if (isTauri()) void setSetting("openExt", v ? "1" : "0");
     },
     removeFolder: (id) => {
-      if (isTauri()) {
-        removeFolderCmd(id).then(applySnapshot).catch(console.error);
-      } else {
-        set((s) => ({ folders: s.folders.filter((f) => f.id !== id) }));
-      }
-      toast("Carpeta quitada de la biblioteca");
+      const f = get().folders.find((x) => x.id === id);
+      if (!f) return;
+      const n = f.count;
+      get().askConfirm({
+        title: "¿Quitar esta carpeta?",
+        message: `«${f.nombre}» dejará de estar indexada.`,
+        detail:
+          n > 0
+            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus etiquetas, favoritos, tono y ocasión. Eso no se puede deshacer.`
+            : "La carpeta no tiene pistas indexadas.",
+        safe: "Tus archivos de audio no se tocan: siguen donde están.",
+        confirmLabel: "Quitar carpeta",
+        onConfirm: () => {
+          if (isTauri()) {
+            removeFolderCmd(id)
+              .then(applySnapshot)
+              .then(() => toast("Carpeta quitada de la biblioteca"))
+              .catch((err) => {
+                console.error(err);
+                toast("No se pudo quitar la carpeta", "error");
+              });
+          } else {
+            set((s) => ({ folders: s.folders.filter((x) => x.id !== id) }));
+            toast("Carpeta quitada de la biblioteca");
+          }
+        },
+      });
     },
     rescanFolder: (id) => {
       if (isTauri() && id) {
@@ -755,18 +824,45 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("Selecciona un archivo de respaldo…", "info");
         return;
       }
-      void pickDbFile().then((src) => {
+      void pickDbFile().then(async (src) => {
         if (!src) return;
-        restoreDatabaseCmd(src)
-          .then((snap) => {
-            applySnapshot(snap);
-            set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
-            toast("Base de datos restaurada");
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo restaurar la base de datos", "error");
-          });
+        // Read the backup before asking anything: a file that is not a Cantoral
+        // database is rejected here, so the question is never even posed.
+        let info;
+        try {
+          info = await inspectBackup(src);
+        } catch (err) {
+          console.error(err);
+          toast(String(err), "error");
+          return;
+        }
+        const st = get();
+        const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+        get().askConfirm({
+          title: "¿Restaurar este respaldo?",
+          message: "Tu biblioteca actual se reemplaza por completo con la del respaldo.",
+          detail:
+            `Ahora: ${plural(st.tracks.length, "pista", "pistas")}, ` +
+            `${plural(st.folders.length, "carpeta", "carpetas")} y ` +
+            `${plural(st.playlists.length, "lista", "listas")}.\n` +
+            `Respaldo: ${plural(info.tracks, "pista", "pistas")}, ` +
+            `${plural(info.folders, "carpeta", "carpetas")} y ` +
+            `${plural(info.playlists, "lista", "listas")}.`,
+          safe: "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta.",
+          confirmLabel: "Restaurar",
+          onConfirm: () => {
+            restoreDatabaseCmd(src)
+              .then((snap) => {
+                applySnapshot(snap);
+                set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
+                toast("Base de datos restaurada");
+              })
+              .catch((err) => {
+                console.error(err);
+                toast("No se pudo restaurar la base de datos", "error");
+              });
+          },
+        });
       });
     },
 
@@ -783,6 +879,14 @@ export const useStore = create<CantoralState>((set, get) => {
       if (p >= t.durSec) get().advance();
       else set({ posSec: p });
     },
+    askConfirm: (req) => set({ confirm: req }),
+    closeConfirm: () => set({ confirm: null }),
+    acceptConfirm: () => {
+      const req = get().confirm;
+      set({ confirm: null });
+      req?.onConfirm();
+    },
+
     showToast: (m, type = "success") => {
       if (toastTimer) clearTimeout(toastTimer);
       set({ toast: { message: m, type } });

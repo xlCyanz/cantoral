@@ -181,6 +181,18 @@ export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
 export async function restoreDatabaseCmd(src: string): Promise<Snapshot> {
   return inv<Snapshot>("restore_database", { src });
 }
+
+/** What a backup file holds, read without modifying it. */
+export interface BackupInfo {
+  tracks: number;
+  folders: number;
+  playlists: number;
+}
+
+/** Read a backup so the user can be told what they are about to replace. */
+export async function inspectBackup(src: string): Promise<BackupInfo> {
+  return inv<BackupInfo>("inspect_backup", { src });
+}
 /** Native open dialog for a .db backup file. */
 export async function pickDbFile(): Promise<string | null> {
   if (!isTauri()) return null;

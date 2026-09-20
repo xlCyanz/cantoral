@@ -57,6 +57,7 @@ pub fn run() {
             commands::set_setting,
             commands::get_db_info,
             commands::backup_database,
+            commands::inspect_backup,
             commands::restore_database,
         ])
         .run(tauri::generate_context!())

@@ -240,6 +240,13 @@ pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
+/// Read a candidate backup without touching it, so the confirmation dialog can
+/// say what the user is about to replace their library with.
+#[tauri::command]
+pub fn inspect_backup(src: String) -> CmdResult<db::BackupInfo> {
+    db::inspect_backup(std::path::Path::new(&src)).map_err(e)
+}
+
 /// Replace the live database with a backup file, then return the fresh snapshot.
 ///
 /// Nothing on disk is touched until the backup has been read and confirmed to be

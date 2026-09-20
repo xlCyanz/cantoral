@@ -15,6 +15,7 @@ import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
 import NewListDialog from "./components/NewListDialog";
 import HelpDialog from "./components/HelpDialog";
+import ConfirmDialog from "./components/ConfirmDialog";
 import Toast from "./components/Toast";
 
 export default function App() {
@@ -96,6 +97,7 @@ export default function App() {
       <AddFolderDialog />
       <NewListDialog />
       <HelpDialog />
+      <ConfirmDialog />
       <Toast />
     </div>
     </ErrorBoundary>
