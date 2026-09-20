@@ -17,8 +17,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` y este `CHANGELOG.md`.
 - Dependabot para npm, Cargo y GitHub Actions.
 
+### Corregido
+
+- El pipeline de compilación emparejaba **pnpm 11 con Node 20**, y pnpm 11 exige
+  Node ≥ 22.13: cualquier intento de publicar una versión habría fallado nada más
+  instalar dependencias. Como `build.yml` solo se disparaba con etiquetas, el fallo
+  nunca llegó a verse. Ahora ambos workflows usan Node 22 y pnpm 12, y los
+  requisitos del README y de CONTRIBUTING dicen lo mismo.
+
 ### Cambiado
 
+- Actualizadas las acciones de GitHub, varias versiones mayores por detrás
+  (`checkout`, `setup-node`, `upload-artifact`, `download-artifact` y
+  `pnpm/action-setup`).
 - README reescrito: contenido navegable, atajos de teclado, formatos soportados,
   problemas frecuentes, hoja de ruta y guía de publicación.
 - `build.yml` ahora verifica que la etiqueta coincida con la versión de

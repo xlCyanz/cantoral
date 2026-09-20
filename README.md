@@ -137,8 +137,8 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 
 | | Versión | Notas |
 |---|---|---|
-| **Node** | 20+ | |
-| **pnpm** | 11+ | `corepack enable` lo instala |
+| **Node** | 22+ | pnpm 12 exige Node ≥ 22.13 |
+| **pnpm** | 12+ | `corepack enable` lo instala |
 | **Rust** | stable | via [rustup](https://rustup.rs) |
 | **WebView2** | — | Windows 11 lo trae; en Windows 10 lo instalan los instaladores |
 | **Xcode CLT** | — | solo macOS: `xcode-select --install` |

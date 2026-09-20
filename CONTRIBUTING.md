@@ -34,8 +34,8 @@ así se acuerda el enfoque antes de que escribas código.
 
 | | Versión | Notas |
 |---|---|---|
-| **Node** | 20+ | |
-| **pnpm** | 11+ | `corepack enable` |
+| **Node** | 22+ | pnpm 12 exige Node ≥ 22.13 |
+| **pnpm** | 12+ | `corepack enable` |
 | **Rust** | stable | [rustup](https://rustup.rs) |
 | **Xcode CLT** | — | solo macOS: `xcode-select --install` |
 
