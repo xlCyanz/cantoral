@@ -264,6 +264,133 @@ pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<()> {
     Ok(())
 }
 
+/// Id of the indexed folder whose tree contains `path`, if any.
+fn folder_containing(conn: &Connection, path: &Path) -> Result<Option<i64>> {
+    let mut stmt = conn.prepare("SELECT id, path FROM folders")?;
+    let rows: Vec<(i64, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    // Deepest match wins, so a nested folder is preferred over its parent.
+    Ok(rows
+        .into_iter()
+        .filter(|(_, root)| path.starts_with(root))
+        .max_by_key(|(_, root)| root.chars().count())
+        .map(|(id, _)| id))
+}
+
+/// Point a track at the file's new location, keeping everything the user put on
+/// it — tags, favourite, key, tempo, occasion.
+///
+/// The file stamp is taken from the new file, so the next scan sees it as
+/// unchanged and does not re-read its metadata. If the new location falls inside
+/// another indexed folder, the track moves to it.
+pub fn relocate_track(conn: &Connection, id: i64, new_path: &Path) -> Result<()> {
+    if !new_path.is_file() {
+        bail!("«{}» no es un archivo.", new_path.display());
+    }
+    let new_str = new_path.to_string_lossy().to_string();
+
+    let taken: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM tracks WHERE path=?1 AND id<>?2",
+            params![new_str, id],
+            |r| r.get(0),
+        )
+        .ok();
+    if taken.is_some() {
+        bail!("Ese archivo ya está en la biblioteca como otra pista.");
+    }
+
+    let (mtime, fsize) = match std::fs::metadata(new_path) {
+        Ok(m) => (
+            m.modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0),
+            m.len() as i64,
+        ),
+        Err(_) => (0, 0),
+    };
+    let folder_id = folder_containing(conn, new_path)?;
+
+    match folder_id {
+        Some(fid) => conn.execute(
+            "UPDATE tracks SET path=?1, mtime=?2, fsize=?3, missing=0, folder_id=?4 WHERE id=?5",
+            params![new_str, mtime, fsize, fid, id],
+        )?,
+        None => conn.execute(
+            "UPDATE tracks SET path=?1, mtime=?2, fsize=?3, missing=0 WHERE id=?4",
+            params![new_str, mtime, fsize, id],
+        )?,
+    };
+    Ok(())
+}
+
+/// Remove a single track from the catalogue, with its extracted cover.
+///
+/// Its rows in `track_tags` and `playlist_tracks` go with it through the
+/// cascade, so a service list that referenced it simply gets shorter rather
+/// than pointing at nothing.
+pub fn delete_track(conn: &Connection, id: i64) -> Result<()> {
+    let cover: Option<String> = conn
+        .query_row("SELECT cover_path FROM tracks WHERE id=?1", params![id], |r| r.get(0))
+        .ok()
+        .flatten();
+    if let Some(c) = cover {
+        let _ = std::fs::remove_file(c);
+    }
+    conn.execute("DELETE FROM tracks WHERE id=?1", params![id])?;
+    Ok(())
+}
+
+/// Point a whole indexed folder at its new location, rewriting the path of every
+/// track under it.
+///
+/// This is the case that actually happens — the music moved to another drive, or
+/// Windows handed it a different letter. Doing it track by track would be
+/// hundreds of dialogs, and the alternative people reach for today (remove the
+/// folder and add it again) destroys every tag and favourite it held.
+///
+/// Returns how many tracks were rewritten.
+pub fn relocate_folder(conn: &Connection, id: i64, new_root: &Path) -> Result<i64> {
+    if !new_root.is_dir() {
+        bail!("«{}» no es una carpeta.", new_root.display());
+    }
+    let new_str = new_root.to_string_lossy().to_string();
+
+    let old: String = conn.query_row("SELECT path FROM folders WHERE id=?1", params![id], |r| {
+        r.get(0)
+    })?;
+    if old == new_str {
+        return Ok(0);
+    }
+    if let Some(other) = overlapping_folder(conn, &new_str)? {
+        if other != old {
+            bail!(
+                "«{}» se cruza con la carpeta ya indexada «{}».",
+                new_str,
+                other
+            );
+        }
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("UPDATE folders SET path=?1 WHERE id=?2", params![new_str, id])?;
+    // Rewrite the prefix only for tracks that actually sit under the old root;
+    // one that was relocated elsewhere by hand keeps its own path.
+    let old_len = old.chars().count() as i64;
+    let n = tx.execute(
+        "UPDATE tracks SET path = ?1 || substr(path, ?2 + 1)
+         WHERE folder_id = ?3 AND substr(path, 1, ?2) = ?4",
+        params![new_str, old_len, id, old],
+    )?;
+    tx.commit()?;
+
+    reconcile_missing(conn, id)?;
+    Ok(n as i64)
+}
+
 // ---------------------------------------------------------------- folders
 
 pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
@@ -853,6 +980,140 @@ mod tests {
         let conn = restore_from_backup(&live, &backup).unwrap();
 
         assert_eq!(list_tracks(&conn).unwrap().len(), 2);
+    }
+
+    /// Temp tree with real files, for the paths that must exist on disk.
+    struct Files(std::path::PathBuf);
+
+    impl Files {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!("cantoral-reloc-{name}"));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Files(dir)
+        }
+        fn dir(&self, rel: &str) -> std::path::PathBuf {
+            let p = self.0.join(rel);
+            std::fs::create_dir_all(&p).unwrap();
+            p
+        }
+        fn file(&self, rel: &str) -> std::path::PathBuf {
+            let p = self.0.join(rel);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(&p, b"audio").unwrap();
+            p
+        }
+        fn s(&self, rel: &str) -> String {
+            self.0.join(rel).to_string_lossy().to_string()
+        }
+    }
+
+    impl Drop for Files {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn relocating_a_track_keeps_everything_the_user_put_on_it() {
+        let files = Files::new("track-ok");
+        let conn = mem();
+        let fid = add_folder(&conn, &files.s("Himnos"), "Himnos", true).unwrap();
+        let id = add_track(&conn, fid, &files.s("Himnos/viejo.mp3"), "Sublime Gracia");
+        update_track_meta(&conn, id, "Sol", 72, "Adoración").unwrap();
+        set_fav(&conn, id, true).unwrap();
+        set_track_tags(&conn, id, &["lento".into()]).unwrap();
+        conn.execute("UPDATE tracks SET missing=1", []).unwrap();
+
+        let nuevo = files.file("Himnos/nuevo.mp3");
+        relocate_track(&conn, id, &nuevo).unwrap();
+
+        let t = &list_tracks(&conn).unwrap()[0];
+        assert_eq!(t.path, nuevo.to_string_lossy());
+        assert!(!t.missing, "deja de estar marcada como faltante");
+        // Lo que costó trabajo poner sigue ahí.
+        assert_eq!(t.tono, "Sol");
+        assert_eq!(t.bpm, 72);
+        assert_eq!(t.ocasion, "Adoración");
+        assert!(t.fav);
+        assert_eq!(t.tags, vec!["lento".to_string()]);
+        assert_eq!(t.titulo, "Sublime Gracia");
+    }
+
+    #[test]
+    fn relocating_refuses_a_path_that_is_not_a_file_or_is_already_taken() {
+        let files = Files::new("track-bad");
+        let conn = mem();
+        let fid = add_folder(&conn, &files.s("m"), "m", true).unwrap();
+        let a = add_track(&conn, fid, &files.s("m/a.mp3"), "A");
+        let ocupado = files.file("m/b.mp3");
+        add_track(&conn, fid, &ocupado.to_string_lossy(), "B");
+
+        assert!(relocate_track(&conn, a, &files.0.join("no-existe.mp3")).is_err());
+        assert!(relocate_track(&conn, a, &files.dir("m")).is_err(), "una carpeta no es un archivo");
+        assert!(relocate_track(&conn, a, &ocupado).is_err(), "ya es otra pista");
+    }
+
+    #[test]
+    fn a_relocated_track_joins_the_indexed_folder_that_now_contains_it() {
+        let files = Files::new("track-folder");
+        let conn = mem();
+        let himnos = add_folder(&conn, &files.s("Himnos"), "Himnos", true).unwrap();
+        add_folder(&conn, &files.s("Coros"), "Coros", true).unwrap();
+        let id = add_track(&conn, himnos, &files.s("Himnos/a.mp3"), "A");
+
+        relocate_track(&conn, id, &files.file("Coros/a.mp3")).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap()[0].carpeta, "Coros");
+    }
+
+    #[test]
+    fn deleting_a_track_also_takes_it_out_of_every_list() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let pid = create_playlist(&conn, "Culto", "", "").unwrap();
+        set_playlist_order(&conn, pid, &[a, b]).unwrap();
+        set_track_tags(&conn, a, &["lento".into()]).unwrap();
+
+        delete_track(&conn, a).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap().len(), 1);
+        // La lista se acorta en vez de apuntar a la nada.
+        assert_eq!(list_playlists(&conn).unwrap()[0].ids, vec![b.to_string()]);
+    }
+
+    #[test]
+    fn relocating_a_folder_rewrites_every_track_under_it() {
+        let files = Files::new("folder-ok");
+        let conn = mem();
+        let viejo = files.s("DiscoViejo/Himnos");
+        let fid = add_folder(&conn, &viejo, "Himnos", true).unwrap();
+        add_track(&conn, fid, &format!("{viejo}/a.mp3"), "A");
+        add_track(&conn, fid, &format!("{viejo}/2025/b.mp3"), "B");
+        files.file("DiscoNuevo/Himnos/a.mp3");
+        files.file("DiscoNuevo/Himnos/2025/b.mp3");
+        let nuevo = files.dir("DiscoNuevo/Himnos");
+
+        let n = relocate_folder(&conn, fid, &nuevo).unwrap();
+
+        assert_eq!(n, 2, "las dos pistas, incluida la anidada");
+        let tracks = list_tracks(&conn).unwrap();
+        assert!(tracks.iter().all(|t| t.path.starts_with(&nuevo.to_string_lossy().to_string())));
+        assert!(tracks.iter().all(|t| !t.missing), "los archivos están donde ahora apuntan");
+        assert_eq!(list_folders(&conn).unwrap()[0].ruta, nuevo.to_string_lossy());
+    }
+
+    #[test]
+    fn relocating_a_folder_refuses_to_land_on_another_indexed_one() {
+        let files = Files::new("folder-overlap");
+        let conn = mem();
+        let fid = add_folder(&conn, &files.s("A"), "A", true).unwrap();
+        add_folder(&conn, &files.s("B"), "B", true).unwrap();
+
+        assert!(relocate_folder(&conn, fid, &files.dir("B/dentro")).is_err());
+        assert!(relocate_folder(&conn, fid, &files.0.join("no-existe")).is_err());
     }
 
     #[test]

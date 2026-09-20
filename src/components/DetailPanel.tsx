@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
-import { Check, ChevronDown, ListMusic, Play, Save, SquareArrowOutUpRight, Tag, X } from "lucide-react";
+import { Check, ChevronDown, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, X } from "lucide-react";
 import { eff, useStore } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import type { Track } from "../lib/types";
@@ -59,9 +59,27 @@ export default function DetailPanel() {
           <p style={{ fontSize: "13.5px", color: "var(--text-2)", margin: 0 }}>{sel.artista}</p>
 
           {sel.missing && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, background: "var(--danger-soft)", color: "var(--danger)", padding: "8px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35 }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26, flex: "0 0 auto" }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
-              El archivo no se encuentra en el disco. Vuelve a indexar la carpeta o localízalo manualmente.
+            <div style={{ marginTop: 12, width: "100%", background: "var(--danger-soft)", color: "var(--danger)", padding: "10px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26, flex: "0 0 auto" }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+                El archivo no se encuentra en el disco. Búscalo para que la pista conserve sus etiquetas.
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  onClick={() => s.relocateTrack(sel.id)}
+                  style={{ flex: 1, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 9, background: "var(--danger)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
+                  className="hb-danger-solid"
+                >
+                  <Search size={14} strokeWidth={2.4} />Localizar…
+                </button>
+                <button
+                  onClick={() => s.deleteTrack(sel.id)}
+                  title="Quitar de la biblioteca"
+                  style={{ height: 34, padding: "0 12px", display: "flex", alignItems: "center", gap: 7, borderRadius: 9, border: "1px solid var(--danger)", background: "transparent", color: "var(--danger)", fontSize: "12.5px", fontWeight: 600 }}
+                >
+                  <Trash2 size={14} strokeWidth={2.2} />Quitar
+                </button>
+              </div>
             </div>
           )}
           {sel.video && !sel.missing && (

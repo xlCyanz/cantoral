@@ -61,6 +61,7 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando, edita nombre/fecha/ocasión y reproduce toda la lista.
 - 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>P</kbd>.
 - ▶️ **Reproducción** — reproductor integrado con cola que sigue el orden del culto; los videos de proyección se abren en el reproductor predeterminado del sistema.
+- 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder sus etiquetas, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría.
@@ -113,8 +114,6 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
   panel de detalle solo edita etiquetas, así que esos tres campos quedan vacíos.
   Como consecuencia, el filtro por ocasión no muestra nada hasta que exista ese
   editor.
-- **Archivos faltantes no se pueden relocalizar** ni borrar pista por pista ([#17](https://github.com/xlCyanz/cantoral/issues/17)): si
-  mueves un archivo hay que quitar y volver a agregar la carpeta.
 - **Sin actualizaciones automáticas** ([#19](https://github.com/xlCyanz/cantoral/issues/19)) y **sin firma de código** mientras no haya
   certificados (ver [Firma de código](#-firma-de-código)).
 - Solo se conservan entre sesiones el tema y la preferencia de reproductor

@@ -11,25 +11,20 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Localizar una pista cuyo archivo se movió**, conservando sus etiquetas,
+  favorito, tono, tempo y ocasión — y **quitarla de la biblioteca** una por una,
+  sin borrar el audio. El panel de detalle ya cumple lo que su propio aviso
+  prometía desde el principio.
+- **Mover una carpeta indexada a su nueva ubicación** desde Configuración,
+  reescribiendo la ruta de todas sus pistas de una vez. Es el caso que de verdad
+  ocurre —la música cambió de disco, o Windows le dio otra letra— y hasta ahora
+  obligaba a quitar la carpeta y volver a agregarla, perdiendo todo el trabajo.
 - **Confirmación en las tres acciones que no se pueden deshacer**: quitar una
   carpeta indexada, eliminar una lista para culto y restaurar un respaldo. El
   diálogo dice con números reales qué se pierde —«se borrarán 128 pistas junto con
   sus etiquetas, favoritos, tono y ocasión»— y recuerda qué **no** se toca. Al
   restaurar, compara la biblioteca actual con la del respaldo antes de reemplazarla.
   «Cancelar» arranca con el foco, así que pulsar Enter por inercia no destruye nada.
-
-### Seguridad
-
-- **Restaurar un respaldo ya no puede destruir la biblioteca.** El archivo se abre
-  en solo lectura y se comprueba que sea una base de Cantoral **antes** de tocar
-  nada en disco, y la base anterior se aparta en vez de borrarse: si la copia o la
-  apertura fallan, se devuelve a su sitio y la biblioteca queda exactamente como
-  estaba. Antes se borraba el WAL y se sobrescribía el archivo antes de validar,
-  así que elegir un `.db` equivocado —o una copia que fallara a medias— se llevaba
-  el catálogo, las etiquetas, los favoritos y todas las listas, sin vuelta atrás.
-
-### Añadido
-
 - **ESLint** con configuración plana (typescript-eslint, react-hooks), ejecutado en
   CI con `--max-warnings 0`. Reglas en error: `no-explicit-any`,
   `no-floating-promises` y `no-unused-vars`.
@@ -50,6 +45,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - Plantillas de issue (bug y propuesta) y de pull request.
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` y este `CHANGELOG.md`.
 - Dependabot para npm, Cargo y GitHub Actions.
+- Actualizadas las acciones de GitHub, varias versiones mayores por detrás
+  (`checkout`, `setup-node`, `upload-artifact`, `download-artifact` y
+  `pnpm/action-setup`).
+- README reescrito: contenido navegable, atajos de teclado, formatos soportados,
+  problemas frecuentes, hoja de ruta y guía de publicación.
+- `build.yml` ahora verifica que la etiqueta coincida con la versión de
+  `package.json`, corre las pruebas antes de compilar y toma las notas del release
+  de este archivo.
 
 ### Corregido
 
@@ -64,16 +67,15 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   nunca llegó a verse. Ahora ambos workflows usan Node 22 y pnpm 12, y los
   requisitos del README y de CONTRIBUTING dicen lo mismo.
 
-### Cambiado
+### Seguridad
 
-- Actualizadas las acciones de GitHub, varias versiones mayores por detrás
-  (`checkout`, `setup-node`, `upload-artifact`, `download-artifact` y
-  `pnpm/action-setup`).
-- README reescrito: contenido navegable, atajos de teclado, formatos soportados,
-  problemas frecuentes, hoja de ruta y guía de publicación.
-- `build.yml` ahora verifica que la etiqueta coincida con la versión de
-  `package.json`, corre las pruebas antes de compilar y toma las notas del release
-  de este archivo.
+- **Restaurar un respaldo ya no puede destruir la biblioteca.** El archivo se abre
+  en solo lectura y se comprueba que sea una base de Cantoral **antes** de tocar
+  nada en disco, y la base anterior se aparta en vez de borrarse: si la copia o la
+  apertura fallan, se devuelve a su sitio y la biblioteca queda exactamente como
+  estaba. Antes se borraba el WAL y se sobrescribía el archivo antes de validar,
+  así que elegir un `.db` equivocado —o una copia que fallara a medias— se llevaba
+  el catálogo, las etiquetas, los favoritos y todas las listas, sin vuelta atrás.
 
 ## [0.1.0] — sin publicar
 

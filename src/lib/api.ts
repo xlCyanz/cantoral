@@ -62,6 +62,24 @@ export async function openExternalPath(target: string): Promise<void> {
   else await openPath(target);
 }
 
+/** Native picker for a single media file, used when relocating a track. */
+export async function pickMediaFile(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const res = await open({
+    multiple: false,
+    filters: [
+      {
+        name: "Audio y video",
+        extensions: [
+          "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff", "aif",
+          "mp4", "mov", "mkv", "avi", "webm", "m4v", "wmv",
+        ],
+      },
+    ],
+  });
+  return typeof res === "string" ? res : null;
+}
+
 /** Native folder picker. Returns the chosen absolute path, or null. */
 export async function pickFolder(): Promise<string | null> {
   if (!isTauri()) return null;
@@ -142,6 +160,18 @@ export async function reconcileLibraryCmd(): Promise<Snapshot | null> {
 }
 export async function removeFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("remove_folder", { id });
+}
+/** Point a track at its file's new location, keeping tags and favourite. */
+export async function relocateTrackCmd(id: string, path: string): Promise<Snapshot> {
+  return inv<Snapshot>("relocate_track", { id, path });
+}
+/** Drop one track from the catalogue. The audio file is never touched. */
+export async function deleteTrackCmd(id: string): Promise<Snapshot> {
+  return inv<Snapshot>("delete_track", { id });
+}
+/** Point a whole indexed folder at its new location, rewriting its tracks. */
+export async function relocateFolderCmd(id: string, path: string): Promise<Snapshot> {
+  return inv<Snapshot>("relocate_folder", { id, path });
 }
 export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;

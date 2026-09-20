@@ -153,6 +153,35 @@ pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
+/// Point a track at the file's new location, keeping its tags and favourite.
+#[tauri::command]
+pub fn relocate_track(db: State<Db>, id: String, path: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::relocate_track(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
+        .map_err(e)?;
+    log::info!("track {id} relocated to {path}");
+    snapshot(&conn).map_err(e)
+}
+
+/// Remove one track from the catalogue. The audio file itself is never touched.
+#[tauri::command]
+pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::delete_track(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Point a whole indexed folder at its new location, rewriting every track under
+/// it. For the case that actually happens: the music moved to another drive.
+#[tauri::command]
+pub fn relocate_folder(db: State<Db>, id: String, path: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    let n = db::relocate_folder(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
+        .map_err(e)?;
+    log::info!("folder {id} relocated to {path} ({n} tracks rewritten)");
+    snapshot(&conn).map_err(e)
+}
+
 #[tauri::command]
 pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;

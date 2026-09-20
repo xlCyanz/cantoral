@@ -30,6 +30,7 @@ import {
   backupDatabase,
   createPlaylistCmd,
   deletePlaylistCmd,
+  deleteTrackCmd,
   exportPlaylistCmd,
   getLibrary,
   getSetting,
@@ -38,8 +39,12 @@ import {
   openExternalPath,
   pickDbFile,
   pickExportPath,
+  pickFolder,
+  pickMediaFile,
   pickSavePath,
   reconcileLibraryCmd,
+  relocateFolderCmd,
+  relocateTrackCmd,
   removeFolderCmd,
   rescanFolderCmd,
   restoreDatabaseCmd,
@@ -207,6 +212,12 @@ export interface CantoralState {
   clearDrag: () => void;
 
   toggleOpenExt: () => void;
+  /** Point a track at its file's new location, keeping tags and favourite. */
+  relocateTrack: (id: string) => void;
+  /** Drop a track from the catalogue. The audio file is never touched. */
+  deleteTrack: (id: string) => void;
+  /** Point a whole indexed folder at its new location. */
+  relocateFolder: (id: string) => void;
   removeFolder: (id: string) => void;
   rescanFolder: (id?: string) => void;
   backup: () => void;
@@ -762,6 +773,82 @@ export const useStore = create<CantoralState>((set, get) => {
       const v = !get().openExt;
       set({ openExt: v });
       if (isTauri()) void setSetting("openExt", v ? "1" : "0");
+    },
+    relocateTrack: (id) => {
+      const t = get().tracks.find((x) => x.id === id);
+      if (!t) return;
+      if (!isTauri()) {
+        toast("Localizar archivos solo funciona en la app de escritorio", "info");
+        return;
+      }
+      void pickMediaFile().then((path) => {
+        if (!path) return;
+        relocateTrackCmd(id, path)
+          .then((snap) => {
+            applySnapshot(snap);
+            toast(`«${t.titulo}» vuelve a estar localizada`);
+          })
+          .catch((err) => {
+            console.error(err);
+            toast(String(err), "error");
+          });
+      });
+    },
+    deleteTrack: (id) => {
+      const st = get();
+      const t = st.tracks.find((x) => x.id === id);
+      if (!t) return;
+      const listas = st.playlists.filter((p) => (st.plOrder[p.id] || []).includes(id));
+      st.askConfirm({
+        title: "¿Quitar esta pista de la biblioteca?",
+        message: `«${t.titulo}» dejará de aparecer en el catálogo.`,
+        detail:
+          `Se pierden sus etiquetas, favorito, tono, tempo y ocasión.` +
+          (listas.length
+            ? ` También sale de ${listas.length === 1 ? "la lista" : "las listas"} ${listas
+                .map((p) => `«${p.nombre}»`)
+                .join(", ")}.`
+            : ""),
+        safe: "El archivo de audio no se borra: solo deja de estar indexado.",
+        confirmLabel: "Quitar de la biblioteca",
+        onConfirm: () => {
+          if (!isTauri()) {
+            set((s) => ({ tracks: s.tracks.filter((x) => x.id !== id) }));
+            toast("Pista quitada de la biblioteca");
+            return;
+          }
+          deleteTrackCmd(id)
+            .then((snap) => {
+              applySnapshot(snap);
+              set({ detailOpen: false, selId: null });
+              toast("Pista quitada de la biblioteca");
+            })
+            .catch((err) => {
+              console.error(err);
+              toast("No se pudo quitar la pista", "error");
+            });
+        },
+      });
+    },
+    relocateFolder: (id) => {
+      const f = get().folders.find((x) => x.id === id);
+      if (!f) return;
+      if (!isTauri()) {
+        toast("Mover carpetas solo funciona en la app de escritorio", "info");
+        return;
+      }
+      void pickFolder().then((path) => {
+        if (!path) return;
+        relocateFolderCmd(id, path)
+          .then((snap) => {
+            applySnapshot(snap);
+            toast(`«${f.nombre}» ahora apunta a su nueva ubicación`);
+          })
+          .catch((err) => {
+            console.error(err);
+            toast(String(err), "error");
+          });
+      });
     },
     removeFolder: (id) => {
       const f = get().folders.find((x) => x.id === id);
