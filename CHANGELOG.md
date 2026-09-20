@@ -63,6 +63,20 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **Un escaneo que falla ya no deja la carpeta a medias.** La fila se insertaba
+  antes de empezar a recorrer el disco, así que una unidad desconectada o una
+  carpeta ilegible dejaban una entrada con cero pistas en Configuración, a limpiar
+  a mano. Si el escaneo falla y la carpeta era nueva, se retira; si era un
+  re-escaneo, se conserva.
+- **Las carátulas dejan de acumularse.** Se guardan como `{id}.{extensión}`, así
+  que una pista cuyo arte incrustado cambiaba de formato escribía la nueva y
+  abandonaba la anterior en el disco, sin nada que la referenciara. Ahora se borra
+  al reemplazarla.
+- **El diálogo de agregar carpeta ya no recuerda la vez anterior.** Su estado vivía
+  en un componente que seguía montado con el diálogo cerrado, así que al reabrirlo
+  aparecían la ruta ya elegida y el botón activo —un clic de más y se re-escaneaba
+  algo que nadie pidió—, y la casilla de subcarpetas conservaba lo último marcado.
+
 - **El panel de detalle muestra la ruta real del archivo.** La fabricaba juntando
   el nombre de la carpeta, el **título de la etiqueta ID3** y el formato, con una
   barra invertida fija. Así que una pista cuyo tag no coincidía con su nombre de
