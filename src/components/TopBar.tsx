@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Search, Sun, X } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, ocasiones, useStore } from "../store";
-import { chipStyle } from "../lib/styles";
+import { chipStyle, ocupadoStyle } from "../lib/styles";
 import type { GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
@@ -17,6 +17,7 @@ export default function TopBar() {
   const ocasion = useStore((s) => s.ocasion);
   const groupBy = useStore((s) => s.groupBy);
   const libState = useStore((s) => s.libState);
+  const scanning = useStore((s) => s.scanning);
   const theme = useStore((s) => s.theme);
   const listaTitulo = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist)?.nombre ?? "");
   // `applyFilters` and `ocasiones` remember their last result, so calling them
@@ -116,8 +117,11 @@ export default function TopBar() {
         {/* add folder */}
         <button
           onClick={openAddFolder}
+          disabled={scanning}
+          title={scanning ? "Hay un escaneo en curso" : undefined}
           className="hb-primary hb-active"
           style={{
+            ...ocupadoStyle(scanning),
             height: 38,
             flex: "0 0 auto",
             whiteSpace: "nowrap",

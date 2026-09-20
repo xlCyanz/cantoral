@@ -111,3 +111,13 @@ export function favBtnStyle(fav: boolean): CSSProperties {
     color: fav ? "var(--primary)" : "var(--text-3)",
   };
 }
+
+/**
+ * Extra style for a control that is switched off while a scan runs.
+ *
+ * Paired with `disabled` on the same button. Greying it out is the honest
+ * answer: only one scan can run at a time, so a second click has nowhere to go.
+ */
+export function ocupadoStyle(ocupado: boolean): CSSProperties {
+  return ocupado ? { opacity: 0.45, cursor: "not-allowed" } : {};
+}

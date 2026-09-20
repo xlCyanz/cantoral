@@ -1,6 +1,6 @@
 import { Clock, Folder, Heart, Library, ListMusic, Plus, Settings, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
-import { navCountStyle, navStyle, qfStyle } from "../lib/styles";
+import { navCountStyle, navStyle, ocupadoStyle, qfStyle } from "../lib/styles";
 import type { CSSProperties } from "react";
 
 const sectionLabel: CSSProperties = {
@@ -25,6 +25,7 @@ export default function Sidebar() {
   const onQuickFilter = useStore((s) => s.onQuickFilter);
   const onFolderClick = useStore((s) => s.onFolderClick);
   const openAddFolder = useStore((s) => s.openAddFolder);
+  const scanning = useStore((s) => s.scanning);
 
   const libActive = view === "biblioteca";
   const colActive = view === "colecciones" || view === "lista";
@@ -107,7 +108,7 @@ export default function Sidebar() {
         {/* folders */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 8px 7px" }}>
           <span style={sectionLabel}>Carpetas indexadas</span>
-          <button onClick={openAddFolder} title="Agregar carpeta" className="hb-s2t" style={{ width: 22, height: 22, borderRadius: 6, display: "grid", placeItems: "center", color: "var(--text-2)" }}>
+          <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "Agregar carpeta"} className="hb-s2t" style={{ width: 22, height: 22, borderRadius: 6, display: "grid", placeItems: "center", color: "var(--text-2)", ...ocupadoStyle(scanning) }}>
             <Plus size={15} />
           </button>
         </div>

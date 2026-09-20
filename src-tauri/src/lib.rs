@@ -5,7 +5,6 @@ mod db;
 mod models;
 mod scanner;
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -35,7 +34,7 @@ pub fn run() {
             let conn = db::open_and_migrate(&db_path).expect("open cantoral.db");
             app.manage(db::Db(Mutex::new(conn)));
             app.manage(commands::DbPath(db_path));
-            app.manage(commands::ScanCancel(AtomicBool::new(false)));
+            app.manage(scanner::ScanSlot::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

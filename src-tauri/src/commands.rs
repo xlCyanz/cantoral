@@ -1,11 +1,10 @@
 use rusqlite::Connection;
 use serde::Serialize;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{self, Db};
 use crate::models::{Folder, Playlist, Track};
-use crate::scanner;
+use crate::scanner::{self, ScanSlot};
 
 /// Everything the frontend needs to hydrate its store.
 #[derive(Serialize)]
@@ -28,8 +27,6 @@ fn snapshot(conn: &Connection) -> anyhow::Result<Snapshot> {
 /// they never hold the mutex the UI's own commands need.
 pub struct DbPath(pub std::path::PathBuf);
 
-/// Raised to ask an in-flight scan to stop; the scanner polls it between files.
-pub struct ScanCancel(pub AtomicBool);
 
 type CmdResult<T> = Result<T, String>;
 
@@ -52,12 +49,17 @@ pub fn get_library(db: State<Db>) -> CmdResult<Snapshot> {
 fn run_scan(
     app: &AppHandle,
     db_path: &std::path::Path,
-    cancel: &ScanCancel,
+    slot: &ScanSlot,
     folder_id: i64,
     path: &str,
     recursive: bool,
 ) -> CmdResult<()> {
-    cancel.0.store(false, Ordering::Relaxed);
+    // One scan at a time. The claim is released when it goes out of scope at
+    // the end of this function, whichever way the scan ends.
+    let claim = slot.claim().ok_or_else(|| {
+        "Ya hay un escaneo en curso. Espera a que termine, o cancélalo, antes de empezar otro."
+            .to_string()
+    })?;
     let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
     let scan_conn = db::open_secondary(db_path).map_err(e)?;
     log::info!("scan start: {path} (recursive={recursive})");
@@ -68,7 +70,7 @@ fn run_scan(
         path,
         &cover_dir,
         recursive,
-        &cancel.0,
+        claim.cancel_flag(),
         &|p| {
             let _ = app.emit("scan-progress", p);
         },
@@ -83,7 +85,7 @@ pub fn add_and_scan_folder(
     app: AppHandle,
     db: State<Db>,
     db_path: State<DbPath>,
-    cancel: State<ScanCancel>,
+    slot: State<ScanSlot>,
     path: String,
     recursive: bool,
 ) -> CmdResult<Snapshot> {
@@ -109,7 +111,7 @@ pub fn add_and_scan_folder(
         )
     };
 
-    if let Err(err) = run_scan(&app, &db_path.0, &cancel, fid, &path, recursive) {
+    if let Err(err) = run_scan(&app, &db_path.0, &slot, fid, &path, recursive) {
         // The row went in before the walk started, so a scan that fails — an
         // unplugged drive, a folder that cannot be read — used to leave a
         // folder with zero tracks sitting in Configuración for the user to
@@ -132,7 +134,7 @@ pub fn rescan_folder(
     app: AppHandle,
     db: State<Db>,
     db_path: State<DbPath>,
-    cancel: State<ScanCancel>,
+    slot: State<ScanSlot>,
     id: String,
 ) -> CmdResult<Snapshot> {
     let fid = id.parse::<i64>().map_err(e)?;
@@ -142,16 +144,20 @@ pub fn rescan_folder(
         db::folder_scan_target(&conn, fid).map_err(e)?
     };
 
-    run_scan(&app, &db_path.0, &cancel, fid, &path, recursive)?;
+    run_scan(&app, &db_path.0, &slot, fid, &path, recursive)?;
 
     let conn = db.0.lock().map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 
 /// Ask the running scan to stop after the file it is on.
+///
+/// Reaches only the scan that is running right now: a cancel with nothing in
+/// flight does nothing at all, rather than leaving a flag raised for whatever
+/// scan comes next.
 #[tauri::command]
-pub fn cancel_scan(cancel: State<ScanCancel>) -> CmdResult<()> {
-    cancel.0.store(true, Ordering::Relaxed);
+pub fn cancel_scan(slot: State<ScanSlot>) -> CmdResult<()> {
+    slot.cancel();
     Ok(())
 }
 

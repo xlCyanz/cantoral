@@ -237,3 +237,56 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
     await vi.runOnlyPendingTimersAsync();
   });
 });
+
+describe("un solo escaneo a la vez", () => {
+  // El núcleo rechaza el segundo escaneo de plano; esto es lo que evita que el
+  // usuario llegue siquiera a pedirlo, y que la negativa acabe pintada como
+  // una pantalla de error.
+  beforeEach(() => {
+    useStore.setState({ tracks: [track("vieja")], libState: "content" });
+    const nunca = diferida<Snapshot>();
+    addAndScanFolder.mockReturnValue(nunca.promesa);
+    rescanFolderCmd.mockReturnValue(nunca.promesa);
+  });
+
+  it("no lanza un segundo escaneo desde el diálogo", () => {
+    useStore.getState().indexFolder("/musica", true);
+    expect(addAndScanFolder).toHaveBeenCalledOnce();
+
+    useStore.getState().indexFolder("/otra", true);
+
+    expect(addAndScanFolder).toHaveBeenCalledOnce();
+    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+  });
+
+  it("no lanza un segundo escaneo desde Configuración", () => {
+    useStore.getState().indexFolder("/musica", true);
+
+    useStore.getState().rescanFolder("f1");
+
+    expect(rescanFolderCmd).not.toHaveBeenCalled();
+    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+  });
+
+  it("ni siquiera abre el diálogo de agregar carpeta mientras escanea", () => {
+    useStore.getState().indexFolder("/musica", true);
+
+    useStore.getState().openAddFolder();
+
+    expect(useStore.getState().dialog).toBeNull();
+    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+  });
+
+  it("vuelve a dejar escanear en cuanto el anterior termina", async () => {
+    const primero = diferida<Snapshot>();
+    addAndScanFolder.mockReturnValue(primero.promesa);
+    useStore.getState().indexFolder("/musica", true);
+
+    primero.resolver(snapshot(["a"]));
+    await vi.runOnlyPendingTimersAsync();
+    expect(useStore.getState().scanning).toBe(false);
+
+    useStore.getState().openAddFolder();
+    expect(useStore.getState().dialog).toBe("addFolder");
+  });
+});
