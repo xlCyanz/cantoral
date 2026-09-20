@@ -1,5 +1,6 @@
-use anyhow::Result;
-use rusqlite::{params, Connection};
+use anyhow::{bail, Context, Result};
+use rusqlite::{params, Connection, OpenFlags};
+use std::path::Path;
 use std::sync::Mutex;
 
 use crate::models::{fmt_dur, Folder, Playlist, Track};
@@ -443,6 +444,142 @@ pub fn delete_playlist(conn: &Connection, id: i64) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- backup / restore
+
+/// Tables a Cantoral database always has. Used to tell a real backup apart from
+/// some other `.db` the user picked by mistake in the file dialog.
+const REQUIRED_TABLES: &[&str] = &[
+    "folders",
+    "tracks",
+    "playlists",
+    "playlist_tracks",
+    "tags",
+    "track_tags",
+    "settings",
+];
+
+/// What a candidate backup file holds. Reported before anything is overwritten
+/// so the user can be told what they are about to restore.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupInfo {
+    pub tracks: i64,
+    pub folders: i64,
+    pub playlists: i64,
+}
+
+/// Read `path` without modifying it and confirm it is a Cantoral database.
+///
+/// Opened read-only, so a file that is not SQLite at all fails here rather than
+/// after the live database has already been replaced.
+pub fn inspect_backup(path: &Path) -> Result<BackupInfo> {
+    if !path.exists() {
+        bail!("El archivo «{}» no existe.", path.display());
+    }
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .with_context(|| format!("«{}» no se pudo abrir como base de datos.", path.display()))?;
+
+    let mut present = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .context("El archivo no parece una base de datos SQLite.")?;
+    let names: Vec<String> = present
+        .query_map([], |r| r.get(0))
+        .context("El archivo no parece una base de datos SQLite.")?
+        .collect::<std::result::Result<_, _>>()?;
+    drop(present);
+
+    let missing: Vec<&str> = REQUIRED_TABLES
+        .iter()
+        .copied()
+        .filter(|t| !names.iter().any(|n| n == t))
+        .collect();
+    if !missing.is_empty() {
+        bail!(
+            "El archivo no es un respaldo de Cantoral: le faltan las tablas {}.",
+            missing.join(", ")
+        );
+    }
+
+    let count = |table: &str| -> Result<i64> {
+        Ok(conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))?)
+    };
+    Ok(BackupInfo {
+        tracks: count("tracks")?,
+        folders: count("folders")?,
+        playlists: count("playlists")?,
+    })
+}
+
+/// The sidecar files SQLite keeps beside a database in WAL mode.
+fn sidecars(live: &Path) -> [std::path::PathBuf; 2] {
+    [live.with_extension("db-wal"), live.with_extension("db-shm")]
+}
+
+/// Replace the database at `live` with the backup at `src`, and open it.
+///
+/// The caller must have closed its own connection first, or the files cannot be
+/// moved on Windows.
+///
+/// The previous database is **moved aside, never deleted**: if the copy or the
+/// open fails, it is put back and the error propagates, so a bad restore leaves
+/// the library exactly as it was. Deleting the WAL before knowing the new file
+/// is sound is how a failed restore used to take committed data with it.
+pub fn restore_from_backup(live: &Path, src: &Path) -> Result<Connection> {
+    // Validate before touching anything on disk.
+    inspect_backup(src)?;
+
+    let rollback = live.with_extension("db.rollback");
+    let rollback_sidecars = [
+        live.with_extension("db-wal.rollback"),
+        live.with_extension("db-shm.rollback"),
+    ];
+    for p in [&[rollback.clone()][..], &rollback_sidecars[..]].concat() {
+        let _ = std::fs::remove_file(p);
+    }
+
+    let had_live = live.exists();
+    if had_live {
+        std::fs::rename(live, &rollback)
+            .with_context(|| "No se pudo apartar la base de datos actual.")?;
+    }
+    for (from, to) in sidecars(live).iter().zip(rollback_sidecars.iter()) {
+        if from.exists() {
+            let _ = std::fs::rename(from, to);
+        }
+    }
+
+    let restore_previous = || {
+        let _ = std::fs::remove_file(live);
+        if had_live {
+            let _ = std::fs::rename(&rollback, live);
+        }
+        for (from, to) in rollback_sidecars.iter().zip(sidecars(live).iter()) {
+            if from.exists() {
+                let _ = std::fs::rename(from, to);
+            }
+        }
+    };
+
+    if let Err(err) = std::fs::copy(src, live) {
+        restore_previous();
+        return Err(anyhow::Error::new(err).context("No se pudo copiar el respaldo."));
+    }
+    let conn = match open_and_migrate(live) {
+        Ok(conn) => conn,
+        Err(err) => {
+            restore_previous();
+            return Err(err.context("El respaldo no se pudo abrir tras copiarlo."));
+        }
+    };
+
+    // The restore is committed; the copy kept for rollback is no longer needed.
+    let _ = std::fs::remove_file(&rollback);
+    for p in &rollback_sidecars {
+        let _ = std::fs::remove_file(p);
+    }
+    Ok(conn)
+}
+
 // ---------------------------------------------------------------- settings
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>> {
@@ -608,6 +745,114 @@ mod tests {
 
         assert_eq!(folder_scan_target(&conn, shallow).unwrap(), ("/shallow".into(), false));
         assert_eq!(folder_scan_target(&conn, deep).unwrap(), ("/deep".into(), true));
+    }
+
+    /// Temp directory holding a live database and any candidate backups.
+    struct Dir(std::path::PathBuf);
+
+    impl Dir {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!("cantoral-restore-{name}"));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Dir(dir)
+        }
+        fn path(&self, name: &str) -> std::path::PathBuf {
+            self.0.join(name)
+        }
+        /// A real Cantoral database holding one folder and `tracks` tracks.
+        fn database(&self, name: &str, tracks: usize) -> std::path::PathBuf {
+            let path = self.path(name);
+            let conn = open_and_migrate(&path).unwrap();
+            let fid = add_folder(&conn, "/m", "m", true).unwrap();
+            for i in 0..tracks {
+                add_track(&conn, fid, &format!("/m/{i}.mp3"), &format!("Pista {i}"));
+            }
+            conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+            drop(conn);
+            path
+        }
+    }
+
+    impl Drop for Dir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn inspect_backup_reports_what_the_file_holds() {
+        let dir = Dir::new("inspect-ok");
+        let backup = dir.database("backup.db", 3);
+
+        let info = inspect_backup(&backup).unwrap();
+
+        assert_eq!(info.tracks, 3);
+        assert_eq!(info.folders, 1);
+        assert_eq!(info.playlists, 0);
+    }
+
+    #[test]
+    fn inspect_backup_refuses_anything_that_is_not_a_cantoral_database() {
+        let dir = Dir::new("inspect-bad");
+
+        // Not SQLite at all.
+        let garbage = dir.path("notas.db");
+        std::fs::write(&garbage, b"esto no es una base de datos").unwrap();
+        assert!(inspect_backup(&garbage).is_err(), "un archivo cualquiera debe rechazarse");
+
+        // Valid SQLite, but another application's schema.
+        let foreign = dir.path("otra.db");
+        let conn = Connection::open(&foreign).unwrap();
+        conn.execute_batch("CREATE TABLE cosas (id INTEGER);").unwrap();
+        drop(conn);
+        assert!(inspect_backup(&foreign).is_err(), "otro esquema debe rechazarse");
+
+        // A path that does not exist.
+        assert!(inspect_backup(&dir.path("no-existe.db")).is_err());
+    }
+
+    #[test]
+    fn restore_replaces_the_library_with_the_backup() {
+        let dir = Dir::new("restore-ok");
+        let live = dir.database("cantoral.db", 2);
+        let backup = dir.database("backup.db", 5);
+
+        let conn = restore_from_backup(&live, &backup).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap().len(), 5, "la biblioteca es la del respaldo");
+        // Nothing is left behind from the rollback copy.
+        assert!(!live.with_extension("db.rollback").exists());
+    }
+
+    /// The regression this whole path exists for: a restore that cannot go
+    /// through must leave the library exactly as it was, not half replaced.
+    #[test]
+    fn a_rejected_backup_leaves_the_live_database_untouched() {
+        let dir = Dir::new("restore-rollback");
+        let live = dir.database("cantoral.db", 4);
+        let before = std::fs::read(&live).unwrap();
+
+        let garbage = dir.path("respaldo-corrupto.db");
+        std::fs::write(&garbage, b"no soy sqlite").unwrap();
+
+        assert!(restore_from_backup(&live, &garbage).is_err());
+
+        assert_eq!(std::fs::read(&live).unwrap(), before, "el archivo no se tocó");
+        let conn = open_and_migrate(&live).unwrap();
+        assert_eq!(list_tracks(&conn).unwrap().len(), 4, "las pistas siguen ahí");
+    }
+
+    #[test]
+    fn restoring_onto_a_missing_database_still_works() {
+        // First run after a fresh install, or after the file was deleted by hand.
+        let dir = Dir::new("restore-sin-base");
+        let live = dir.path("cantoral.db");
+        let backup = dir.database("backup.db", 2);
+
+        let conn = restore_from_backup(&live, &backup).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap().len(), 2);
     }
 
     #[test]
