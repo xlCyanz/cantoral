@@ -32,13 +32,15 @@ Closes #
 ## Comprobaciones
 
 ```bash
+pnpm lint
 pnpm exec tsc --noEmit
 pnpm test
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
+cargo audit --file src-tauri/Cargo.lock
 ```
 
-- [ ] Las cuatro pasan en local
+- [ ] Las seis pasan en local
 - [ ] Hay pruebas para el comportamiento nuevo o corregido
 - [ ] El PR hace **una** cosa (nada de arreglar un bug y reformatear medio archivo a la vez)
 - [ ] Los commits siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)

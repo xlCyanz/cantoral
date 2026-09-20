@@ -130,6 +130,7 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 | Núcleo | Tauri v2 (Rust) · SQLite (`rusqlite`, bundled) · `walkdir` · `lofty` |
 | Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` |
 | Pruebas | Vitest (frontend) · `cargo test` (backend) |
+| Calidad | ESLint · `cargo clippy` · `cargo audit` · CodeQL |
 
 ## 🚀 Desarrollo
 
@@ -183,18 +184,26 @@ llama a los comandos de Rust y opera sobre la base local.
 | `pnpm tauri build` | Instaladores para el sistema actual |
 | `pnpm test` | Pruebas del frontend (Vitest) |
 | `pnpm test:watch` | Vitest en modo interactivo |
+| `pnpm lint` | ESLint sobre `src/` y los archivos de configuración |
 
 ## 🧪 Pruebas
 
 ```bash
+pnpm lint                                         # ESLint (0 errores y 0 avisos)
 pnpm exec tsc --noEmit                            # tipos
 pnpm test                                         # selectores del store y hoja de exportación
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml   # esquema, consultas SQLite y escáner
+cargo audit --file src-tauri/Cargo.lock           # vulnerabilidades en dependencias
 ```
 
-Esos cuatro comandos son exactamente los que corre la CI en cada push y cada pull
+Esos seis comandos son exactamente los que corre la CI en cada push y cada pull
 request (`.github/workflows/ci.yml`), así que si pasan en local, pasan en GitHub.
+`cargo audit` necesita instalarse una vez: `cargo install cargo-audit --locked`.
+
+Además corre **CodeQL** (`.github/workflows/codeql.yml`), el análisis estático de
+seguridad de GitHub, sobre la interfaz y el núcleo. Sus hallazgos aparecen en
+**Security → Code scanning alerts**, no en la salida del job.
 
 `cargo fmt --check` todavía no está en la CI: el núcleo está formateado a mano y
 rustfmt no lo reproduce con ninguna configuración, así que activarlo implicaría
@@ -280,7 +289,8 @@ base64 -i certificado.p12 | pbcopy
 cantoral/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/     # Plantillas de bug y de propuesta
-│   ├── workflows/          # ci.yml (pruebas) · build.yml (instaladores + release)
+│   ├── workflows/          # ci.yml (lint, pruebas, auditoría) · codeql.yml
+│   │                       # (seguridad) · build.yml (instaladores + release)
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── assets/                 # Logo, icono y banner
 ├── design/                 # Diseño de referencia (Cantoral.dc.html)

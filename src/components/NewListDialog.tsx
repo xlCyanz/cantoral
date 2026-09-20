@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ListMusic, Pencil } from "lucide-react";
 import { useStore } from "../store";
 
@@ -15,31 +15,52 @@ const field = {
   outline: "none",
 } as const;
 
-/** Create-a-list dialog, reused in «edit» mode for an existing list. */
+/**
+ * Create-a-list dialog, reused in «edit» mode for an existing list.
+ *
+ * Only decides whether the dialog is open and with what values. The form
+ * itself is a separate component mounted under a `key`, so opening the dialog
+ * — or switching to a different list — remounts it and the `useState`
+ * initialisers seed the fields. Seeding from an effect instead would mean
+ * calling setState during an effect body, which React advises against.
+ */
 export default function NewListDialog() {
   const dialog = useStore((s) => s.dialog);
-  const closeDialog = useStore((s) => s.closeDialog);
-  const createList = useStore((s) => s.createList);
-  const updateList = useStore((s) => s.updateList);
   const current = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
 
   const editing = dialog === "editList";
   const open = dialog === "newList" || editing;
-
-  const [nombre, setNombre] = useState("");
-  const [fecha, setFecha] = useState("");
-  const [ocasion, setOcasion] = useState("");
-
-  // Seed the fields each time the dialog opens: blank for a new list, the
-  // list's own values when editing.
-  useEffect(() => {
-    if (!open) return;
-    setNombre(editing ? current?.nombre ?? "" : "");
-    setFecha(editing ? current?.fecha ?? "" : "");
-    setOcasion(editing ? current?.ocasion ?? "" : "");
-  }, [open, editing, current?.id, current?.nombre, current?.fecha, current?.ocasion]);
-
   if (!open) return null;
+
+  return (
+    <ListForm
+      key={editing ? `edit:${current?.id ?? ""}` : "new"}
+      editing={editing}
+      initialNombre={editing ? current?.nombre ?? "" : ""}
+      initialFecha={editing ? current?.fecha ?? "" : ""}
+      initialOcasion={editing ? current?.ocasion ?? "" : ""}
+    />
+  );
+}
+
+function ListForm({
+  editing,
+  initialNombre,
+  initialFecha,
+  initialOcasion,
+}: {
+  editing: boolean;
+  initialNombre: string;
+  initialFecha: string;
+  initialOcasion: string;
+}) {
+  const closeDialog = useStore((s) => s.closeDialog);
+  const createList = useStore((s) => s.createList);
+  const updateList = useStore((s) => s.updateList);
+
+  const [nombre, setNombre] = useState(initialNombre);
+  const [fecha, setFecha] = useState(initialFecha);
+  const [ocasion, setOcasion] = useState(initialOcasion);
 
   const submit = () => {
     if (!nombre.trim()) return;
