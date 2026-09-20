@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, ocasiones, plDur, playQueue, queueForView } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, plDur, playQueue, queueForView } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Track } from "../types";
 
@@ -195,5 +195,73 @@ describe("ocasiones", () => {
       ],
     });
     expect(ocasiones(s)).toEqual(["Adoración", "Ñandú", "Zacarías"]);
+  });
+});
+
+describe("lo que los selectores recuerdan", () => {
+  // Every one of these returns an array. If a fresh array came back on each
+  // call, a component subscribing to the selector would re-render on every
+  // change to the store — including the `posSec` the player writes several
+  // times a second — even though nothing it shows had moved.
+
+  it("hands back the very same list while nothing it reads has changed", () => {
+    const s = state();
+    expect(applyFilters(s)).toBe(applyFilters(s));
+    expect(applyFilters(state())).toBe(applyFilters(s));
+  });
+
+  it("ignores a change it does not read, so playback does not re-filter", () => {
+    const antes = applyFilters(state());
+    expect(applyFilters(state({ posSec: 42, playing: true }))).toBe(antes);
+  });
+
+  it("recomputes as soon as a field it does read changes", () => {
+    const antes = applyFilters(state());
+    expect(applyFilters(state({ query: "alab" }))).not.toBe(antes);
+  });
+
+  it("recomputes when the catalogue itself is replaced", () => {
+    const antes = applyFilters(state());
+    expect(applyFilters(state({ tracks: [...TRACKS] }))).not.toBe(antes);
+  });
+
+  it("remembers the groups too, until the list or the grouping moves", () => {
+    const s = state({ groupBy: "ocasion" });
+    const list = applyFilters(s);
+    expect(buildGroups(s, list)).toBe(buildGroups(s, list));
+    expect(buildGroups(state({ groupBy: "album" }), list)).not.toBe(buildGroups(s, list));
+  });
+
+  it("remembers the occasions and the open list as well", () => {
+    expect(ocasiones(state())).toBe(ocasiones(state()));
+    const s = state({ curPlaylist: "p1", plOrder: { p1: ["3", "1"] } });
+    expect(filasDeLista(s)).toBe(filasDeLista(s));
+  });
+
+  it("never lets the play queue hand out the remembered list itself", () => {
+    // The cached array is shared, so a caller that kept a reference to it and
+    // pushed onto it would corrupt what every other caller reads.
+    const s = state();
+    const lista = applyFilters(s);
+    queueForView(s).push("x");
+    playQueue(s).push("x");
+    expect(applyFilters(s)).toBe(lista);
+    expect(lista).toHaveLength(3);
+  });
+});
+
+describe("filasDeLista", () => {
+  it("returns the open list's tracks in its order", () => {
+    const s = state({ curPlaylist: "p1", plOrder: { p1: ["3", "1"] } });
+    expect(filasDeLista(s).map((t) => t.id)).toEqual(["3", "1"]);
+  });
+
+  it("skips ids whose track is no longer in the catalogue", () => {
+    const s = state({ curPlaylist: "p1", plOrder: { p1: ["3", "999", "1"] } });
+    expect(filasDeLista(s).map((t) => t.id)).toEqual(["3", "1"]);
+  });
+
+  it("is empty for a list that has no order yet", () => {
+    expect(filasDeLista(state({ curPlaylist: "p9" }))).toEqual([]);
   });
 });

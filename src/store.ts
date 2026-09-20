@@ -1066,6 +1066,36 @@ export const useStore = create<CantoralState>((set, get) => {
 // Derived selectors (pure) — used by components against a state snapshot.
 // ============================================================
 
+/**
+ * Wrap a pure selector so it only recomputes when what it reads changes.
+ *
+ * The library is filtered, sorted and grouped by more than one component on
+ * every render, while the player writes `posSec` several times a second — so
+ * without this the whole catalogue is walked a few dozen times a second to
+ * produce a result that did not change. Keeping the previous result also keeps
+ * its **identity**, which is what lets `useStore(applyFilters)` skip a render
+ * instead of handing React a new array that merely looks the same.
+ *
+ * One entry is enough: every call inside a render pass reads the same
+ * snapshot, and a snapshot that has been replaced is never read again.
+ *
+ * The cached value is shared between callers, so treat it as read-only.
+ */
+function recordar<A extends unknown[], T>(
+  calcular: (...args: A) => T,
+  leer: (...args: A) => unknown[],
+): (...args: A) => T {
+  let deps: unknown[] | null = null;
+  let valor!: T;
+  return (...args: A): T => {
+    const ahora = leer(...args);
+    if (deps && deps.length === ahora.length && deps.every((d, i) => Object.is(d, ahora[i]))) return valor;
+    deps = ahora;
+    valor = calcular(...args);
+    return valor;
+  };
+}
+
 /** Currently loaded player track. */
 export function cur(s: CantoralState): Track | null {
   return s.tracks.find((x) => x.id === s.playerId) ?? null;
@@ -1078,17 +1108,34 @@ export function cur(s: CantoralState): Track | null {
  * soon as a track carries it — the detail panel writes occasions straight into
  * the catalogue, so there is no half-saved state to reason about here.
  */
-export function ocasiones(s: CantoralState): string[] {
-  const found = new Set<string>();
-  s.tracks.forEach((t) => {
-    const o = t.ocasion?.trim();
-    if (o) found.add(o);
-  });
-  // Keep the active filter listed even if its last track just changed occasion,
-  // otherwise its chip vanishes and the filter can no longer be switched off.
-  if (s.ocasion) found.add(s.ocasion);
-  return [...found].sort((a, b) => a.localeCompare(b, "es"));
-}
+export const ocasiones = recordar(
+  (s: CantoralState): string[] => {
+    const found = new Set<string>();
+    s.tracks.forEach((t) => {
+      const o = t.ocasion?.trim();
+      if (o) found.add(o);
+    });
+    // Keep the active filter listed even if its last track just changed occasion,
+    // otherwise its chip vanishes and the filter can no longer be switched off.
+    if (s.ocasion) found.add(s.ocasion);
+    return [...found].sort((a, b) => a.localeCompare(b, "es"));
+  },
+  (s: CantoralState) => [s.tracks, s.ocasion],
+);
+
+/**
+ * Tracks of the open culto list, in its order, skipping ids whose track is gone.
+ *
+ * Remembered like the others: the view reads it on every render, and a fresh
+ * array each time would re-render the whole list once a second.
+ */
+export const filasDeLista = recordar(
+  (s: CantoralState): Track[] =>
+    (s.plOrder[s.curPlaylist] || [])
+      .map((id) => s.tracks.find((t) => t.id === id))
+      .filter((t): t is Track => !!t),
+  (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks],
+);
 
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
@@ -1104,37 +1151,40 @@ export function playQueue(s: CantoralState): string[] {
 }
 
 /** Filter + sort the library exactly like the design's applyFilters(). */
-export function applyFilters(s: CantoralState): Track[] {
-  let list = s.tracks.slice();
-  if (s.qf === "fav") list = list.filter((t) => t.fav);
-  else if (s.qf === "missing") list = list.filter((t) => t.missing);
-  else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);
-  if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
-  if (s.query) {
-    const q = s.query.toLowerCase();
-    list = list.filter((t) =>
-      [t.titulo, t.artista, t.album, t.tono, t.ocasion, (t.tags || []).join(" ")]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }
-  if (s.qf !== "recent") {
-    const dir = s.sortDir === "asc" ? 1 : -1;
-    const k = s.sortKey;
-    list.sort((a, b) => {
-      let av: string | number = a[k as keyof Track] as never;
-      let bv: string | number = b[k as keyof Track] as never;
-      if (k === "dur") {
-        av = a.durSec;
-        bv = b.durSec;
-      }
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-      return String(av).localeCompare(String(bv), "es") * dir;
-    });
-  }
-  return list;
-}
+export const applyFilters = recordar(
+  (s: CantoralState): Track[] => {
+    let list = s.tracks.slice();
+    if (s.qf === "fav") list = list.filter((t) => t.fav);
+    else if (s.qf === "missing") list = list.filter((t) => t.missing);
+    else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);
+    if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
+    if (s.query) {
+      const q = s.query.toLowerCase();
+      list = list.filter((t) =>
+        [t.titulo, t.artista, t.album, t.tono, t.ocasion, (t.tags || []).join(" ")]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      );
+    }
+    if (s.qf !== "recent") {
+      const dir = s.sortDir === "asc" ? 1 : -1;
+      const k = s.sortKey;
+      list.sort((a, b) => {
+        let av: string | number = a[k as keyof Track] as never;
+        let bv: string | number = b[k as keyof Track] as never;
+        if (k === "dur") {
+          av = a.durSec;
+          bv = b.durSec;
+        }
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+        return String(av).localeCompare(String(bv), "es") * dir;
+      });
+    }
+    return list;
+  },
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
+);
 
 export interface Group {
   showHeader: boolean;
@@ -1144,32 +1194,40 @@ export interface Group {
 }
 
 /** Group + number the filtered list like buildGroups(). */
-export function buildGroups(s: CantoralState, list: Track[]): Group[] {
-  if (s.groupBy === "none" || s.qf === "recent") {
-    return [{ showHeader: false, tracks: list.map((track, i) => ({ track, num: i + 1 })) }];
-  }
-  const key = s.groupBy;
-  const map = new Map<string, Track[]>();
-  list.forEach((t) => {
-    const g = (t[key as keyof Track] as string) || "—";
-    if (!map.has(g)) map.set(g, []);
-    map.get(g)!.push(t);
-  });
-  const keys = [...map.keys()].sort((a, b) => String(a).localeCompare(String(b), "es"));
-  let n = 0;
-  return keys.map((g) => {
-    const arr = map.get(g)!.map((track) => ({ track, num: ++n }));
-    return {
-      showHeader: true,
-      label: g,
-      countLabel: arr.length + (arr.length === 1 ? " pista" : " pistas"),
-      tracks: arr,
-    };
-  });
-}
+export const buildGroups = recordar(
+  (s: CantoralState, list: Track[]): Group[] => {
+    if (s.groupBy === "none" || s.qf === "recent") {
+      return [{ showHeader: false, tracks: list.map((track, i) => ({ track, num: i + 1 })) }];
+    }
+    const key = s.groupBy;
+    const map = new Map<string, Track[]>();
+    list.forEach((t) => {
+      const g = (t[key as keyof Track] as string) || "—";
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(t);
+    });
+    const keys = [...map.keys()].sort((a, b) => String(a).localeCompare(String(b), "es"));
+    let n = 0;
+    return keys.map((g) => {
+      const arr = map.get(g)!.map((track) => ({ track, num: ++n }));
+      return {
+        showHeader: true,
+        label: g,
+        countLabel: arr.length + (arr.length === 1 ? " pista" : " pistas"),
+        tracks: arr,
+      };
+    });
+  },
+  (s: CantoralState, list: Track[]) => [list, s.groupBy, s.qf],
+);
 
-/** Total playlist duration label, e.g. "23 min". */
-export function plDur(s: CantoralState, ids: string[]): string {
+/**
+ * Total playlist duration label, e.g. "23 min".
+ *
+ * Takes the catalogue rather than the whole state so a view can call it while
+ * only subscribing to `tracks`.
+ */
+export function plDur(s: { tracks: Track[] }, ids: string[]): string {
   const total = ids.reduce((a, id) => {
     const t = s.tracks.find((x) => x.id === id);
     return a + (t ? t.durSec : 0);

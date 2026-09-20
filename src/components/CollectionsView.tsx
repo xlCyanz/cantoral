@@ -8,7 +8,7 @@ export default function CollectionsView() {
   const plOrder = useStore((s) => s.plOrder);
   const openPlaylist = useStore((s) => s.openPlaylist);
   const newList = useStore((s) => s.newList);
-  const s = useStore();
+  const tracks = useStore((s) => s.tracks);
 
   if (playlists.length === 0) {
     return (
@@ -57,7 +57,7 @@ export default function CollectionsView() {
                   <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.fecha}</span>
                 </div>
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: 3, fontWeight: 500 }}>
-                  {ids.length} pistas · {plDur(s, ids)}
+                  {ids.length} pistas · {plDur({ tracks }, ids)}
                 </div>
               </div>
             </div>

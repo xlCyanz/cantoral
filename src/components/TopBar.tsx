@@ -10,21 +10,36 @@ const titleMap: Record<string, string> = {
 };
 
 export default function TopBar() {
-  const s = useStore();
-  const { view, query, ocasion, groupBy, libState, theme } = s;
+  // Field by field: the player writes `posSec` several times a second, and a
+  // bar that read the whole store would re-filter the library along with it.
+  const view = useStore((s) => s.view);
+  const query = useStore((s) => s.query);
+  const ocasion = useStore((s) => s.ocasion);
+  const groupBy = useStore((s) => s.groupBy);
+  const libState = useStore((s) => s.libState);
+  const theme = useStore((s) => s.theme);
+  const listaTitulo = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist)?.nombre ?? "");
+  // `applyFilters` and `ocasiones` remember their last result, so calling them
+  // here costs nothing beyond what the library view already paid.
+  const total = useStore((s) => applyFilters(s).length);
+  const ocs = useStore(ocasiones);
+
+  const onQuery = useStore((s) => s.onQuery);
+  const clearQuery = useStore((s) => s.clearQuery);
+  const showColecciones = useStore((s) => s.showColecciones);
+  const toggleTheme = useStore((s) => s.toggleTheme);
+  const openAddFolder = useStore((s) => s.openAddFolder);
+  const onOcasion = useStore((s) => s.onOcasion);
+  const onGroupBy = useStore((s) => s.onGroupBy);
 
   const showSearch = view === "biblioteca";
   const isLista = view === "lista";
-  const pageTitle = isLista
-    ? s.playlists.find((p) => p.id === s.curPlaylist)?.nombre || ""
-    : titleMap[view] || "";
+  const pageTitle = isLista ? listaTitulo : titleMap[view] || "";
   const showFilterBar = view === "biblioteca" && libState === "content";
-  const list = showFilterBar ? applyFilters(s) : [];
 
   // Occasions come from the catalogue itself; a lone «Todas» chip would be
   // noise, so the row only appears once there is something to filter by.
-  const ocs = showFilterBar ? ocasiones(s) : [];
-  const chips = ocs.length ? [{ value: "", label: "Todas" }, ...ocs.map((o) => ({ value: o, label: o }))] : [];
+  const chips = showFilterBar && ocs.length ? [{ value: "", label: "Todas" }, ...ocs.map((o) => ({ value: o, label: o }))] : [];
 
   return (
     <header
@@ -43,7 +58,7 @@ export default function TopBar() {
             <input
               data-search-input
               value={query}
-              onChange={(e) => s.onQuery(e.target.value)}
+              onChange={(e) => onQuery(e.target.value)}
               placeholder="Buscar por título, artista, tono o etiqueta…"
               className="in-focus"
               style={{
@@ -60,7 +75,7 @@ export default function TopBar() {
             />
             {query && (
               <button
-                onClick={s.clearQuery}
+                onClick={clearQuery}
                 title="Limpiar"
                 className="hb-s2t"
                 style={{ position: "absolute", right: 9, width: 22, height: 22, borderRadius: 6, display: "grid", placeItems: "center", color: "var(--text-3)" }}
@@ -73,7 +88,7 @@ export default function TopBar() {
           <div style={{ flex: "0 1 auto", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             {isLista && (
               <button
-                onClick={s.showColecciones}
+                onClick={showColecciones}
                 className="hb-s2t"
                 style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-2)", border: "1px solid var(--border)" }}
               >
@@ -90,7 +105,7 @@ export default function TopBar() {
 
         {/* theme toggle */}
         <button
-          onClick={s.toggleTheme}
+          onClick={toggleTheme}
           title="Cambiar tema"
           className="hb-s2t"
           style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", display: "grid", placeItems: "center", color: "var(--text-2)", transition: "background .14s,color .14s" }}
@@ -100,7 +115,7 @@ export default function TopBar() {
 
         {/* add folder */}
         <button
-          onClick={s.openAddFolder}
+          onClick={openAddFolder}
           className="hb-primary hb-active"
           style={{
             height: 38,
@@ -131,7 +146,7 @@ export default function TopBar() {
             {chips.map((c) => {
               const active = c.value ? ocasion === c.value : !ocasion;
               return (
-                <button key={c.value || "all"} onClick={() => s.onOcasion(c.value)} style={chipStyle(active)}>
+                <button key={c.value || "all"} onClick={() => onOcasion(c.value)} style={chipStyle(active)}>
                   {c.label}
                 </button>
               );
@@ -142,7 +157,7 @@ export default function TopBar() {
               <ListFilter size={14} style={{ position: "absolute", left: 10, color: "var(--text-3)", pointerEvents: "none" }} />
               <select
                 value={groupBy}
-                onChange={(e) => s.onGroupBy(e.target.value as GroupBy)}
+                onChange={(e) => onGroupBy(e.target.value as GroupBy)}
                 style={selectStyle}
               >
                 <option value="none">Sin agrupar</option>
@@ -153,7 +168,7 @@ export default function TopBar() {
               <ChevronDown size={13} style={{ position: "absolute", right: 9, color: "var(--text-3)", pointerEvents: "none" }} />
             </div>
             <div style={{ fontSize: "12.5px", color: "var(--text-3)", fontWeight: 500, whiteSpace: "nowrap", paddingLeft: 2 }}>
-              {list.length + (list.length === 1 ? " canción" : " canciones")}
+              {total + (total === 1 ? " canción" : " canciones")}
             </div>
           </div>
         </div>

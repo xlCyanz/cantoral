@@ -39,14 +39,34 @@ function BigCoverInner({ t }: { t: Track }) {
 }
 
 export default function DetailPanel() {
-  const s = useStore();
   const [listMenu, setListMenu] = useState(false);
-  const sel = s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null;
-  if (!s.detailOpen || !sel) return null;
+  // Field by field: the panel sits beside a player that writes `posSec`
+  // several times a second, and none of what it shows changes with it.
+  const detailOpen = useStore((s) => s.detailOpen);
+  const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
+  const playlists = useStore((s) => s.playlists);
+  const plOrder = useStore((s) => s.plOrder);
+  const tagDraft = useStore((s) => s.tagDraft);
+  const saveState = useStore((s) => s.saveState);
+  const ocasionesDelCatalogo = useStore(ocasiones);
+
+  const closeDetail = useStore((s) => s.closeDetail);
+  const relocateTrack = useStore((s) => s.relocateTrack);
+  const deleteTrack = useStore((s) => s.deleteTrack);
+  const play = useStore((s) => s.play);
+  const onOpenExternal = useStore((s) => s.onOpenExternal);
+  const addToList = useStore((s) => s.addToList);
+  const setEdit = useStore((s) => s.setEdit);
+  const onTagDraft = useStore((s) => s.onTagDraft);
+  const addTag = useStore((s) => s.addTag);
+  const removeTag = useStore((s) => s.removeTag);
+  const revealTrack = useStore((s) => s.revealTrack);
+
+  if (!detailOpen || !sel) return null;
 
   // The catalogue's own occasions first, then the defaults it has not used yet.
   const sugerenciasDeOcasion = [
-    ...new Set([...ocasiones(s), ...OCASIONES_SUGERIDAS]),
+    ...new Set([...ocasionesDelCatalogo, ...OCASIONES_SUGERIDAS]),
   ];
 
   // The real path the backend indexed. This used to be assembled from the
@@ -61,7 +81,7 @@ export default function DetailPanel() {
     <aside style={{ width: 360, flex: "0 0 auto", background: "var(--surface)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", minHeight: 0, animation: "canPanel .26s cubic-bezier(.22,1,.36,1)", boxShadow: "-8px 0 24px rgba(30,22,14,.05)" }}>
       <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 14px 12px", borderBottom: "1px solid var(--border)" }}>
         <span style={sectionLabel}>Detalle de pista</span>
-        <button onClick={s.closeDetail} title="Cerrar" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-2)" }}>
+        <button onClick={closeDetail} title="Cerrar" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-2)" }}>
           <X size={16} />
         </button>
       </div>
@@ -81,14 +101,14 @@ export default function DetailPanel() {
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button
-                  onClick={() => s.relocateTrack(sel.id)}
+                  onClick={() => relocateTrack(sel.id)}
                   style={{ flex: 1, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 9, background: "var(--danger)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
                   className="hb-danger-solid"
                 >
                   <Search size={14} strokeWidth={2.4} />Localizar…
                 </button>
                 <button
-                  onClick={() => s.deleteTrack(sel.id)}
+                  onClick={() => deleteTrack(sel.id)}
                   title="Quitar de la biblioteca"
                   style={{ height: 34, padding: "0 12px", display: "flex", alignItems: "center", gap: 7, borderRadius: 9, border: "1px solid var(--danger)", background: "transparent", color: "var(--danger)", fontSize: "12.5px", fontWeight: 600 }}
                 >
@@ -105,18 +125,18 @@ export default function DetailPanel() {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16, width: "100%" }}>
-            <button onClick={() => s.play(sel.id)} className="hb-primary" style={{ flex: 1, height: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+            <button onClick={() => play(sel.id)} className="hb-primary" style={{ flex: 1, height: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               {sel.video ? <SquareArrowOutUpRight size={15} /> : <Play size={15} fill="currentColor" stroke="none" />}
               {sel.video ? "Abrir video" : "Reproducir"}
             </button>
-            <button onClick={() => s.onOpenExternal(sel.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ width: 44, height: 40, display: "grid", placeItems: "center", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
+            <button onClick={() => onOpenExternal(sel.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ width: 44, height: 40, display: "grid", placeItems: "center", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
               <SquareArrowOutUpRight size={16} />
             </button>
           </div>
         </div>
 
         {/* add to a playlist */}
-        {s.playlists.length > 0 && (
+        {playlists.length > 0 && (
           <div style={{ marginBottom: 16, position: "relative" }}>
             <label style={labelStyle}>Agregar a una lista</label>
             <button
@@ -131,12 +151,12 @@ export default function DetailPanel() {
               <>
                 <div onClick={() => setListMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
                 <div style={{ position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, maxHeight: 220, overflowY: "auto" }}>
-                  {s.playlists.map((p) => {
-                    const inList = (s.plOrder[p.id] || []).includes(sel.id);
+                  {playlists.map((p) => {
+                    const inList = (plOrder[p.id] || []).includes(sel.id);
                     return (
                       <button
                         key={p.id}
-                        onClick={() => { s.addToList(p.id, sel.id); setListMenu(false); }}
+                        onClick={() => { addToList(p.id, sel.id); setListMenu(false); }}
                         className="hb-s2"
                         style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500, textAlign: "left", color: "var(--text)" }}
                       >
@@ -161,7 +181,7 @@ export default function DetailPanel() {
               <input
                 id="det-tono"
                 value={sel.tono}
-                onChange={(e) => s.setEdit("tono", e.target.value)}
+                onChange={(e) => setEdit("tono", e.target.value)}
                 list="tonos-musicales"
                 placeholder="Sol"
                 className="in-focus"
@@ -183,7 +203,7 @@ export default function DetailPanel() {
                 inputMode="numeric"
                 value={sel.bpm || ""}
                 // Rust takes an i64, so this has to leave the field as a number.
-                onChange={(e) => s.setEdit("bpm", Math.max(0, Math.min(400, Number(e.target.value) || 0)))}
+                onChange={(e) => setEdit("bpm", Math.max(0, Math.min(400, Number(e.target.value) || 0)))}
                 placeholder="BPM"
                 className="in-focus"
                 style={{ ...fieldStyle, padding: "0 10px" }}
@@ -195,7 +215,7 @@ export default function DetailPanel() {
             <input
               id="det-ocasion"
               value={sel.ocasion}
-              onChange={(e) => s.setEdit("ocasion", e.target.value)}
+              onChange={(e) => setEdit("ocasion", e.target.value)}
               list="ocasiones-pista"
               placeholder="Adoración"
               className="in-focus"
@@ -216,7 +236,7 @@ export default function DetailPanel() {
             {tags.map((tag) => (
               <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 27, padding: "0 6px 0 10px", borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", fontSize: 12, fontWeight: 600 }}>
                 {tag}
-                <button onClick={() => s.removeTag(tag)} className="hb-primsoft2" style={{ width: 17, height: 17, borderRadius: 5, display: "grid", placeItems: "center", color: "var(--primary)" }}>
+                <button onClick={() => removeTag(tag)} className="hb-primsoft2" style={{ width: 17, height: 17, borderRadius: 5, display: "grid", placeItems: "center", color: "var(--primary)" }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" style={{ width: 10, height: 10 }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                 </button>
               </span>
@@ -226,9 +246,9 @@ export default function DetailPanel() {
           <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
             <Tag size={14} style={{ position: "absolute", left: 11, color: "var(--text-3)", pointerEvents: "none" }} />
             <input
-              value={s.tagDraft}
-              onChange={(e) => s.onTagDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") s.addTag(s.tagDraft); }}
+              value={tagDraft}
+              onChange={(e) => onTagDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addTag(tagDraft); }}
               placeholder="Agregar etiqueta y Enter…"
               className="in-focus"
               style={{ width: "100%", height: 36, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, padding: "0 12px 0 32px", fontSize: 13, outline: "none" }}
@@ -250,7 +270,7 @@ export default function DetailPanel() {
           </div>
           {ruta && (
             <button
-              onClick={() => s.revealTrack(sel.id)}
+              onClick={() => revealTrack(sel.id)}
               className="hb-s2"
               style={{ marginTop: 8, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)", fontSize: "12.5px", fontWeight: 600 }}
             >
@@ -266,9 +286,9 @@ export default function DetailPanel() {
         to claim «Guardado automático» while nothing of the sort happened.
       */}
       <div style={{ flex: "0 0 auto", borderTop: "1px solid var(--border)", padding: "13px 16px", display: "flex", alignItems: "center", gap: 8 }} aria-live="polite">
-        {ESTADO[s.saveState].icono}
-        <span style={{ fontSize: "12.5px", fontWeight: s.saveState === "idle" ? 400 : 600, color: ESTADO[s.saveState].color }}>
-          {ESTADO[s.saveState].texto}
+        {ESTADO[saveState].icono}
+        <span style={{ fontSize: "12.5px", fontWeight: saveState === "idle" ? 400 : 600, color: ESTADO[saveState].color }}>
+          {ESTADO[saveState].texto}
         </span>
       </div>
     </aside>

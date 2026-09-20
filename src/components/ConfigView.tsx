@@ -75,14 +75,23 @@ const PEOPLE = [
 ];
 
 export default function ConfigView() {
-  const s = useStore();
-  const folders = s.folders;
+  const folders = useStore((s) => s.folders);
+  const totalTracks = useStore((s) => s.tracks.length);
+  const openExt = useStore((s) => s.openExt);
+  const openAddFolder = useStore((s) => s.openAddFolder);
+  const rescanFolder = useStore((s) => s.rescanFolder);
+  const relocateFolder = useStore((s) => s.relocateFolder);
+  const removeFolder = useStore((s) => s.removeFolder);
+  const toggleOpenExt = useStore((s) => s.toggleOpenExt);
+  const restore = useStore((s) => s.restore);
+  const backup = useStore((s) => s.backup);
+  const openHelp = useStore((s) => s.openHelp);
+
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
   useEffect(() => {
     void getDbInfo().then(setDbInfo);
-  }, [folders.length, s.tracks.length]);
+  }, [folders.length, totalTracks]);
 
-  const totalTracks = s.tracks.length;
   const lastScan = folders
     .map((f) => f.lastScan)
     .filter((x): x is string => !!x)
@@ -109,7 +118,7 @@ export default function ConfigView() {
             <h2 style={h2Style}>Carpetas indexadas</h2>
             <p style={pStyle}>Cantoral revisa estas ubicaciones. Tus archivos nunca se mueven ni se copian. Si una carpeta cambió de sitio, muévela en vez de quitarla: así conserva etiquetas y favoritos.</p>
           </div>
-          <button onClick={s.openAddFolder} className="hb-s2" style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>
+          <button onClick={openAddFolder} className="hb-s2" style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>
             <Plus size={14} strokeWidth={2.2} />Agregar
           </button>
         </div>
@@ -124,11 +133,11 @@ export default function ConfigView() {
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.ruta}</div>
               </div>
               <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500, flex: "0 0 auto" }}>{f.count} pistas</span>
-              <button onClick={() => s.rescanFolder(f.id)} title="Volver a escanear" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
+              <button onClick={() => rescanFolder(f.id)} title="Volver a escanear" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
                 <RefreshCw size={15} />
               </button>
               <button
-                onClick={() => s.relocateFolder(f.id)}
+                onClick={() => relocateFolder(f.id)}
                 title="La carpeta cambió de ubicación: apuntarla al sitio nuevo sin perder etiquetas"
                 aria-label={`Mover «${f.nombre}» a otra ubicación`}
                 className="hb-s2t"
@@ -136,7 +145,7 @@ export default function ConfigView() {
               >
                 <FolderInput size={15} />
               </button>
-              <button onClick={() => s.removeFolder(f.id)} title="Quitar carpeta" className="hb-danger" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
+              <button onClick={() => removeFolder(f.id)} title="Quitar carpeta" className="hb-danger" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
                 <X size={15} />
               </button>
             </div>
@@ -150,13 +159,13 @@ export default function ConfigView() {
       {/* reproduccion */}
       <div style={{ marginBottom: 30 }}>
         <h2 style={{ ...h2Style, marginBottom: 12 }}>Reproducción</h2>
-        <label onClick={s.toggleOpenExt} style={{ display: "flex", alignItems: "center", gap: 14, padding: 15, border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", cursor: "pointer" }}>
+        <label onClick={toggleOpenExt} style={{ display: "flex", alignItems: "center", gap: 14, padding: 15, border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", cursor: "pointer" }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: "13.5px", fontWeight: 600 }}>Abrir siempre en el reproductor del sistema</div>
             <div style={{ fontSize: "12.5px", color: "var(--text-2)", marginTop: 2 }}>Al pulsar reproducir, usa la app predeterminada del sistema en vez del reproductor integrado.</div>
           </div>
-          <div style={{ width: 42, height: 24, borderRadius: 20, padding: 2, transition: "background .16s", flex: "0 0 auto", cursor: "pointer", background: s.openExt ? "var(--primary)" : "var(--border-2)" }}>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.3)", transition: "transform .16s", transform: `translateX(${s.openExt ? "18px" : "0px"})` }} />
+          <div style={{ width: 42, height: 24, borderRadius: 20, padding: 2, transition: "background .16s", flex: "0 0 auto", cursor: "pointer", background: openExt ? "var(--primary)" : "var(--border-2)" }}>
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.3)", transition: "transform .16s", transform: `translateX(${openExt ? "18px" : "0px"})` }} />
           </div>
         </label>
       </div>
@@ -175,8 +184,8 @@ export default function ConfigView() {
               {dbInfo ? `${dbInfo.path} · ${formatSize(dbInfo.size)}` : "Base de datos local"}
             </div>
           </div>
-          <button onClick={s.restore} className="hb-s2" style={{ flex: "0 0 auto", height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>Restaurar…</button>
-          <button onClick={s.backup} className="hb-primary" style={{ flex: "0 0 auto", height: 36, display: "flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 9, background: "var(--primary)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}>
+          <button onClick={restore} className="hb-s2" style={{ flex: "0 0 auto", height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>Restaurar…</button>
+          <button onClick={backup} className="hb-primary" style={{ flex: "0 0 auto", height: 36, display: "flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 9, background: "var(--primary)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}>
             <Download size={14} />Crear copia
           </button>
         </div>
@@ -186,7 +195,7 @@ export default function ConfigView() {
       <div style={{ marginBottom: 30 }}>
         <h2 style={h2Style}>Ayuda</h2>
         <p style={{ ...pStyle, marginBottom: 12 }}>¿Primera vez con Cantoral? Repasa cómo funciona en un minuto.</p>
-        <button onClick={s.openHelp} className="hb-s2" style={{ height: 40, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>
+        <button onClick={openHelp} className="hb-s2" style={{ height: 40, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>
           <HelpCircle size={16} />¿Cómo funciona?
         </button>
       </div>
