@@ -458,17 +458,35 @@ export const useStore = create<CantoralState>((set, get) => {
     closeDetail: () => set({ detailOpen: false }),
     saveDetail: () => {
       const s = get();
-      if (!s.selId) return;
-      const e = s.edit[s.selId];
-      const base = s.tracks.find((t) => t.id === s.selId);
-      if (e && base) {
-        const merged = { ...base, ...e };
-        set({ tracks: s.tracks.map((t) => (t.id === s.selId ? merged : t)), saved: true });
-        void updateTrackCmd(merged.id, merged.tono, merged.bpm, merged.ocasion, merged.tags || []);
-      } else {
+      const id = s.selId;
+      if (!id) return;
+      const e = s.edit[id];
+      const base = s.tracks.find((t) => t.id === id);
+      if (!e || !base) {
         set({ saved: true });
+        return;
       }
-      toast("Cambios guardados");
+      const merged = { ...base, ...e };
+      const prevTracks = s.tracks;
+      const prevEdit = s.edit;
+
+      // Applied at once and the pending overlay dropped, so the row stops being
+      // an unsaved edit the moment it becomes a saved one.
+      set((st) => {
+        const edit = { ...st.edit };
+        delete edit[id];
+        return { tracks: st.tracks.map((t) => (t.id === id ? merged : t)), edit, saved: true };
+      });
+
+      updateTrackCmd(merged.id, merged.tono, merged.bpm, merged.ocasion, merged.tags || [])
+        .then(() => toast("Cambios guardados"))
+        .catch((err) => {
+          // Claiming «Cambios guardados» without waiting is how an edit used to
+          // vanish between one launch and the next.
+          console.error("update_track failed", err);
+          set({ tracks: prevTracks, edit: prevEdit, saved: false });
+          toast("No se pudieron guardar los cambios", "error");
+        });
     },
 
     // ---------- dialog / states ----------
@@ -1007,6 +1025,10 @@ export function cur(s: CantoralState): Track | null {
  */
 export function ocasiones(s: CantoralState): string[] {
   const found = new Set<string>();
+  // Through eff(), so an occasion being typed in the detail panel shows up as a
+  // chip right away. That has to match applyFilters(), which also filters
+  // through eff() — otherwise a track would be filterable by an occasion that
+  // has no chip to filter by. Edits that outlive the panel are #4, not this.
   s.tracks.forEach((t) => {
     const o = eff(s, t).ocasion?.trim();
     if (o) found.add(o);
