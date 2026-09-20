@@ -11,6 +11,21 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **ESLint** con configuración plana (typescript-eslint, react-hooks), ejecutado en
+  CI con `--max-warnings 0`. Reglas en error: `no-explicit-any`,
+  `no-floating-promises` y `no-unused-vars`.
+- **`cargo audit`** en CI: falla ante vulnerabilidades conocidas en las
+  dependencias de Rust.
+- **CodeQL** (`.github/workflows/codeql.yml`) sobre la interfaz y el núcleo, en
+  cada push, cada pull request y semanalmente.
+
+### Cambiado
+
+- TypeScript fijado en `~6.0.3`, bajando desde el `7.0.2` que había entrado por
+  Dependabot: `typescript-eslint` soporta `>=4.8.4 <6.1.0` y falla en seco fuera
+  de ese rango. `tsc` compila igual con TS 7, así que nada lo delataba hasta que
+  hubo un linter. Dependabot ya no propone el bump.
+
 - Integración continua (`ci.yml`): tipos, Vitest, `cargo clippy` y `cargo test` en
   cada push y cada pull request.
 - Plantillas de issue (bug y propuesta) y de pull request.
@@ -18,6 +33,11 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - Dependabot para npm, Cargo y GitHub Actions.
 
 ### Corregido
+
+- `NewListDialog` sembraba sus campos desde un `useEffect` que llamaba `setState`,
+  el anti-patrón que React desaconseja explícitamente. Ahora el formulario es un
+  componente aparte montado bajo un `key`, así que los inicializadores de
+  `useState` hacen el trabajo. Comportamiento idéntico, sin renders en cascada.
 
 - El pipeline de compilación emparejaba **pnpm 11 con Node 20**, y pnpm 11 exige
   Node ≥ 22.13: cualquier intento de publicar una versión habría fallado nada más
