@@ -20,7 +20,7 @@ function osPrefersDark(): boolean {
 function resolveTheme(mode: ThemeMode): Theme {
   return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
 }
-import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS } from "./lib/seed";
+import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import {
   addAndScanFolder,
@@ -34,8 +34,12 @@ import {
   exportPlaylistCmd,
   getLibrary,
   getSetting,
+  dismissDuplicatesCmd,
+  findDuplicatesCmd,
   inspectBackup,
   isTauri,
+  mergeDuplicatesCmd,
+  restoreDismissedDuplicatesCmd,
   openExternalPath,
   pickDbFile,
   pickExportPath,
@@ -54,6 +58,7 @@ import {
   setTrackFav,
   updatePlaylistCmd,
   updateTrackCmd,
+  type DuplicateGroup,
   type Snapshot,
 } from "./lib/api";
 
@@ -167,6 +172,13 @@ export interface CantoralState {
   /** Destructive action awaiting confirmation, or null. */
   confirm: ConfirmRequest | null;
 
+  // ---- duplicates ----
+  /** Groups of tracks that look like the same song. Empty until searched. */
+  duplicates: DuplicateGroup[];
+  /** How many groups the user has waved off, so they can be offered back. */
+  duplicatesDismissed: number;
+  duplicatesState: "idle" | "buscando" | "listo";
+
   // ---- actions ----
   showBiblioteca: () => void;
   showColecciones: () => void;
@@ -250,6 +262,15 @@ export interface CantoralState {
   tick: () => void;
   showToast: (m: string, type?: ToastType) => void;
 
+  /** Look for tracks that are the same song. */
+  findDuplicates: () => void;
+  /** Fold a group's other copies into the one chosen, after confirming. */
+  mergeDuplicates: (signature: string, keepId: string) => void;
+  /** Mark a group as not duplicates, so it stops being offered. */
+  dismissDuplicates: (signature: string) => void;
+  /** Offer every dismissed group again. */
+  restoreDismissedDuplicates: () => void;
+
   askConfirm: (req: ConfirmRequest) => void;
   acceptConfirm: () => void;
   closeConfirm: () => void;
@@ -281,7 +302,20 @@ export const useStore = create<CantoralState>((set, get) => {
     // Drop queued ids whose track vanished in the rescan.
     const live = new Set(tracks.map((t) => t.id));
     const queue = st.queue.filter((id) => live.has(id));
-    set({ tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId, queue });
+    set({
+      tracks,
+      folders: snap.folders,
+      playlists: snap.playlists,
+      plOrder,
+      curPlaylist,
+      playerId,
+      queue,
+      // Any list of duplicates was computed against the catalogue that just
+      // got replaced. Offering the user a choice about tracks that may no
+      // longer exist is worse than asking them to search again.
+      duplicates: [],
+      duplicatesState: "idle",
+    });
   };
 
   /** How often the catalogue is pulled in while a scan is running. */
@@ -432,6 +466,10 @@ export const useStore = create<CantoralState>((set, get) => {
 
     toast: null,
     confirm: null,
+
+    duplicates: [],
+    duplicatesDismissed: 0,
+    duplicatesState: "idle",
 
     // ---------- nav ----------
     showBiblioteca: () => set({ view: "biblioteca" }),
@@ -1137,6 +1175,128 @@ export const useStore = create<CantoralState>((set, get) => {
       if (p >= t.durSec) get().advance();
       else set({ posSec: p });
     },
+    // ---------- duplicates ----------
+    findDuplicates: () => {
+      set({ duplicatesState: "buscando" });
+      if (!isTauri()) {
+        // Fixture, not a search: the real grouping reads file sizes and lengths
+        // the browser mock does not have.
+        set({ duplicates: seedDuplicates(), duplicatesDismissed: 0, duplicatesState: "listo" });
+        return;
+      }
+      findDuplicatesCmd()
+        .then((r) => {
+          if (r) set({ duplicates: r.groups, duplicatesDismissed: r.dismissed, duplicatesState: "listo" });
+        })
+        .catch((err) => {
+          console.error("find_duplicates failed", err);
+          set({ duplicatesState: "idle" });
+          toast(String(err), "error");
+        });
+    },
+
+    mergeDuplicates: (signature, keepId) => {
+      const grupo = get().duplicates.find((g) => g.signature === signature);
+      const queda = grupo?.tracks.find((t) => t.id === keepId);
+      if (!grupo || !queda) return;
+      const copias = grupo.tracks.filter((t) => t.id !== keepId);
+      if (copias.length === 0) return;
+
+      get().askConfirm({
+        title: "¿Fusionar estas copias?",
+        message: `Se queda «${queda.titulo}» (${queda.formato}, ${queda.carpeta}). Las demás salen de la biblioteca.`,
+        detail: copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`).join("\n\n"),
+        safe:
+          "Sus etiquetas, su favorito y su sitio en las listas para culto pasan a la que se queda. " +
+          "Los archivos de audio no se borran del disco.",
+        confirmLabel: "Fusionar",
+        onConfirm: () => {
+          const ids = copias.map((c) => c.id);
+          if (!isTauri()) {
+            // Browser stand-in: the same visible outcome, none of the SQL.
+            set((st) => {
+              const fuera = new Set(ids);
+              const etiquetas = new Set<string>();
+              let fav = false;
+              st.tracks.forEach((t) => {
+                if (t.id === keepId || fuera.has(t.id)) {
+                  (t.tags || []).forEach((x) => etiquetas.add(x));
+                  fav = fav || t.fav;
+                }
+              });
+              // Lists follow the survivor, and a list that held two copies
+              // ends up with the song once, not twice.
+              const plOrder: Record<string, string[]> = {};
+              Object.entries(st.plOrder).forEach(([pid, orden]) => {
+                const visto = new Set<string>();
+                const nuevo: string[] = [];
+                orden.forEach((id) => {
+                  const destino = fuera.has(id) ? keepId : id;
+                  if (visto.has(destino)) return;
+                  visto.add(destino);
+                  nuevo.push(destino);
+                });
+                plOrder[pid] = nuevo;
+              });
+              return {
+                tracks: st.tracks
+                  .filter((t) => !fuera.has(t.id))
+                  .map((t) => (t.id === keepId ? { ...t, tags: [...etiquetas].sort(), fav } : t)),
+                plOrder,
+                duplicates: st.duplicates.filter((g) => g.signature !== signature),
+              };
+            });
+            toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`);
+            return;
+          }
+          mergeDuplicatesCmd(keepId, ids)
+            .then((snap) => {
+              if (snap) applySnapshot(snap);
+              toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`);
+              // `applySnapshot` cleared the list; fill it with what is left.
+              get().findDuplicates();
+            })
+            .catch((err) => {
+              console.error("merge_duplicates failed", err);
+              toast(String(err), "error");
+            });
+        },
+      });
+    },
+
+    dismissDuplicates: (signature) => {
+      if (!isTauri()) {
+        set((st) => ({
+          duplicates: st.duplicates.filter((g) => g.signature !== signature),
+          duplicatesDismissed: st.duplicatesDismissed + 1,
+        }));
+        return;
+      }
+      dismissDuplicatesCmd(signature)
+        .then((r) => {
+          if (r) set({ duplicates: r.groups, duplicatesDismissed: r.dismissed });
+        })
+        .catch((err) => {
+          console.error("dismiss_duplicates failed", err);
+          toast(String(err), "error");
+        });
+    },
+
+    restoreDismissedDuplicates: () => {
+      if (!isTauri()) {
+        set({ duplicates: seedDuplicates(), duplicatesDismissed: 0 });
+        return;
+      }
+      restoreDismissedDuplicatesCmd()
+        .then((r) => {
+          if (r) set({ duplicates: r.groups, duplicatesDismissed: r.dismissed });
+        })
+        .catch((err) => {
+          console.error("restore_dismissed_duplicates failed", err);
+          toast(String(err), "error");
+        });
+    },
+
     askConfirm: (req) => set({ confirm: req }),
     closeConfirm: () => set({ confirm: null }),
     acceptConfirm: () => {

@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { Database, Download, Folder, FolderInput, HelpCircle, Plus, RefreshCw, X } from "lucide-react";
 import { useStore } from "../store";
 import { ocupadoStyle } from "../lib/styles";
+import DuplicateGroups from "./DuplicateGroups";
 import { getDbInfo, type DbInfo } from "../lib/api";
 import type { ThemeMode } from "../lib/types";
 
@@ -157,6 +158,8 @@ export default function ConfigView() {
           </div>
         </div>
       </div>
+
+      <DuplicateGroups />
 
       {/* reproduccion */}
       <div style={{ marginBottom: 30 }}>
