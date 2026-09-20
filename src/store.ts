@@ -57,6 +57,12 @@ let dragId: string | null = null;
 /** Action to re-run from the error state — set whenever a backend call fails. */
 let lastFailedAction: (() => void) | null = null;
 
+export type ToastType = "success" | "error" | "info";
+export interface ToastNotice {
+  message: string;
+  type: ToastType;
+}
+
 export interface CantoralState {
   // ---- data ----
   tracks: Track[];
@@ -111,7 +117,7 @@ export interface CantoralState {
   overId: string | null;
 
   // ---- toast ----
-  toast: string | null;
+  toast: ToastNotice | null;
 
   // ---- actions ----
   showBiblioteca: () => void;
@@ -184,7 +190,7 @@ export interface CantoralState {
   restore: () => void;
 
   tick: () => void;
-  showToast: (m: string) => void;
+  showToast: (m: string, type?: ToastType) => void;
 }
 
 const initialPlOrder: Record<string, string[]> = {};
@@ -194,7 +200,7 @@ SEED_PLAYLISTS.forEach((p) => (initialPlOrder[p.id] = p.ids.slice()));
 const MOCK = !isTauri();
 
 export const useStore = create<CantoralState>((set, get) => {
-  const toast = (m: string) => get().showToast(m);
+  const toast = (m: string, type: ToastType = "success") => get().showToast(m, type);
 
   /** Replace the catalogue from a backend snapshot, preserving the player /
    *  playlist selection when the referenced ids still exist. */
@@ -309,17 +315,17 @@ export const useStore = create<CantoralState>((set, get) => {
     onOpenExternal: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!isTauri()) {
-        toast("Abriendo en el reproductor del sistema…");
+        toast("Abriendo en el reproductor del sistema…", "info");
         return;
       }
       if (!t?.path) {
-        toast("Sin archivo para abrir");
+        toast("Sin archivo para abrir", "info");
         return;
       }
-      toast("Abriendo en el reproductor del sistema…");
+      toast("Abriendo en el reproductor del sistema…", "info");
       void openExternalPath(t.path).catch((err) => {
         console.error("openExternalPath failed", err);
-        toast("No se pudo abrir el archivo");
+        toast("No se pudo abrir el archivo", "error");
       });
     },
 
@@ -329,7 +335,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const t = s.tracks.find((x) => x.id === id);
       if (!t) return;
       if (t.missing) {
-        toast("El archivo no se encuentra en el disco");
+        toast("El archivo no se encuentra en el disco", "error");
         return;
       }
       // Videos always, and any track when "abrir en el sistema" is on, open in
@@ -582,7 +588,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo exportar la lista");
+            toast("No se pudo exportar la lista", "error");
           });
       });
     },
@@ -600,7 +606,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo crear la lista");
+            toast("No se pudo crear la lista", "error");
           });
       } else {
         const id = "new-" + Date.now();
@@ -627,7 +633,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo actualizar la lista");
+            toast("No se pudo actualizar la lista", "error");
           });
       } else {
         set((st) => ({
@@ -641,7 +647,7 @@ export const useStore = create<CantoralState>((set, get) => {
     addToList: (playlistId, trackId) => {
       const cur = get().plOrder[playlistId] || [];
       if (cur.includes(trackId)) {
-        toast("Ya está en la lista");
+        toast("Ya está en la lista", "info");
         return;
       }
       const next = [...cur, trackId];
@@ -746,7 +752,7 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     restore: () => {
       if (!isTauri()) {
-        toast("Selecciona un archivo de respaldo…");
+        toast("Selecciona un archivo de respaldo…", "info");
         return;
       }
       void pickDbFile().then((src) => {
@@ -759,7 +765,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo restaurar la base de datos");
+            toast("No se pudo restaurar la base de datos", "error");
           });
       });
     },
@@ -777,10 +783,10 @@ export const useStore = create<CantoralState>((set, get) => {
       if (p >= t.durSec) get().advance();
       else set({ posSec: p });
     },
-    showToast: (m) => {
+    showToast: (m, type = "success") => {
       if (toastTimer) clearTimeout(toastTimer);
-      set({ toast: m });
-      toastTimer = setTimeout(() => set({ toast: null }), 2200);
+      set({ toast: { message: m, type } });
+      toastTimer = setTimeout(() => set({ toast: null }), type === "error" ? 4000 : 2200);
     },
   };
 });

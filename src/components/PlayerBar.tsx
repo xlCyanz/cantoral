@@ -122,7 +122,7 @@ export default function PlayerBar() {
           }
         }}
         onError={() => {
-          if (audioRef.current?.src) useStore.getState().showToast("No se pudo reproducir el archivo");
+          if (audioRef.current?.src) useStore.getState().showToast("No se pudo reproducir el archivo", "error");
         }}
         style={{ display: "none" }}
       />
