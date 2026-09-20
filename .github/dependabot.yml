@@ -1,0 +1,41 @@
+version: 2
+
+# Actualizaciones agrupadas y semanales: un PR por ecosistema en vez de uno por
+# dependencia, para que revisar no se vuelva un trabajo a tiempo completo.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+      include: scope
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      tauri:
+        patterns: ["@tauri-apps/*"]
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+      include: scope
+    groups:
+      tauri:
+        patterns: ["tauri", "tauri-*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

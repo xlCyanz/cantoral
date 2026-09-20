@@ -1,0 +1,76 @@
+name: ✨ Proponer una función
+description: Una idea para que Cantoral sirva mejor al ministerio
+title: "[idea]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cuenta el **problema del ministerio** antes que la solución técnica: «necesito
+        los acordes en el atril» dice mucho más que «añadan un campo de texto».
+
+        Revisa antes las [propuestas abiertas](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+label%3Aenhancement)
+        y la [hoja de ruta](https://github.com/xlCyanz/cantoral#️-hoja-de-ruta).
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resuelve
+      description: Qué te cuesta hoy, y cómo lo resuelves mientras tanto.
+      placeholder: |
+        Cada domingo transponemos los acordes a mano porque la cantante no llega al tono
+        original. Los llevamos en un PDF aparte que nadie sabe cuál es el vigente.
+    validations:
+      required: true
+
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Qué te gustaría que hiciera Cantoral
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que consideraste
+      description: Otras formas de resolverlo, u otras apps que ya lo hacen y cómo.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      multiple: true
+      options:
+        - Biblioteca y búsqueda
+        - Etiquetas y metadatos
+        - Listas para cultos
+        - Reproducción
+        - Escaneo e indexado
+        - Exportar e imprimir
+        - Base de datos y respaldos
+        - Apariencia y accesibilidad
+        - Instalación y actualizaciones
+        - Otra
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: encaje
+    attributes:
+      label: Encaje con el proyecto
+      description: |
+        Cantoral es local por diseño: sin nube, sin cuentas, sin telemetría, y **nunca**
+        mueve ni modifica los archivos de audio del usuario.
+      options:
+        - label: Mi propuesta funciona sin conexión a internet
+          required: true
+        - label: Mi propuesta no mueve, copia ni modifica los archivos de audio
+          required: true
+
+  - type: checkboxes
+    id: ayuda
+    attributes:
+      label: ¿Te animas a implementarlo?
+      options:
+        - label: Me gustaría intentarlo yo (ver CONTRIBUTING.md)

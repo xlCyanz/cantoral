@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Reportar una vulnerabilidad
+    url: https://github.com/xlCyanz/cantoral/security/advisories/new
+    about: En privado, nunca como issue público. Ver SECURITY.md.
+  - name: ❓ Problemas frecuentes
+    url: https://github.com/xlCyanz/cantoral#-problemas-frecuentes
+    about: Cuarentena en macOS, SmartScreen, archivos que no aparecen, pistas «Sin archivo»…
+  - name: 🤝 Cómo contribuir
+    url: https://github.com/xlCyanz/cantoral/blob/main/CONTRIBUTING.md
+    about: Entorno, convenciones y qué se espera de un pull request.

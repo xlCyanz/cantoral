@@ -1,0 +1,80 @@
+name: ci
+
+# Corre en cada push y cada pull request. Son exactamente las mismas
+# comprobaciones que CONTRIBUTING.md pide correr en local, en el mismo orden,
+# para que «pasa en mi máquina» y «pasa en CI» signifiquen lo mismo.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+# Un push nuevo sobre la misma rama cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Interfaz (tipos + pruebas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Comprobar tipos
+        run: pnpm exec tsc --noEmit
+
+      - name: Pruebas del frontend
+        run: pnpm test
+
+      - name: Compilar la interfaz
+        run: pnpm build
+
+  rust:
+    name: Núcleo (clippy + pruebas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri necesita estas bibliotecas para compilar en Linux. El núcleo se
+      # prueba aquí y no en los runners nativos porque nada de lo que se prueba
+      # —esquema, consultas y escaneo— depende del sistema operativo, y un
+      # runner de Linux es bastante más rápido y barato.
+      - name: Dependencias de sistema de Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            librsvg2-dev libayatana-appindicator3-dev libxdo-dev \
+            build-essential file
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      # `cargo fmt --check` todavía no está aquí: el núcleo está formateado a mano
+      # y rustfmt no lo deja igual con ninguna configuración, así que activarlo hoy
+      # significaría reformatear todo de golpe. Se decide en #28.
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Pruebas del núcleo
+        run: cargo test --manifest-path src-tauri/Cargo.toml

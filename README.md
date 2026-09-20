@@ -3,13 +3,19 @@
 <img src="assets/banner.png" alt="Cantoral — Música de la iglesia" width="840" />
 
 <p>
+  <a href="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml"><img src="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/xlCyanz/cantoral/actions/workflows/build.yml"><img src="https://github.com/xlCyanz/cantoral/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
+  <a href="https://github.com/xlCyanz/cantoral/releases/latest"><img src="https://img.shields.io/github/v/release/xlCyanz/cantoral?display_name=tag&sort=semver&label=versión&color=A9502E" alt="Última versión" /></a>
+  <a href="https://github.com/xlCyanz/cantoral/releases"><img src="https://img.shields.io/github/downloads/xlCyanz/cantoral/total?label=descargas&color=A9502E" alt="Descargas" /></a>
+</p>
+<p>
   <img src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white" alt="macOS" />
   <img src="https://img.shields.io/badge/Windows-0078D4?logo=windows11&logoColor=white" alt="Windows" />
   <img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white" alt="Rust" />
-  <img src="https://img.shields.io/badge/license-MIT-A9502E" alt="MIT" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-A9502E" alt="MIT" /></a>
 </p>
 
 </div>
@@ -21,32 +27,100 @@ metadatos del archivo. Corre en **macOS y Windows**, funciona
 
 Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas largas.
 
+<div align="center">
+
+**[⬇️ Descargar](#️-instalación) · [🚀 Desarrollo](#-desarrollo) · [🤝 Contribuir](CONTRIBUTING.md) · [🗺️ Hoja de ruta](#️-hoja-de-ruta) · [📋 Cambios](CHANGELOG.md)**
+
+</div>
+
+---
+
+## 📖 Contenido
+
+- [✨ Funciones](#-funciones)
+- [⬇️ Instalación](#️-instalación)
+- [⚠️ Limitaciones conocidas](#️-limitaciones-conocidas)
+- [🧱 Stack](#-stack)
+- [🚀 Desarrollo](#-desarrollo)
+- [🧪 Pruebas](#-pruebas)
+- [🖥️ Multiplataforma](#️-multiplataforma)
+- [📦 Compilar](#-compilar)
+- [🏷️ Publicar una versión](#️-publicar-una-versión)
+- [🔏 Firma de código](#-firma-de-código)
+- [🗂️ Estructura](#️-estructura)
+- [💾 Datos](#-datos)
+- [❓ Problemas frecuentes](#-problemas-frecuentes)
+- [🗺️ Hoja de ruta](#️-hoja-de-ruta)
+- [🤝 Contribuir](#-contribuir)
+- [📄 Licencia](#-licencia)
+
 ## ✨ Funciones
 
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija.
 - 🏷️ **Etiquetas** — etiqueta cada pista para encontrarla rápido; se conservan al re-escanear, igual que los favoritos.
 - 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando, edita nombre/fecha/ocasión y reproduce toda la lista.
-- 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con Cmd/Ctrl + P.
+- 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>P</kbd>.
 - ▶️ **Reproducción** — reproductor integrado con cola que sigue el orden del culto; los videos de proyección se abren en el reproductor predeterminado del sistema.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría.
 - 🎨 **Claro y oscuro** — sistema de diseño cálido propio; sigue el tema del sistema o se fija a mano.
-- ⌨️ **Teclado** — espacio para reproducir/pausar, flechas para cambiar de pista, ⌘/Ctrl + F para buscar, ⌘/Ctrl + N para una lista nueva, Esc para cerrar y `?` para la ayuda.
+- ⌨️ **Teclado** — ver la tabla de atajos abajo.
+
+### Atajos de teclado
+
+| Atajo | Acción |
+|-------|--------|
+| <kbd>Espacio</kbd> | Reproducir o pausar |
+| <kbd>←</kbd> / <kbd>→</kbd> | Pista anterior / siguiente |
+| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>F</kbd> | Buscar en la biblioteca |
+| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>N</kbd> | Nueva lista para culto |
+| <kbd>Enter</kbd> | Abrir el detalle de la pista enfocada |
+| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Reproducir la pista enfocada |
+| <kbd>Esc</kbd> | Cerrar diálogo o panel |
+| <kbd>?</kbd> | Mostrar la ayuda |
+
+### Formatos soportados
+
+| | Extensiones |
+|---|---|
+| **Audio** | `mp3` `flac` `wav` `m4a` `aac` `ogg` `opus` `wma` `aiff` `aif` |
+| **Video** (se abre fuera de la app) | `mp4` `mov` `mkv` `avi` `webm` `m4v` `wmv` |
+
+## ⬇️ Instalación
+
+Descarga el instalador desde la **[última versión](https://github.com/xlCyanz/cantoral/releases/latest)**.
+
+**Windows** — usa el instalador `-setup.exe` (NSIS) o el `.msi`. Ambos instalan el
+runtime **WebView2** si falta, así que funcionan también en **Windows 10**.
+El `Cantoral.exe` portable **no** instala WebView2: úsalo solo en equipos que ya lo
+tengan (Windows 11 lo trae de fábrica).
+
+**macOS** — abre el `.dmg` y arrastra Cantoral a Aplicaciones. Si la compilación no
+está firmada (ver [Firma de código](#-firma-de-código)), macOS dirá que la app
+«está dañada»; para abrirla igual:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Cantoral.app
+```
 
 ## ⚠️ Limitaciones conocidas
 
-- **Tono, tempo (BPM) y ocasión no se pueden editar desde la app.** Las columnas
+Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
+
+- **Tono, tempo (BPM) y ocasión no se pueden editar desde la app** ([#16](https://github.com/xlCyanz/cantoral/issues/16)). Las columnas
   existen en la base y el backend ya tiene el comando para escribirlas, pero el
   panel de detalle solo edita etiquetas, así que esos tres campos quedan vacíos.
   Como consecuencia, el filtro por ocasión no muestra nada hasta que exista ese
   editor.
-- **Archivos faltantes no se pueden relocalizar** ni borrar pista por pista: si
+- **Archivos faltantes no se pueden relocalizar** ni borrar pista por pista ([#17](https://github.com/xlCyanz/cantoral/issues/17)): si
   mueves un archivo hay que quitar y volver a agregar la carpeta.
-- **Sin actualizaciones automáticas** y **sin firma de código** mientras no haya
-  certificados (ver «Firma de código»).
+- **Sin actualizaciones automáticas** ([#19](https://github.com/xlCyanz/cantoral/issues/19)) y **sin firma de código** mientras no haya
+  certificados (ver [Firma de código](#-firma-de-código)).
 - Solo se conservan entre sesiones el tema y la preferencia de reproductor
-  externo; volumen, orden, agrupación y filtros vuelven a su valor inicial.
+  externo ([#18](https://github.com/xlCyanz/cantoral/issues/18)); volumen, orden, agrupación y filtros vuelven a su valor inicial.
+- **Quitar una carpeta o borrar una lista no pide confirmación** ([#2](https://github.com/xlCyanz/cantoral/issues/2)) y borra las
+  etiquetas y favoritos de sus pistas. Haz una copia antes (**Configuración → Base de datos → Crear copia**).
 
 ## 🧱 Stack
 
@@ -54,16 +128,34 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 |------|------------|
 | Interfaz | React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · lucide-react |
 | Núcleo | Tauri v2 (Rust) · SQLite (`rusqlite`, bundled) · `walkdir` · `lofty` |
-| Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) |
+| Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` |
+| Pruebas | Vitest (frontend) · `cargo test` (backend) |
 
 ## 🚀 Desarrollo
 
-Requisitos: **Node 20+**, **pnpm**, **Rust** (stable). En Windows 11 WebView2 ya viene
-incluido; en Windows 10 lo instalan los instaladores NSIS/MSI.
+### Requisitos
+
+| | Versión | Notas |
+|---|---|---|
+| **Node** | 20+ | |
+| **pnpm** | 11+ | `corepack enable` lo instala |
+| **Rust** | stable | via [rustup](https://rustup.rs) |
+| **WebView2** | — | Windows 11 lo trae; en Windows 10 lo instalan los instaladores |
+| **Xcode CLT** | — | solo macOS: `xcode-select --install` |
+
+Guía oficial de dependencias del sistema: **[Tauri — Prerequisites](https://tauri.app/start/prerequisites/)**.
+
+### Arrancar
 
 ```bash
+git clone https://github.com/xlCyanz/cantoral.git
+cd cantoral
 pnpm install
+```
 
+Hay dos modos, y conviene conocer la diferencia:
+
+```bash
 # 1) Solo interfaz en el navegador (datos de ejemplo, sin Rust) — iteración rápida
 pnpm dev            # http://localhost:1420
 
@@ -71,17 +163,42 @@ pnpm dev            # http://localhost:1420
 pnpm tauri dev
 ```
 
-Pruebas:
-
-```bash
-pnpm test                                        # selectores del store y hoja de exportación
-cargo test --manifest-path src-tauri/Cargo.toml   # esquema y consultas SQLite
-```
-
 En el navegador, `src/lib/api.ts` detecta que no hay runtime de Tauri y la app usa
 los datos de ejemplo de `src/lib/seed.ts`, así que toda la UI es explorable sin
 compilar Rust. Dentro de Tauri no se carga ningún dato de ejemplo: la misma capa
 llama a los comandos de Rust y opera sobre la base local.
+
+> [!TIP]
+> El puerto 1420 es fijo (`strictPort`) porque Tauri lo espera. Si algo más lo
+> ocupa, `pnpm dev` falla en vez de saltar al 1421: libera el puerto antes de
+> arrancar.
+
+### Comandos
+
+| Comando | Qué hace |
+|---|---|
+| `pnpm dev` | Interfaz sola en el navegador, con datos de ejemplo |
+| `pnpm tauri dev` | App completa con el backend Rust |
+| `pnpm build` | `tsc` + build de producción de la interfaz |
+| `pnpm tauri build` | Instaladores para el sistema actual |
+| `pnpm test` | Pruebas del frontend (Vitest) |
+| `pnpm test:watch` | Vitest en modo interactivo |
+
+## 🧪 Pruebas
+
+```bash
+pnpm exec tsc --noEmit                            # tipos
+pnpm test                                         # selectores del store y hoja de exportación
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml   # esquema, consultas SQLite y escáner
+```
+
+Esos cuatro comandos son exactamente los que corre la CI en cada push y cada pull
+request (`.github/workflows/ci.yml`), así que si pasan en local, pasan en GitHub.
+
+`cargo fmt --check` todavía no está en la CI: el núcleo está formateado a mano y
+rustfmt no lo reproduce con ninguna configuración, así que activarlo implicaría
+reformatearlo entero. Se decide en [#28](https://github.com/xlCyanz/cantoral/issues/28).
 
 ## 🖥️ Multiplataforma
 
@@ -109,22 +226,23 @@ Produce, según el sistema:
   `Cantoral.exe` suelto (portable).
 - **macOS** — `bundle/macos/Cantoral.app` y `bundle/dmg/*.dmg`.
 
-Al publicar un tag `v*`, el workflow además **crea el GitHub Release** y adjunta los
-`.dmg`, `.msi` y `.exe`, para que se puedan descargar sin entrar a GitHub Actions.
+## 🏷️ Publicar una versión
 
-## ⬇️ Instalación
+1. Anota los cambios en [`CHANGELOG.md`](CHANGELOG.md), moviendo lo de `Unreleased`
+   a una sección con la versión y la fecha.
+2. Sube el número en `package.json` **y** en `src-tauri/tauri.conf.json`
+   (hoy hay que tocar los dos: [#11](https://github.com/xlCyanz/cantoral/issues/11)).
+3. Haz commit y etiqueta:
 
-**Windows** — usa el instalador `-setup.exe` (NSIS) o el `.msi`. Ambos instalan el
-runtime **WebView2** si falta, así que funcionan también en **Windows 10**.
-El `Cantoral.exe` portable **no** instala WebView2: úsalo solo en equipos que ya lo
-tengan (Windows 11 lo trae de fábrica).
+   ```bash
+   git commit -am "chore(release): v0.2.0"
+   git tag v0.2.0
+   git push origin main --tags
+   ```
 
-**macOS** — abre el `.dmg` y arrastra Cantoral a Aplicaciones. Si la compilación no
-está firmada (ver abajo), macOS dirá que la app «está dañada»; para abrirla igual:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/Cantoral.app
-```
+El workflow `build.yml` verifica que la etiqueta coincida con `package.json`, corre
+las pruebas, compila macOS + Windows en paralelo y **crea el GitHub Release**
+adjuntando los `.dmg`, `.msi` y `.exe`, con las notas tomadas del `CHANGELOG.md`.
 
 ## 🔏 Firma de código
 
@@ -160,6 +278,10 @@ base64 -i certificado.p12 | pbcopy
 
 ```
 cantoral/
+├── .github/
+│   ├── ISSUE_TEMPLATE/     # Plantillas de bug y de propuesta
+│   ├── workflows/          # ci.yml (pruebas) · build.yml (instaladores + release)
+│   └── PULL_REQUEST_TEMPLATE.md
 ├── assets/                 # Logo, icono y banner
 ├── design/                 # Diseño de referencia (Cantoral.dc.html)
 ├── src/                    # Interfaz (React)
@@ -169,22 +291,25 @@ cantoral/
 │   │                       # · shortcuts · api (seam Tauri) · __tests__/
 │   ├── store.ts            # Estado global (Zustand) + selectores derivados
 │   └── styles/global.css   # Tokens de diseño (claro/oscuro), fuentes, keyframes
-├── src-tauri/src/          # Núcleo (Rust)
-│   ├── models.rs           # Structs (Track, Folder, Playlist)
-│   ├── db.rs               # Esquema/migraciones y consultas SQLite
-│   ├── scanner.rs          # Escaneo recursivo + lofty + eventos de progreso
-│   ├── commands.rs         # Comandos IPC (biblioteca, listas, ajustes, respaldo)
-│   └── lib.rs              # Plugins, estado y handlers
-└── .github/workflows/      # CI: build macOS + Windows
+└── src-tauri/src/          # Núcleo (Rust)
+    ├── models.rs           # Structs (Track, Folder, Playlist)
+    ├── db.rs               # Esquema/migraciones y consultas SQLite
+    ├── scanner.rs          # Escaneo recursivo + lofty + eventos de progreso
+    ├── commands.rs         # Comandos IPC (biblioteca, listas, ajustes, respaldo)
+    └── lib.rs              # Plugins, estado y handlers
 ```
 
 ## 💾 Datos
 
-La base local `cantoral.db` (SQLite) se crea en el directorio de datos del app
-(`~/Library/Application Support/com.cantoral.desktop/` en macOS,
-`%APPDATA%\com.cantoral.desktop\` en Windows). El esquema se migra solo al abrir.
-Tablas: `folders`, `tracks`,
-`playlists`, `playlist_tracks`, `tags`, `track_tags`, `settings`. Respalda desde
+La base local `cantoral.db` (SQLite) se crea en el directorio de datos del app:
+
+| Sistema | Ruta |
+|---|---|
+| macOS | `~/Library/Application Support/com.cantoral.desktop/` |
+| Windows | `%APPDATA%\com.cantoral.desktop\` |
+
+El esquema se migra solo al abrir. Tablas: `folders`, `tracks`, `playlists`,
+`playlist_tracks`, `tags`, `track_tags`, `settings`. Respalda desde
 **Configuración → Base de datos → Crear copia**.
 
 Los re-escaneos son incrementales: solo se vuelve a leer la metadata de los archivos
@@ -192,9 +317,95 @@ cuyo tamaño o fecha de modificación cambió. El escaneo corre en su propia con
 SQLite y hace commit por lotes, así la interfaz sigue respondiendo mientras indexa.
 
 Los errores que llegan a la interfaz también quedan en un log rotativo dentro del
-directorio de logs del app (`~/Library/Logs/com.cantoral.desktop/` en macOS,
-`%APPDATA%\com.cantoral.desktop\logs\` en Windows).
+directorio de logs del app:
+
+| Sistema | Ruta |
+|---|---|
+| macOS | `~/Library/Logs/com.cantoral.desktop/` |
+| Windows | `%APPDATA%\com.cantoral.desktop\logs\` |
+
+## ❓ Problemas frecuentes
+
+<details>
+<summary><b>macOS dice que «Cantoral está dañada y no se puede abrir»</b></summary>
+
+La compilación no está firmada, así que macOS la pone en cuarentena. Quítala:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Cantoral.app
+```
+</details>
+
+<details>
+<summary><b>Windows SmartScreen bloquea el instalador</b></summary>
+
+Mismo motivo: falta el certificado Authenticode. **Más información → Ejecutar de todas formas**.
+</details>
+
+<details>
+<summary><b>El escaneo no encuentra mis archivos</b></summary>
+
+Revisa que la extensión esté en la [lista de formatos](#formatos-soportados) y que
+la opción «Incluir subcarpetas» esté marcada si la música está anidada. Cantoral
+rechaza indexar una carpeta que contenga —o esté dentro de— otra ya indexada, para
+no descuadrar los contadores.
+</details>
+
+<details>
+<summary><b>Muchas pistas aparecen como «Sin archivo»</b></summary>
+
+Los archivos se movieron o la unidad externa no está conectada. Conecta la unidad y
+vuelve a abrir la app: al arrancar se re-verifica todo el catálogo. Reubicar pistas
+una a una todavía no se puede ([#17](https://github.com/xlCyanz/cantoral/issues/17)).
+</details>
+
+<details>
+<summary><b>Los videos no se reproducen dentro de la app</b></summary>
+
+Es deliberado: los videos de proyección se abren en el reproductor predeterminado
+del sistema, que maneja mejor pantalla completa y salidas secundarias.
+</details>
+
+<details>
+<summary><b>La columna «Tono» y el filtro por ocasión están siempre vacíos</b></summary>
+
+Todavía no hay editor para esos campos ([#16](https://github.com/xlCyanz/cantoral/issues/16)). El backend ya los guarda; falta la interfaz.
+</details>
+
+<details>
+<summary><b>¿Dónde están mis datos y cómo los muevo a otro equipo?</b></summary>
+
+En `cantoral.db` (ver [Datos](#-datos)). **Configuración → Base de datos → Crear copia**
+genera un archivo que puedes llevar a otro equipo y cargar con **Restaurar…**. Ojo:
+restaurar **reemplaza** toda la biblioteca actual.
+</details>
+
+## 🗺️ Hoja de ruta
+
+El trabajo pendiente vive en los [issues](https://github.com/xlCyanz/cantoral/issues). Atajos útiles:
+
+- 🐛 [Bugs](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+- ✨ [Funciones propuestas](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+- 🌱 [Buen primer issue](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- ⚡ [Rendimiento](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aperformance) · ♿ [Accesibilidad](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aaccessibility) · 🔒 [Seguridad](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Asecurity)
+
+Lo más grande en el horizonte: editor de tono/BPM/ocasión ([#16](https://github.com/xlCyanz/cantoral/issues/16)),
+letras y acordes con transposición ([#21](https://github.com/xlCyanz/cantoral/issues/21)),
+selección múltiple ([#20](https://github.com/xlCyanz/cantoral/issues/20)) y
+actualizaciones automáticas ([#19](https://github.com/xlCyanz/cantoral/issues/19)).
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Empieza por **[CONTRIBUTING.md](CONTRIBUTING.md)**:
+tiene el entorno, las convenciones de commit, cómo correr las pruebas y qué se espera
+de un pull request.
+
+- 🐞 ¿Encontraste un fallo? → [Reportar un bug](https://github.com/xlCyanz/cantoral/issues/new?template=bug_report.yml)
+- 💡 ¿Se te ocurre algo? → [Proponer una función](https://github.com/xlCyanz/cantoral/issues/new?template=feature_request.yml)
+- 🔒 ¿Un problema de seguridad? → [SECURITY.md](SECURITY.md) (**no** abras un issue público)
+
+Este proyecto se rige por el [Código de Conducta](CODE_OF_CONDUCT.md).
 
 ## 📄 Licencia
 
-[MIT](LICENSE) · Hecho con cuidado para el ministerio de alabanza.
+[MIT](LICENSE) © Johan Sierra Linares · Hecho con cuidado para el ministerio de alabanza.
