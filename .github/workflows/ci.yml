@@ -22,13 +22,13 @@ jobs:
     name: Interfaz (tipos + pruebas)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
         with:
           version: 12
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -51,7 +51,7 @@ jobs:
     name: Núcleo (clippy + pruebas)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Tauri necesita estas bibliotecas para compilar en Linux. El núcleo se
       # prueba aquí y no en los runners nativos porque nada de lo que se prueba
@@ -86,7 +86,7 @@ jobs:
     name: Dependencias (cargo audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Binario precompilado: `cargo install cargo-audit` tarda ~4 minutos en
       # compilar y no se beneficia de la caché de Cargo.
