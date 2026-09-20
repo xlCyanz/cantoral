@@ -140,18 +140,23 @@ explicar *por qué*, que es lo que no se deduce del diff.
 
 ## Antes de abrir el pull request
 
-Estos cuatro comandos son exactamente los que corre la CI. Si pasan en local, pasan
+Estos seis comandos son exactamente los que corre la CI. Si pasan en local, pasan
 en GitHub:
 
 ```bash
+pnpm lint
 pnpm exec tsc --noEmit
 pnpm test
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
+cargo audit --file src-tauri/Cargo.lock
 ```
 
-Si solo tocaste la interfaz, los dos de `cargo` son rápidos igualmente gracias a la
-caché; córrelos de todos modos.
+Si solo tocaste la interfaz, los de `cargo` son rápidos igualmente gracias a la
+caché; córrelos de todos modos. `cargo audit` se instala una vez con
+`cargo install cargo-audit --locked`.
+
+CodeQL corre aparte, solo en GitHub, y publica en **Security → Code scanning alerts**.
 
 > [!NOTE]
 > `cargo fmt --check` **no** está en la CI: el núcleo está formateado a mano y
@@ -186,8 +191,15 @@ quieres comentarios a medio camino.
 - Suscríbete al store con selectores (`useStore(s => s.playing)`), no con `useStore()`
   a secas. Varios componentes antiguos lo hacen mal y por eso existe el
   [#5](https://github.com/xlCyanz/cantoral/issues/5); no añadas más.
-- Nada de `any`. Si el tipo es incómodo, ese suele ser el aviso de que el modelo
-  necesita un ajuste.
+- Nada de `any`: ESLint lo rechaza. Si el tipo es incómodo, ese suele ser el aviso
+  de que el modelo necesita un ajuste.
+- Toda promesa se maneja: `@typescript-eslint/no-floating-promises` está en error,
+  porque una promesa rechazada sin `.catch` es como desaparece en silencio una
+  llamada fallida al backend ([#8](https://github.com/xlCyanz/cantoral/issues/8)).
+- No siembres estado con `useEffect` + `setState`. Si un componente necesita
+  reiniciar su estado al abrirse o al cambiar de sujeto, móntalo bajo un `key` y
+  deja que los inicializadores de `useState` hagan el trabajo — así está resuelto
+  `NewListDialog`.
 
 **Rust**
 
