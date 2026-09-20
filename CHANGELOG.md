@@ -63,6 +63,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **El panel de detalle muestra la ruta real del archivo.** La fabricaba juntando
+  el nombre de la carpeta, el **título de la etiqueta ID3** y el formato, con una
+  barra invertida fija. Así que una pista cuyo tag no coincidía con su nombre de
+  archivo —lo normal— anunciaba una ruta que no existía, la barra estaba al revés
+  en macOS, y con subcarpetas activadas señalaba la carpeta raíz en vez de la que
+  de verdad la contiene. El backend siempre mandó la ruta buena; solo había que
+  usarla. De paso, un botón para abrir el archivo en el Finder o el Explorador.
+
 - **Una etiqueta con coma ya no se parte en dos.** Las etiquetas viajaban de la
   base a la interfaz como una cadena unida por comas, así que «lento, meditativo»
   volvía como dos etiquetas, la segunda con un espacio delante. Ahora se leen como

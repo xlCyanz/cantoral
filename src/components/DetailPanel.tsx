@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, ChevronDown, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronDown, FolderOpen, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
 import { ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
+import { gestorDeArchivos } from "../lib/api";
 import type { Track } from "../lib/types";
 
 const labelStyle: CSSProperties = { display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 5 };
@@ -48,8 +49,11 @@ export default function DetailPanel() {
     ...new Set([...ocasiones(s), ...OCASIONES_SUGERIDAS]),
   ];
 
-  const folder = s.folders.find((f) => f.nombre === sel.carpeta);
-  const ruta = (folder ? folder.ruta : "") + "\\" + sel.titulo + "." + (sel.formato || "").toLowerCase();
+  // The real path the backend indexed. This used to be assembled from the
+  // folder's name, the track's *title tag* and the format — so a file whose tag
+  // differed from its filename got a path that did not exist, and the separator
+  // was a hardcoded backslash on every platform.
+  const ruta = sel.path ?? "";
   const tags = sel.tags || [];
 
 
@@ -240,8 +244,19 @@ export default function DetailPanel() {
           <InfoRow label="Formato" value={sel.formato} />
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0" }}>
             <span style={{ color: "var(--text-2)", flex: "0 0 auto" }}>Ubicación</span>
-            <span style={{ fontWeight: 500, fontFamily: "ui-monospace,monospace", fontSize: 11, textAlign: "right", wordBreak: "break-all", color: "var(--text-2)" }}>{ruta}</span>
+            <span title={ruta} style={{ fontWeight: 500, fontFamily: "ui-monospace,monospace", fontSize: 11, textAlign: "right", wordBreak: "break-all", color: "var(--text-2)" }}>
+              {ruta || "—"}
+            </span>
           </div>
+          {ruta && (
+            <button
+              onClick={() => s.revealTrack(sel.id)}
+              className="hb-s2"
+              style={{ marginTop: 8, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)", fontSize: "12.5px", fontWeight: 600 }}
+            >
+              <FolderOpen size={14} />Mostrar en {gestorDeArchivos()}
+            </button>
+          )}
         </div>
       </div>
 
