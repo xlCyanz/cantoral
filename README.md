@@ -390,17 +390,65 @@ restaurar **reemplaza** toda la biblioteca actual.
 
 ## 🗺️ Hoja de ruta
 
-El trabajo pendiente vive en los [issues](https://github.com/xlCyanz/cantoral/issues). Atajos útiles:
+El trabajo está repartido en cinco fases, cada una un
+[milestone](https://github.com/xlCyanz/cantoral/milestones). El orden no es
+arbitrario: cada fase supone la anterior resuelta.
 
-- 🐛 [Bugs](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
-- ✨ [Funciones propuestas](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
-- 🌱 [Buen primer issue](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-- ⚡ [Rendimiento](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aperformance) · ♿ [Accesibilidad](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aaccessibility) · 🔒 [Seguridad](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Asecurity)
+### [Fase 1 · No perder datos](https://github.com/xlCyanz/cantoral/milestone/1)
 
-Lo más grande en el horizonte: editor de tono/BPM/ocasión ([#16](https://github.com/xlCyanz/cantoral/issues/16)),
-letras y acordes con transposición ([#21](https://github.com/xlCyanz/cantoral/issues/21)),
-selección múltiple ([#20](https://github.com/xlCyanz/cantoral/issues/20)) y
-actualizaciones automáticas ([#19](https://github.com/xlCyanz/cantoral/issues/19)).
+La app no puede destruir el trabajo del usuario. Va primero porque nada de lo demás
+importa si una biblioteca etiquetada a mano durante meses se pierde con un clic: no
+hay nube, no hay historial, y el único seguro es una copia manual.
+
+Confirmaciones en las acciones destructivas ([#2](https://github.com/xlCyanz/cantoral/issues/2)),
+escrituras transaccionales ([#8](https://github.com/xlCyanz/cantoral/issues/8)),
+etiquetas que no se corrompen al releerlas ([#9](https://github.com/xlCyanz/cantoral/issues/9)) y
+reubicar pistas sin tener que borrar la carpeta entera ([#17](https://github.com/xlCyanz/cantoral/issues/17)).
+
+### [Fase 2 · Que la app haga lo que promete](https://github.com/xlCyanz/cantoral/milestone/2)
+
+Cerrar la brecha entre lo que este README anuncia y lo que la app hace de verdad.
+Hoy hay columnas que siempre salen vacías y un filtro que nunca muestra nada.
+
+Es la fase con más retorno por esfuerzo, porque casi todo el backend ya existe y
+falta la interfaz que lo use. El editor de tono, BPM y ocasión
+([#16](https://github.com/xlCyanz/cantoral/issues/16)) por sí solo desbloquea el
+filtro por ocasión, la columna Tono, el agrupar por ocasión y tres columnas de la
+hoja imprimible.
+
+### [Fase 3 · Aguantar una biblioteca real](https://github.com/xlCyanz/cantoral/milestone/3)
+
+Miles de pistas repartidas en discos externos, sin que la interfaz se arrastre
+([#5](https://github.com/xlCyanz/cantoral/issues/5)) ni dos escaneos se pisen
+([#6](https://github.com/xlCyanz/cantoral/issues/6)). Va después de la fase 2 a
+propósito: optimizar una interfaz que todavía va a cambiar es trabajo que se tira.
+
+### [Fase 4 · El flujo del culto](https://github.com/xlCyanz/cantoral/milestone/4)
+
+Lo que un equipo de alabanza hace cada semana y hoy la app resuelve a medias.
+La pieza grande es **letras y acordes con transposición**
+([#21](https://github.com/xlCyanz/cantoral/issues/21)): es lo que haría que alguien
+use Cantoral **durante** el culto y no solo antes. Con ella van la selección
+múltiple ([#20](https://github.com/xlCyanz/cantoral/issues/20)), las etiquetas
+gestionables ([#22](https://github.com/xlCyanz/cantoral/issues/22)) y poder
+compartir una lista con el equipo ([#26](https://github.com/xlCyanz/cantoral/issues/26)).
+
+### [Fase 5 · Llegar a la iglesia](https://github.com/xlCyanz/cantoral/milestone/5)
+
+Que las versiones nuevas lleguen a un PC de iglesia sin que nadie técnico intervenga
+([#19](https://github.com/xlCyanz/cantoral/issues/19)). Mientras actualizar siga
+siendo entrar a GitHub y acordarse del rodeo de `xattr`, los arreglos de las fases 1
+a 4 no llegan a quien los necesita.
+
+---
+
+Para navegar por otro eje:
+🐛 [bugs](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Abug) ·
+✨ [funciones](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement) ·
+🌱 [buen primer issue](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) ·
+⚡ [rendimiento](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aperformance) ·
+♿ [accesibilidad](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aaccessibility) ·
+🔒 [seguridad](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Asecurity)
 
 ## 🤝 Contribuir
 

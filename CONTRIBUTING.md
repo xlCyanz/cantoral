@@ -26,6 +26,12 @@ Este proyecto se rige por el [Código de Conducta](CODE_OF_CONDUCT.md).
 - 🐛 **[Bugs](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Abug)** — cada uno explica cómo falla y dónde.
 - ✨ **[Funciones](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)** — propuestas con el plan técnico esbozado.
 
+Los issues están repartidos en cinco
+[fases](https://github.com/xlCyanz/cantoral/milestones), en orden: primero que la app
+no pierda datos, luego que haga lo que promete, después que aguante una biblioteca
+grande, y encima de eso el flujo del culto y la distribución. Si dudas por dónde
+entrar, la fase abierta más baja es la respuesta.
+
 Antes de ponerte con algo grande, comenta en el issue para que no coincidamos dos
 personas en el mismo archivo. Si lo que quieres hacer no tiene issue, ábrelo primero:
 así se acuerda el enfoque antes de que escribas código.
