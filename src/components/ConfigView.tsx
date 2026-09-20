@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { Database, Download, Folder, HelpCircle, Plus, RefreshCw, X } from "lucide-react";
+import { Database, Download, Folder, FolderInput, HelpCircle, Plus, RefreshCw, X } from "lucide-react";
 import { useStore } from "../store";
 import { getDbInfo, type DbInfo } from "../lib/api";
 import type { ThemeMode } from "../lib/types";
@@ -107,7 +107,7 @@ export default function ConfigView() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
             <h2 style={h2Style}>Carpetas indexadas</h2>
-            <p style={pStyle}>Cantoral revisa estas ubicaciones. Tus archivos nunca se mueven ni se copian.</p>
+            <p style={pStyle}>Cantoral revisa estas ubicaciones. Tus archivos nunca se mueven ni se copian. Si una carpeta cambió de sitio, muévela en vez de quitarla: así conserva etiquetas y favoritos.</p>
           </div>
           <button onClick={s.openAddFolder} className="hb-s2" style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>
             <Plus size={14} strokeWidth={2.2} />Agregar
@@ -126,6 +126,15 @@ export default function ConfigView() {
               <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500, flex: "0 0 auto" }}>{f.count} pistas</span>
               <button onClick={() => s.rescanFolder(f.id)} title="Volver a escanear" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
                 <RefreshCw size={15} />
+              </button>
+              <button
+                onClick={() => s.relocateFolder(f.id)}
+                title="La carpeta cambió de ubicación: apuntarla al sitio nuevo sin perder etiquetas"
+                aria-label={`Mover «${f.nombre}» a otra ubicación`}
+                className="hb-s2t"
+                style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}
+              >
+                <FolderInput size={15} />
               </button>
               <button onClick={() => s.removeFolder(f.id)} title="Quitar carpeta" className="hb-danger" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
                 <X size={15} />

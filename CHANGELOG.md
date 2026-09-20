@@ -11,6 +11,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Localizar una pista cuyo archivo se movió**, conservando sus etiquetas,
+  favorito, tono, tempo y ocasión — y **quitarla de la biblioteca** una por una,
+  sin borrar el audio. El panel de detalle ya cumple lo que su propio aviso
+  prometía desde el principio.
+- **Mover una carpeta indexada a su nueva ubicación** desde Configuración,
+  reescribiendo la ruta de todas sus pistas de una vez. Es el caso que de verdad
+  ocurre —la música cambió de disco, o Windows le dio otra letra— y hasta ahora
+  obligaba a quitar la carpeta y volver a agregarla, perdiendo todo el trabajo.
 - **Confirmación en las tres acciones que no se pueden deshacer**: quitar una
   carpeta indexada, eliminar una lista para culto y restaurar un respaldo. El
   diálogo dice con números reales qué se pierde —«se borrarán 128 pistas junto con

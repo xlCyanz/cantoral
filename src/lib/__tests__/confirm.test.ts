@@ -97,6 +97,44 @@ describe("eliminar una lista", () => {
   });
 });
 
+describe("quitar una pista de la biblioteca", () => {
+  const faltante = () => useStore.getState().tracks.find((t) => t.missing)!;
+
+  it("pregunta antes, nombrando las listas de las que también sale", () => {
+    const t = faltante();
+    // Asegurar que está en alguna lista, para que el aviso tenga que mencionarla.
+    const pl = useStore.getState().playlists[0];
+    useStore.setState((s) => ({ plOrder: { ...s.plOrder, [pl.id]: [t.id] } }));
+
+    useStore.getState().deleteTrack(t.id);
+
+    const req = useStore.getState().confirm;
+    expect(req?.message).toContain(t.titulo);
+    expect(req?.detail).toContain(pl.nombre);
+    // El archivo de audio es lo único que nunca se toca.
+    expect(req?.safe).toContain("no se borra");
+  });
+
+  it("no quita nada mientras la confirmación sigue abierta", () => {
+    const before = useStore.getState().tracks.length;
+
+    useStore.getState().deleteTrack(faltante().id);
+
+    expect(useStore.getState().tracks).toHaveLength(before);
+  });
+
+  it("solo al aceptar se quita", () => {
+    const t = faltante();
+    const before = useStore.getState().tracks.length;
+    useStore.getState().deleteTrack(t.id);
+
+    useStore.getState().acceptConfirm();
+
+    expect(useStore.getState().tracks).toHaveLength(before - 1);
+    expect(useStore.getState().tracks.some((x) => x.id === t.id)).toBe(false);
+  });
+});
+
 describe("la petición de confirmación", () => {
   it("se descarta al aceptar, así una acción no puede ejecutarse dos veces", () => {
     let veces = 0;
