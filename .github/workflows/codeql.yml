@@ -1,0 +1,53 @@
+name: codeql
+
+# Análisis estático de seguridad de GitHub. Gratis en repositorios públicos.
+# Los hallazgos aparecen en la pestaña Security → Code scanning alerts.
+#
+# El cron semanal existe porque las consultas de CodeQL se actualizan solas:
+# código que hoy pasa limpio puede disparar una alerta el mes que viene sin que
+# nadie toque una línea.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+          - language: rust
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # `none` analiza desde el código fuente sin compilar: la interfaz no
+          # necesita build, y compilar el núcleo aquí exigiría toda la pila de
+          # dependencias de sistema de Tauri para nada.
+          build-mode: none
+
+      - name: Analizar
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
