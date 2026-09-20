@@ -9,6 +9,16 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **Restaurar un respaldo ya no puede destruir la biblioteca.** El archivo se abre
+  en solo lectura y se comprueba que sea una base de Cantoral **antes** de tocar
+  nada en disco, y la base anterior se aparta en vez de borrarse: si la copia o la
+  apertura fallan, se devuelve a su sitio y la biblioteca queda exactamente como
+  estaba. Antes se borraba el WAL y se sobrescribía el archivo antes de validar,
+  así que elegir un `.db` equivocado —o una copia que fallara a medias— se llevaba
+  el catálogo, las etiquetas, los favoritos y todas las listas, sin vuelta atrás.
+
 ### Añadido
 
 - **ESLint** con configuración plana (typescript-eslint, react-hooks), ejecutado en

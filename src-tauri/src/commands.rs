@@ -241,24 +241,48 @@ pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Snapshot> {
 }
 
 /// Replace the live database with a backup file, then return the fresh snapshot.
+///
+/// Nothing on disk is touched until the backup has been read and confirmed to be
+/// a Cantoral database, and the previous file is moved aside rather than deleted,
+/// so a restore that fails half way leaves the library exactly as it was.
 #[tauri::command]
-pub fn restore_database(app: AppHandle, db: State<Db>, src: String) -> CmdResult<Snapshot> {
-    let db_path = app.path().app_data_dir().map_err(e)?.join("cantoral.db");
-    // Close the current file connection by swapping in a throwaway in-memory one.
+pub fn restore_database(
+    db: State<Db>,
+    db_path: State<DbPath>,
+    src: String,
+) -> CmdResult<Snapshot> {
+    let live = db_path.0.as_path();
+    let src = std::path::Path::new(&src);
+
+    // Validated first, while the live connection is still open: a file picked by
+    // mistake is rejected without the app having given anything up.
+    db::inspect_backup(src).map_err(e)?;
+
+    // Fold the WAL back into the main file and release it, so the restore can
+    // move it aside (an open handle makes that fail on Windows).
     {
         let mut guard = db.0.lock().map_err(e)?;
+        let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         *guard = rusqlite::Connection::open_in_memory().map_err(e)?;
     }
-    let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
-    let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
-    std::fs::copy(&src, &db_path).map_err(e)?;
-    let conn = db::open_and_migrate(&db_path).map_err(e)?;
-    let snap = snapshot(&conn).map_err(e)?;
-    {
-        let mut guard = db.0.lock().map_err(e)?;
-        *guard = conn;
+
+    match db::restore_from_backup(live, src) {
+        Ok(conn) => {
+            let snap = snapshot(&conn).map_err(e)?;
+            *db.0.lock().map_err(e)? = conn;
+            log::info!("database restored from {}", src.display());
+            Ok(snap)
+        }
+        Err(err) => {
+            // `restore_from_backup` already put the previous database back; all
+            // that is left is to reopen it, so the app stays usable.
+            match db::open_and_migrate(live) {
+                Ok(conn) => *db.0.lock().map_err(e)? = conn,
+                Err(reopen) => log::error!("could not reopen the database after a failed restore: {reopen}"),
+            }
+            Err(e(err))
+        }
     }
-    Ok(snap)
 }
 
 #[tauri::command]
@@ -282,22 +306,22 @@ pub struct DbInfo {
 
 /// Real location and size of the local database file.
 #[tauri::command]
-pub fn get_db_info(app: AppHandle) -> CmdResult<DbInfo> {
-    let path = app.path().app_data_dir().map_err(e)?.join("cantoral.db");
-    let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+pub fn get_db_info(db_path: State<DbPath>) -> CmdResult<DbInfo> {
+    let path = db_path.0.as_path();
+    let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
     Ok(DbInfo { path: path.to_string_lossy().to_string(), size })
 }
 
 /// Copy the database to `dest`. The WAL is first checkpointed into the main file
 /// so the copy is complete — a plain copy alone would miss data still in the WAL.
 #[tauri::command]
-pub fn backup_database(app: AppHandle, db: State<Db>, dest: String) -> CmdResult<()> {
-    let src = app.path().app_data_dir().map_err(e)?.join("cantoral.db");
+pub fn backup_database(db: State<Db>, db_path: State<DbPath>, dest: String) -> CmdResult<()> {
+    let src = db_path.0.as_path();
     {
         let conn = db.0.lock().map_err(e)?;
         let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
     }
-    std::fs::copy(&src, &dest).map_err(e)?;
+    std::fs::copy(src, &dest).map_err(e)?;
     Ok(())
 }
 
