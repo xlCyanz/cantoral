@@ -153,6 +153,64 @@ export interface ScanProgressEvent {
   added: number;
 }
 
+/** One candidate inside a group of suspected duplicates. */
+export interface DuplicateTrack {
+  id: string;
+  titulo: string;
+  artista: string;
+  path: string;
+  formato: string;
+  carpeta: string;
+  dur: string;
+  durSec: number;
+  /** Size on disk in bytes; 0 when the file could not be read. */
+  fsize: number;
+  fav: boolean;
+  missing: boolean;
+  tags: string[];
+}
+
+/** A set of tracks that look like the same song. */
+export interface DuplicateGroup {
+  /** Its track ids, sorted and joined by `-`. What a dismissal remembers. */
+  signature: string;
+  /** Why they ended up together: `archivo` or `titulo`. */
+  motivo: string;
+  /** The copy the backend suggests keeping. */
+  sugerido: string;
+  tracks: DuplicateTrack[];
+}
+
+export interface DuplicateReport {
+  groups: DuplicateGroup[];
+  /** Groups waved off, so the view can offer them back. */
+  dismissed: number;
+}
+
+/** Look for tracks that are the same song. Null in the browser. */
+export async function findDuplicatesCmd(): Promise<DuplicateReport | null> {
+  if (!isTauri()) return null;
+  return inv<DuplicateReport>("find_duplicates");
+}
+
+/** Fold `drop` into `keep`, moving tags, favourite and list places across. */
+export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("merge_duplicates", { keep, drop });
+}
+
+/** Remember that a group is not duplicates after all. */
+export async function dismissDuplicatesCmd(signature: string): Promise<DuplicateReport | null> {
+  if (!isTauri()) return null;
+  return inv<DuplicateReport>("dismiss_duplicates", { signature });
+}
+
+/** Offer every dismissed group again. */
+export async function restoreDismissedDuplicatesCmd(): Promise<DuplicateReport | null> {
+  if (!isTauri()) return null;
+  return inv<DuplicateReport>("restore_dismissed_duplicates");
+}
+
 export async function getLibrary(): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("get_library");

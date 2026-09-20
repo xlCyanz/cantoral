@@ -3,7 +3,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{self, Db};
-use crate::models::{Folder, Playlist, Track};
+use crate::models::{DuplicateGroup, Folder, Playlist, Track};
 use crate::scanner::{self, ScanSlot};
 
 /// Everything the frontend needs to hydrate its store.
@@ -20,6 +20,23 @@ fn snapshot(conn: &Connection) -> anyhow::Result<Snapshot> {
         tracks: db::list_tracks(conn)?,
         folders: db::list_folders(conn)?,
         playlists: db::list_playlists(conn)?,
+    })
+}
+
+/// What the duplicates view needs in one round trip.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateReport {
+    pub groups: Vec<DuplicateGroup>,
+    /// Groups the user has waved off. Carried so the view can offer them back
+    /// instead of the dismissal being a one-way door.
+    pub dismissed: i64,
+}
+
+fn duplicate_report(conn: &Connection) -> anyhow::Result<DuplicateReport> {
+    Ok(DuplicateReport {
+        groups: db::duplicate_groups(conn)?,
+        dismissed: db::dismissed_count(conn)?,
     })
 }
 
@@ -159,6 +176,44 @@ pub fn rescan_folder(
 pub fn cancel_scan(slot: State<ScanSlot>) -> CmdResult<()> {
     slot.cancel();
     Ok(())
+}
+
+/// Tracks that look like the same song, grouped.
+#[tauri::command]
+pub fn find_duplicates(db: State<Db>) -> CmdResult<DuplicateReport> {
+    let conn = db.0.lock().map_err(e)?;
+    duplicate_report(&conn).map_err(e)
+}
+
+/// Fold the copies into the one the user chose to keep.
+#[tauri::command]
+pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdResult<Snapshot> {
+    let keep_id = keep.parse::<i64>().map_err(e)?;
+    let drop_ids = drop
+        .iter()
+        .map(|d| d.parse::<i64>())
+        .collect::<std::result::Result<Vec<i64>, _>>()
+        .map_err(e)?;
+    let conn = db.0.lock().map_err(e)?;
+    db::merge_tracks(&conn, keep_id, &drop_ids).map_err(e)?;
+    log::info!("merged {} copies into track {keep}", drop_ids.len());
+    snapshot(&conn).map_err(e)
+}
+
+/// Remember that a group is not duplicates after all.
+#[tauri::command]
+pub fn dismiss_duplicates(db: State<Db>, signature: String) -> CmdResult<DuplicateReport> {
+    let conn = db.0.lock().map_err(e)?;
+    db::dismiss_duplicates(&conn, &signature).map_err(e)?;
+    duplicate_report(&conn).map_err(e)
+}
+
+/// Offer every dismissed group again.
+#[tauri::command]
+pub fn restore_dismissed_duplicates(db: State<Db>) -> CmdResult<DuplicateReport> {
+    let conn = db.0.lock().map_err(e)?;
+    db::clear_duplicate_dismissals(&conn).map_err(e)?;
+    duplicate_report(&conn).map_err(e)
 }
 
 /// Re-check every indexed file on disk. Called after startup so tracks deleted

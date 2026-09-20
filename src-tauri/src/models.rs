@@ -52,6 +52,44 @@ pub struct Playlist {
     pub ids: Vec<String>,
 }
 
+/// One track inside a group of suspected duplicates.
+///
+/// Its own shape rather than a `Track`: what the user needs in order to choose
+/// between two copies is the file — where it lives, what format it is, how big
+/// it is — and that is not what the library table shows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateTrack {
+    pub id: String,
+    pub titulo: String,
+    pub artista: String,
+    pub path: String,
+    pub formato: String,
+    /// Friendly name of the owning folder.
+    pub carpeta: String,
+    pub dur: String,
+    pub dur_sec: i64,
+    /// Size on disk in bytes, 0 when the file could not be stat'd.
+    pub fsize: i64,
+    pub fav: bool,
+    pub missing: bool,
+    pub tags: Vec<String>,
+}
+
+/// A set of tracks that look like the same song.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateGroup {
+    /// Stable identity of the group: its track ids, sorted, joined by `-`.
+    /// What a dismissal is remembered by.
+    pub signature: String,
+    /// Why these ended up together: `archivo` or `titulo`.
+    pub motivo: String,
+    /// The copy worth keeping, as a starting point for the user's own choice.
+    pub sugerido: String,
+    pub tracks: Vec<DuplicateTrack>,
+}
+
 /// Progress payload emitted during a folder scan.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

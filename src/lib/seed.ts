@@ -1,3 +1,4 @@
+import type { DuplicateGroup, DuplicateTrack } from "./api";
 import type { Folder, Playlist, Track } from "./types";
 
 // Seed catalogue — transcribed verbatim from design/Cantoral.dc.html.
@@ -63,3 +64,50 @@ export const SEED_PLAYLISTS: Playlist[] = [
   { id: "p4", nombre: "Ensayo del Coro", fecha: "Miércoles 9 de julio, 2025", ocasion: "Ensayo", ids: ["t1", "t2", "t14", "t15", "t4", "t10", "t8"] },
   { id: "p5", nombre: "Noche de Adoración", fecha: "Viernes 25 de julio, 2025", ocasion: "Adoración especial", ids: ["t1", "t4", "t15", "t6", "t14", "t7"] },
 ];
+
+/**
+ * A fabricated duplicate group, so the view can be exercised in the browser.
+ *
+ * The real grouping runs in Rust against file sizes, lengths and folded
+ * titles — none of which the seed has. This is a fixture built from real seed
+ * tracks so that choosing, merging and dismissing all do something coherent
+ * here; it is not what the backend would return for this catalogue.
+ */
+function comoDuplicada(t: Track, fsize: number): DuplicateTrack {
+  return {
+    id: t.id,
+    titulo: t.titulo,
+    artista: t.artista,
+    path: t.path ?? "",
+    formato: t.formato,
+    carpeta: t.carpeta,
+    dur: t.dur,
+    durSec: t.durSec,
+    fsize,
+    fav: t.fav,
+    missing: t.missing,
+    tags: t.tags,
+  };
+}
+
+export function seedDuplicates(): DuplicateGroup[] {
+  const de = (id: string) => SEED_TRACKS.find((t) => t.id === id)!;
+  const grupo = (motivo: string, sugerido: string, miembros: [string, number][]): DuplicateGroup => ({
+    signature: miembros.map(([id]) => id).join("-"),
+    motivo,
+    sugerido,
+    tracks: miembros.map(([id, size]) => comoDuplicada(de(id), size)),
+  });
+  // Both are the same song held twice: the audio the band plays and the video
+  // the projector runs. The kind of pair a church accumulates without noticing.
+  return [
+    grupo("titulo", "t1", [
+      ["t1", 6_048_210],
+      ["t17", 88_412_330],
+    ]),
+    grupo("titulo", "t13", [
+      ["t13", 35_640_120],
+      ["t19", 71_204_880],
+    ]),
+  ];
+}

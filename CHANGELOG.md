@@ -11,6 +11,24 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Detectar y fusionar pistas duplicadas**, en Configuración. Una biblioteca de
+  iglesia acumula la misma canción varias veces —el MP3 y el WAV, la que bajó
+  cada quien en su carpeta— y hasta ahora Cantoral las indexaba todas por igual
+  sin forma de verlo. Ahora las agrupa por dos caminos: mismo tamaño y misma
+  duración (el mismo archivo en dos sitios) y mismo título y artista con
+  duración parecida (la misma canción en formatos distintos), comparando sin
+  acentos, sin mayúsculas y sin lo que va entre paréntesis.
+
+  Para cada grupo se elige cuál se queda —viene sugerida la de mejor formato, y
+  nunca una cuyo archivo falte— y **la fusión le pasa todo lo demás**: las
+  etiquetas de todas las copias, el favorito si alguna lo era, los campos de
+  tono, tempo y ocasión que ella no tuviera, y su sitio en cada lista para
+  culto. Eso es lo que hasta ahora se perdía al borrar la sobrante a mano. Los
+  archivos de audio no se tocan.
+
+  Un grupo también se puede marcar como «no son duplicadas» para que deje de
+  aparecer, y esos descartes se pueden revisar de nuevo cuando se quiera.
+
 - **Editar tono, tempo y ocasión** desde el panel de detalle. El backend ya sabía
   guardarlos desde el principio; faltaban los tres campos. Con ellos se encienden
   cosas que estaban apagadas por falta de datos: el filtro por ocasión, el agrupar

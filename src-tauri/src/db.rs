@@ -3,7 +3,7 @@ use rusqlite::{params, Connection, OpenFlags};
 use std::path::Path;
 use std::sync::Mutex;
 
-use crate::models::{fmt_dur, Folder, Playlist, Track};
+use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Playlist, Track};
 
 /// Tauri-managed database handle.
 pub struct Db(pub Mutex<Connection>);
@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS track_tags (
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS duplicate_dismissals (
+  signature    TEXT PRIMARY KEY,
+  dismissed_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_tracks_titulo ON tracks(titulo);
@@ -814,6 +819,336 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- duplicates
+
+/// Seconds two copies of the same song may differ by and still be grouped.
+/// Re-encoding the same recording shifts its length by a moment, not a verse.
+const TOLERANCIA_SEG: i64 = 3;
+
+/// Tails a copied file grows that say nothing about which song it is.
+///
+/// Deliberately short and Spanish-first. Every word added here is a chance to
+/// fuse two songs that only looked alike, and missing a duplicate costs the
+/// user a scroll — fusing the wrong pair costs them a song.
+const RUIDO: &[&str] = &[
+    "final", "finales", "copia", "copy", "nuevo", "nueva", "new", "master", "mix", "remix",
+    "vivo", "live", "demo", "editado", "edit", "version",
+];
+
+/// Fold a title or artist down to what two copies of the same song share.
+///
+/// Anything inside brackets goes — `(en vivo)`, `[remix]` — along with accents,
+/// case and punctuation. Accents are mapped by hand rather than pulled in
+/// through a Unicode crate: the catalogue is Spanish, and these are the letters
+/// that actually turn up in it.
+fn normalise_song(raw: &str) -> String {
+    let mut plano = String::with_capacity(raw.len());
+    let mut dentro = 0usize;
+    for c in raw.chars() {
+        match c {
+            '(' | '[' | '{' => {
+                dentro += 1;
+                plano.push(' ');
+                continue;
+            }
+            ')' | ']' | '}' => {
+                dentro = dentro.saturating_sub(1);
+                plano.push(' ');
+                continue;
+            }
+            _ => {}
+        }
+        if dentro > 0 {
+            continue;
+        }
+        let bajo = c.to_lowercase().next().unwrap_or(c);
+        let sin_tilde = match bajo {
+            'á' | 'à' | 'ä' | 'â' => 'a',
+            'é' | 'è' | 'ë' | 'ê' => 'e',
+            'í' | 'ì' | 'ï' | 'î' => 'i',
+            'ó' | 'ò' | 'ö' | 'ô' => 'o',
+            'ú' | 'ù' | 'ü' | 'û' => 'u',
+            'ñ' => 'n',
+            otro => otro,
+        };
+        plano.push(if sin_tilde.is_alphanumeric() { sin_tilde } else { ' ' });
+    }
+
+    // Trim the tail from the end inwards: «coro final 2» is «coro», but
+    // «salmo 23» keeps its number, because nothing noisy precedes it.
+    let mut palabras: Vec<&str> = plano.split_whitespace().collect();
+    while let Some(ultima) = palabras.last() {
+        let es_ruido = RUIDO.contains(ultima);
+        // A bare number only goes when it trails a noise word — otherwise it
+        // is part of the name.
+        let es_numero_de_copia = ultima.chars().all(|c| c.is_ascii_digit())
+            && palabras.len() >= 2
+            && RUIDO.contains(&palabras[palabras.len() - 2]);
+        if es_ruido || es_numero_de_copia {
+            palabras.pop();
+        } else {
+            break;
+        }
+    }
+    palabras.join(" ")
+}
+
+/// How much a copy is worth keeping. Higher wins.
+///
+/// Lossless over lossy over video, and a file that is not on disk never wins:
+/// suggesting the copy the user cannot play would be a strange default.
+fn calidad(formato: &str, missing: bool) -> i64 {
+    if missing {
+        return -1;
+    }
+    match formato.to_uppercase().as_str() {
+        "WAV" | "FLAC" | "AIFF" | "AIF" => 3,
+        "MP4" | "MOV" | "MKV" | "AVI" | "WEBM" | "M4V" | "WMV" => 1,
+        _ => 2,
+    }
+}
+
+/// Every track, with the file facts the duplicate view needs.
+fn duplicate_candidates(conn: &Connection) -> Result<Vec<DuplicateTrack>> {
+    let mut tags_of = tags_by_track(conn)?;
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.titulo, t.artista, t.path, t.formato, COALESCE(f.nombre,''),
+                t.dur_sec, t.fsize, t.fav, t.missing
+         FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
+         ORDER BY t.id",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        let id: i64 = r.get(0)?;
+        let dur_sec: i64 = r.get(6)?;
+        Ok(DuplicateTrack {
+            id: id.to_string(),
+            titulo: r.get(1)?,
+            artista: r.get(2)?,
+            path: r.get(3)?,
+            formato: r.get(4)?,
+            carpeta: r.get(5)?,
+            dur: fmt_dur(dur_sec),
+            dur_sec,
+            fsize: r.get(7)?,
+            fav: r.get::<_, i64>(8)? != 0,
+            missing: r.get::<_, i64>(9)? != 0,
+            tags: tags_of.remove(&id).unwrap_or_default(),
+        })
+    })?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Turn a set of candidates into a group, picking the copy worth keeping.
+fn armar_grupo(mut tracks: Vec<DuplicateTrack>, motivo: &str) -> DuplicateGroup {
+    tracks.sort_by_key(|t| t.id.parse::<i64>().unwrap_or(0));
+    let sugerido = tracks
+        .iter()
+        // Best format first, then the bigger file, then the one indexed
+        // earliest — a stable answer rather than whatever order rows came in.
+        .max_by_key(|t| (calidad(&t.formato, t.missing), t.fsize, -t.id.parse::<i64>().unwrap_or(0)))
+        .map(|t| t.id.clone())
+        .unwrap_or_default();
+    let signature = tracks.iter().map(|t| t.id.as_str()).collect::<Vec<_>>().join("-");
+    DuplicateGroup { signature, motivo: motivo.to_string(), sugerido, tracks }
+}
+
+/// Groups of tracks that look like the same song.
+///
+/// Two passes, and a track only ever lands in one group. First the copies that
+/// are the same file — same byte size *and* same length, which one alone is too
+/// weak for — then, over what is left, the same song in a different file:
+/// title and artist that fold to the same thing, within `TOLERANCIA_SEG`.
+///
+/// Groups the user has already waved off are left out.
+pub fn duplicate_groups(conn: &Connection) -> Result<Vec<DuplicateGroup>> {
+    let candidatos = duplicate_candidates(conn)?;
+    let descartados = dismissed_signatures(conn)?;
+    let mut grupos: Vec<DuplicateGroup> = Vec::new();
+    let mut ya_agrupado: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    // ---- same file, in two places ----
+    let mut por_archivo: std::collections::HashMap<(i64, i64), Vec<DuplicateTrack>> =
+        std::collections::HashMap::new();
+    for t in &candidatos {
+        if t.fsize > 0 {
+            por_archivo.entry((t.fsize, t.dur_sec)).or_default().push(t.clone());
+        }
+    }
+    for (_, miembros) in por_archivo {
+        if miembros.len() < 2 {
+            continue;
+        }
+        for m in &miembros {
+            ya_agrupado.insert(m.id.clone());
+        }
+        grupos.push(armar_grupo(miembros, "archivo"));
+    }
+
+    // ---- same song, different file ----
+    let mut por_nombre: std::collections::HashMap<(String, String), Vec<DuplicateTrack>> =
+        std::collections::HashMap::new();
+    for t in &candidatos {
+        if ya_agrupado.contains(&t.id) {
+            continue;
+        }
+        let titulo = normalise_song(&t.titulo);
+        let artista = normalise_song(&t.artista);
+        // A track with nothing to match on would otherwise drag every other
+        // untitled track into one enormous group.
+        if titulo.is_empty() {
+            continue;
+        }
+        por_nombre.entry((titulo, artista)).or_default().push(t.clone());
+    }
+    for (_, mut miembros) in por_nombre {
+        if miembros.len() < 2 {
+            continue;
+        }
+        miembros.sort_by_key(|t| t.dur_sec);
+        // Sweep by length, anchored on the first of each run: a chain would let
+        // a group drift far past the tolerance one second at a time.
+        let mut i = 0;
+        while i < miembros.len() {
+            let ancla = miembros[i].dur_sec;
+            let mut j = i + 1;
+            while j < miembros.len() && miembros[j].dur_sec - ancla <= TOLERANCIA_SEG {
+                j += 1;
+            }
+            if j - i >= 2 {
+                grupos.push(armar_grupo(miembros[i..j].to_vec(), "titulo"));
+            }
+            i = j;
+        }
+    }
+
+    grupos.retain(|g| !descartados.contains(&g.signature));
+    // Biggest groups first — that is where the clutter is.
+    grupos.sort_by(|a, b| b.tracks.len().cmp(&a.tracks.len()).then(a.signature.cmp(&b.signature)));
+    Ok(grupos)
+}
+
+fn dismissed_signatures(conn: &Connection) -> Result<std::collections::HashSet<String>> {
+    let mut stmt = conn.prepare("SELECT signature FROM duplicate_dismissals")?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Remember that a group is not duplicates, so it stops being offered.
+pub fn dismiss_duplicates(conn: &Connection, signature: &str) -> Result<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO duplicate_dismissals(signature, dismissed_at) VALUES(?1,?2)",
+        params![signature, now()],
+    )?;
+    Ok(())
+}
+
+/// Forget every dismissal, so the groups are offered again.
+pub fn clear_duplicate_dismissals(conn: &Connection) -> Result<usize> {
+    Ok(conn.execute("DELETE FROM duplicate_dismissals", [])?)
+}
+
+/// How many groups the user has waved off.
+pub fn dismissed_count(conn: &Connection) -> Result<i64> {
+    Ok(conn.query_row("SELECT COUNT(*) FROM duplicate_dismissals", [], |r| r.get(0))?)
+}
+
+/// Fold the other copies of a song into the one the user chose to keep.
+///
+/// Everything the copies carried that the survivor does not moves across before
+/// they go: their tags, their favourite, the church fields they had filled in,
+/// and their place in every service list. Deleting the copy outright — which is
+/// all the user could do until now — would have thrown all of that away.
+///
+/// One transaction: a merge that applied halfway is a track that lost its tags
+/// and kept its duplicates.
+pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result<()> {
+    if drop_ids.is_empty() {
+        bail!("no hay copias que fusionar");
+    }
+    if drop_ids.contains(&keep_id) {
+        bail!("la pista que se conserva no puede estar entre las que se fusionan");
+    }
+    let existe: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM tracks WHERE id=?1",
+        params![keep_id],
+        |r| r.get(0),
+    )?;
+    if existe == 0 {
+        bail!("la pista que se conserva ya no está en la biblioteca");
+    }
+
+    // Read the covers before the rows go, so the files can be cleared up after
+    // the database has actually committed.
+    let marcador = lista_de_ids(drop_ids);
+    let mut stmt = conn.prepare(&format!(
+        "SELECT cover_path FROM tracks WHERE id IN ({marcador}) AND cover_path IS NOT NULL"
+    ))?;
+    let portadas: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    drop(stmt);
+
+    let tx = conn.unchecked_transaction()?;
+    // Tags: the union of every copy's.
+    tx.execute(
+        &format!(
+            "INSERT OR IGNORE INTO track_tags(track_id, tag_id)
+             SELECT ?1, tag_id FROM track_tags WHERE track_id IN ({marcador})"
+        ),
+        params![keep_id],
+    )?;
+    // A favourite on any copy is a favourite on the one that stays.
+    tx.execute(
+        &format!(
+            "UPDATE tracks SET fav=1 WHERE id=?1
+             AND EXISTS (SELECT 1 FROM tracks WHERE id IN ({marcador}) AND fav=1)"
+        ),
+        params![keep_id],
+    )?;
+    // Church fields the survivor never got, taken from whichever copy has them.
+    // Never an overwrite: what the user typed on the copy they are keeping wins.
+    for campo in ["tono", "ocasion"] {
+        tx.execute(
+            &format!(
+                "UPDATE tracks SET {campo} = COALESCE(
+                     (SELECT {campo} FROM tracks
+                      WHERE id IN ({marcador}) AND TRIM({campo}) <> '' ORDER BY id LIMIT 1), {campo})
+                 WHERE id=?1 AND TRIM({campo}) = ''"
+            ),
+            params![keep_id],
+        )?;
+    }
+    tx.execute(
+        &format!(
+            "UPDATE tracks SET bpm = COALESCE(
+                 (SELECT bpm FROM tracks WHERE id IN ({marcador}) AND bpm > 0 ORDER BY id LIMIT 1), bpm)
+             WHERE id=?1 AND bpm = 0"
+        ),
+        params![keep_id],
+    )?;
+    // Service lists follow the survivor. `OR IGNORE` covers the list that
+    // already held it: that row stays where it was and the copy's is dropped
+    // with the copy, instead of the list gaining the same song twice.
+    tx.execute(
+        &format!("UPDATE OR IGNORE playlist_tracks SET track_id=?1 WHERE track_id IN ({marcador})"),
+        params![keep_id],
+    )?;
+    tx.execute(&format!("DELETE FROM tracks WHERE id IN ({marcador})"), [])?;
+    drop_orphan_tags(&tx)?;
+    tx.commit()?;
+
+    for c in portadas {
+        let _ = std::fs::remove_file(c);
+    }
+    Ok(())
+}
+
+/// Render ids as a SQL list. They are `i64` read from our own tables, never
+/// text from outside, so there is nothing here for a quote to escape.
+fn lista_de_ids(ids: &[i64]) -> String {
+    ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")
+}
+
 // ---------------------------------------------------------------- tests
 
 #[cfg(test)]
@@ -829,6 +1164,312 @@ mod tests {
 
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
         upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100).unwrap()
+    }
+
+    // ---- duplicates ----
+
+    /// A track with the file facts the duplicate hunt actually reads.
+    #[allow(clippy::too_many_arguments)]
+    fn pista(
+        conn: &Connection,
+        fid: i64,
+        path: &str,
+        titulo: &str,
+        artista: &str,
+        dur: i64,
+        formato: &str,
+        fsize: i64,
+    ) -> i64 {
+        upsert_track(conn, fid, path, titulo, artista, "Album", dur, formato, false, 10, fsize)
+            .unwrap()
+    }
+
+    fn ids(g: &DuplicateGroup) -> Vec<i64> {
+        g.tracks.iter().map(|t| t.id.parse().unwrap()).collect()
+    }
+
+    #[test]
+    fn normalising_folds_case_accents_and_punctuation() {
+        assert_eq!(normalise_song("¡Cuán Grande Es Él!"), "cuan grande es el");
+        assert_eq!(normalise_song("Niño  Señor"), "nino senor");
+    }
+
+    #[test]
+    fn normalising_drops_what_is_in_brackets() {
+        assert_eq!(normalise_song("Al Mundo Paz (En Vivo)"), "al mundo paz");
+        assert_eq!(normalise_song("Castillo Fuerte [Remix 2024]"), "castillo fuerte");
+    }
+
+    #[test]
+    fn normalising_trims_the_tail_a_copied_file_grows() {
+        assert_eq!(normalise_song("Coro de Entrada_final_2"), "coro de entrada");
+        assert_eq!(normalise_song("Alabare copia"), "alabare");
+    }
+
+    #[test]
+    fn normalising_keeps_a_number_that_is_part_of_the_name() {
+        // «Salmo 23» is a song, not the 23rd copy of «Salmo».
+        assert_eq!(normalise_song("Salmo 23"), "salmo 23");
+        assert_eq!(normalise_song("Himno 512"), "himno 512");
+    }
+
+    #[test]
+    fn two_copies_of_the_same_file_are_grouped() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = pista(&conn, fid, "/m/coros/x.mp3", "Alabaré", "Coro", 200, "MP3", 5_000);
+        let b = pista(&conn, fid, "/m/respaldo/x.mp3", "Alabaré", "Coro", 200, "MP3", 5_000);
+
+        let grupos = duplicate_groups(&conn).unwrap();
+
+        assert_eq!(grupos.len(), 1);
+        assert_eq!(grupos[0].motivo, "archivo");
+        assert_eq!(ids(&grupos[0]), vec![a, b]);
+    }
+
+    #[test]
+    fn the_same_byte_size_alone_is_not_enough() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        // Two different songs can easily weigh the same; the length is what
+        // makes the pair believable.
+        pista(&conn, fid, "/m/a.mp3", "Uno", "A", 200, "MP3", 5_000);
+        pista(&conn, fid, "/m/b.mp3", "Dos", "B", 245, "MP3", 5_000);
+
+        assert!(duplicate_groups(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn files_with_no_recorded_size_are_left_alone() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        // fsize 0 means the scan could not stat the file, not that two files
+        // are both empty.
+        pista(&conn, fid, "/m/a.mp3", "Uno", "A", 200, "MP3", 0);
+        pista(&conn, fid, "/m/b.mp3", "Dos", "B", 200, "MP3", 0);
+
+        assert!(duplicate_groups(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_same_song_in_two_formats_is_grouped() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = pista(&conn, fid, "/m/a.mp3", "Cuán Grande Es Él", "Voces", 302, "MP3", 4_000);
+        let b = pista(&conn, fid, "/m/a.wav", "cuan grande es el", "voces", 304, "WAV", 40_000);
+
+        let grupos = duplicate_groups(&conn).unwrap();
+
+        assert_eq!(grupos.len(), 1);
+        assert_eq!(grupos[0].motivo, "titulo");
+        assert_eq!(ids(&grupos[0]), vec![a, b]);
+    }
+
+    #[test]
+    fn a_length_that_is_too_far_off_is_a_different_song() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        // The short intro and the full song share a name and an artist.
+        pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 40, "MP3", 1_000);
+        pista(&conn, fid, "/m/b.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+
+        assert!(duplicate_groups(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_group_never_drifts_past_the_tolerance_one_second_at_a_time() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 1_000);
+        let b = pista(&conn, fid, "/m/b.mp3", "Santo", "Coro", 302, "MP3", 2_000);
+        // 4s from the first: a chain would swallow it, an anchor does not.
+        let c = pista(&conn, fid, "/m/c.mp3", "Santo", "Coro", 304, "MP3", 3_000);
+
+        let grupos = duplicate_groups(&conn).unwrap();
+
+        assert_eq!(grupos.len(), 1);
+        assert_eq!(ids(&grupos[0]), vec![a, b], "only the two within tolerance");
+        assert!(!ids(&grupos[0]).contains(&c));
+    }
+
+    #[test]
+    fn a_track_belongs_to_one_group_only() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        // Same file twice, and a third that shares the title.
+        pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 5_000);
+        pista(&conn, fid, "/m/b.mp3", "Santo", "Coro", 300, "MP3", 5_000);
+        pista(&conn, fid, "/m/c.wav", "Santo", "Coro", 301, "WAV", 9_000);
+
+        let grupos = duplicate_groups(&conn).unwrap();
+
+        let apariciones: usize = grupos.iter().map(|g| g.tracks.len()).sum();
+        assert_eq!(apariciones, 2, "the file pair wins; the third is not listed twice");
+        assert_eq!(grupos[0].motivo, "archivo");
+    }
+
+    #[test]
+    fn tracks_with_no_title_are_not_all_one_giant_group() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        pista(&conn, fid, "/m/a.mp3", "", "", 300, "MP3", 1_000);
+        pista(&conn, fid, "/m/b.mp3", "  ", "", 301, "MP3", 2_000);
+
+        assert!(duplicate_groups(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_suggested_copy_is_the_better_file() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 9_000);
+        let wav = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 301, "WAV", 8_000);
+
+        let grupos = duplicate_groups(&conn).unwrap();
+
+        assert_eq!(grupos[0].sugerido, wav.to_string(), "lossless beats the bigger lossy file");
+    }
+
+    #[test]
+    fn a_copy_that_is_not_on_disk_is_never_the_suggestion() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let perdida = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 90_000);
+        let presente = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 301, "MP3", 4_000);
+        conn.execute("UPDATE tracks SET missing=1 WHERE id=?1", params![perdida]).unwrap();
+
+        let grupos = duplicate_groups(&conn).unwrap();
+
+        assert_eq!(grupos[0].sugerido, presente.to_string());
+    }
+
+    #[test]
+    fn a_dismissed_group_stops_being_offered_and_can_be_brought_back() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 5_000);
+        pista(&conn, fid, "/m/b.mp3", "Santo", "Coro", 300, "MP3", 5_000);
+        let firma = duplicate_groups(&conn).unwrap()[0].signature.clone();
+
+        dismiss_duplicates(&conn, &firma).unwrap();
+        assert!(duplicate_groups(&conn).unwrap().is_empty());
+        assert_eq!(dismissed_count(&conn).unwrap(), 1);
+
+        clear_duplicate_dismissals(&conn).unwrap();
+        assert_eq!(duplicate_groups(&conn).unwrap().len(), 1);
+        assert_eq!(dismissed_count(&conn).unwrap(), 0);
+    }
+
+    // ---- merging ----
+
+    #[test]
+    fn merging_unions_the_tags_of_every_copy() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        set_track_tags(&conn, queda, &["lento".into()]).unwrap();
+        set_track_tags(&conn, copia, &["ensayo".into(), "lento".into()]).unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        let t = list_tracks(&conn).unwrap();
+        assert_eq!(t.len(), 1);
+        let mut tags = t[0].tags.clone();
+        tags.sort();
+        assert_eq!(tags, vec!["ensayo", "lento"]);
+    }
+
+    #[test]
+    fn a_favourite_on_any_copy_survives_the_merge() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        set_fav(&conn, copia, true).unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        assert!(list_tracks(&conn).unwrap()[0].fav);
+    }
+
+    #[test]
+    fn merging_fills_church_fields_the_survivor_never_got() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        update_track_meta(&conn, queda, "Sol", 0, "").unwrap();
+        update_track_meta(&conn, copia, "Re", 96, "Adoración").unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        let t = &list_tracks(&conn).unwrap()[0];
+        assert_eq!(t.tono, "Sol", "what the user typed on the copy they keep wins");
+        assert_eq!(t.bpm, 96, "and the empty ones are filled from the copy");
+        assert_eq!(t.ocasion, "Adoración");
+    }
+
+    #[test]
+    fn a_service_list_follows_the_copy_it_had() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        let otra = pista(&conn, fid, "/m/z.mp3", "Otra", "Coro", 100, "MP3", 1_000);
+        let pl = create_playlist(&conn, "Culto", "2026-01-04", "").unwrap();
+        add_to_playlist(&conn, pl, otra).unwrap();
+        add_to_playlist(&conn, pl, copia).unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        let listas = list_playlists(&conn).unwrap();
+        assert_eq!(
+            listas[0].ids,
+            vec![otra.to_string(), queda.to_string()],
+            "the list keeps its length and its order, pointing at the survivor"
+        );
+    }
+
+    #[test]
+    fn a_list_that_held_both_copies_does_not_end_up_with_the_song_twice() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        let pl = create_playlist(&conn, "Culto", "2026-01-04", "").unwrap();
+        add_to_playlist(&conn, pl, queda).unwrap();
+        add_to_playlist(&conn, pl, copia).unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        assert_eq!(list_playlists(&conn).unwrap()[0].ids, vec![queda.to_string()]);
+    }
+
+    #[test]
+    fn merging_removes_the_copies_and_keeps_the_chosen_one() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let uno = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        let dos = pista(&conn, fid, "/m/a.ogg", "Santo", "Coro", 301, "OGG", 3_000);
+
+        merge_tracks(&conn, queda, &[uno, dos]).unwrap();
+
+        let quedan: Vec<String> = list_tracks(&conn).unwrap().into_iter().map(|t| t.id).collect();
+        assert_eq!(quedan, vec![queda.to_string()]);
+    }
+
+    #[test]
+    fn a_merge_that_makes_no_sense_is_refused() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+
+        assert!(merge_tracks(&conn, queda, &[]).is_err(), "nothing to merge");
+        assert!(merge_tracks(&conn, queda, &[queda]).is_err(), "cannot fold a track into itself");
+        assert!(merge_tracks(&conn, 9_999, &[queda]).is_err(), "the survivor must exist");
+        assert_eq!(list_tracks(&conn).unwrap().len(), 1, "and nothing was touched");
     }
 
     #[test]
