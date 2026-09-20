@@ -595,7 +595,16 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     // ---------- dialog / states ----------
-    openAddFolder: () => set({ dialog: "addFolder" }),
+    openAddFolder: () => {
+      // The buttons that get here are disabled while a scan runs, but the
+      // store is where the rule actually lives — only one scan at a time, and
+      // the dialog's only outcome is starting one.
+      if (get().scanning) {
+        toast("Espera a que termine el escaneo en curso", "info");
+        return;
+      }
+      set({ dialog: "addFolder" });
+    },
     openHelp: () => set({ dialog: "help" }),
     closeDialog: () => set({ dialog: null }),
     confirmAddFolder: () => {
@@ -604,6 +613,12 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     indexFolder: (path, recursive = true) => {
       set({ dialog: null });
+      // The backend refuses a second scan outright, and an error screen is a
+      // harsh answer to what is usually a double click.
+      if (get().scanning) {
+        toast("Espera a que termine el escaneo en curso", "info");
+        return;
+      }
       if (isTauri() && path) {
         if (scanTimer) clearInterval(scanTimer);
         scanTimer = null;
@@ -1027,6 +1042,10 @@ export const useStore = create<CantoralState>((set, get) => {
       });
     },
     rescanFolder: (id) => {
+      if (get().scanning) {
+        toast("Espera a que termine el escaneo en curso", "info");
+        return;
+      }
       if (isTauri() && id) {
         // No `view` here on purpose. A re-scan is started from Configuración,
         // and yanking the user out of the screen they are working on is the

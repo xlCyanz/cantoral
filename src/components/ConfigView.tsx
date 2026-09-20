@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { Database, Download, Folder, FolderInput, HelpCircle, Plus, RefreshCw, X } from "lucide-react";
 import { useStore } from "../store";
+import { ocupadoStyle } from "../lib/styles";
 import { getDbInfo, type DbInfo } from "../lib/api";
 import type { ThemeMode } from "../lib/types";
 
@@ -79,6 +80,7 @@ export default function ConfigView() {
   const totalTracks = useStore((s) => s.tracks.length);
   const openExt = useStore((s) => s.openExt);
   const openAddFolder = useStore((s) => s.openAddFolder);
+  const scanning = useStore((s) => s.scanning);
   const rescanFolder = useStore((s) => s.rescanFolder);
   const relocateFolder = useStore((s) => s.relocateFolder);
   const removeFolder = useStore((s) => s.removeFolder);
@@ -118,7 +120,7 @@ export default function ConfigView() {
             <h2 style={h2Style}>Carpetas indexadas</h2>
             <p style={pStyle}>Cantoral revisa estas ubicaciones. Tus archivos nunca se mueven ni se copian. Si una carpeta cambió de sitio, muévela en vez de quitarla: así conserva etiquetas y favoritos.</p>
           </div>
-          <button onClick={openAddFolder} className="hb-s2" style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>
+          <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600, ...ocupadoStyle(scanning) }}>
             <Plus size={14} strokeWidth={2.2} />Agregar
           </button>
         </div>
@@ -133,7 +135,7 @@ export default function ConfigView() {
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.ruta}</div>
               </div>
               <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500, flex: "0 0 auto" }}>{f.count} pistas</span>
-              <button onClick={() => rescanFolder(f.id)} title="Volver a escanear" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
+              <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "Volver a escanear"} className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto", ...ocupadoStyle(scanning) }}>
                 <RefreshCw size={15} />
               </button>
               <button

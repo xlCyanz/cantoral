@@ -6,10 +6,80 @@ use lofty::tag::Accessor;
 use rusqlite::Connection;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
 use crate::db;
 use crate::models::ScanProgress;
+
+/// The cancel flag of the scan that is running, if there is one.
+///
+/// A flag per scan rather than one shared flag. A shared one let a starting
+/// scan clear the flag of a scan that was cancelled but had not noticed yet —
+/// it polls between files — bringing the cancelled one back to life and
+/// letting it run to the end.
+///
+/// The slot being taken is also what keeps two scans from overlapping. Two at
+/// once would write through two connections, interleave their `scan-progress`
+/// events on the single channel the progress bar listens to, and each finish
+/// by taking a snapshot over the other's half-done work.
+#[derive(Default)]
+pub struct ScanSlot(Mutex<Option<Arc<AtomicBool>>>);
+
+/// A claim on the scan slot. Releasing it is what lets the next scan start, so
+/// it happens when the claim goes out of scope — including on a panic.
+pub struct ScanClaim<'a> {
+    slot: &'a ScanSlot,
+    cancel: Arc<AtomicBool>,
+}
+
+impl ScanSlot {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Take the slot for a new scan. `None` means one is already running.
+    ///
+    /// The new scan always starts with its own flag lowered, so a cancel aimed
+    /// at an earlier scan cannot stop this one before it reads a single file.
+    pub fn claim(&self) -> Option<ScanClaim<'_>> {
+        let mut ocupado = self.lock();
+        if ocupado.is_some() {
+            return None;
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        *ocupado = Some(cancel.clone());
+        Some(ScanClaim { slot: self, cancel })
+    }
+
+    /// Ask the running scan to stop after the file it is on. Does nothing when
+    /// no scan is running, so a stray cancel cannot poison the next one.
+    pub fn cancel(&self) {
+        if let Some(bandera) = self.lock().as_ref() {
+            bandera.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Nothing but the few instructions above ever runs under this lock, so a
+    /// panic cannot realistically poison it — and recovering beats leaving the
+    /// app unable to scan for the rest of the session.
+    fn lock(&self) -> std::sync::MutexGuard<'_, Option<Arc<AtomicBool>>> {
+        self.0.lock().unwrap_or_else(|envenenado| envenenado.into_inner())
+    }
+}
+
+impl ScanClaim<'_> {
+    /// The flag this scan polls between files.
+    pub fn cancel_flag(&self) -> &AtomicBool {
+        &self.cancel
+    }
+}
+
+impl Drop for ScanClaim<'_> {
+    fn drop(&mut self) {
+        *self.slot.lock() = None;
+    }
+}
 
 const AUDIO_EXTS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff", "aif"];
 const VIDEO_EXTS: &[&str] = &["mp4", "mov", "mkv", "avi", "webm", "m4v", "wmv"];
@@ -359,6 +429,79 @@ mod tests {
         assert_eq!(done.len(), 1, "exactly one terminal event");
         assert_eq!(done[0].0, 100.0);
         assert_eq!(events.last().unwrap().2, 5, "final count matches the files indexed");
+    }
+
+    // ---- the slot that keeps scans from stepping on each other ----
+
+    #[test]
+    fn a_second_scan_is_turned_away_while_one_holds_the_slot() {
+        let slot = ScanSlot::new();
+        let _primero = slot.claim().expect("the slot starts free");
+
+        assert!(slot.claim().is_none(), "two scans must not run at once");
+    }
+
+    #[test]
+    fn the_slot_frees_up_when_the_scan_holding_it_ends() {
+        let slot = ScanSlot::new();
+        {
+            let _primero = slot.claim().expect("the slot starts free");
+        }
+
+        assert!(slot.claim().is_some(), "the next scan gets its turn");
+    }
+
+    #[test]
+    fn a_cancelled_scan_stays_cancelled_while_it_finishes() {
+        let slot = ScanSlot::new();
+        let primero = slot.claim().expect("the slot starts free");
+        slot.cancel();
+
+        // A scan polls the flag between files, so a cancelled one is still
+        // alive for a moment. Starting another used to clear the single shared
+        // flag and bring this one back to life; now the second cannot even
+        // start until this one has let go.
+        assert!(slot.claim().is_none());
+        assert!(primero.cancel_flag().load(Ordering::Relaxed), "still cancelled");
+    }
+
+    #[test]
+    fn a_new_scan_starts_with_its_own_flag_down() {
+        let slot = ScanSlot::new();
+        {
+            let primero = slot.claim().expect("the slot starts free");
+            slot.cancel();
+            assert!(primero.cancel_flag().load(Ordering::Relaxed));
+        }
+
+        let segundo = slot.claim().expect("the slot is free again");
+        assert!(
+            !segundo.cancel_flag().load(Ordering::Relaxed),
+            "a cancel aimed at the previous scan must not stop this one"
+        );
+    }
+
+    #[test]
+    fn cancelling_with_nothing_running_leaves_nothing_behind() {
+        let slot = ScanSlot::new();
+        slot.cancel();
+
+        let scan = slot.claim().expect("the slot starts free");
+        assert!(!scan.cancel_flag().load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_scan_polls_the_flag_of_its_own_claim() {
+        let tree = Tree::new("slot-cancel");
+        let (conn, fid, covers) = setup(&tree);
+        let slot = ScanSlot::new();
+        let claim = slot.claim().unwrap();
+        slot.cancel();
+
+        let n = scan_folder(&conn, fid, &tree.path(), &covers, true, claim.cancel_flag(), &|_| {})
+            .unwrap();
+
+        assert_eq!(n, 0, "the scan stops on the flag its own claim handed it");
     }
 
     #[test]

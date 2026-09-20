@@ -92,6 +92,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **Dos escaneos ya no se pisan.** La bandera de cancelación era un único
+  `AtomicBool` global que cada escaneo bajaba al arrancar, así que lanzar uno
+  nuevo **des-cancelaba** al que estaba terminando su archivo actual y lo dejaba
+  correr hasta el final. Y nada impedía que dos escaneos corrieran a la vez:
+  escribían por dos conexiones, mezclaban sus eventos de progreso en el mismo
+  canal —la barra saltaba entre ambos— y cada uno terminaba tomando una foto de
+  la biblioteca por encima del trabajo a medias del otro. Ahora cada escaneo
+  lleva su propia bandera y solo uno puede correr a la vez; el segundo se
+  rechaza con un mensaje claro. Cancelar sin nada en curso ya no deja nada
+  levantado para el siguiente.
+- Los botones de escanear y de agregar carpeta se apagan mientras hay un
+  escaneo en curso, en lugar de dejar pulsar algo que el núcleo va a rechazar.
+
 - **Un escaneo que falla ya no deja la carpeta a medias.** La fila se insertaba
   antes de empezar a recorrer el disco, así que una unidad desconectada o una
   carpeta ilegible dejaban una entrada con cero pistas en Configuración, a limpiar
