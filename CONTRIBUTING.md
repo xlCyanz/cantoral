@@ -158,6 +158,13 @@ caché; córrelos de todos modos. `cargo audit` se instala una vez con
 
 CodeQL corre aparte, solo en GitHub, y publica en **Security → Code scanning alerts**.
 
+> [!IMPORTANT]
+> **TypeScript está fijado en `~6.0.3` a propósito.** `typescript-eslint` soporta
+> `>=4.8.4 <6.1.0` y aborta con un error duro fuera de ese rango, así que subir a
+> TS 7 deja el linter inservible aunque `tsc` siga compilando. Dependabot tiene
+> instrucción de no proponer el bump; se levanta cuando se cierre
+> [typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940).
+
 > [!NOTE]
 > `cargo fmt --check` **no** está en la CI: el núcleo está formateado a mano y
 > rustfmt no lo reproduce con ninguna configuración, así que activarlo hoy

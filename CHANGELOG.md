@@ -19,6 +19,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - **CodeQL** (`.github/workflows/codeql.yml`) sobre la interfaz y el núcleo, en
   cada push, cada pull request y semanalmente.
 
+### Cambiado
+
+- TypeScript fijado en `~6.0.3`, bajando desde el `7.0.2` que había entrado por
+  Dependabot: `typescript-eslint` soporta `>=4.8.4 <6.1.0` y falla en seco fuera
+  de ese rango. `tsc` compila igual con TS 7, así que nada lo delataba hasta que
+  hubo un linter. Dependabot ya no propone el bump.
+
 - Integración continua (`ci.yml`): tipos, Vitest, `cargo clippy` y `cargo test` en
   cada push y cada pull request.
 - Plantillas de issue (bug y propuesta) y de pull request.

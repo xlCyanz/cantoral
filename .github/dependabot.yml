@@ -12,6 +12,13 @@ updates:
     commit-message:
       prefix: "build"
       include: scope
+    ignore:
+      # typescript-eslint soporta TypeScript >=4.8.4 <6.1.0 y aborta con un error
+      # duro fuera de ese rango, así que TS 7 deja el linter inservible. El bump
+      # se acepta de nuevo cuando esto se cierre:
+      # https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      - dependency-name: "typescript"
+        versions: [">=6.1.0"]
     groups:
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
