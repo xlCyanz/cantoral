@@ -3,7 +3,11 @@
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
 export type View = "biblioteca" | "colecciones" | "lista" | "config";
-export type LibState = "content" | "empty" | "scanning" | "error";
+/**
+ * What the library view has to show. A scan in flight is *not* one of these:
+ * it runs alongside whatever the library already holds (see `scanning`).
+ */
+export type LibState = "content" | "empty" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
 export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
 export type SortKey = "titulo" | "album" | "ocasion" | "tono" | "bpm" | "dur";
