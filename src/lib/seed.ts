@@ -21,7 +21,7 @@ export const SEED_FOLDERS: Folder[] = [
   { id: "f3", nombre: "Coros", ruta: "C:\\Users\\Alabanza\\Coros", count: 47 },
 ];
 
-export const SEED_TRACKS: Track[] = [
+const PISTAS: Omit<Track, "path">[] = [
   { id: "t1", titulo: "Sublime Gracia", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 1", dur: "4:12", durSec: 252, tono: "Sol", bpm: 68, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", tags: ["clásico", "lento"], fav: true, missing: false, added: 6 },
   { id: "t2", titulo: "Santo, Santo, Santo", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 1", dur: "3:48", durSec: 228, tono: "Re", bpm: 72, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", tags: ["clásico"], fav: false, missing: false, added: 5 },
   { id: "t3", titulo: "Castillo Fuerte", artista: "Coro Congregacional", album: "Herencia de la Reforma", dur: "3:20", durSec: 200, tono: "Do", bpm: 96, ocasion: "Alabanza", formato: "WAV", carpeta: "Coros", tags: ["júbilo"], fav: false, missing: false, added: 4 },
@@ -42,6 +42,19 @@ export const SEED_TRACKS: Track[] = [
   { id: "t18", titulo: "Fondo de Adoración (loop)", artista: "Recurso Visual", album: "Recursos de Proyección", dur: "6:00", durSec: 360, tono: "—", bpm: 0, ocasion: "Reflexión", formato: "MOV", carpeta: "Pistas 2025", tags: ["fondo", "instrumental"], fav: false, missing: false, added: 9, video: true },
   { id: "t19", titulo: "Cristo Ya Resucitó — Video", artista: "Proyección", album: "Resurrección", dur: "3:22", durSec: 202, tono: "Do", bpm: 118, ocasion: "Resurrección", formato: "MP4", carpeta: "Coros", tags: ["proyección"], fav: false, missing: false, added: 7, video: true },
 ];
+
+/**
+ * Rutas de ejemplo.
+ *
+ * El backend real manda el `path` de cada pista, leído del disco. Aquí se
+ * derivan de la carpeta para que el panel de detalle muestre algo verosímil en
+ * el modo navegador. Fabricar la ruta está bien en datos de ejemplo; hacerlo en
+ * la interfaz, que es lo que pasaba antes, no.
+ */
+export const SEED_TRACKS: Track[] = PISTAS.map((t) => ({
+  ...t,
+  path: `${SEED_FOLDERS.find((f) => f.nombre === t.carpeta)?.ruta ?? "C:\\Música"}\\${t.titulo}.${t.formato.toLowerCase()}`,
+}));
 
 export const SEED_PLAYLISTS: Playlist[] = [
   { id: "p1", nombre: "Culto Domingo 13 Jul", fecha: "Domingo 13 de julio, 2025", ocasion: "Servicio dominical", ids: ["t2", "t15", "t1", "t6", "t12", "t8"] },
