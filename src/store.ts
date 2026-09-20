@@ -59,6 +59,10 @@ import {
 
 // Module-scoped timers (kept out of React/zustand state).
 let scanTimer: ReturnType<typeof setInterval> | null = null;
+/** Poll that pulls in tracks a running scan has already indexed. */
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+/** True while a catalogue pull is in flight, so they cannot pile up. */
+let refreshing = false;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let dragId: string | null = null;
 /** Action to re-run from the error state — set whenever a backend call fails. */
@@ -128,6 +132,14 @@ export interface CantoralState {
 
   // ---- dialog / scan ----
   dialog: "addFolder" | "newList" | "editList" | "help" | null;
+  /**
+   * Whether a scan is walking the disk right now.
+   *
+   * Deliberately separate from `libState`: a scan runs *alongside* the library
+   * instead of replacing it, so the catalogue stays searchable while its
+   * folders are being indexed.
+   */
+  scanning: boolean;
   scanPct: number;
   scanIdx: number;
   scanFile: string;
@@ -272,6 +284,47 @@ export const useStore = create<CantoralState>((set, get) => {
     set({ tracks, folders: snap.folders, playlists: snap.playlists, plOrder, curPlaylist, playerId, queue });
   };
 
+  /** How often the catalogue is pulled in while a scan is running. */
+  const REFRESCO_MS = 2000;
+
+  /**
+   * Pull the catalogue periodically while a scan walks the disk.
+   *
+   * The backend was built for exactly this — the scan runs on its own
+   * connection and commits in batches of 200 — so what it has indexed so far is
+   * already readable. Without this the library would sit frozen at whatever it
+   * held when the scan started and only catch up at the very end.
+   */
+  const startLiveRefresh = () => {
+    if (refreshTimer || !isTauri()) return;
+    refreshTimer = setInterval(() => {
+      // Never while a pull is already out, and never on top of an edit still
+      // waiting out its debounce: the snapshot would overwrite what is being
+      // typed with the value the backend has not been told about yet.
+      if (refreshing || pendingSave) return;
+      refreshing = true;
+      void getLibrary()
+        .then((snap) => {
+          // A snapshot that arrives after the scan ended is stale by
+          // definition — the final one has already landed.
+          if (!snap || !get().scanning) return;
+          applySnapshot(snap);
+          // As soon as there is something to show, the library shows it: the
+          // full-view scan card is only for having nothing at all.
+          if (snap.tracks.length) set({ libState: "content" });
+        })
+        .catch((err) => console.error("live refresh failed", err))
+        .finally(() => {
+          refreshing = false;
+        });
+    }, REFRESCO_MS);
+  };
+
+  const stopLiveRefresh = () => {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
+  };
+
   /**
    * Write the track that is waiting out the debounce.
    *
@@ -358,6 +411,7 @@ export const useStore = create<CantoralState>((set, get) => {
     saveState: "idle",
 
     dialog: null,
+    scanning: false,
     scanPct: 0,
     scanIdx: 0,
     scanFile: "",
@@ -553,31 +607,40 @@ export const useStore = create<CantoralState>((set, get) => {
       if (isTauri() && path) {
         if (scanTimer) clearInterval(scanTimer);
         scanTimer = null;
-        set({ view: "biblioteca", libState: "scanning", scanPct: 0, scanIdx: 0, scanFile: "" });
+        // The view does move to the library here — the user just asked for a
+        // folder from the add dialog, so that is where they expect to land.
+        // What it no longer does is *replace* the library with the scan.
+        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "" });
+        startLiveRefresh();
         addAndScanFolder(path, recursive)
           .then((snap) => {
             applySnapshot(snap);
-            set({ libState: "content", scanPct: 100 });
+            set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
             toast("Biblioteca actualizada");
           })
           .catch((err) => {
             console.error(err);
             lastFailedAction = () => get().indexFolder(path, recursive);
-            set({ libState: "error", scanError: String(err) });
-          });
+            set({ scanning: false, libState: "error", scanError: String(err) });
+          })
+          .finally(stopLiveRefresh);
       } else {
+        set({ view: "biblioteca" });
         get().startScan();
       }
     },
+    // Browser stand-in for a real scan. It deliberately does not touch `view`:
+    // it stands in for both adding a folder and re-scanning one, and only the
+    // first of those has any business moving the user.
     startScan: () => {
       if (scanTimer) clearInterval(scanTimer);
-      set({ view: "biblioteca", libState: "scanning", scanPct: 0, scanIdx: 0 });
+      set({ scanning: true, scanPct: 0, scanIdx: 0 });
       scanTimer = setInterval(() => {
         const p = get().scanPct + Math.random() * 7 + 3;
         if (p >= 100) {
           if (scanTimer) clearInterval(scanTimer);
           scanTimer = null;
-          set({ scanPct: 100, libState: "content" });
+          set({ scanPct: 100, scanning: false, libState: "content" });
           toast("Biblioteca actualizada");
         } else {
           set({
@@ -590,10 +653,14 @@ export const useStore = create<CantoralState>((set, get) => {
     cancelScan: () => {
       if (scanTimer) clearInterval(scanTimer);
       scanTimer = null;
+      stopLiveRefresh();
       // Stop the backend walk too — clearing the timer only ever hid the
       // browser simulation, leaving a real scan running to completion.
       void cancelScanCmd().catch(console.error);
-      set({ libState: "content" });
+      // `libState` is left alone: whatever the library was showing is still
+      // what it holds. A cancelled first scan goes back to the empty state on
+      // its own, because nothing was ever indexed.
+      set({ scanning: false });
     },
     retryError: () => {
       set({ scanError: null });
@@ -961,18 +1028,23 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     rescanFolder: (id) => {
       if (isTauri() && id) {
-        set({ view: "biblioteca", libState: "scanning", scanPct: 0, scanIdx: 0, scanFile: "" });
+        // No `view` here on purpose. A re-scan is started from Configuración,
+        // and yanking the user out of the screen they are working on is the
+        // whole complaint this change exists to fix.
+        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "" });
+        startLiveRefresh();
         rescanFolderCmd(id)
           .then((snap) => {
             applySnapshot(snap);
-            set({ libState: "content", scanPct: 100 });
+            set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
             toast("Biblioteca actualizada");
           })
           .catch((err) => {
             console.error(err);
             lastFailedAction = () => get().rescanFolder(id);
-            set({ libState: "error", scanError: String(err) });
-          });
+            set({ scanning: false, libState: "error", scanError: String(err) });
+          })
+          .finally(stopLiveRefresh);
       } else {
         get().startScan();
       }
@@ -1094,6 +1166,21 @@ function recordar<A extends unknown[], T>(
     valor = calcular(...args);
     return valor;
   };
+}
+
+/**
+ * Whether the scan takes over the library view instead of a corner card.
+ *
+ * Only for a scan that has nothing behind it: a first scan of an empty
+ * library, where a corner card would float over a blank screen. The moment
+ * there is a catalogue to show — even one the running scan is still filling —
+ * the table wins and the scan moves to the corner.
+ *
+ * Shared by the view and the card so the two can never both decide they are
+ * the one showing the progress.
+ */
+export function escaneoAPantallaCompleta(s: CantoralState): boolean {
+  return s.scanning && s.libState === "empty" && s.view === "biblioteca";
 }
 
 /** Currently loaded player track. */

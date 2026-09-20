@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Clock, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
-import { applyFilters, buildGroups, useStore } from "../store";
+import { applyFilters, buildGroups, escaneoAPantallaCompleta, useStore } from "../store";
 import { SCAN_FILES } from "../lib/seed";
 import { coverStyle, hasCover } from "../lib/covers";
 import Empty, { emptyBtnSecondary } from "./Empty";
@@ -401,8 +401,11 @@ function Tabla() {
 
 export default function LibraryView() {
   const libState = useStore((s) => s.libState);
+  // A scan only takes the whole view when there is nothing behind it to show;
+  // otherwise it runs in the corner and the table stays usable.
+  const escaneoOcupaTodo = useStore(escaneoAPantallaCompleta);
+  if (escaneoOcupaTodo) return <ScanningState />;
   if (libState === "empty") return <EmptyState />;
-  if (libState === "scanning") return <ScanningState />;
   if (libState === "error") return <ErrorState />;
   return <Tabla />;
 }

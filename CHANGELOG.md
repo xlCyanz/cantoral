@@ -42,6 +42,20 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **La biblioteca sigue usable mientras se escanea.** La tarjeta de escaneo
+  decía «puedes seguir usando la app mientras tanto» y hacía exactamente lo
+  contrario: tapaba la tabla entera, así que durante todo el escaneo no se podía
+  buscar, ni abrir una lista para culto, ni mirar el catálogo ya indexado. Ahora
+  el progreso vive en una tarjeta en la esquina —porcentaje, archivo actual y
+  «Cancelar»— y la biblioteca se queda donde estaba. La tarjeta a pantalla
+  completa se reserva para el primer escaneo, cuando de verdad no hay nada
+  detrás que mostrar, y cede el sitio en cuanto llegan las primeras pistas.
+- **Volver a escanear una carpeta ya no saca al usuario de Configuración.**
+- **Las pistas aparecen mientras el escaneo avanza**, sin esperar al final. El
+  núcleo ya estaba hecho para esto: el escaneo corre en su propia conexión y
+  confirma por lotes de 200, así que lo que ya indexó se puede leer. Lo que
+  faltaba era que la interfaz lo pidiera.
+
 - **La biblioteca ya no se vuelve a dibujar entera varias veces por segundo.**
   Ocho componentes leían el store completo, así que cualquier cambio de estado
   —incluido el segundero del reproductor— repintaba la tabla entera, fila por
