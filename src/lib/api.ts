@@ -3,7 +3,7 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Track } from "./types";
@@ -15,6 +15,15 @@ export function isTauri(): boolean {
 /** True when the webview runs on macOS (native traffic lights available). */
 export function isMacOS(): boolean {
   return typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
+}
+
+/** What this system calls its file manager, for the «mostrar en…» button. */
+export function gestorDeArchivos(): string {
+  if (typeof navigator === "undefined") return "la carpeta";
+  const ua = navigator.userAgent;
+  if (/Mac/i.test(ua)) return "el Finder";
+  if (/Win/i.test(ua)) return "el Explorador";
+  return "la carpeta";
 }
 
 /** Short OS label for the "open in system player" affordance. */
@@ -78,6 +87,12 @@ export async function pickMediaFile(): Promise<string | null> {
     ],
   });
   return typeof res === "string" ? res : null;
+}
+
+/** Show a file in the system file manager, selected. */
+export async function revealFile(path: string): Promise<void> {
+  if (!isTauri() || !path) return;
+  await revealItemInDir(path);
 }
 
 /** Native folder picker. Returns the chosen absolute path, or null. */

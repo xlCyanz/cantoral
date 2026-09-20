@@ -43,6 +43,7 @@ import {
   pickMediaFile,
   pickSavePath,
   reconcileLibraryCmd,
+  revealFile,
   relocateFolderCmd,
   relocateTrackCmd,
   removeFolderCmd,
@@ -221,6 +222,8 @@ export interface CantoralState {
   clearDrag: () => void;
 
   toggleOpenExt: () => void;
+  /** Show a track's file in the system file manager. */
+  revealTrack: (id: string) => void;
   /** Point a track at its file's new location, keeping tags and favourite. */
   relocateTrack: (id: string) => void;
   /** Drop a track from the catalogue. The audio file is never touched. */
@@ -838,6 +841,18 @@ export const useStore = create<CantoralState>((set, get) => {
       const v = !get().openExt;
       set({ openExt: v });
       if (isTauri()) void setSetting("openExt", v ? "1" : "0");
+    },
+    revealTrack: (id) => {
+      const t = get().tracks.find((x) => x.id === id);
+      if (!t?.path) return;
+      if (!isTauri()) {
+        toast("Mostrar el archivo solo funciona en la app de escritorio", "info");
+        return;
+      }
+      revealFile(t.path).catch((err) => {
+        console.error("revealItemInDir failed", err);
+        toast("No se pudo mostrar el archivo", "error");
+      });
     },
     relocateTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
