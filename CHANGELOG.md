@@ -11,6 +11,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Editar tono, tempo y ocasión** desde el panel de detalle. El backend ya sabía
+  guardarlos desde el principio; faltaban los tres campos. Con ellos se encienden
+  cosas que estaban apagadas por falta de datos: el filtro por ocasión, el agrupar
+  por ocasión, la columna Tono de la biblioteca y tres columnas de la hoja
+  imprimible. El tono sugiere la notación latina que ya usa el resto de la app
+  (Do, Solm, Sib…) y la ocasión sugiere las que tu catálogo ya tiene.
+
 - **Localizar una pista cuyo archivo se movió**, conservando sus etiquetas,
   favorito, tono, tempo y ocasión — y **quitarla de la biblioteca** una por una,
   sin borrar el audio. El panel de detalle ya cumple lo que su propio aviso
@@ -79,6 +86,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   miles de `fsync`, y se reescribían todas aunque ninguna hubiera cambiado. Ahora
   va en una transacción por carpeta y solo toca las filas que de verdad cambiaron,
   que en el caso normal son ninguna.
+- **El pie del panel de detalle decía «Guardado automático», y no lo había.**
+  Nada se guardaba hasta pulsar el botón. Ahora indica el estado de verdad: «Sin
+  guardar» mientras haya cambios pendientes, «Al día» cuando no.
+- **Guardar una pista ya no se anuncia antes de saber si funcionó.** El comando se
+  lanzaba sin escuchar el resultado y el aviso «Cambios guardados» salía igual. Si
+  falla, los valores anteriores vuelven, el borrador se conserva para no perder lo
+  escrito y se avisa del error.
 
 - `NewListDialog` sembraba sus campos desde un `useEffect` que llamaba `setState`,
   el anti-patrón que React desaconseja explícitamente. Ahora el formulario es un

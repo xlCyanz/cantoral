@@ -1,13 +1,23 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { Check, ChevronDown, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, X } from "lucide-react";
-import { eff, useStore } from "../store";
+import { eff, ocasiones, useStore } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import type { Track } from "../lib/types";
 
 const labelStyle: CSSProperties = { display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 5 };
 const fieldStyle: CSSProperties = { width: "100%", height: 38, border: "1px solid var(--border-2)", background: "var(--surface-2)", borderRadius: 9, fontSize: "13.5px", fontWeight: 600, color: "var(--text)", outline: "none" };
 const sectionLabel: CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: "var(--text-3)" };
+
+/** Latin note names, the notation the rest of the app already uses ("Sol", "Lam"). */
+const TONOS = [
+  "Do", "Dom", "Do#", "Reb", "Re", "Rem", "Re#", "Mib", "Mibm", "Mi", "Mim",
+  "Fa", "Fam", "Fa#", "Solb", "Sol", "Solm", "Sol#", "Lab", "La", "Lam",
+  "La#", "Sib", "Sibm", "Si", "Sim",
+];
+
+/** Occasions worth suggesting even before any track carries one. */
+const OCASIONES_SUGERIDAS = ["Adoración", "Alabanza", "Comunión", "Ofrenda", "Reflexión", "Navidad", "Resurrección"];
 
 function BigCoverInner({ t }: { t: Track }) {
   if (hasCover(t)) return null;
@@ -23,6 +33,13 @@ export default function DetailPanel() {
   const [listMenu, setListMenu] = useState(false);
   const sel = s.selId ? eff(s, s.tracks.find((t) => t.id === s.selId)!) : null;
   if (!s.detailOpen || !sel) return null;
+
+  // The catalogue's own occasions first, then the defaults it has not used yet.
+  const sugerenciasDeOcasion = [
+    ...new Set([...ocasiones(s), ...OCASIONES_SUGERIDAS]),
+  ];
+
+  const hayCambios = !!s.selId && !!s.edit[s.selId];
 
   const folder = s.folders.find((f) => f.nombre === sel.carpeta);
   const ruta = (folder ? folder.ruta : "") + "\\" + sel.titulo + "." + (sel.formato || "").toLowerCase();
@@ -137,6 +154,63 @@ export default function DetailPanel() {
           </div>
         )}
 
+        {/* datos del culto: lo que el equipo necesita saber de un vistazo */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ ...sectionLabel, marginBottom: 9 }}>Datos del culto</div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label htmlFor="det-tono" style={labelStyle}>Tono</label>
+              <input
+                id="det-tono"
+                value={sel.tono}
+                onChange={(e) => s.setEdit("tono", e.target.value)}
+                list="tonos-musicales"
+                placeholder="Sol"
+                className="in-focus"
+                style={{ ...fieldStyle, padding: "0 12px" }}
+              />
+              <datalist id="tonos-musicales">
+                {TONOS.map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </div>
+            <div style={{ width: 96, flex: "0 0 auto" }}>
+              <label htmlFor="det-bpm" style={labelStyle}>Tempo</label>
+              <input
+                id="det-bpm"
+                type="number"
+                min={0}
+                max={400}
+                inputMode="numeric"
+                value={sel.bpm || ""}
+                // Rust takes an i64, so this has to leave the field as a number.
+                onChange={(e) => s.setEdit("bpm", Math.max(0, Math.min(400, Number(e.target.value) || 0)))}
+                placeholder="BPM"
+                className="in-focus"
+                style={{ ...fieldStyle, padding: "0 10px" }}
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="det-ocasion" style={labelStyle}>Ocasión</label>
+            <input
+              id="det-ocasion"
+              value={sel.ocasion}
+              onChange={(e) => s.setEdit("ocasion", e.target.value)}
+              list="ocasiones-pista"
+              placeholder="Adoración"
+              className="in-focus"
+              style={{ ...fieldStyle, fontWeight: 500, padding: "0 12px" }}
+            />
+            <datalist id="ocasiones-pista">
+              {sugerenciasDeOcasion.map((o) => (
+                <option key={o} value={o} />
+              ))}
+            </datalist>
+          </div>
+        </div>
+
         {/* tags */}
         <div style={{ marginBottom: 20 }}>
           <label style={{ ...labelStyle, marginBottom: 7 }}>Etiquetas</label>
@@ -182,7 +256,12 @@ export default function DetailPanel() {
           {s.saved ? <Check size={15} strokeWidth={2.2} /> : <Save size={15} strokeWidth={2.2} />}
           {s.saved ? "Guardado" : "Guardar cambios"}
         </button>
-        <span style={{ fontSize: 12, color: "var(--text-3)" }}>Guardado automático</span>
+        {/* Said «Guardado automático», which was never true: nothing here saves
+            until the button is pressed. With three more fields to lose, a label
+            promising otherwise is how work disappears. */}
+        <span style={{ fontSize: 12, color: hayCambios ? "var(--warning)" : "var(--text-3)", fontWeight: hayCambios ? 600 : 400 }}>
+          {hayCambios ? "Sin guardar" : "Al día"}
+        </span>
       </div>
     </aside>
   );

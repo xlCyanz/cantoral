@@ -57,6 +57,7 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 ## ✨ Funciones
 
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija.
+- 🎼 **Tono, tempo y ocasión** — edítalos desde el panel de detalle, con sugerencias de tonos en notación latina y de ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, la columna Tono y la hoja imprimible.
 - 🏷️ **Etiquetas** — etiqueta cada pista para encontrarla rápido; se conservan al re-escanear, igual que los favoritos.
 - 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando, edita nombre/fecha/ocasión y reproduce toda la lista.
 - 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>P</kbd>.
@@ -109,11 +110,6 @@ xattr -dr com.apple.quarantine /Applications/Cantoral.app
 
 Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 
-- **Tono, tempo (BPM) y ocasión no se pueden editar desde la app** ([#16](https://github.com/xlCyanz/cantoral/issues/16)). Las columnas
-  existen en la base y el backend ya tiene el comando para escribirlas, pero el
-  panel de detalle solo edita etiquetas, así que esos tres campos quedan vacíos.
-  Como consecuencia, el filtro por ocasión no muestra nada hasta que exista ese
-  editor.
 - **Sin actualizaciones automáticas** ([#19](https://github.com/xlCyanz/cantoral/issues/19)) y **sin firma de código** mientras no haya
   certificados (ver [Firma de código](#-firma-de-código)).
 - Solo se conservan entre sesiones el tema y la preferencia de reproductor
