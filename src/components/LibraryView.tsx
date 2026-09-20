@@ -333,9 +333,16 @@ function Tabla() {
   const [rango, setRango] = useState({ desde: 0, hasta: 40 });
 
   useEffect(() => {
+    if (!ventanear) return;
     const caja = hueco.current;
     const scroller = caja && contenedorConScroll(caja);
-    if (!ventanear || !caja || !scroller) return;
+    if (!caja || !scroller) {
+      // Without a scrolling ancestor there is no offset to read, so the table
+      // falls back to mounting whole rather than showing a sliver of rows over
+      // an expanse of nothing.
+      setRango({ desde: 0, hasta: plano.filas.length });
+      return;
+    }
     const medir = () => {
       const c = scroller.getBoundingClientRect();
       const f = caja.getBoundingClientRect();
@@ -368,14 +375,17 @@ function Tabla() {
     );
   }
 
-  const visibles = ventanear ? plano.filas.slice(rango.desde, rango.hasta) : plano.filas;
+  // Windowing is off both below the threshold and when the range covers the
+  // whole table, which is what the fallback above leaves behind.
+  const recortado = ventanear && rango.hasta - rango.desde < plano.filas.length;
+  const visibles = recortado ? plano.filas.slice(rango.desde, rango.hasta) : plano.filas;
 
   return (
     <div style={{ padding: "6px 16px 22px" }}>
       <ColumnHeader />
       {/* Holds the scrollbar open for the rows that are not mounted. */}
-      <div ref={hueco} style={ventanear ? { height: altoTotal(plano) } : undefined}>
-        <div style={ventanear ? { transform: `translateY(${plano.offsets[rango.desde]}px)` } : undefined}>
+      <div ref={hueco} style={recortado ? { height: altoTotal(plano) } : undefined}>
+        <div style={recortado ? { transform: `translateY(${plano.offsets[rango.desde]}px)` } : undefined}>
           {visibles.map((f) =>
             f.tipo === "grupo" ? (
               <GroupHeader key={`g:${f.label}`} label={f.label} countLabel={f.countLabel} />
