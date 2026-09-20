@@ -109,13 +109,32 @@ fn now() -> String {
 
 // ---------------------------------------------------------------- tracks
 
+/// Every track's tags, keyed by track id and sorted by name.
+///
+/// Read as rows rather than a `group_concat` string: a tag is free text the user
+/// types, so a comma in one of them used to come back as two tags. Grouping here
+/// also makes the order deterministic, which `group_concat` never promised.
+fn tags_by_track(conn: &Connection) -> Result<std::collections::HashMap<i64, Vec<String>>> {
+    let mut stmt = conn.prepare(
+        "SELECT tt.track_id, tg.name
+         FROM track_tags tt JOIN tags tg ON tg.id = tt.tag_id
+         ORDER BY tg.name",
+    )?;
+    let mut out: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    for row in rows {
+        let (track_id, name) = row?;
+        out.entry(track_id).or_default().push(name);
+    }
+    Ok(out)
+}
+
 pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
+    let mut tags_of = tags_by_track(conn)?;
     let mut stmt = conn.prepare(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
                 t.tono, t.bpm, t.ocasion, t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
-                (SELECT group_concat(tg.name, ',') FROM track_tags tt
-                   JOIN tags tg ON tg.id = tt.tag_id WHERE tt.track_id = t.id),
                 t.cover_path
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
          ORDER BY t.id",
@@ -123,11 +142,7 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
     let rows = stmt.query_map([], |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
-        let tags_csv: Option<String> = r.get(14)?;
-        let tags = tags_csv
-            .filter(|s| !s.is_empty())
-            .map(|s| s.split(',').map(|x| x.to_string()).collect())
-            .unwrap_or_default();
+        let tags = tags_of.remove(&id).unwrap_or_default();
         Ok(Track {
             id: id.to_string(),
             path: r.get(1)?,
@@ -146,7 +161,7 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
             carpeta: r.get(13)?,
             tags,
             added: id,
-            cover: r.get::<_, Option<String>>(15)?,
+            cover: r.get::<_, Option<String>>(14)?,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -174,24 +189,44 @@ pub fn set_fav(conn: &Connection, id: i64, fav: bool) -> Result<()> {
     Ok(())
 }
 
+/// Tidy a tag the user typed: trim it and collapse runs of whitespace, so
+/// «  lento   suave » and «lento suave» are the same tag rather than two.
+fn normalise_tag(raw: &str) -> String {
+    raw.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Delete tags no track points at any more.
+///
+/// Without this, correcting a typo left the misspelled tag in the table for
+/// good — invisible today, but every tag picker and autocomplete would show it.
+fn drop_orphan_tags(conn: &Connection) -> Result<usize> {
+    Ok(conn.execute(
+        "DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM track_tags)",
+        [],
+    )?)
+}
+
+/// Replace a track's tags. Runs as one transaction: the delete and the inserts
+/// are the same edit, and half of it applied is a track that silently lost its
+/// tags.
 pub fn set_track_tags(conn: &Connection, id: i64, tags: &[String]) -> Result<()> {
-    conn.execute("DELETE FROM track_tags WHERE track_id=?1", params![id])?;
-    for name in tags {
-        let name = name.trim();
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM track_tags WHERE track_id=?1", params![id])?;
+    for raw in tags {
+        let name = normalise_tag(raw);
         if name.is_empty() {
             continue;
         }
-        conn.execute(
-            "INSERT OR IGNORE INTO tags(name) VALUES(?1)",
-            params![name],
-        )?;
+        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![name])?;
         let tag_id: i64 =
-            conn.query_row("SELECT id FROM tags WHERE name=?1", params![name], |r| r.get(0))?;
-        conn.execute(
+            tx.query_row("SELECT id FROM tags WHERE name=?1", params![name], |r| r.get(0))?;
+        tx.execute(
             "INSERT OR IGNORE INTO track_tags(track_id, tag_id) VALUES(?1,?2)",
             params![id, tag_id],
         )?;
     }
+    drop_orphan_tags(&tx)?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -253,14 +288,27 @@ pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()
 
 /// Mark a folder's tracks whose file no longer exists as missing (present ones as found).
 pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<()> {
-    let mut stmt = conn.prepare("SELECT id, path FROM tracks WHERE folder_id=?1")?;
-    let rows: Vec<(i64, String)> = stmt
-        .query_map(params![folder_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+    let mut stmt = conn.prepare("SELECT id, path, missing FROM tracks WHERE folder_id=?1")?;
+    let rows: Vec<(i64, String, i64)> = stmt
+        .query_map(params![folder_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<std::result::Result<_, _>>()?;
-    for (id, path) in rows {
+    drop(stmt);
+
+    // One transaction for the whole folder. Each UPDATE used to commit on its
+    // own, so reconciling a few thousand tracks at startup meant a few thousand
+    // fsyncs — and only the rows that actually changed are written now, which in
+    // the normal case (nothing moved) is none of them.
+    let tx = conn.unchecked_transaction()?;
+    for (id, path, was_missing) in rows {
         let missing = !std::path::Path::new(&path).exists();
-        conn.execute("UPDATE tracks SET missing=?1 WHERE id=?2", params![missing as i64, id])?;
+        if missing as i64 != was_missing {
+            tx.execute(
+                "UPDATE tracks SET missing=?1 WHERE id=?2",
+                params![missing as i64, id],
+            )?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
@@ -340,7 +388,11 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<()> {
     if let Some(c) = cover {
         let _ = std::fs::remove_file(c);
     }
-    conn.execute("DELETE FROM tracks WHERE id=?1", params![id])?;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM tracks WHERE id=?1", params![id])?;
+    // The cascade clears track_tags but leaves the tag names behind.
+    drop_orphan_tags(&tx)?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -446,7 +498,11 @@ pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
     for c in covers {
         let _ = std::fs::remove_file(&c);
     }
-    conn.execute("DELETE FROM folders WHERE id=?1", params![id])?;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM folders WHERE id=?1", params![id])?;
+    // Its tracks go with it through the cascade, and their tags with them.
+    drop_orphan_tags(&tx)?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -518,14 +574,25 @@ pub fn create_playlist(conn: &Connection, nombre: &str, fecha: &str, ocasion: &s
     Ok(conn.last_insert_rowid())
 }
 
+/// Replace a playlist's order wholesale.
+///
+/// One transaction, because the delete and the inserts are a single edit. The
+/// delete used to commit by itself, so an insert that failed part way — a track
+/// deleted between the drag and the save trips the foreign key — left the
+/// service list truncated at whatever row had been reached.
 pub fn set_playlist_order(conn: &Connection, playlist_id: i64, ids: &[i64]) -> Result<()> {
-    conn.execute("DELETE FROM playlist_tracks WHERE playlist_id=?1", params![playlist_id])?;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM playlist_tracks WHERE playlist_id=?1",
+        params![playlist_id],
+    )?;
     for (pos, tid) in ids.iter().enumerate() {
-        conn.execute(
+        tx.execute(
             "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
             params![playlist_id, tid, pos as i64],
         )?;
     }
+    tx.commit()?;
     Ok(())
 }
 
@@ -1114,6 +1181,139 @@ mod tests {
 
         assert!(relocate_folder(&conn, fid, &files.dir("B/dentro")).is_err());
         assert!(relocate_folder(&conn, fid, &files.0.join("no-existe")).is_err());
+    }
+
+    // ------------------------------------------------ etiquetas (#9)
+
+    #[test]
+    fn a_tag_with_a_comma_survives_the_round_trip() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        set_track_tags(&conn, id, &["lento, meditativo".into()]).unwrap();
+
+        // Con group_concat volvían dos: "lento" y " meditativo".
+        assert_eq!(
+            list_tracks(&conn).unwrap()[0].tags,
+            vec!["lento, meditativo".to_string()]
+        );
+    }
+
+    #[test]
+    fn tags_come_back_in_a_stable_order() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        set_track_tags(&conn, id, &["zeta".into(), "alfa".into(), "media".into()]).unwrap();
+
+        assert_eq!(
+            list_tracks(&conn).unwrap()[0].tags,
+            vec!["alfa".to_string(), "media".to_string(), "zeta".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_tag_is_tidied_so_spacing_does_not_create_duplicates() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+
+        set_track_tags(&conn, a, &["  lento   suave ".into()]).unwrap();
+        set_track_tags(&conn, b, &["lento suave".into()]).unwrap();
+
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1, "es la misma etiqueta, no dos");
+    }
+
+    #[test]
+    fn correcting_a_typo_does_not_leave_the_old_tag_behind() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        set_track_tags(&conn, id, &["lemto".into()]).unwrap();
+        set_track_tags(&conn, id, &["lento".into()]).unwrap();
+
+        let names: Vec<String> = conn
+            .prepare("SELECT name FROM tags")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(names, vec!["lento".to_string()], "la mal escrita se va");
+    }
+
+    #[test]
+    fn deleting_the_last_track_that_used_a_tag_takes_the_tag_with_it() {
+        let conn = mem();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        set_track_tags(&conn, a, &["solo-de-a".into(), "compartida".into()]).unwrap();
+        set_track_tags(&conn, b, &["compartida".into()]).unwrap();
+
+        delete_track(&conn, a).unwrap();
+
+        let names: Vec<String> = conn
+            .prepare("SELECT name FROM tags")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(names, vec!["compartida".to_string()], "la compartida se queda");
+    }
+
+    // ------------------------------------------------ escrituras atómicas (#8)
+
+    /// Lo que este issue existe para arreglar: media escritura aplicada dejaba
+    /// el repertorio del culto cortado por donde hubiera llegado.
+    #[test]
+    fn a_playlist_order_that_cannot_be_saved_leaves_the_previous_one_intact() {
+        let conn = mem();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+        let pid = create_playlist(&conn, "Culto", "", "").unwrap();
+        set_playlist_order(&conn, pid, &[a, b, c]).unwrap();
+
+        // 9999 no existe: la clave foránea hace fallar el tercer INSERT.
+        let err = set_playlist_order(&conn, pid, &[c, b, 9999]);
+
+        assert!(err.is_err());
+        assert_eq!(
+            list_playlists(&conn).unwrap()[0].ids,
+            vec![a.to_string(), b.to_string(), c.to_string()],
+            "el orden anterior sigue completo"
+        );
+    }
+
+    #[test]
+    fn reconcile_only_writes_the_rows_that_actually_changed() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        add_track(&conn, fid, "/m/no-existe.mp3", "A");
+
+        reconcile_missing(&conn, fid).unwrap();
+        let after_first = conn.total_changes();
+        // Nada se movió entre una pasada y la siguiente.
+        reconcile_missing(&conn, fid).unwrap();
+
+        assert_eq!(
+            conn.total_changes(),
+            after_first,
+            "una segunda pasada sin cambios no escribe nada"
+        );
+        assert!(list_tracks(&conn).unwrap()[0].missing);
     }
 
     #[test]

@@ -63,6 +63,29 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **Una etiqueta con coma ya no se parte en dos.** Las etiquetas viajaban de la
+  base a la interfaz como una cadena unida por comas, así que «lento, meditativo»
+  volvía como dos etiquetas, la segunda con un espacio delante. Ahora se leen como
+  filas y se agrupan en Rust, lo que además les da un orden estable. Al guardar se
+  recortan los espacios sobrantes, de modo que «  lento   suave » y «lento suave»
+  son la misma y no dos.
+- **Las etiquetas sin dueño se borran.** Corregir una falta de ortografía dejaba la
+  versión vieja en la tabla para siempre; lo mismo al quitar una pista o una
+  carpeta. Invisible hoy, pero habría aparecido en cuanto exista un gestor de
+  etiquetas.
+- **El orden de una lista para culto se guarda entero o no se guarda.** El borrado
+  previo se confirmaba por su cuenta, así que un `INSERT` que fallara a mitad
+  —basta con que una pista desaparezca entre el arrastre y el guardado— dejaba el
+  repertorio cortado por donde hubiera llegado. Y como la interfaz lanzaba la
+  escritura sin escuchar el resultado, el fallo no se veía: la pantalla mostraba un
+  orden que la base nunca recibió, y el culto aparecía revertido al siguiente
+  arranque. Ahora es una transacción, y si falla la interfaz devuelve el orden
+  anterior y lo avisa.
+- **Reconciliar la biblioteca al arrancar deja de escribir sin motivo.** Era un
+  `UPDATE` por pista, cada uno confirmándose solo: unos miles de pistas eran unos
+  miles de `fsync`, y se reescribían todas aunque ninguna hubiera cambiado. Ahora
+  va en una transacción por carpeta y solo toca las filas que de verdad cambiaron,
+  que en el caso normal son ninguna.
 - **El pie del panel de detalle decía «Guardado automático», y no lo había.**
   Nada se guardaba hasta pulsar el botón. Ahora indica el estado de verdad: «Sin
   guardar» mientras haya cambios pendientes, «Al día» cuando no.
