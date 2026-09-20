@@ -29,7 +29,11 @@ export function registerShortcuts(): () => void {
     // Esc closes whatever is layered on top, innermost first. Allowed while
     // typing so it also works from inside a dialog's fields.
     if (e.key === "Escape") {
-      if (s.dialog) {
+      // The confirmation sits on top of everything else, so it closes first.
+      if (s.confirm) {
+        e.preventDefault();
+        s.closeConfirm();
+      } else if (s.dialog) {
         e.preventDefault();
         s.closeDialog();
       } else if (s.detailOpen) {
@@ -59,12 +63,13 @@ export function registerShortcuts(): () => void {
 
     if (mod && (e.key === "n" || e.key === "N")) {
       e.preventDefault();
-      s.newList();
+      if (!s.confirm) s.newList();
       return;
     }
 
-    // Everything below is a bare key, so never while typing or in a dialog.
-    if (isTyping(e.target) || s.dialog) return;
+    // Everything below is a bare key, so never while typing or in a dialog —
+    // pressing space to pause must not reach through a confirmation.
+    if (isTyping(e.target) || s.dialog || s.confirm) return;
 
     // `code` is layout-independent and survives input methods that leave
     // `key` empty, so accept either spelling of the space bar.

@@ -119,8 +119,6 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
   certificados (ver [Firma de código](#-firma-de-código)).
 - Solo se conservan entre sesiones el tema y la preferencia de reproductor
   externo ([#18](https://github.com/xlCyanz/cantoral/issues/18)); volumen, orden, agrupación y filtros vuelven a su valor inicial.
-- **Quitar una carpeta o borrar una lista no pide confirmación** ([#2](https://github.com/xlCyanz/cantoral/issues/2)) y borra las
-  etiquetas y favoritos de sus pistas. Haz una copia antes (**Configuración → Base de datos → Crear copia**).
 
 ## 🧱 Stack
 
