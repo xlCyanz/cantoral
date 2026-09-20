@@ -1,0 +1,111 @@
+name: 🐛 Reportar un fallo
+description: Algo no funciona como debería
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por tomarte el tiempo. Antes de seguir, dos cosas:
+
+        - Busca si [ya está reportado](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+label%3Abug).
+        - Si es un problema de **seguridad**, no lo reportes aquí: sigue [SECURITY.md](https://github.com/xlCyanz/cantoral/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: que-pasa
+    attributes:
+      label: Qué pasa
+      description: Descríbelo en una o dos frases.
+      placeholder: Al quitar una carpeta desde Configuración, desaparecen también las etiquetas de sus pistas.
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducirlo
+      description: Lo más concreto posible. Si no lo puedes reproducir a voluntad, dilo igualmente.
+      placeholder: |
+        1. Agregar la carpeta «Himnos» con subcarpetas
+        2. Etiquetar tres pistas
+        3. Configuración → quitar la carpeta
+        4. Volver a agregar la misma carpeta
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Qué esperabas que pasara
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Cantoral
+      description: Está al pie de **Configuración**. Si compilaste desde el código, pon el hash del commit.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operativo
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Otro
+    validations:
+      required: true
+
+  - type: dropdown
+    id: instalacion
+    attributes:
+      label: Cómo lo instalaste
+      options:
+        - Instalador .exe (NSIS)
+        - Instalador .msi
+        - Cantoral.exe portable
+        - .dmg de macOS
+        - Compilado desde el código (pnpm tauri build)
+        - Modo desarrollo (pnpm tauri dev)
+        - Navegador (pnpm dev, datos de ejemplo)
+    validations:
+      required: true
+
+  - type: textarea
+    id: biblioteca
+    attributes:
+      label: Tamaño de la biblioteca
+      description: Ayuda mucho en los fallos de rendimiento o de escaneo.
+      placeholder: 2 carpetas, ~1.400 pistas, la mayoría MP3 en un disco externo.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        Si el fallo dejó rastro, pega las líneas relevantes. El log rotativo está en:
+        · macOS — `~/Library/Logs/com.cantoral.desktop/`
+        · Windows — `%APPDATA%\com.cantoral.desktop\logs\`
+      render: text
+
+  - type: textarea
+    id: capturas
+    attributes:
+      label: Capturas
+      description: Arrastra aquí las imágenes si el fallo se ve.
+
+  - type: checkboxes
+    id: confirmaciones
+    attributes:
+      label: Confirmaciones
+      options:
+        - label: Busqué y no encontré un issue que ya reporte esto
+          required: true
+        - label: Estoy en la última versión publicada, o explico arriba por qué no
+          required: true

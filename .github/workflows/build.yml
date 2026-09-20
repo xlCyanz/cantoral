@@ -3,6 +3,11 @@ name: build
 # Cantoral targets macOS and Windows. Each installer is produced on its own
 # native runner (cross-compiling Tauri desktop bundles is not supported).
 #
+# Flujo al publicar una versión:
+#   verify  → la etiqueta coincide con la versión declarada y todo pasa en verde
+#   build   → instaladores de macOS y Windows, en paralelo
+#   release → GitHub Release con las notas del CHANGELOG.md y los binarios adjuntos
+#
 # Code signing is entirely optional: every secret below may be absent, in which
 # case the bundles are still produced, just unsigned. See README → «Firma de
 # código» for the list of secrets and how to generate them.
@@ -11,8 +16,80 @@ on:
     tags: ["v*"]
   workflow_dispatch: {}
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
+  # Nada se compila ni se publica si la versión no cuadra o si las pruebas fallan.
+  # Barato (un runner de Linux, unos minutos) comparado con descubrirlo cuando el
+  # release ya está publicado y descargado.
+  verify:
+    name: Verificar versión y pruebas
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: La etiqueta coincide con la versión declarada
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg=$(node -p "require('./package.json').version")
+          tauri=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+
+          if [ "$pkg" != "$tauri" ]; then
+            echo "::error::package.json dice $pkg y tauri.conf.json dice $tauri. Deben coincidir."
+            exit 1
+          fi
+
+          # En workflow_dispatch no hay etiqueta que comparar; solo se avisa.
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$pkg" ]; then
+              echo "::error::la etiqueta $GITHUB_REF_NAME no corresponde a la versión $pkg."
+              exit 1
+            fi
+          fi
+          echo "Versión $pkg verificada."
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Dependencias de sistema de Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            librsvg2-dev libayatana-appindicator3-dev libxdo-dev \
+            build-essential file
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm test
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
   build:
+    name: Compilar (${{ matrix.platform }})
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -30,15 +107,15 @@ jobs:
               src-tauri/target/release/bundle/msi/*.msi
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 12
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
@@ -94,7 +171,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.paths }}
@@ -103,24 +180,26 @@ jobs:
   # Publishes the installers on the tag so people outside GitHub can download
   # them. Artifacts alone are only reachable from the workflow run page.
   release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publicar release
+    needs: [verify, build]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
 
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Reunir los instaladores
+        id: assets
+        shell: bash
         run: |
           set -euo pipefail
-
-          # The .app bundle is a directory and is not useful as a release asset;
-          # the .dmg, .msi and .exe files are what people actually download.
+          # El bundle .app es un directorio y no sirve como asset de release; lo
+          # que la gente descarga son el .dmg, el .msi y el .exe.
           assets=()
           while IFS= read -r f; do assets+=("$f"); done < <(find artifacts -type f \
             \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) | sort)
@@ -129,8 +208,31 @@ jobs:
             exit 1
           fi
           printf 'asset: %s\n' "${assets[@]}"
+          printf '%s\n' "${assets[@]}" > assets.txt
 
-          cat > notes.md <<'NOTES'
+      - name: Redactar las notas
+        shell: bash
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Sección de esta versión en el CHANGELOG, sin su encabezado.
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { inside = 1; next }
+            inside && /^## \[/       { exit }
+            inside                   { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > changelog-section.md
+
+          if [ -s changelog-section.md ]; then
+            { echo "## Novedades"; echo; cat changelog-section.md; } > notes.md
+          else
+            echo "::warning::CHANGELOG.md no tiene una sección para $VERSION; se usarán las notas automáticas."
+            : > notes.md
+          fi
+
+          cat >> notes.md <<'NOTES'
+
           ## Instalación
 
           **macOS** — abre el `.dmg` y arrastra Cantoral a Aplicaciones.
@@ -147,10 +249,28 @@ jobs:
 
           El `Cantoral.exe` suelto es portable pero **no** instala WebView2: úsalo
           solo en equipos que ya lo tengan (Windows 11 lo trae de fábrica).
+
+          ---
+
+          ¿Algo no funciona? [Reporta un fallo](https://github.com/xlCyanz/cantoral/issues/new?template=bug_report.yml).
           NOTES
+
+      - name: Publicar GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t assets < assets.txt
+
+          # Sin sección en el CHANGELOG, que GitHub redacte las notas por commits
+          # y las añada debajo de las de notes.md.
+          extra=()
+          if [ ! -s changelog-section.md ]; then extra=(--generate-notes); fi
 
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Cantoral $GITHUB_REF_NAME" \
             --notes-file notes.md \
+            ${extra[@]+"${extra[@]}"} \
             "${assets[@]}"
