@@ -33,7 +33,6 @@ const TRACKS: Track[] = [
 function state(over: Partial<CantoralState> = {}): CantoralState {
   return {
     tracks: TRACKS,
-    edit: {},
     queue: [],
     plOrder: {},
     curPlaylist: "",
@@ -86,9 +85,12 @@ describe("applyFilters", () => {
     expect(applyFilters(state({ query: "ALABARÉ" })).map((t) => t.id)).toEqual(["2"]);
   });
 
-  it("applies pending edits before filtering", () => {
-    const s = state({ edit: { "1": { ocasion: "Adoración" } } });
-    expect(applyFilters({ ...s, ocasion: "Adoración" }).map((t) => t.id)).toEqual(["2", "3", "1"]);
+  it("filters on what the catalogue holds, edits included", () => {
+    // Editing writes straight into `tracks`, so a changed occasion is just a
+    // changed track — there is no pending overlay to apply first.
+    const editada = TRACKS.map((t) => (t.id === "1" ? { ...t, ocasion: "Adoración" } : t));
+    const s = state({ tracks: editada, ocasion: "Adoración" });
+    expect(applyFilters(s).map((t) => t.id)).toEqual(["2", "3", "1"]);
   });
 });
 
@@ -173,9 +175,9 @@ describe("ocasiones", () => {
     expect(ocasiones(s)).toEqual([]);
   });
 
-  it("sees occasions added by a pending edit", () => {
-    const s = state({ edit: { "1": { ocasion: "Bautismo" } } });
-    expect(ocasiones(s)).toContain("Bautismo");
+  it("picks up an occasion the moment a track carries it", () => {
+    const editada = TRACKS.map((t) => (t.id === "1" ? { ...t, ocasion: "Bautismo" } : t));
+    expect(ocasiones(state({ tracks: editada }))).toContain("Bautismo");
   });
 
   it("keeps the active filter listed even once no track carries it", () => {

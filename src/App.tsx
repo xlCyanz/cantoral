@@ -61,6 +61,17 @@ export default function App() {
   // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).
   useEffect(() => registerShortcuts(), []);
 
+  // An edit waits out a short debounce before it is written. Closing the window
+  // inside that window would drop it, so flush on the way out.
+  useEffect(() => {
+    const flush = () => useStore.getState().flushEdit();
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, []);
+
   // Native feel: suppress the browser context menu, except in editable fields.
   useEffect(() => {
     const handler = (e: MouseEvent) => {

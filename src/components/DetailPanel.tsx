@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { CSSProperties } from "react";
-import { Check, ChevronDown, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, X } from "lucide-react";
-import { eff, ocasiones, useStore } from "../store";
+import type { CSSProperties, ReactNode } from "react";
+import { Check, ChevronDown, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
+import { ocasiones, useStore } from "../store";
+import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import type { Track } from "../lib/types";
 
@@ -15,6 +16,14 @@ const TONOS = [
   "Fa", "Fam", "Fa#", "Solb", "Sol", "Solm", "Sol#", "Lab", "La", "Lam",
   "La#", "Sib", "Sibm", "Si", "Sim",
 ];
+
+/** What the footer shows for each phase of an edit writing itself. */
+const ESTADO: Record<SaveState, { icono: ReactNode; texto: string; color: string }> = {
+  idle: { icono: <Save size={14} strokeWidth={2} color="var(--text-3)" />, texto: "Los cambios se guardan solos", color: "var(--text-3)" },
+  saving: { icono: <Save size={14} strokeWidth={2.2} color="var(--text-2)" />, texto: "Guardando…", color: "var(--text-2)" },
+  saved: { icono: <Check size={15} strokeWidth={2.6} color="var(--success)" />, texto: "Guardado", color: "var(--success)" },
+  error: { icono: <TriangleAlert size={15} strokeWidth={2.2} color="var(--danger)" />, texto: "No se pudo guardar", color: "var(--danger)" },
+};
 
 /** Occasions worth suggesting even before any track carries one. */
 const OCASIONES_SUGERIDAS = ["Adoración", "Alabanza", "Comunión", "Ofrenda", "Reflexión", "Navidad", "Resurrección"];
@@ -31,7 +40,7 @@ function BigCoverInner({ t }: { t: Track }) {
 export default function DetailPanel() {
   const s = useStore();
   const [listMenu, setListMenu] = useState(false);
-  const sel = s.selId ? eff(s, s.tracks.find((t) => t.id === s.selId)!) : null;
+  const sel = s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null;
   if (!s.detailOpen || !sel) return null;
 
   // The catalogue's own occasions first, then the defaults it has not used yet.
@@ -39,25 +48,10 @@ export default function DetailPanel() {
     ...new Set([...ocasiones(s), ...OCASIONES_SUGERIDAS]),
   ];
 
-  const hayCambios = !!s.selId && !!s.edit[s.selId];
-
   const folder = s.folders.find((f) => f.nombre === sel.carpeta);
   const ruta = (folder ? folder.ruta : "") + "\\" + sel.titulo + "." + (sel.formato || "").toLowerCase();
   const tags = sel.tags || [];
 
-  const saveBtnStyle: CSSProperties = {
-    flex: 1,
-    height: 40,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderRadius: 10,
-    fontSize: "13.5px",
-    fontWeight: 600,
-    transition: "all .14s",
-    ...(s.saved ? { background: "var(--success-soft)", color: "var(--success)" } : { background: "var(--primary)", color: "var(--on-primary)" }),
-  };
 
   return (
     <aside style={{ width: 360, flex: "0 0 auto", background: "var(--surface)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", minHeight: 0, animation: "canPanel .26s cubic-bezier(.22,1,.36,1)", boxShadow: "-8px 0 24px rgba(30,22,14,.05)" }}>
@@ -251,16 +245,15 @@ export default function DetailPanel() {
         </div>
       </div>
 
-      <div style={{ flex: "0 0 auto", borderTop: "1px solid var(--border)", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={s.saveDetail} style={saveBtnStyle}>
-          {s.saved ? <Check size={15} strokeWidth={2.2} /> : <Save size={15} strokeWidth={2.2} />}
-          {s.saved ? "Guardado" : "Guardar cambios"}
-        </button>
-        {/* Said «Guardado automático», which was never true: nothing here saves
-            until the button is pressed. With three more fields to lose, a label
-            promising otherwise is how work disappears. */}
-        <span style={{ fontSize: 12, color: hayCambios ? "var(--warning)" : "var(--text-3)", fontWeight: hayCambios ? 600 : 400 }}>
-          {hayCambios ? "Sin guardar" : "Al día"}
+      {/*
+        No save button: an edit writes itself, so there is nothing to press. The
+        footer reports what the store is actually doing instead — the panel used
+        to claim «Guardado automático» while nothing of the sort happened.
+      */}
+      <div style={{ flex: "0 0 auto", borderTop: "1px solid var(--border)", padding: "13px 16px", display: "flex", alignItems: "center", gap: 8 }} aria-live="polite">
+        {ESTADO[s.saveState].icono}
+        <span style={{ fontSize: "12.5px", fontWeight: s.saveState === "idle" ? 400 : 600, color: ESTADO[s.saveState].color }}>
+          {ESTADO[s.saveState].texto}
         </span>
       </div>
     </aside>

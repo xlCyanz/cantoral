@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Trash2, Video } from "lucide-react";
-import { eff, plDur, useStore } from "../store";
+import { plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge } from "../lib/styles";
 import type { Track } from "../lib/types";
@@ -84,8 +84,7 @@ export default function PlaylistView() {
   const order = s.plOrder[s.curPlaylist] || [];
   const rows = order
     .map((id) => s.tracks.find((t) => t.id === id))
-    .filter((t): t is Track => !!t)
-    .map((t) => eff(s, t));
+    .filter((t): t is Track => !!t);
 
   return (
     <div style={{ padding: "0 0 40px" }}>

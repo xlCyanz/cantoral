@@ -62,6 +62,10 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let dragId: string | null = null;
 /** Action to re-run from the error state — set whenever a backend call fails. */
 let lastFailedAction: (() => void) | null = null;
+/** Debounce for track edits, which now write themselves. */
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/** Id of the track whose edit is waiting out the debounce, if any. */
+let pendingSave: string | null = null;
 
 /**
  * A destructive action waiting to be confirmed.
@@ -81,6 +85,9 @@ export interface ConfirmRequest {
   confirmLabel: string;
   onConfirm: () => void;
 }
+
+/** Lifecycle of an edit that saves itself. */
+export type SaveState = "idle" | "saving" | "saved" | "error";
 
 export type ToastType = "success" | "error" | "info";
 export interface ToastNotice {
@@ -114,9 +121,9 @@ export interface CantoralState {
   // ---- detail panel ----
   selId: string | null;
   detailOpen: boolean;
-  edit: Record<string, TrackEdit>;
   tagDraft: string;
-  saved: boolean;
+  /** How the selected track's edit is doing. Edits write themselves. */
+  saveState: SaveState;
 
   // ---- dialog / scan ----
   dialog: "addFolder" | "newList" | "editList" | "help" | null;
@@ -180,12 +187,14 @@ export interface CantoralState {
   seekToFraction: (f: number) => void;
   setVolume: (f: number) => void;
 
+  /** Change one field of the selected track. It writes itself, debounced. */
   setEdit: (field: keyof TrackEdit, val: unknown) => void;
   onTagDraft: (v: string) => void;
   addTag: (v: string) => void;
   removeTag: (tag: string) => void;
   closeDetail: () => void;
-  saveDetail: () => void;
+  /** Write an edit still waiting out the debounce, right now. */
+  flushEdit: () => void;
 
   openAddFolder: () => void;
   openHelp: () => void;
@@ -261,6 +270,47 @@ export const useStore = create<CantoralState>((set, get) => {
   };
 
   /**
+   * Write the track that is waiting out the debounce.
+   *
+   * Reads the values straight from the catalogue rather than from a copy taken
+   * when the edit was made, so whatever the user ended up with is what gets
+   * stored — including keystrokes that landed after the timer was set.
+   */
+  const writePendingEdit = () => {
+    const id = pendingSave;
+    pendingSave = null;
+    if (!id) return;
+    const t = get().tracks.find((x) => x.id === id);
+    if (!t) return;
+
+    updateTrackCmd(t.id, t.tono, t.bpm, t.ocasion, t.tags || [])
+      .then(() => {
+        // Only report success for the track still on screen; a stale reply from
+        // a track the user has moved on from must not relabel this one.
+        if (get().selId === id) set({ saveState: "saved" });
+      })
+      .catch((err) => {
+        console.error("update_track failed", err);
+        // The typed value is kept: yanking it back mid-edit would lose work for
+        // a failure the user can do nothing about. The footer says so instead.
+        if (get().selId === id) set({ saveState: "error" });
+        get().showToast("No se pudieron guardar los cambios", "error");
+      });
+  };
+
+  /** Push the write out by a beat, so a burst of typing is one round trip. */
+  const scheduleSave = (id: string) => {
+    // Moving to another track writes the previous one before taking its place.
+    if (pendingSave && pendingSave !== id) writePendingEdit();
+    pendingSave = id;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      writePendingEdit();
+    }, 600);
+  };
+
+  /**
    * Apply a new playlist order at once and persist it, putting the previous one
    * back if the backend refuses.
    *
@@ -301,9 +351,8 @@ export const useStore = create<CantoralState>((set, get) => {
 
     selId: null,
     detailOpen: false,
-    edit: {},
     tagDraft: "",
-    saved: false,
+    saveState: "idle",
 
     dialog: null,
     scanPct: 0,
@@ -360,7 +409,11 @@ export const useStore = create<CantoralState>((set, get) => {
       })),
 
     // ---------- rows ----------
-    onRowClick: (id) => set({ selId: id, detailOpen: true, tagDraft: "", saved: false }),
+    onRowClick: (id) => {
+      // Moving to another track must not leave the previous one's edit in limbo.
+      if (get().selId !== id) get().flushEdit();
+      set({ selId: id, detailOpen: true, tagDraft: "", saveState: "idle" });
+    },
     onFav: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t) return;
@@ -444,24 +497,25 @@ export const useStore = create<CantoralState>((set, get) => {
     setVolume: (f) => set({ volume: Math.min(1, Math.max(0, f)), muted: false }),
 
     // ---------- detail edit ----------
-    setEdit: (field, val) =>
-      set((s) => {
-        if (!s.selId) return {};
-        const curT = s.tracks.find((x) => x.id === s.selId);
-        const base = s.edit[s.selId] || { tags: (curT?.tags || []).slice() };
-        return {
-          edit: { ...s.edit, [s.selId]: { ...base, [field]: val } },
-          saved: false,
-        };
-      }),
+    setEdit: (field, val) => {
+      const id = get().selId;
+      if (!id) return;
+      // Straight into the catalogue. There is no pending-edit overlay any more,
+      // so nothing can be shown as though it were stored while it is not.
+      set((s) => ({
+        tracks: s.tracks.map((t) => (t.id === id ? { ...t, [field]: val } : t)),
+        saveState: "saving",
+      }));
+      scheduleSave(id);
+    },
     onTagDraft: (v) => set({ tagDraft: v }),
     addTag: (v) => {
       const val = v.trim();
       if (!val) return;
       const s = get();
       if (!s.selId) return;
-      const curT = eff(s, s.tracks.find((x) => x.id === s.selId)!);
-      const tags = (curT.tags || []).slice();
+      const curT = s.tracks.find((x) => x.id === s.selId);
+      const tags = (curT?.tags || []).slice();
       if (!tags.includes(val)) tags.push(val);
       s.setEdit("tags", tags);
       set({ tagDraft: "" });
@@ -469,41 +523,18 @@ export const useStore = create<CantoralState>((set, get) => {
     removeTag: (tag) => {
       const s = get();
       if (!s.selId) return;
-      const curT = eff(s, s.tracks.find((x) => x.id === s.selId)!);
-      s.setEdit("tags", (curT.tags || []).filter((t) => t !== tag));
+      const curT = s.tracks.find((x) => x.id === s.selId);
+      s.setEdit("tags", (curT?.tags || []).filter((t) => t !== tag));
     },
-    closeDetail: () => set({ detailOpen: false }),
-    saveDetail: () => {
-      const s = get();
-      const id = s.selId;
-      if (!id) return;
-      const e = s.edit[id];
-      const base = s.tracks.find((t) => t.id === id);
-      if (!e || !base) {
-        set({ saved: true });
-        return;
-      }
-      const merged = { ...base, ...e };
-      const prevTracks = s.tracks;
-      const prevEdit = s.edit;
-
-      // Applied at once and the pending overlay dropped, so the row stops being
-      // an unsaved edit the moment it becomes a saved one.
-      set((st) => {
-        const edit = { ...st.edit };
-        delete edit[id];
-        return { tracks: st.tracks.map((t) => (t.id === id ? merged : t)), edit, saved: true };
-      });
-
-      updateTrackCmd(merged.id, merged.tono, merged.bpm, merged.ocasion, merged.tags || [])
-        .then(() => toast("Cambios guardados"))
-        .catch((err) => {
-          // Claiming «Cambios guardados» without waiting is how an edit used to
-          // vanish between one launch and the next.
-          console.error("update_track failed", err);
-          set({ tracks: prevTracks, edit: prevEdit, saved: false });
-          toast("No se pudieron guardar los cambios", "error");
-        });
+    closeDetail: () => {
+      // Nothing may stay waiting out the debounce once the panel is gone.
+      get().flushEdit();
+      set({ detailOpen: false });
+    },
+    flushEdit: () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = null;
+      writePendingEdit();
     },
 
     // ---------- dialog / states ----------
@@ -633,8 +664,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const ord = s.plOrder[s.curPlaylist] || [];
       const rows = ord
         .map((id) => s.tracks.find((t) => t.id === id))
-        .filter((t): t is Track => !!t)
-        .map((t) => eff(s, t));
+        .filter((t): t is Track => !!t);
       if (!pl || rows.length === 0) {
         toast("La lista está vacía");
         return;
@@ -1021,33 +1051,22 @@ export const useStore = create<CantoralState>((set, get) => {
 // Derived selectors (pure) — used by components against a state snapshot.
 // ============================================================
 
-/** Apply the pending edit overlay for a track (matches design's eff()). */
-export function eff(s: Pick<CantoralState, "edit">, t: Track): Track {
-  const e = s.edit[t.id];
-  return e ? { ...t, ...e } : t;
-}
-
-/** Currently loaded player track, with edits applied. */
+/** Currently loaded player track. */
 export function cur(s: CantoralState): Track | null {
-  const t = s.tracks.find((x) => x.id === s.playerId);
-  return t ? eff(s, t) : null;
+  return s.tracks.find((x) => x.id === s.playerId) ?? null;
 }
 
 /**
  * Occasions actually present in the catalogue, for the filter chips.
  *
- * Derived rather than hardcoded so a custom occasion shows up as a filter.
- * Note that nothing currently writes `ocasion`, so outside the browser seed
- * this is empty until a way to edit track metadata exists.
+ * Derived rather than hardcoded so a custom occasion shows up as a filter as
+ * soon as a track carries it — the detail panel writes occasions straight into
+ * the catalogue, so there is no half-saved state to reason about here.
  */
 export function ocasiones(s: CantoralState): string[] {
   const found = new Set<string>();
-  // Through eff(), so an occasion being typed in the detail panel shows up as a
-  // chip right away. That has to match applyFilters(), which also filters
-  // through eff() — otherwise a track would be filterable by an occasion that
-  // has no chip to filter by. Edits that outlive the panel are #4, not this.
   s.tracks.forEach((t) => {
-    const o = eff(s, t).ocasion?.trim();
+    const o = t.ocasion?.trim();
     if (o) found.add(o);
   });
   // Keep the active filter listed even if its last track just changed occasion,
@@ -1071,7 +1090,7 @@ export function playQueue(s: CantoralState): string[] {
 
 /** Filter + sort the library exactly like the design's applyFilters(). */
 export function applyFilters(s: CantoralState): Track[] {
-  let list = s.tracks.map((t) => eff(s, t));
+  let list = s.tracks.slice();
   if (s.qf === "fav") list = list.filter((t) => t.fav);
   else if (s.qf === "missing") list = list.filter((t) => t.missing);
   else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);

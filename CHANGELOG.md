@@ -86,13 +86,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   miles de `fsync`, y se reescribían todas aunque ninguna hubiera cambiado. Ahora
   va en una transacción por carpeta y solo toca las filas que de verdad cambiaron,
   que en el caso normal son ninguna.
-- **El pie del panel de detalle decía «Guardado automático», y no lo había.**
-  Nada se guardaba hasta pulsar el botón. Ahora indica el estado de verdad: «Sin
-  guardar» mientras haya cambios pendientes, «Al día» cuando no.
-- **Guardar una pista ya no se anuncia antes de saber si funcionó.** El comando se
-  lanzaba sin escuchar el resultado y el aviso «Cambios guardados» salía igual. Si
-  falla, los valores anteriores vuelven, el borrador se conserva para no perder lo
-  escrito y se avisa del error.
+- **Las ediciones del panel de detalle se guardan solas, y dejan de filtrarse.**
+  Los cambios vivían en un borrador aparte que se superponía a la biblioteca, al
+  reproductor, a los chips de ocasión, a las listas y a la hoja imprimible —así
+  que algo sin guardar se veía igual que algo guardado, y **la hoja que te llevabas
+  al atril podía llevar datos que la base nunca tuvo**. Al cerrar el panel el
+  borrador seguía ahí, sin escribirse, hasta perderse al reiniciar.
+
+  Ahora cada cambio entra directo al catálogo y se escribe solo, agrupando las
+  ráfagas de tecleo. Lo pendiente se vuelca al cerrar el panel, al saltar a otra
+  pista y al cerrar la ventana. El pie informa del estado real —«Guardando…»,
+  «Guardado», «No se pudo guardar»— y el botón «Guardar cambios» desaparece porque
+  ya no hay nada que pulsar. Si la escritura falla, lo tecleado se conserva y se
+  avisa, en vez de aparentar que se guardó.
 
 - `NewListDialog` sembraba sus campos desde un `useEffect` que llamaba `setState`,
   el anti-patrón que React desaconseja explícitamente. Ahora el formulario es un
