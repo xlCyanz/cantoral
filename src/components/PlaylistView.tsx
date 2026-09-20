@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Trash2, Video } from "lucide-react";
-import { plDur, useStore } from "../store";
+import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge } from "../lib/styles";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
 const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 58px";
+
+/** Shared empty order, so an absent list does not hand out a fresh array each read. */
+const VACIA: string[] = [];
 
 function CoverInner({ t }: { t: Track }) {
   if (hasCover(t)) return null;
@@ -18,10 +21,19 @@ function CoverInner({ t }: { t: Track }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>;
 }
 
-function PlRow({ t, num }: { t: Track; num: number }) {
-  const s = useStore();
-  const dragging = s.draggingId === t.id;
-  const over = s.overId === t.id && s.draggingId && s.draggingId !== t.id;
+/**
+ * One row of a culto list. Like the library's row there is an instance per
+ * pista, so it reads only the two drag flags it reacts to.
+ */
+const PlRow = memo(function PlRow({ t, num }: { t: Track; num: number }) {
+  const dragging = useStore((s) => s.draggingId === t.id);
+  const over = useStore((s) => s.overId === t.id && !!s.draggingId && s.draggingId !== t.id);
+  const setDragging = useStore((s) => s.setDragging);
+  const setOver = useStore((s) => s.setOver);
+  const reorderPl = useStore((s) => s.reorderPl);
+  const clearDrag = useStore((s) => s.clearDrag);
+  const play = useStore((s) => s.play);
+  const removeFromPl = useStore((s) => s.removeFromPl);
 
   const rowStyle: CSSProperties = {
     display: "grid",
@@ -40,11 +52,11 @@ function PlRow({ t, num }: { t: Track; num: number }) {
     <div
       className="lib-row"
       draggable
-      onDragStart={() => s.setDragging(t.id)}
-      onDragOver={(e) => { e.preventDefault(); s.setOver(t.id); }}
-      onDrop={(e) => { e.preventDefault(); s.reorderPl(t.id); }}
-      onDragEnd={s.clearDrag}
-      onDoubleClick={() => s.play(t.id)}
+      onDragStart={() => setDragging(t.id)}
+      onDragOver={(e) => { e.preventDefault(); setOver(t.id); }}
+      onDrop={(e) => { e.preventDefault(); reorderPl(t.id); }}
+      onDragEnd={clearDrag}
+      onDoubleClick={() => play(t.id)}
       style={rowStyle}
     >
       <div title="Arrastrar para reordenar" className="hb-text" style={{ display: "grid", placeItems: "center", color: "var(--text-3)", cursor: "grab" }}>
@@ -69,29 +81,33 @@ function PlRow({ t, num }: { t: Track; num: number }) {
       <div style={{ fontSize: "12.5px", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{t.tono}</div>
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={() => s.removeFromPl(t.id)} title="Quitar de la lista" className="hb-danger" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+        <button onClick={() => removeFromPl(t.id)} title="Quitar de la lista" className="hb-danger" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
           <Trash2 size={15} />
         </button>
       </div>
     </div>
   );
-}
+});
 
 export default function PlaylistView() {
-  const s = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
-  const pl = s.playlists.find((p) => p.id === s.curPlaylist);
-  const order = s.plOrder[s.curPlaylist] || [];
-  const rows = order
-    .map((id) => s.tracks.find((t) => t.id === id))
-    .filter((t): t is Track => !!t);
+  const curPlaylist = useStore((s) => s.curPlaylist);
+  const pl = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
+  const order = useStore((s) => s.plOrder[s.curPlaylist] || VACIA);
+  const rows = useStore(filasDeLista);
+  const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
+  const playAll = useStore((s) => s.playAll);
+  const exportPl = useStore((s) => s.exportPl);
+  const editCurrentList = useStore((s) => s.editCurrentList);
+  const deleteCurrentList = useStore((s) => s.deleteCurrentList);
+  const showBiblioteca = useStore((s) => s.showBiblioteca);
 
   return (
     <div style={{ padding: "0 0 40px" }}>
       {/* hero */}
       <div style={{ display: "flex", gap: 22, padding: "28px 24px 24px", alignItems: "flex-end", background: "linear-gradient(180deg,var(--surface-2),transparent)" }}>
         <div style={{ position: "relative", width: 148, height: 148, flex: "0 0 auto", borderRadius: 16, overflow: "hidden", boxShadow: "var(--sh-md)" }}>
-          <div style={gradientFor(s.curPlaylist)} />
+          <div style={gradientFor(curPlaylist)} />
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
             <ListMusic size={58} color="rgba(255,255,255,.92)" strokeWidth={1.4} />
           </div>
@@ -104,13 +120,13 @@ export default function PlaylistView() {
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{pl?.fecha}</span>
             <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-3)" }} />
-            <span>{order.length} pistas · {plDur(s, order)}</span>
+            <span>{order.length} pistas · {duracion}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
-            <button onClick={s.playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
+            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
             </button>
-            <button onClick={s.exportPl} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+            <button onClick={exportPl} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <Download size={16} />Exportar
             </button>
             <div style={{ position: "relative" }}>
@@ -121,10 +137,10 @@ export default function PlaylistView() {
                 <>
                   <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
                   <div style={{ position: "absolute", right: 0, top: 48, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, minWidth: 190 }}>
-                    <button onClick={() => { setMenuOpen(false); s.editCurrentList(); }} className="hb-s2" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--text)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+                    <button onClick={() => { setMenuOpen(false); editCurrentList(); }} className="hb-s2" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--text)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Pencil size={15} />Editar lista
                     </button>
-                    <button onClick={() => { setMenuOpen(false); s.deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+                    <button onClick={() => { setMenuOpen(false); deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Trash2 size={15} />Eliminar lista
                     </button>
                   </div>
@@ -143,7 +159,7 @@ export default function PlaylistView() {
           title="Esta lista está vacía"
           desc="Agrega pistas desde la Biblioteca para armar el repertorio de este culto."
           action={
-            <button onClick={s.showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
+            <button onClick={showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
               <Library size={16} />Ir a la biblioteca
             </button>
           }

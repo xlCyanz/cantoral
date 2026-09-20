@@ -42,6 +42,21 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **La biblioteca ya no se vuelve a dibujar entera varias veces por segundo.**
+  Ocho componentes leían el store completo, así que cualquier cambio de estado
+  —incluido el segundero del reproductor— repintaba la tabla entera, fila por
+  fila. Ahora cada uno se suscribe solo a los campos que muestra, y las filas se
+  saltan el repintado cuando su pista no cambió. Con una canción sonando, una
+  tabla visible ya no se redibuja ni una vez.
+- **Filtrar, ordenar y agrupar la biblioteca se hace una sola vez por cambio.**
+  `applyFilters` recorría el catálogo entero en cada render y se llamaba dos
+  veces por render, desde la barra superior y desde la tabla. Ahora recuerda su
+  último resultado mientras no cambie nada de lo que lee.
+- **La tabla de la biblioteca solo monta las filas que se ven** a partir de 120
+  pistas: con 5.000, el DOM pasa de 5.000 filas a unas dos docenas. Por debajo de
+  ese umbral se monta completa, para que ⌘F, el tabulador y los lectores de
+  pantalla sigan alcanzando cada fila.
+
 - TypeScript fijado en `~6.0.3`, bajando desde el `7.0.2` que había entrado por
   Dependabot: `typescript-eslint` soporta `>=4.8.4 <6.1.0` y falla en seco fuera
   de ese rango. `tsc` compila igual con TS 7, así que nada lo delataba hasta que

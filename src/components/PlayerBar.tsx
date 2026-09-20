@@ -50,11 +50,30 @@ function DragBar({
 const transportBtn: CSSProperties = { width: 34, height: 34, borderRadius: 9, display: "grid", placeItems: "center", color: "var(--text)" };
 
 export default function PlayerBar() {
-  const s = useStore();
-  const track = cur(s) || s.tracks[0];
+  // This is the one component that has to re-render several times a second, so
+  // it reads the fields it shows one by one — reading the whole store here used
+  // to drag the entire library table along with every tick.
+  const track = useStore((s) => cur(s) ?? s.tracks[0]);
+  const posSec = useStore((s) => s.posSec);
+  const playing = useStore((s) => s.playing);
+  const volume = useStore((s) => s.volume);
+  const muted = useStore((s) => s.muted);
+  const shuffle = useStore((s) => s.shuffle);
+  const repeat = useStore((s) => s.repeat);
+  const onFav = useStore((s) => s.onFav);
+  const onOpenExternal = useStore((s) => s.onOpenExternal);
+  const toggleShuffle = useStore((s) => s.toggleShuffle);
+  const togglePlay = useStore((s) => s.togglePlay);
+  const toggleRepeat = useStore((s) => s.toggleRepeat);
+  const toggleMute = useStore((s) => s.toggleMute);
+  const seekToFraction = useStore((s) => s.seekToFraction);
+  const setVolume = useStore((s) => s.setVolume);
+  const irAnterior = useStore((s) => s.prev);
+  const irSiguiente = useStore((s) => s.next);
+
   const durS = track ? track.durSec : 1;
-  const progPct = Math.min(100, (s.posSec / durS) * 100);
-  const volPct = (s.muted ? 0 : s.volume) * 100;
+  const progPct = Math.min(100, (posSec / durS) * 100);
+  const volPct = (muted ? 0 : volume) * 100;
 
   // ---- integrated audio playback (Tauri only; browser uses the timer) ----
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -69,7 +88,7 @@ export default function PlayerBar() {
       void toAssetUrl(track.path!).then((url) => {
         if (cancelled || !audioRef.current) return;
         audioRef.current.src = url;
-        audioRef.current.volume = s.muted ? 0 : s.volume;
+        audioRef.current.volume = muted ? 0 : volume;
         if (useStore.getState().playing) audioRef.current.play().catch(() => {});
       });
       return () => { cancelled = true; };
@@ -82,18 +101,18 @@ export default function PlayerBar() {
   useEffect(() => {
     const a = audioRef.current;
     if (!a || !a.src) return;
-    if (s.playing) a.play().catch(() => {});
+    if (playing) a.play().catch(() => {});
     else a.pause();
-  }, [s.playing]);
+  }, [playing]);
   useEffect(() => {
     const a = audioRef.current;
-    if (a) a.volume = s.muted ? 0 : s.volume;
-  }, [s.volume, s.muted]);
+    if (a) a.volume = muted ? 0 : volume;
+  }, [volume, muted]);
   // Sync a user seek (a jump in posSec) into the audio element.
   useEffect(() => {
     const a = audioRef.current;
-    if (a && a.src && Math.abs(a.currentTime - s.posSec) > 1.5) a.currentTime = s.posSec;
-  }, [s.posSec]);
+    if (a && a.src && Math.abs(a.currentTime - posSec) > 1.5) a.currentTime = posSec;
+  }, [posSec]);
 
   return (
     <footer style={{ height: 88, flex: "0 0 auto", background: "var(--bg-2)", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16, padding: "0 20px", zIndex: 6 }}>
@@ -139,7 +158,7 @@ export default function PlayerBar() {
           <div style={{ fontSize: "13.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track ? track.titulo : "—"}</div>
           <div style={{ fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track ? track.artista : ""}</div>
         </div>
-        <button onClick={() => track && s.onFav(track.id)} title="Favorita" className="hb-s2" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", flex: "0 0 auto", transition: "background .13s", color: track && track.fav ? "var(--primary)" : "var(--text-3)" }}>
+        <button onClick={() => track && onFav(track.id)} title="Favorita" className="hb-s2" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", flex: "0 0 auto", transition: "background .13s", color: track && track.fav ? "var(--primary)" : "var(--text-3)" }}>
           <Heart size={16} fill={track && track.fav ? "currentColor" : "none"} />
         </button>
       </div>
@@ -147,39 +166,39 @@ export default function PlayerBar() {
       {/* transport + progress */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, maxWidth: 640, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button onClick={s.toggleShuffle} title="Aleatorio" className="hb-text" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", transition: "color .13s", color: s.shuffle ? "var(--primary)" : "var(--text-3)" }}>
+          <button onClick={toggleShuffle} title="Aleatorio" className="hb-text" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", transition: "color .13s", color: shuffle ? "var(--primary)" : "var(--text-3)" }}>
             <Shuffle size={16} />
           </button>
-          <button onClick={s.prev} title="Anterior" className="hb-s2" style={transportBtn}>
+          <button onClick={irAnterior} title="Anterior" className="hb-s2" style={transportBtn}>
             <SkipBack size={17} fill="currentColor" />
           </button>
-          <button onClick={s.togglePlay} title="Reproducir/Pausar" className="hb-primary hb-active-scale" style={{ width: 46, height: 46, borderRadius: "50%", background: "var(--primary)", color: "var(--on-primary)", display: "grid", placeItems: "center", boxShadow: "var(--sh-sm)", transition: "transform .1s,background .14s" }}>
-            {s.playing ? <Pause size={19} fill="currentColor" stroke="none" /> : <Play size={20} fill="currentColor" stroke="none" style={{ marginLeft: 2 }} />}
+          <button onClick={togglePlay} title="Reproducir/Pausar" className="hb-primary hb-active-scale" style={{ width: 46, height: 46, borderRadius: "50%", background: "var(--primary)", color: "var(--on-primary)", display: "grid", placeItems: "center", boxShadow: "var(--sh-sm)", transition: "transform .1s,background .14s" }}>
+            {playing ? <Pause size={19} fill="currentColor" stroke="none" /> : <Play size={20} fill="currentColor" stroke="none" style={{ marginLeft: 2 }} />}
           </button>
-          <button onClick={s.next} title="Siguiente" className="hb-s2" style={transportBtn}>
+          <button onClick={irSiguiente} title="Siguiente" className="hb-s2" style={transportBtn}>
             <SkipForward size={17} fill="currentColor" />
           </button>
-          <button onClick={s.toggleRepeat} title="Repetir" className="hb-text" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", transition: "color .13s", color: s.repeat ? "var(--primary)" : "var(--text-3)" }}>
+          <button onClick={toggleRepeat} title="Repetir" className="hb-text" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", transition: "color .13s", color: repeat ? "var(--primary)" : "var(--text-3)" }}>
             <Repeat size={16} />
           </button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-          <span style={{ fontSize: 11, color: "var(--text-2)", fontVariantNumeric: "tabular-nums", width: 34, textAlign: "right" }}>{fmt(s.posSec)}</span>
-          <DragBar fraction={progPct / 100} onChange={s.seekToFraction} fillBg="var(--primary)" thumbBg="var(--primary)" thumbSize={12} />
+          <span style={{ fontSize: 11, color: "var(--text-2)", fontVariantNumeric: "tabular-nums", width: 34, textAlign: "right" }}>{fmt(posSec)}</span>
+          <DragBar fraction={progPct / 100} onChange={seekToFraction} fillBg="var(--primary)" thumbBg="var(--primary)" thumbSize={12} />
           <span style={{ fontSize: 11, color: "var(--text-2)", fontVariantNumeric: "tabular-nums", width: 34 }}>{track ? track.dur : "0:00"}</span>
         </div>
       </div>
 
       {/* right controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, width: 280, justifyContent: "flex-end" }}>
-        <button onClick={() => track && s.onOpenExternal(track.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ height: 32, display: "flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)", fontSize: 12, fontWeight: 600, transition: "background .14s,color .14s" }}>
+        <button onClick={() => track && onOpenExternal(track.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ height: 32, display: "flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)", fontSize: 12, fontWeight: 600, transition: "background .14s,color .14s" }}>
           <SquareArrowOutUpRight size={14} />{osShortName()}
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 8, width: 132 }}>
-          <button onClick={s.toggleMute} title="Silenciar" className="hb-s2t" style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: "var(--text-2)", borderRadius: 7 }}>
-            {s.muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+          <button onClick={toggleMute} title="Silenciar" className="hb-s2t" style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: "var(--text-2)", borderRadius: 7 }}>
+            {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
           </button>
-          <DragBar fraction={volPct / 100} onChange={s.setVolume} fillBg="var(--text-2)" thumbBg="var(--text)" thumbSize={11} />
+          <DragBar fraction={volPct / 100} onChange={setVolume} fillBg="var(--text-2)" thumbBg="var(--text)" thumbSize={11} />
         </div>
       </div>
     </footer>
