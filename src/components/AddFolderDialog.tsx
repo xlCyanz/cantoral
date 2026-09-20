@@ -3,15 +3,26 @@ import { Check, Folder, FolderPlus, Search } from "lucide-react";
 import { useStore } from "../store";
 import { pickFolder } from "../lib/api";
 
+/**
+ * Only decides whether the dialog is open. The form is a separate component so
+ * that closing the dialog unmounts it and its state goes with it.
+ *
+ * Keeping the state here meant it outlived the dialog: after indexing a folder,
+ * reopening showed the previous path already chosen and «Indexar carpeta»
+ * enabled — one stray click away from re-scanning something nobody asked for.
+ */
 export default function AddFolderDialog() {
   const dialogOpen = useStore((s) => s.dialog === "addFolder");
+  if (!dialogOpen) return null;
+  return <AddFolderForm />;
+}
+
+function AddFolderForm() {
   const closeDialog = useStore((s) => s.closeDialog);
   const indexFolder = useStore((s) => s.indexFolder);
 
   const [path, setPath] = useState("");
   const [subfolders, setSubfolders] = useState(true);
-
-  if (!dialogOpen) return null;
 
   const browse = async () => {
     const chosen = await pickFolder();

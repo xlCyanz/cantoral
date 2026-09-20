@@ -87,7 +87,9 @@ pub fn add_and_scan_folder(
     path: String,
     recursive: bool,
 ) -> CmdResult<Snapshot> {
-    let fid = {
+    // Whether the folder was already indexed decides what happens if the scan
+    // fails below: a re-scan keeps its folder, a first scan must not leave one.
+    let (fid, ya_estaba) = {
         let conn = db.0.lock().map_err(e)?;
         if let Some(other) = db::overlapping_folder(&conn, &path).map_err(e)? {
             return Err(format!(
@@ -95,15 +97,31 @@ pub fn add_and_scan_folder(
                 path, other
             ));
         }
+        let ya_estaba = db::folder_id_by_path(&conn, &path).map_err(e)?.is_some();
         let nombre = std::path::Path::new(&path)
             .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or(path.as_str())
             .to_string();
-        db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?
+        (
+            db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?,
+            ya_estaba,
+        )
     };
 
-    run_scan(&app, &db_path.0, &cancel, fid, &path, recursive)?;
+    if let Err(err) = run_scan(&app, &db_path.0, &cancel, fid, &path, recursive) {
+        // The row went in before the walk started, so a scan that fails — an
+        // unplugged drive, a folder that cannot be read — used to leave a
+        // folder with zero tracks sitting in Configuración for the user to
+        // clean up by hand.
+        if !ya_estaba {
+            let conn = db.0.lock().map_err(e)?;
+            if let Err(limpieza) = db::remove_folder(&conn, fid) {
+                log::error!("could not drop the folder left by a failed scan: {limpieza}");
+            }
+        }
+        return Err(err);
+    }
 
     let conn = db.0.lock().map_err(e)?;
     snapshot(&conn).map_err(e)

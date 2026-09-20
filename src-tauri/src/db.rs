@@ -278,11 +278,26 @@ pub fn touch_existing_track(conn: &Connection, id: i64, folder_id: i64) -> Resul
     Ok(())
 }
 
+/// Point a track at its extracted cover, deleting the file it replaces.
+///
+/// Covers are named `{id}.{ext}`, so re-scanning a track whose embedded art
+/// changed format — jpg to png — writes a new file and leaves the old one on
+/// disk with nothing referring to it. Only `remove_folder` ever cleaned covers,
+/// and only the ones still referenced.
 pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()> {
+    let anterior: Option<String> = conn
+        .query_row("SELECT cover_path FROM tracks WHERE id=?1", params![id], |r| r.get(0))
+        .ok()
+        .flatten();
     conn.execute(
         "UPDATE tracks SET cover_path=?1 WHERE id=?2",
         params![cover_path, id],
     )?;
+    if let Some(viejo) = anterior {
+        if viejo != cover_path {
+            let _ = std::fs::remove_file(viejo);
+        }
+    }
     Ok(())
 }
 
@@ -464,6 +479,13 @@ pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Id of an already indexed folder with this exact path, if there is one.
+pub fn folder_id_by_path(conn: &Connection, path: &str) -> Result<Option<i64>> {
+    Ok(conn
+        .query_row("SELECT id FROM folders WHERE path=?1", params![path], |r| r.get(0))
+        .ok())
 }
 
 pub fn add_folder(conn: &Connection, path: &str, nombre: &str, recursive: bool) -> Result<i64> {
@@ -1314,6 +1336,46 @@ mod tests {
             "una segunda pasada sin cambios no escribe nada"
         );
         assert!(list_tracks(&conn).unwrap()[0].missing);
+    }
+
+    #[test]
+    fn replacing_a_cover_deletes_the_file_it_replaces() {
+        let files = Files::new("caratulas");
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        let jpg = files.file("1.jpg");
+        let png = files.file("1.png");
+
+        set_cover_path(&conn, id, &jpg.to_string_lossy()).unwrap();
+        // El arte incrustado cambió de formato, así que el nombre cambia con él.
+        set_cover_path(&conn, id, &png.to_string_lossy()).unwrap();
+
+        assert!(!jpg.exists(), "la carátula anterior no se queda huérfana");
+        assert!(png.exists(), "la nueva sigue ahí");
+    }
+
+    #[test]
+    fn rewriting_the_same_cover_path_keeps_the_file() {
+        let files = Files::new("caratulas-misma");
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        let jpg = files.file("1.jpg");
+
+        set_cover_path(&conn, id, &jpg.to_string_lossy()).unwrap();
+        set_cover_path(&conn, id, &jpg.to_string_lossy()).unwrap();
+
+        assert!(jpg.exists(), "re-escanear sin cambios no borra la carátula");
+    }
+
+    #[test]
+    fn folder_id_by_path_tells_a_new_folder_from_one_already_indexed() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+
+        assert_eq!(folder_id_by_path(&conn, "/m").unwrap(), Some(fid));
+        assert_eq!(folder_id_by_path(&conn, "/otra").unwrap(), None);
     }
 
     #[test]
