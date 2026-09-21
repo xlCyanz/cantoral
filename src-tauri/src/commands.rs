@@ -128,6 +128,8 @@ pub fn add_and_scan_folder(
         )
     };
 
+    permitir_asset(&app, &path);
+
     if let Err(err) = run_scan(&app, &db_path.0, &slot, fid, &path, recursive) {
         // The row went in before the walk started, so a scan that fails — an
         // unplugged drive, a folder that cannot be read — used to leave a
@@ -216,6 +218,49 @@ pub fn restore_dismissed_duplicates(db: State<Db>) -> CmdResult<DuplicateReport>
     duplicate_report(&conn).map_err(e)
 }
 
+/// Let `asset://` reach a folder the user just pointed the library at.
+///
+/// The scope starts empty, so a folder nobody granted is a folder whose covers
+/// and audio the webview cannot load — silently, which is why every path that
+/// introduces one calls this.
+fn permitir_asset(app: &AppHandle, ruta: &str) {
+    if let Err(err) = app.asset_protocol_scope().allow_directory(ruta, true) {
+        log::error!("could not grant asset access to «{ruta}»: {err}");
+    }
+}
+
+/// Hand a file to the system's default application.
+///
+/// The webview no longer holds `opener:allow-open-path`, so this is the only
+/// way to the OS opener — and it only lets through what the app itself put in
+/// the library, plus the sheet it just exported. With the permission granted
+/// straight to the webview, `open_path` was a request to run anything: the
+/// scope was `**`, and the system opener does not care whether the file is a
+/// song or an executable.
+#[tauri::command]
+pub fn open_media_path(path: String) -> CmdResult<()> {
+    if !abrible(std::path::Path::new(&path)) {
+        return Err(format!(
+            "Cantoral solo abre pistas de su biblioteca y hojas exportadas, no «{path}»."
+        ));
+    }
+    tauri_plugin_opener::open_path(&path, None::<&str>).map_err(e)
+}
+
+/// Whether this is a file Cantoral is willing to hand to the system opener.
+///
+/// What the scanner indexes, plus the printable sheet the app itself just
+/// wrote. Separate from the command so the rule can be read and tested without
+/// anything actually opening.
+fn abrible(path: &std::path::Path) -> bool {
+    let hoja = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
+        .unwrap_or(false);
+    scanner::is_media_path(path) || hoja
+}
+
 /// Rename a tag everywhere, folding it into an existing one if the name is taken.
 #[tauri::command]
 pub fn rename_tag(db: State<Db>, from: String, to: String) -> CmdResult<Snapshot> {
@@ -283,10 +328,20 @@ pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
 
 /// Point a track at the file's new location, keeping its tags and favourite.
 #[tauri::command]
-pub fn relocate_track(db: State<Db>, id: String, path: String) -> CmdResult<Snapshot> {
+pub fn relocate_track(
+    app: AppHandle,
+    db: State<Db>,
+    id: String,
+    path: String,
+) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     db::relocate_track(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
         .map_err(e)?;
+    // The file the user picked can live outside every indexed folder, so it is
+    // granted on its own rather than through its parent.
+    if let Err(err) = app.asset_protocol_scope().allow_file(&path) {
+        log::error!("could not grant asset access to «{path}»: {err}");
+    }
     log::info!("track {id} relocated to {path}");
     snapshot(&conn).map_err(e)
 }
@@ -302,10 +357,16 @@ pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Snapshot> {
 /// Point a whole indexed folder at its new location, rewriting every track under
 /// it. For the case that actually happens: the music moved to another drive.
 #[tauri::command]
-pub fn relocate_folder(db: State<Db>, id: String, path: String) -> CmdResult<Snapshot> {
+pub fn relocate_folder(
+    app: AppHandle,
+    db: State<Db>,
+    id: String,
+    path: String,
+) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     let n = db::relocate_folder(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
         .map_err(e)?;
+    permitir_asset(&app, &path);
     log::info!("folder {id} relocated to {path} ({n} tracks rewritten)");
     snapshot(&conn).map_err(e)
 }
@@ -491,7 +552,53 @@ pub fn backup_database(db: State<Db>, db_path: State<DbPath>, dest: String) -> C
 
 #[cfg(test)]
 mod tests {
-    use super::export_playlist;
+    use super::{abrible, export_playlist};
+    use std::path::Path;
+
+    #[test]
+    fn what_the_library_indexes_can_be_opened() {
+        for bueno in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
+            assert!(abrible(Path::new(bueno)), "{bueno} should be openable");
+        }
+    }
+
+    #[test]
+    fn the_exported_sheet_can_be_opened_too() {
+        // It is what «Exportar» hands to the browser to be printed.
+        assert!(abrible(Path::new("/tmp/Culto.html")));
+        assert!(abrible(Path::new("/tmp/Culto.htm")));
+    }
+
+    #[test]
+    fn an_extension_in_capitals_is_the_same_extension() {
+        // Windows is full of «.MP3»; a case-sensitive check would refuse to
+        // play half a library.
+        assert!(abrible(Path::new("/m/CORO.MP3")));
+        assert!(abrible(Path::new("/tmp/Culto.HTML")));
+    }
+
+    #[test]
+    fn anything_the_system_would_run_is_refused() {
+        // The point of the whole change: `open_path` asks the OS to open the
+        // file with its default application, and for these that means running
+        // them.
+        for malo in ["/tmp/x.exe", "/tmp/x.sh", "/tmp/x.bat", "/tmp/x.command", "/tmp/x.app"] {
+            assert!(!abrible(Path::new(malo)), "{malo} must be refused");
+        }
+    }
+
+    #[test]
+    fn so_is_anything_without_an_extension_to_judge() {
+        assert!(!abrible(Path::new("/tmp/sin-extension")));
+        assert!(!abrible(Path::new("/tmp/")));
+        assert!(!abrible(Path::new("")));
+    }
+
+    #[test]
+    fn and_the_library_database_itself() {
+        assert!(!abrible(Path::new("/datos/cantoral.db")));
+    }
+
 
     /// A temp directory of this test's own, cleared when it goes out of scope.
     ///

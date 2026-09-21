@@ -3,7 +3,7 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Track } from "./types";
@@ -64,11 +64,17 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 
 // ---------------------------------------------------------------- os / files
 
-/** Open a file/URL in the OS default application (e.g. Windows media player). */
+/**
+ * Open a file/URL in the OS default application (e.g. Windows media player).
+ *
+ * Files go through the backend rather than the opener plugin: the webview is
+ * no longer allowed to ask the system to open an arbitrary path, and the
+ * backend only lets through what the library indexed plus an exported sheet.
+ */
 export async function openExternalPath(target: string): Promise<void> {
   if (!isTauri() || !target) return;
   if (/^https?:\/\//.test(target)) await openUrl(target);
-  else await openPath(target);
+  else await inv("open_media_path", { path: target });
 }
 
 /** Native picker for a single media file, used when relocating a track. */

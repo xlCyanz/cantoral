@@ -92,6 +92,14 @@ fn is_media(ext: &str) -> bool {
     AUDIO_EXTS.contains(&ext) || VIDEO_EXTS.contains(&ext)
 }
 
+/// Whether a path names a file this app indexes.
+///
+/// The same list the scanner walks with, so «what Cantoral will hand to the
+/// system player» can never drift from «what Cantoral put in the library».
+pub fn is_media_path(path: &Path) -> bool {
+    ext_lower(path).map(|e| is_media(&e)).unwrap_or(false)
+}
+
 /// (title, artist, album, dur_sec, cover as (bytes, extension)).
 type Meta = (Option<String>, Option<String>, Option<String>, i64, Option<(Vec<u8>, String)>);
 

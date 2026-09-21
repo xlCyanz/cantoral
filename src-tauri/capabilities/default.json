@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Main window. `opener:default` covers opening http/https/mailto/tel URLs and revealing a file in the system explorer; opening a file goes through the `open_media_path` command instead, which checks the extension against the list the scanner indexes.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -14,15 +14,6 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "opener:default",
-    {
-      "identifier": "opener:allow-open-path",
-      "allow": [{ "path": "**" }, { "path": "**/*" }]
-    },
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "*" }, { "url": "**" }]
-    },
-    "opener:allow-reveal-item-in-dir",
     "dialog:default",
     "dialog:allow-open"
   ]
