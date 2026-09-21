@@ -1,6 +1,6 @@
 [package]
 name = "cantoral"
-version = "0.2.0"
+version = "0.2.1"
 description = "Cantoral — gestor de música para la iglesia"
 authors = ["Cantoral"]
 edition = "2021"
