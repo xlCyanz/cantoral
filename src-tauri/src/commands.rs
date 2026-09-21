@@ -2,6 +2,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::compartir;
 use crate::db::{self, Db};
 use crate::models::{DuplicateGroup, Folder, Playlist, Sheet, Track};
 use crate::scanner::{self, ScanSlot};
@@ -523,6 +524,32 @@ pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
     std::fs::write(&dest, html.as_bytes()).map_err(e)
 }
 
+/// Write a playlist as the `.cantoral.json` another installation can import.
+///
+/// Its own command rather than a looser `export_playlist`: that one is capped
+/// at .html precisely so it cannot become a write-anything primitive, and
+/// widening it to take a second extension would trade that guarantee away for
+/// nothing. The frontend builds the JSON; this only puts it on disk.
+#[tauri::command]
+pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
+    if !compartir::es_json(&dest) {
+        return Err("El archivo exportado debe terminar en .json".into());
+    }
+    std::fs::write(&dest, json.as_bytes()).map_err(e)
+}
+
+/// Read a shared playlist file without touching the library.
+///
+/// Nothing is created until the user has seen what matched: the same shape as
+/// `inspect_backup`, because both answer «what am I about to let in?».
+#[tauri::command]
+pub fn read_playlist_file(src: String) -> CmdResult<compartir::PlaylistFile> {
+    if !compartir::es_json(&src) {
+        return Err("Una lista exportada de Cantoral termina en .json".into());
+    }
+    compartir::leer(std::path::Path::new(&src)).map_err(|err| format!("{err}"))
+}
+
 #[tauri::command]
 pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
@@ -624,7 +651,7 @@ pub fn backup_database(db: State<Db>, db_path: State<DbPath>, dest: String) -> C
 
 #[cfg(test)]
 mod tests {
-    use super::{abrible, export_playlist};
+    use super::{abrible, export_playlist, export_playlist_json};
     use std::path::Path;
 
     #[test]
@@ -710,6 +737,32 @@ mod tests {
         export_playlist(dest.clone(), "<h1>Culto</h1>".into()).unwrap();
 
         assert_eq!(std::fs::read_to_string(&dest).unwrap(), "<h1>Culto</h1>");
+    }
+
+    #[test]
+    fn the_json_export_writes_what_it_is_given() {
+        let dir = Dir::new("json-verbatim");
+        let dest = dir.path("culto.json");
+
+        export_playlist_json(dest.clone(), r#"{"cantoral":1}"#.into()).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), r#"{"cantoral":1}"#);
+    }
+
+    #[test]
+    fn the_json_export_is_no_looser_than_the_sheet_one() {
+        // Two commands with one extension each, rather than one command with
+        // two: neither may become a way to write arbitrary bytes anywhere.
+        let dir = Dir::new("json-refuses");
+        for bad in ["culto.html", "culto.db", "culto.sh", "culto"] {
+            let dest = dir.path(bad);
+            assert!(export_playlist_json(dest.clone(), "{}".into()).is_err(), "{bad}");
+            assert!(!std::path::Path::new(&dest).exists(), "{bad} must not have been written");
+        }
+        // And the sheet export still refuses .json, for the same reason.
+        let dest = dir.path("culto.json");
+        assert!(export_playlist(dest.clone(), "<h1>x</h1>".into()).is_err());
+        assert!(!std::path::Path::new(&dest).exists());
     }
 
     #[test]

@@ -7,6 +7,7 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Track } from "./types";
+import type { ArchivoDeLista } from "./compartir";
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -118,6 +119,31 @@ export async function pickExportPath(defaultPath: string): Promise<string | null
 /** Write the rendered playlist sheet to disk. */
 export async function exportPlaylistCmd(dest: string, html: string): Promise<void> {
   await inv("export_playlist", { dest, html });
+}
+
+/** Native save dialog for a playlist another installation can import. */
+export async function pickShareExportPath(defaultPath: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  const res = await save({ defaultPath, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
+  return res ?? null;
+}
+
+/** Write a shared playlist file to disk. */
+export async function exportPlaylistJsonCmd(dest: string, json: string): Promise<void> {
+  await inv("export_playlist_json", { dest, json });
+}
+
+/** Native open dialog for a shared playlist file. */
+export async function pickPlaylistFile(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const res = await open({ multiple: false, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
+  return typeof res === "string" ? res : null;
+}
+
+/** Read a shared playlist file. Nothing is created; this only reports it. */
+export async function readPlaylistFileCmd(src: string): Promise<ArchivoDeLista> {
+  return inv<ArchivoDeLista>("read_playlist_file", { src });
 }
 
 /** Native save dialog for the database backup. */
@@ -416,4 +442,32 @@ export async function backupDatabase(dest: string): Promise<void> {
 export async function onScanProgress(cb: (p: ScanProgressEvent) => void): Promise<() => void> {
   if (!isTauri()) return () => {};
   return listen<ScanProgressEvent>("scan-progress", (e) => cb(e.payload));
+}
+
+/**
+ * Read a shared playlist file in a plain browser, with a file picker.
+ *
+ * The app goes through the native dialog and the Rust reader; this is the
+ * browser's way in, so «exportar e importar» can be tried end to end with
+ * `pnpm dev`. Resolves to null when the picker is dismissed.
+ */
+export async function leerArchivoDelNavegador(): Promise<ArchivoDeLista | null> {
+  const { parsearArchivo } = await import("./compartir");
+  const texto = await new Promise<string | null>((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) {
+        resolve(null);
+        return;
+      }
+      file.text().then(resolve, reject);
+    };
+    // No `oncancel` in every browser, so a dismissed picker simply never
+    // resolves — and nothing was going to happen anyway.
+    input.click();
+  });
+  return texto === null ? null : parsearArchivo(texto);
 }

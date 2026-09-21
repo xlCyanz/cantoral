@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, ChevronDown, ChevronUp, Copy, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, Share2, ChevronDown, ChevronUp, Copy, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
@@ -157,6 +157,7 @@ export default function PlaylistView() {
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
   const toggleCurrentTemplate = useStore((s) => s.toggleCurrentTemplate);
+  const shareCurrentList = useStore((s) => s.shareCurrentList);
   const showBiblioteca = useStore((s) => s.showBiblioteca);
   const reorderNotice = useStore((s) => s.reorderNotice);
   const arrastrandoDesdeBiblioteca = useStore((s) => s.dragFromLibrary.length);
@@ -207,6 +208,12 @@ export default function PlaylistView() {
                     </button>
                     <button onClick={() => { setMenuOpen(false); duplicateCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Copy size={15} />Duplicar lista
+                    </button>
+                    {/* «Exportar» ya existe y hace una hoja para imprimir.
+                        Esto es lo otro: el archivo que entiende otra copia de
+                        Cantoral, no una persona. */}
+                    <button onClick={() => { setMenuOpen(false); shareCurrentList(); }} className="hb-s2" style={menuItem}>
+                      <Share2 size={15} />Enviar a otra instalación
                     </button>
                     <button onClick={() => { setMenuOpen(false); toggleCurrentTemplate(); }} className="hb-s2" style={menuItem}>
                       {pl?.plantilla ? <BookmarkMinus size={15} /> : <BookmarkPlus size={15} />}

@@ -11,6 +11,32 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Una lista se puede mandar a otra instalación.** «Exportar» hacía una hoja
+  para imprimir: sirve para el equipo, no para la otra copia de Cantoral. El
+  director armaba el repertorio en su portátil y en el PC de la iglesia había
+  que volver a armarlo pista por pista.
+
+  Ahora el menú `⋮` de una lista tiene **«Enviar a otra instalación»**, que
+  escribe un `.cantoral.json`, y «Listas para cultos» tiene **«Importar
+  lista»**, que lo abre. **El archivo no lleva audio** —es justo lo que la app
+  promete no mover— **ni la ruta del disco de quien exporta**: solo el nombre
+  del archivo, que es lo que hace falta para volver a encontrar cada pista y no
+  le cuenta a nadie cómo tiene organizada la música.
+
+  **Importar enseña antes de hacer.** Una pantalla dice qué se encontró y qué
+  no, y solo entonces se crea la lista. Lo ausente se nombra, no se cuenta: se
+  puede añadir a mano, o indexar esa carpeta y volver a importar. Las pistas se
+  emparejan por el nombre del archivo o por título, artista y una duración
+  parecida; una versión de nueve minutos de algo que dura tres **no** entra al
+  culto sin que nadie lo haya pedido.
+
+- **Una lista se puede duplicar, y guardarse como plantilla.** Los cultos se
+  repiten y cada lista se armaba desde cero. El menú `⋮` duplica la lista
+  —mismo orden, misma ocasión, sin fecha, porque una copia es el culto que
+  *viene*— y puede guardarla como **plantilla**, de la que «Nueva lista» parte
+  con un clic. Arriba de las listas hay además un atajo para **repetir el culto
+  anterior** de cada ocasión, que dice cuál copiaría y de cuándo es.
+
 - **Armar un culto deja de ser de una pista en una.** Era la función central de
   la app y el camino más largo posible: abrir el panel de detalle, «Elegir
   lista…», la lista, repetir. Ocho canciones eran veinticuatro clics.

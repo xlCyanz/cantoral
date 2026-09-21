@@ -1,8 +1,8 @@
-import { Calendar, Layers, ListMusic, Plus, RotateCcw } from "lucide-react";
+import { Calendar, FileInput, Layers, ListMusic, Plus, RotateCcw } from "lucide-react";
 import { plDur, repetibles, useStore } from "../store";
 import { gradientFor } from "../lib/covers";
 import { formatearFechaCorta, partirPorFecha } from "../lib/fechas";
-import Empty, { emptyBtnPrimary } from "./Empty";
+import Empty, { emptyBtnPrimary, emptyBtnSecondary } from "./Empty";
 
 export default function CollectionsView() {
   const playlists = useStore((s) => s.playlists);
@@ -12,6 +12,7 @@ export default function CollectionsView() {
   const tracks = useStore((s) => s.tracks);
   const duplicateList = useStore((s) => s.duplicateList);
   const repetir = useStore(repetibles);
+  const importList = useStore((s) => s.importList);
 
   // Templates are not services, so they are kept out of the date split: a
   // template has no date and would otherwise pile up under «Sin fecha» next to
@@ -36,9 +37,16 @@ export default function CollectionsView() {
         title="Aún no hay listas"
         desc="Crea tu primera lista para armar el repertorio de un culto o ensayo."
         action={
-          <button onClick={newList} className="hb-primary" style={emptyBtnPrimary}>
-            <Plus size={18} strokeWidth={2.2} />Nueva lista
-          </button>
+          // Importing has to be reachable from here as well: a fresh install
+          // that was sent a list has no lists, which is exactly this screen.
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <button onClick={newList} className="hb-primary" style={emptyBtnPrimary}>
+              <Plus size={18} strokeWidth={2.2} />Nueva lista
+            </button>
+            <button onClick={importList} className="hb-s2" style={emptyBtnSecondary}>
+              <FileInput size={16} />Importar lista
+            </button>
+          </div>
         }
       />
     );
@@ -50,9 +58,14 @@ export default function CollectionsView() {
         <p style={{ fontSize: "13.5px", color: "var(--text-2)", margin: 0, maxWidth: 520, lineHeight: 1.5 }}>
           Arma el repertorio de cada culto o ensayo. Reordena arrastrando, reproduce toda la lista y expórtala para el equipo.
         </p>
-        <button onClick={newList} className="hb-primary" style={{ flex: "0 0 auto", height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
-          <Plus size={16} strokeWidth={2.2} />Nueva lista
-        </button>
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={importList} className="hb-s2" title="Abrir una lista exportada desde otra instalación" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+            <FileInput size={16} />Importar lista
+          </button>
+          <button onClick={newList} className="hb-primary" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
+            <Plus size={16} strokeWidth={2.2} />Nueva lista
+          </button>
+        </div>
       </div>
 
       {repetir.length > 0 && (

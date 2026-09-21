@@ -1,6 +1,7 @@
 // Cantoral — Tauri backend entry point.
 
 mod commands;
+mod compartir;
 mod db;
 mod models;
 mod scanner;
@@ -85,6 +86,8 @@ pub fn run() {
             commands::update_playlist,
             commands::delete_playlist,
             commands::export_playlist,
+            commands::export_playlist_json,
+            commands::read_playlist_file,
             commands::get_setting,
             commands::set_setting,
             commands::get_db_info,
