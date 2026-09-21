@@ -24,6 +24,7 @@ import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, see
 import { nombreDeCopia } from "./lib/copias";
 import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "./lib/compartir";
 import type { ArchivoDeLista, Resultado } from "./lib/compartir";
+import type { UpdateCheck, UpdateProgress } from "./lib/api";
 import { ultimaPorOcasion } from "./lib/repetir";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
@@ -37,6 +38,7 @@ import {
   assetUrl,
   cancelScanCmd,
   backupDatabase,
+  checkForUpdateCmd,
   createPlaylistCmd,
   deletePlaylistCmd,
   duplicatePlaylistCmd,
@@ -53,11 +55,13 @@ import {
   getTrackSheet,
   dismissDuplicatesCmd,
   findDuplicatesCmd,
+  installUpdateCmd,
   inspectBackup,
   isTauri,
   mergeDuplicatesCmd,
   restoreDismissedDuplicatesCmd,
   openExternalPath,
+  onUpdateProgress,
   pickDbFile,
   pickExportPath,
   pickFolder,
@@ -108,6 +112,15 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingSave: string | null = null;
 /** Debounce for writing the interface preferences back. */
 let prefsTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Deja de escuchar el progreso de la descarga.
+ *
+ * Fuera del store porque no es estado que nadie pinte: solo hace falta para
+ * soltar el listener si la instalación falla. Si funciona, la app se reinicia
+ * y no queda nada que soltar.
+ */
+let pararProgreso: (() => void) | null = null;
 
 /**
  * A destructive action waiting to be confirmed.
@@ -209,6 +222,14 @@ export interface CantoralState {
    * user to look at what was found before anything is created.
    */
   importPreview: ImportPreview | null;
+
+  // ---- actualizaciones ----
+  /** Lo último que se supo del actualizador. `null` = todavía sin preguntar. */
+  update: UpdateCheck | null;
+  updateState: "idle" | "checking" | "downloading" | "error";
+  /** Por qué falló la última comprobación, para poder decirlo. */
+  updateError: string | null;
+  updateProgress: UpdateProgress | null;
   /**
    * Whether a scan is walking the disk right now.
    *
@@ -360,6 +381,17 @@ export interface CantoralState {
   exportPl: () => void;
   /** Show the sheet as it will be printed, before anything leaves the app. */
   openPrintPreview: () => void;
+
+  /**
+   * Ask whether there is a newer Cantoral.
+   *
+   * `manual` is the difference between the check at startup and the button:
+   * the first says nothing unless there is an update, the second always
+   * answers, because silence after pressing a button reads as broken.
+   */
+  checkForUpdate: (manual?: boolean) => Promise<void>;
+  /** Download, install and restart into the new version. */
+  installUpdate: () => void;
   /**
    * Whether the printed sheet carries the lyrics and chords.
    *
@@ -685,6 +717,10 @@ export const useStore = create<CantoralState>((set, get) => {
 
     dialog: null,
     importPreview: null,
+    update: null,
+    updateState: "idle",
+    updateError: null,
+    updateProgress: null,
     printWithLyrics: false,
     scanning: false,
     scanPct: 0,
@@ -1181,6 +1217,11 @@ export const useStore = create<CantoralState>((set, get) => {
           }
         }
 
+        // Callada y sin bloquear: si hay algo, aparece en Configuración; si no,
+        // nadie se entera. Una app que interrumpe al abrirse para decir que no
+        // pasa nada es una app que se aprende a ignorar.
+        void get().checkForUpdate();
+
         // Files can disappear while the app is closed; re-check them once the
         // catalogue is on screen rather than blocking the first paint.
         void reconcileLibraryCmd()
@@ -1244,6 +1285,41 @@ export const useStore = create<CantoralState>((set, get) => {
       void get().loadSheets(ord);
     },
     setPrintWithLyrics: (con) => set({ printWithLyrics: con }),
+    checkForUpdate: async (manual = false) => {
+      if (get().updateState === "downloading") return;
+      set({ updateState: "checking", updateError: null });
+      try {
+        const update = await checkForUpdateCmd();
+        set({ update, updateState: "idle" });
+        // Al arrancar solo se habla si hay algo que decir. “Estás al día” sin
+        // que nadie lo haya preguntado es ruido en cada apertura.
+        if (manual && update.estado === "alDia") toast("Cantoral está al día");
+        if (manual && update.estado === "sinConfigurar") {
+          toast("Esta compilación no trae actualizaciones automáticas", "info");
+        }
+      } catch (err) {
+        console.error("update check failed", err);
+        set({ updateState: "error", updateError: String(err) });
+        if (manual) toast("No se pudo comprobar si hay actualizaciones", "error");
+      }
+    },
+    installUpdate: () => {
+      const s = get();
+      if (s.update?.estado !== "disponible" || s.updateState === "downloading") return;
+      set({ updateState: "downloading", updateProgress: { descargado: 0, total: null }, updateError: null });
+      void onUpdateProgress((updateProgress) => set({ updateProgress })).then((parar) => {
+        pararProgreso = parar;
+      });
+      installUpdateCmd()
+        // No hay `then`: si funciona, la app se reinicia y nada de esto sigue vivo.
+        .catch((err) => {
+          console.error("update install failed", err);
+          pararProgreso?.();
+          pararProgreso = null;
+          set({ updateState: "error", updateError: String(err), updateProgress: null });
+          toast("No se pudo instalar la actualización", "error");
+        });
+    },
     newList: () => set({ dialog: "newList" }),
     createList: (nombre, fecha, ocasion, desde) => {
       set({ dialog: null });

@@ -522,6 +522,37 @@ pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
     std::fs::write(&dest, html.as_bytes()).map_err(e)
 }
 
+/// Is there a newer Cantoral published?
+///
+/// Desktop only: on mobile the store does this, and the plugin is not even
+/// compiled in, so the frontend is told there is nothing configured.
+#[tauri::command]
+pub async fn check_for_update(app: AppHandle) -> CmdResult<crate::updates::UpdateCheck> {
+    #[cfg(desktop)]
+    {
+        crate::updates::buscar(&app).await
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Ok(crate::updates::UpdateCheck::SinConfigurar)
+    }
+}
+
+/// Download and install the update, then restart into it. Does not return.
+#[tauri::command]
+pub async fn install_update(app: AppHandle) -> CmdResult<()> {
+    #[cfg(desktop)]
+    {
+        crate::updates::instalar(&app).await
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Err("Esta compilación de Cantoral no trae actualizaciones automáticas.".into())
+    }
+}
+
 /// Write a playlist as the `.cantoral.json` another installation can import.
 ///
 /// Its own command rather than a looser `export_playlist`: that one is capped

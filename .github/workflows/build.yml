@@ -106,15 +106,21 @@ jobs:
         include:
           - platform: macos-latest
             artifact: cantoral-macos
+            # El .tar.gz y su .sig son lo que descarga el actualizador; solo
+            # aparecen cuando hay clave de firma.
             paths: |
               src-tauri/target/release/bundle/dmg/*.dmg
               src-tauri/target/release/bundle/macos/*.app
+              src-tauri/target/release/bundle/macos/*.app.tar.gz
+              src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
           - platform: windows-latest
             artifact: cantoral-windows
             paths: |
               src-tauri/target/release/Cantoral.exe
               src-tauri/target/release/bundle/nsis/*.exe
+              src-tauri/target/release/bundle/nsis/*.exe.sig
               src-tauri/target/release/bundle/msi/*.msi
+              src-tauri/target/release/bundle/msi/*.msi.sig
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v7
@@ -161,6 +167,13 @@ jobs:
       - name: Build Cantoral
         shell: bash
         env:
+          # Firma del actualizador. Es independiente de la firma de código de
+          # Apple y Microsoft: con esta clave las actualizaciones quedan
+          # verificadas criptográficamente aunque el bundle siga sin firmar.
+          # Si el secret no está, no se generan artefactos de actualización y
+          # el release sale como siempre.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # macOS signing + notarization. Tauri picks these up automatically;
           # with none of them set the .app/.dmg are produced unsigned.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -172,12 +185,33 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          overrides='{}'
           thumbprint="${{ steps.winsign.outputs.thumbprint }}"
           if [ -n "$thumbprint" ]; then
             # Passed on the command line so the thumbprint never lands in the repo.
-            pnpm tauri build --config "{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$thumbprint\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"http://timestamp.digicert.com\"}}}"
+            overrides=$(node -e '
+              const o = JSON.parse(process.argv[1]);
+              o.bundle = { ...o.bundle, windows: { certificateThumbprint: process.argv[2],
+                digestAlgorithm: "sha256", timestampUrl: "http://timestamp.digicert.com" } };
+              process.stdout.write(JSON.stringify(o));
+            ' "$overrides" "$thumbprint")
+          fi
+          # Los artefactos de actualización solo se pueden firmar si hay clave;
+          # sin ella se compila igual, solo que ese release no actualizará a
+          # nadie. La clave pública vive en tauri.conf.json.
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            overrides=$(node -e '
+              const o = JSON.parse(process.argv[1]);
+              o.bundle = { ...o.bundle, createUpdaterArtifacts: true };
+              process.stdout.write(JSON.stringify(o));
+            ' "$overrides")
           else
+            echo "::warning::sin TAURI_SIGNING_PRIVATE_KEY: este release no podrá actualizar instalaciones existentes."
+          fi
+          if [ "$overrides" = "{}" ]; then
             pnpm tauri build
+          else
+            pnpm tauri build --config "$overrides"
           fi
 
       - name: Upload artifacts
@@ -209,16 +243,40 @@ jobs:
         run: |
           set -euo pipefail
           # El bundle .app es un directorio y no sirve como asset de release; lo
-          # que la gente descarga son el .dmg, el .msi y el .exe.
+          # que la gente descarga son el .dmg, el .msi y el .exe. El .tar.gz de
+          # macOS no se descarga a mano, pero es lo que pide el actualizador.
           assets=()
           while IFS= read -r f; do assets+=("$f"); done < <(find artifacts -type f \
-            \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) | sort)
+            \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.app.tar.gz' \) \
+            ! -path '*/Cantoral.app/*' | sort)
           if [ "${#assets[@]}" -eq 0 ]; then
             echo "::error::no installers found in the build artifacts"
             exit 1
           fi
           printf 'asset: %s\n' "${assets[@]}"
           printf '%s\n' "${assets[@]}" > assets.txt
+
+      # El actualizador pide un manifiesto que Tauri no genera: se arma aquí a
+      # partir de los .sig que dejó cada compilación. Sin .sig no hay
+      # manifiesto, y el release se publica igual — solo que sin actualizar a
+      # nadie, que es exactamente lo que pasa hoy.
+      - name: Armar latest.json
+        id: manifest
+        shell: bash
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! find artifacts -type f -name '*.sig' | grep -q .; then
+            echo "::warning::sin firmas del actualizador; no se publica latest.json."
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node .github/scripts/latest-json.mjs > latest.json
+          cat latest.json
+          echo "hay=sí" >> "$GITHUB_OUTPUT"
 
       - name: Redactar las notas
         shell: bash
@@ -277,6 +335,11 @@ jobs:
           # y las añada debajo de las de notes.md.
           extra=()
           if [ ! -s changelog-section.md ]; then extra=(--generate-notes); fi
+
+          # `latest.json` va como un asset más: el endpoint del actualizador
+          # apunta a releases/latest/download/latest.json, que GitHub resuelve
+          # siempre al último release publicado.
+          if [ -f latest.json ]; then assets+=(latest.json); fi
 
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \

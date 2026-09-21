@@ -471,3 +471,37 @@ export async function leerArchivoDelNavegador(): Promise<ArchivoDeLista | null> 
   });
   return texto === null ? null : parsearArchivo(texto);
 }
+
+/** Lo que el núcleo responde al preguntar si hay una versión más nueva. */
+export type UpdateCheck =
+  | { estado: "sinConfigurar" }
+  | { estado: "alDia" }
+  | { estado: "disponible"; version: string; notas: string; fecha: string | null };
+
+/** Cuánto lleva descargado el instalador. `total` falta si el servidor no lo dice. */
+export interface UpdateProgress {
+  descargado: number;
+  total: number | null;
+}
+
+/**
+ * Ask whether there is a newer Cantoral.
+ *
+ * In a plain browser there is nothing to update, and saying «sin configurar»
+ * is truer than pretending the app is up to date.
+ */
+export async function checkForUpdateCmd(): Promise<UpdateCheck> {
+  if (!isTauri()) return { estado: "sinConfigurar" };
+  return inv<UpdateCheck>("check_for_update");
+}
+
+/** Download, install and restart. Does not resolve when it works. */
+export async function installUpdateCmd(): Promise<void> {
+  await inv("install_update");
+}
+
+/** Follow the download. Returns the unlisten function. */
+export async function onUpdateProgress(cb: (p: UpdateProgress) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen<UpdateProgress>("update-progress", (e) => cb(e.payload));
+}

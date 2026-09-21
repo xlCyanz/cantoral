@@ -11,6 +11,27 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Cantoral se actualiza sola.** Hasta ahora, actualizar significaba entrar a
+  GitHub, encontrar el release, descargar el instalador y ejecutarlo —y en macOS
+  acordarse del `xattr`—. En un PC de iglesia compartido y sin nadie técnico
+  cerca, eso quiere decir que la instalación se queda en la versión con la que
+  nació y los arreglos no llegan nunca.
+
+  Ahora **mira al abrirse, sin interrumpir**: si hay algo, aparece en
+  **Configuración → Actualizaciones** con el número de versión y las novedades,
+  y se instala con un botón. Si no hay nada, no dice nada — una app que
+  interrumpe cada vez que se abre para decir que no pasa nada es una app que se
+  aprende a ignorar. También se puede comprobar a mano cuando se quiera.
+
+  Las actualizaciones van **firmadas con una clave propia del actualizador**,
+  independiente de la firma de código de Apple y Microsoft, así que quedan
+  verificadas aunque los instaladores sigan sin firmar. En macOS la app
+  actualizada vuelve a quedar en cuarentena mientras no exista el certificado, y
+  el aviso lo dice antes de instalar, con el comando exacto.
+
+  Una compilación hecha sin la clave —un fork, por ejemplo— **lo dice** en vez
+  de fingir que está al día.
+
 - **Imprimir deja de pasar por el navegador.** «Exportar» escribía un `.html`
   en el disco, lo abría en el navegador predeterminado y esperaba a que alguien
   pulsara `Cmd/Ctrl + P`: el pie de la propia hoja tenía que explicarlo, y por
