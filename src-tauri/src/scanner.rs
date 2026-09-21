@@ -81,7 +81,8 @@ impl Drop for ScanClaim<'_> {
     }
 }
 
-const AUDIO_EXTS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff", "aif"];
+const AUDIO_EXTS: &[&str] =
+    &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff", "aif"];
 const VIDEO_EXTS: &[&str] = &["mp4", "mov", "mkv", "avi", "webm", "m4v", "wmv"];
 
 fn ext_lower(p: &Path) -> Option<String> {
