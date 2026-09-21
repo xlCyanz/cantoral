@@ -22,6 +22,8 @@ function resolveTheme(mode: ThemeMode): Theme {
 }
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { nombreDeCopia } from "./lib/copias";
+import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "./lib/compartir";
+import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import { ultimaPorOcasion } from "./lib/repetir";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
@@ -40,6 +42,11 @@ import {
   duplicatePlaylistCmd,
   deleteTrackCmd,
   exportPlaylistCmd,
+  exportPlaylistJsonCmd,
+  leerArchivoDelNavegador,
+  pickPlaylistFile,
+  pickShareExportPath,
+  readPlaylistFileCmd,
   getLibrary,
   getSetting,
   getSheets,
@@ -130,6 +137,18 @@ export interface ToastNotice {
   type: ToastType;
 }
 
+/**
+ * A shared playlist file, already read and matched against this catalogue.
+ *
+ * Held rather than acted on: the whole point of the import screen is that the
+ * user sees which songs were found, and which ones this installation does not
+ * have, before a list appears.
+ */
+export interface ImportPreview {
+  archivo: ArchivoDeLista;
+  resultado: Resultado;
+}
+
 export interface CantoralState {
   // ---- data ----
   tracks: Track[];
@@ -184,7 +203,12 @@ export interface CantoralState {
   saveState: SaveState;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | null;
+  /**
+   * A shared playlist file that has been read and matched, waiting for the
+   * user to look at what was found before anything is created.
+   */
+  importPreview: ImportPreview | null;
   /**
    * Whether a scan is walking the disk right now.
    *
@@ -347,6 +371,12 @@ export interface CantoralState {
   duplicateCurrentList: () => void;
   /** Keep the open list as a starting point for new ones, or stop doing so. */
   toggleCurrentTemplate: () => void;
+  /** Write the open list as a file another installation can import. */
+  shareCurrentList: () => void;
+  /** Read a shared list and show what it matched, without creating anything. */
+  importList: () => void;
+  /** Create the list the import preview describes. */
+  confirmImport: () => void;
   removeFromPl: (id: string) => void;
   reorderPl: (toId: string) => void;
   /** Move a track up or down the open list. The keyboard's way in. */
@@ -644,6 +674,7 @@ export const useStore = create<CantoralState>((set, get) => {
     saveState: "idle",
 
     dialog: null,
+    importPreview: null,
     scanning: false,
     scanPct: 0,
     scanIdx: 0,
@@ -1008,7 +1039,7 @@ export const useStore = create<CantoralState>((set, get) => {
       set({ dialog: "addFolder" });
     },
     openHelp: () => set({ dialog: "help" }),
-    closeDialog: () => set({ dialog: null }),
+    closeDialog: () => set({ dialog: null, importPreview: null }),
     confirmAddFolder: () => {
       set({ dialog: null });
       get().indexFolder();
@@ -1252,6 +1283,109 @@ export const useStore = create<CantoralState>((set, get) => {
       }
     },
     duplicateCurrentList: () => get().duplicateList(get().curPlaylist),
+    shareCurrentList: () => {
+      const s = get();
+      const pl = s.playlists.find((p) => p.id === s.curPlaylist);
+      const rows = (s.plOrder[s.curPlaylist] || [])
+        .map((id) => s.tracks.find((t) => t.id === id))
+        .filter((t): t is Track => !!t);
+      if (!pl) return;
+      if (rows.length === 0) {
+        toast("La lista está vacía");
+        return;
+      }
+      const json = JSON.stringify(armarArchivo(pl, rows), null, 2);
+      const name = nombreDeArchivo(pl.nombre);
+      if (!isTauri()) {
+        // Browser fallback, so the whole round trip is testable with `pnpm dev`.
+        const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast("Lista exportada para otra instalación");
+        return;
+      }
+      void pickShareExportPath(name).then((dest) => {
+        if (!dest) return;
+        exportPlaylistJsonCmd(dest, json)
+          .then(() => toast("Lista exportada para otra instalación"))
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo exportar la lista", "error");
+          });
+      });
+    },
+    importList: () => {
+      // Read and match before anything is created: the screen that follows is
+      // the whole point, and it cannot say «faltan dos» after the fact.
+      const mostrar = (archivo: ArchivoDeLista) => {
+        const resultado = emparejar(archivo.pistas, get().tracks);
+        set({ importPreview: { archivo, resultado }, dialog: "importList" });
+      };
+      if (!isTauri()) {
+        void leerArchivoDelNavegador()
+          .then((archivo) => {
+            if (archivo) mostrar(archivo);
+          })
+          .catch((err) => {
+            console.error(err);
+            toast(String(err), "error");
+          });
+        return;
+      }
+      void pickPlaylistFile().then(async (src) => {
+        if (!src) return;
+        try {
+          mostrar(await readPlaylistFileCmd(src));
+        } catch (err) {
+          console.error(err);
+          toast(String(err), "error");
+        }
+      });
+    },
+    confirmImport: () => {
+      const previo = get().importPreview;
+      if (!previo) return;
+      const ids = idsParaLaLista(previo.resultado.encontradas);
+      if (ids.length === 0) return;
+      const { nombre, fecha, ocasion } = previo.archivo.lista;
+      set({ dialog: null, importPreview: null });
+      const aviso = () => {
+        const faltan = previo.resultado.faltantes.length;
+        toast(
+          faltan === 0
+            ? "Lista importada"
+            : `Lista importada · ${faltan} ${faltan === 1 ? "pista no está" : "pistas no están"} en esta biblioteca`,
+          faltan === 0 ? "success" : "info",
+        );
+      };
+      if (isTauri()) {
+        createPlaylistCmd(nombre, fecha, ocasion)
+          .then(async (id) => {
+            await setPlaylistOrderCmd(id, ids);
+            const snap = await getLibrary();
+            if (snap) applySnapshot(snap);
+            set({ view: "lista", curPlaylist: id });
+            aviso();
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo importar la lista", "error");
+          });
+      } else {
+        const id = "imp-" + Date.now();
+        const pl: Playlist = { id, nombre, fecha, ocasion, ids, plantilla: false };
+        set((st) => ({
+          playlists: [...st.playlists, pl],
+          plOrder: { ...st.plOrder, [id]: ids },
+          view: "lista",
+          curPlaylist: id,
+        }));
+        aviso();
+      }
+    },
     toggleCurrentTemplate: () => {
       const st = get();
       const id = st.curPlaylist;
