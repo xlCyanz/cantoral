@@ -101,18 +101,13 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     conn.execute_batch("PRAGMA busy_timeout = 15000;")?;
     // Migrations for databases created before a column existed (no-op if present).
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_path TEXT", []);
-    let _ = conn.execute(
-        "ALTER TABLE folders ADD COLUMN recursive INTEGER NOT NULL DEFAULT 1",
-        [],
-    );
+    let _ = conn.execute("ALTER TABLE folders ADD COLUMN recursive INTEGER NOT NULL DEFAULT 1", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN fsize INTEGER NOT NULL DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN letra TEXT NOT NULL DEFAULT ''", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN acordes TEXT NOT NULL DEFAULT ''", []);
-    let _ = conn.execute(
-        "ALTER TABLE playlists ADD COLUMN es_plantilla INTEGER NOT NULL DEFAULT 0",
-        [],
-    );
+    let _ = conn
+        .execute("ALTER TABLE playlists ADD COLUMN es_plantilla INTEGER NOT NULL DEFAULT 0", []);
 
     // Dates used to be free text. Whatever can be read becomes ISO so it can be
     // sorted; whatever cannot is left alone. Runs on every open and is a no-op
@@ -215,10 +210,7 @@ pub fn update_track_meta(
 }
 
 pub fn set_fav(conn: &Connection, id: i64, fav: bool) -> Result<()> {
-    conn.execute(
-        "UPDATE tracks SET fav=?1 WHERE id=?2",
-        params![fav as i64, id],
-    )?;
+    conn.execute("UPDATE tracks SET fav=?1 WHERE id=?2", params![fav as i64, id])?;
     Ok(())
 }
 
@@ -233,10 +225,7 @@ fn normalise_tag(raw: &str) -> String {
 /// Without this, correcting a typo left the misspelled tag in the table for
 /// good — invisible today, but every tag picker and autocomplete would show it.
 fn drop_orphan_tags(conn: &Connection) -> Result<usize> {
-    Ok(conn.execute(
-        "DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM track_tags)",
-        [],
-    )?)
+    Ok(conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM track_tags)", [])?)
 }
 
 /// Replace a track's tags. Runs as one transaction: the delete and the inserts
@@ -288,7 +277,8 @@ pub fn upsert_track(
            video=excluded.video, missing=0, mtime=excluded.mtime, fsize=excluded.fsize",
         params![folder_id, path, titulo, artista, album, dur_sec, formato, video as i64, now(), mtime, fsize],
     )?;
-    let id: i64 = conn.query_row("SELECT id FROM tracks WHERE path=?1", params![path], |r| r.get(0))?;
+    let id: i64 =
+        conn.query_row("SELECT id FROM tracks WHERE path=?1", params![path], |r| r.get(0))?;
     Ok(id)
 }
 
@@ -304,10 +294,7 @@ pub fn track_stamp(conn: &Connection, path: &str) -> Result<Option<(i64, i64, i6
 
 /// Re-attach an unchanged track to its folder without re-reading its metadata.
 pub fn touch_existing_track(conn: &Connection, id: i64, folder_id: i64) -> Result<()> {
-    conn.execute(
-        "UPDATE tracks SET folder_id=?1, missing=0 WHERE id=?2",
-        params![folder_id, id],
-    )?;
+    conn.execute("UPDATE tracks SET folder_id=?1, missing=0 WHERE id=?2", params![folder_id, id])?;
     Ok(())
 }
 
@@ -322,10 +309,7 @@ pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()
         .query_row("SELECT cover_path FROM tracks WHERE id=?1", params![id], |r| r.get(0))
         .ok()
         .flatten();
-    conn.execute(
-        "UPDATE tracks SET cover_path=?1 WHERE id=?2",
-        params![cover_path, id],
-    )?;
+    conn.execute("UPDATE tracks SET cover_path=?1 WHERE id=?2", params![cover_path, id])?;
     if let Some(viejo) = anterior {
         if viejo != cover_path {
             let _ = std::fs::remove_file(viejo);
@@ -350,10 +334,7 @@ pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<()> {
     for (id, path, was_missing) in rows {
         let missing = !std::path::Path::new(&path).exists();
         if missing as i64 != was_missing {
-            tx.execute(
-                "UPDATE tracks SET missing=?1 WHERE id=?2",
-                params![missing as i64, id],
-            )?;
+            tx.execute("UPDATE tracks SET missing=?1 WHERE id=?2", params![missing as i64, id])?;
         }
     }
     tx.commit()?;
@@ -387,11 +368,9 @@ pub fn relocate_track(conn: &Connection, id: i64, new_path: &Path) -> Result<()>
     let new_str = new_path.to_string_lossy().to_string();
 
     let taken: Option<i64> = conn
-        .query_row(
-            "SELECT id FROM tracks WHERE path=?1 AND id<>?2",
-            params![new_str, id],
-            |r| r.get(0),
-        )
+        .query_row("SELECT id FROM tracks WHERE path=?1 AND id<>?2", params![new_str, id], |r| {
+            r.get(0)
+        })
         .ok();
     if taken.is_some() {
         bail!("Ese archivo ya está en la biblioteca como otra pista.");
@@ -459,19 +438,14 @@ pub fn relocate_folder(conn: &Connection, id: i64, new_root: &Path) -> Result<i6
     }
     let new_str = new_root.to_string_lossy().to_string();
 
-    let old: String = conn.query_row("SELECT path FROM folders WHERE id=?1", params![id], |r| {
-        r.get(0)
-    })?;
+    let old: String =
+        conn.query_row("SELECT path FROM folders WHERE id=?1", params![id], |r| r.get(0))?;
     if old == new_str {
         return Ok(0);
     }
     if let Some(other) = overlapping_folder(conn, &new_str)? {
         if other != old {
-            bail!(
-                "«{}» se cruza con la carpeta ya indexada «{}».",
-                new_str,
-                other
-            );
+            bail!("«{}» se cruza con la carpeta ya indexada «{}».", new_str, other);
         }
     }
 
@@ -586,9 +560,8 @@ pub fn delete_tracks(conn: &Connection, ids: &[i64]) -> Result<()> {
     let mut stmt = conn.prepare(&format!(
         "SELECT cover_path FROM tracks WHERE id IN ({lista}) AND cover_path IS NOT NULL"
     ))?;
-    let portadas: Vec<String> = stmt
-        .query_map([], |r| r.get::<_, String>(0))?
-        .collect::<std::result::Result<_, _>>()?;
+    let portadas: Vec<String> =
+        stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<std::result::Result<_, _>>()?;
     drop(stmt);
 
     let tx = conn.unchecked_transaction()?;
@@ -622,9 +595,8 @@ pub fn rename_tag(conn: &Connection, from: &str, to: &str) -> Result<i64> {
         .with_context(|| format!("la etiqueta «{from}» ya no existe"))?;
 
     let tx = conn.unchecked_transaction()?;
-    let destino: Option<i64> = tx
-        .query_row("SELECT id FROM tags WHERE name=?1", params![nuevo], |r| r.get(0))
-        .ok();
+    let destino: Option<i64> =
+        tx.query_row("SELECT id FROM tags WHERE name=?1", params![nuevo], |r| r.get(0)).ok();
     let id_final = match destino {
         Some(otro) if otro != viejo_id => {
             // `OR IGNORE` for the tracks that already carried both: they end up
@@ -641,11 +613,10 @@ pub fn rename_tag(conn: &Connection, from: &str, to: &str) -> Result<i64> {
             viejo_id
         }
     };
-    let total: i64 = tx.query_row(
-        "SELECT COUNT(*) FROM track_tags WHERE tag_id=?1",
-        params![id_final],
-        |r| r.get(0),
-    )?;
+    let total: i64 =
+        tx.query_row("SELECT COUNT(*) FROM track_tags WHERE tag_id=?1", params![id_final], |r| {
+            r.get(0)
+        })?;
     tx.commit()?;
     Ok(total)
 }
@@ -665,11 +636,10 @@ pub fn delete_tag(conn: &Connection, name: &str) -> Result<()> {
 
 /// The lyrics and chords of one track.
 pub fn track_sheet(conn: &Connection, id: i64) -> Result<Sheet> {
-    let (letra, acordes): (String, String) = conn.query_row(
-        "SELECT letra, acordes FROM tracks WHERE id=?1",
-        params![id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
+    let (letra, acordes): (String, String) =
+        conn.query_row("SELECT letra, acordes FROM tracks WHERE id=?1", params![id], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })?;
     Ok(Sheet { track_id: id.to_string(), letra, acordes })
 }
 
@@ -734,9 +704,7 @@ pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
 
 /// Id of an already indexed folder with this exact path, if there is one.
 pub fn folder_id_by_path(conn: &Connection, path: &str) -> Result<Option<i64>> {
-    Ok(conn
-        .query_row("SELECT id FROM folders WHERE path=?1", params![path], |r| r.get(0))
-        .ok())
+    Ok(conn.query_row("SELECT id FROM folders WHERE path=?1", params![path], |r| r.get(0)).ok())
 }
 
 pub fn add_folder(conn: &Connection, path: &str, nombre: &str, recursive: bool) -> Result<i64> {
@@ -745,28 +713,27 @@ pub fn add_folder(conn: &Connection, path: &str, nombre: &str, recursive: bool) 
          ON CONFLICT(path) DO UPDATE SET nombre=excluded.nombre, recursive=excluded.recursive",
         params![path, nombre, now(), recursive as i64],
     )?;
-    let id: i64 = conn.query_row("SELECT id FROM folders WHERE path=?1", params![path], |r| r.get(0))?;
+    let id: i64 =
+        conn.query_row("SELECT id FROM folders WHERE path=?1", params![path], |r| r.get(0))?;
     Ok(id)
 }
 
 /// Path and «include subfolders» setting a rescan of this folder should use.
 pub fn folder_scan_target(conn: &Connection, id: i64) -> Result<(String, bool)> {
-    let (path, recursive): (String, i64) = conn.query_row(
-        "SELECT path, recursive FROM folders WHERE id=?1",
-        params![id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
+    let (path, recursive): (String, i64) =
+        conn.query_row("SELECT path, recursive FROM folders WHERE id=?1", params![id], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })?;
     Ok((path, recursive != 0))
 }
 
 /// Delete a folder, first removing the extracted cover files of its tracks so
 /// the covers directory does not accumulate orphans after the cascade delete.
 pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
-    let mut stmt =
-        conn.prepare("SELECT cover_path FROM tracks WHERE folder_id=?1 AND cover_path IS NOT NULL")?;
-    let covers: Vec<String> = stmt
-        .query_map(params![id], |r| r.get(0))?
-        .collect::<std::result::Result<_, _>>()?;
+    let mut stmt = conn
+        .prepare("SELECT cover_path FROM tracks WHERE folder_id=?1 AND cover_path IS NOT NULL")?;
+    let covers: Vec<String> =
+        stmt.query_map(params![id], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?;
     drop(stmt);
     for c in covers {
         let _ = std::fs::remove_file(&c);
@@ -784,9 +751,8 @@ pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
 /// between folders and desync the counts.
 pub fn overlapping_folder(conn: &Connection, path: &str) -> Result<Option<String>> {
     let mut stmt = conn.prepare("SELECT path FROM folders")?;
-    let existing: Vec<String> = stmt
-        .query_map([], |r| r.get(0))?
-        .collect::<std::result::Result<_, _>>()?;
+    let existing: Vec<String> =
+        stmt.query_map([], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?;
     let new = std::path::Path::new(path);
     for other in existing {
         let o = std::path::Path::new(&other);
@@ -822,8 +788,18 @@ pub fn touch_folder_scan(conn: &Connection, id: i64) -> Result<()> {
 
 /// Spanish month names, in order, as they are written and as they are typed.
 const MESES: [&str; 12] = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
-    "octubre", "noviembre", "diciembre",
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
 ];
 
 /// Fold a word for comparison: lowercase, no accents. «Miércoles» → «miercoles».
@@ -881,10 +857,10 @@ pub fn fecha_iso(raw: &str) -> Option<String> {
         .filter(|p| !p.is_empty())
         .map(plano)
         .collect();
-    let dia = palabras.iter().find_map(|p| p.parse::<u32>().ok().filter(|d| (1..=31).contains(d)))?;
-    let mes = palabras
-        .iter()
-        .find_map(|p| MESES.iter().position(|m| *m == p).map(|i| i as u32 + 1))?;
+    let dia =
+        palabras.iter().find_map(|p| p.parse::<u32>().ok().filter(|d| (1..=31).contains(d)))?;
+    let mes =
+        palabras.iter().find_map(|p| MESES.iter().position(|m| *m == p).map(|i| i as u32 + 1))?;
     let anio = palabras
         .iter()
         .find_map(|p| p.parse::<i32>().ok().filter(|a| (1900..=2999).contains(a)))?;
@@ -1003,11 +979,8 @@ pub fn create_playlist(
 /// is happy to find nothing, and the caller would hand the user an empty list
 /// where they had asked for a copy of something.
 fn copiar_pistas(conn: &Connection, de: i64, a: i64) -> Result<()> {
-    let existe: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM playlists WHERE id=?1",
-        params![de],
-        |r| r.get(0),
-    )?;
+    let existe: i64 =
+        conn.query_row("SELECT COUNT(*) FROM playlists WHERE id=?1", params![de], |r| r.get(0))?;
     if existe == 0 {
         bail!("la lista de origen {de} ya no existe");
     }
@@ -1052,7 +1025,8 @@ fn raiz_sin_copia(nombre: &str) -> &str {
     // `nombre` holds " (copia" at `abre` and ends with ')', so this slice is
     // whatever sits between the word and the closing bracket.
     let dentro = &nombre[abre + " (copia".len()..nombre.len() - 1];
-    let es_sufijo = dentro.is_empty() || (dentro.starts_with(' ') && dentro[1..].parse::<u32>().is_ok());
+    let es_sufijo =
+        dentro.is_empty() || (dentro.starts_with(' ') && dentro[1..].parse::<u32>().is_ok());
     if es_sufijo {
         &nombre[..abre]
     } else {
@@ -1068,11 +1042,10 @@ fn raiz_sin_copia(nombre: &str) -> &str {
 /// «Próximos» until somebody noticed.
 pub fn duplicate_playlist(conn: &Connection, id: i64) -> Result<i64> {
     let tx = conn.unchecked_transaction()?;
-    let (nombre, ocasion): (String, String) = tx.query_row(
-        "SELECT nombre, ocasion FROM playlists WHERE id=?1",
-        params![id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
+    let (nombre, ocasion): (String, String) =
+        tx.query_row("SELECT nombre, ocasion FROM playlists WHERE id=?1", params![id], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })?;
     let usados: Vec<String> = tx
         .prepare("SELECT nombre FROM playlists")?
         .query_map([], |r| r.get(0))?
@@ -1089,10 +1062,7 @@ pub fn duplicate_playlist(conn: &Connection, id: i64) -> Result<i64> {
 
 /// Mark a list as a template, or stop treating it as one.
 pub fn set_playlist_template(conn: &Connection, id: i64, plantilla: bool) -> Result<()> {
-    conn.execute(
-        "UPDATE playlists SET es_plantilla=?1 WHERE id=?2",
-        params![plantilla, id],
-    )?;
+    conn.execute("UPDATE playlists SET es_plantilla=?1 WHERE id=?2", params![plantilla, id])?;
     Ok(())
 }
 
@@ -1104,10 +1074,7 @@ pub fn set_playlist_template(conn: &Connection, id: i64, plantilla: bool) -> Res
 /// service list truncated at whatever row had been reached.
 pub fn set_playlist_order(conn: &Connection, playlist_id: i64, ids: &[i64]) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
-    tx.execute(
-        "DELETE FROM playlist_tracks WHERE playlist_id=?1",
-        params![playlist_id],
-    )?;
+    tx.execute("DELETE FROM playlist_tracks WHERE playlist_id=?1", params![playlist_id])?;
     for (pos, tid) in ids.iter().enumerate() {
         tx.execute(
             "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
@@ -1164,15 +1131,8 @@ pub fn delete_playlist(conn: &Connection, id: i64) -> Result<()> {
 
 /// Tables a Cantoral database always has. Used to tell a real backup apart from
 /// some other `.db` the user picked by mistake in the file dialog.
-const REQUIRED_TABLES: &[&str] = &[
-    "folders",
-    "tracks",
-    "playlists",
-    "playlist_tracks",
-    "tags",
-    "track_tags",
-    "settings",
-];
+const REQUIRED_TABLES: &[&str] =
+    &["folders", "tracks", "playlists", "playlist_tracks", "tags", "track_tags", "settings"];
 
 /// What a candidate backup file holds. Reported before anything is overwritten
 /// so the user can be told what they are about to restore.
@@ -1204,11 +1164,8 @@ pub fn inspect_backup(path: &Path) -> Result<BackupInfo> {
         .collect::<std::result::Result<_, _>>()?;
     drop(present);
 
-    let missing: Vec<&str> = REQUIRED_TABLES
-        .iter()
-        .copied()
-        .filter(|t| !names.iter().any(|n| n == t))
-        .collect();
+    let missing: Vec<&str> =
+        REQUIRED_TABLES.iter().copied().filter(|t| !names.iter().any(|n| n == t)).collect();
     if !missing.is_empty() {
         bail!(
             "El archivo no es un respaldo de Cantoral: le faltan las tablas {}.",
@@ -1245,10 +1202,8 @@ pub fn restore_from_backup(live: &Path, src: &Path) -> Result<Connection> {
     inspect_backup(src)?;
 
     let rollback = live.with_extension("db.rollback");
-    let rollback_sidecars = [
-        live.with_extension("db-wal.rollback"),
-        live.with_extension("db-shm.rollback"),
-    ];
+    let rollback_sidecars =
+        [live.with_extension("db-wal.rollback"), live.with_extension("db-shm.rollback")];
     for p in [&[rollback.clone()][..], &rollback_sidecars[..]].concat() {
         let _ = std::fs::remove_file(p);
     }
@@ -1299,9 +1254,8 @@ pub fn restore_from_backup(live: &Path, src: &Path) -> Result<Connection> {
 // ---------------------------------------------------------------- settings
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>> {
-    let v = conn
-        .query_row("SELECT value FROM settings WHERE key=?1", params![key], |r| r.get(0))
-        .ok();
+    let v =
+        conn.query_row("SELECT value FROM settings WHERE key=?1", params![key], |r| r.get(0)).ok();
     Ok(v)
 }
 
@@ -1326,8 +1280,8 @@ const TOLERANCIA_SEG: i64 = 3;
 /// fuse two songs that only looked alike, and missing a duplicate costs the
 /// user a scroll — fusing the wrong pair costs them a song.
 const RUIDO: &[&str] = &[
-    "final", "finales", "copia", "copy", "nuevo", "nueva", "new", "master", "mix", "remix",
-    "vivo", "live", "demo", "editado", "edit", "version",
+    "final", "finales", "copia", "copy", "nuevo", "nueva", "new", "master", "mix", "remix", "vivo",
+    "live", "demo", "editado", "edit", "version",
 ];
 
 /// Fold a title or artist down to what two copies of the same song share.
@@ -1440,7 +1394,9 @@ fn armar_grupo(mut tracks: Vec<DuplicateTrack>, motivo: &str) -> DuplicateGroup 
         .iter()
         // Best format first, then the bigger file, then the one indexed
         // earliest — a stable answer rather than whatever order rows came in.
-        .max_by_key(|t| (calidad(&t.formato, t.missing), t.fsize, -t.id.parse::<i64>().unwrap_or(0)))
+        .max_by_key(|t| {
+            (calidad(&t.formato, t.missing), t.fsize, -t.id.parse::<i64>().unwrap_or(0))
+        })
         .map(|t| t.id.clone())
         .unwrap_or_default();
     let signature = tracks.iter().map(|t| t.id.as_str()).collect::<Vec<_>>().join("-");
@@ -1563,11 +1519,8 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
     if drop_ids.contains(&keep_id) {
         bail!("la pista que se conserva no puede estar entre las que se fusionan");
     }
-    let existe: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM tracks WHERE id=?1",
-        params![keep_id],
-        |r| r.get(0),
-    )?;
+    let existe: i64 =
+        conn.query_row("SELECT COUNT(*) FROM tracks WHERE id=?1", params![keep_id], |r| r.get(0))?;
     if existe == 0 {
         bail!("la pista que se conserva ya no está en la biblioteca");
     }
@@ -1578,9 +1531,8 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
     let mut stmt = conn.prepare(&format!(
         "SELECT cover_path FROM tracks WHERE id IN ({marcador}) AND cover_path IS NOT NULL"
     ))?;
-    let portadas: Vec<String> = stmt
-        .query_map([], |r| r.get::<_, String>(0))?
-        .collect::<std::result::Result<_, _>>()?;
+    let portadas: Vec<String> =
+        stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<std::result::Result<_, _>>()?;
     drop(stmt);
 
     let tx = conn.unchecked_transaction()?;
@@ -1658,7 +1610,8 @@ mod tests {
     }
 
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
-        upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100).unwrap()
+        upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100)
+            .unwrap()
     }
 
     // ---- bulk edits ----
@@ -1864,8 +1817,10 @@ mod tests {
     #[test]
     fn the_migration_rewrites_what_it_can_and_keeps_the_rest() {
         let conn = mem();
-        let legible = create_playlist(&conn, "Culto", "Domingo 13 de julio, 2025", "", None).unwrap();
-        let ilegible = create_playlist(&conn, "Ensayo", "el domingo después de Pascua", "", None).unwrap();
+        let legible =
+            create_playlist(&conn, "Culto", "Domingo 13 de julio, 2025", "", None).unwrap();
+        let ilegible =
+            create_playlist(&conn, "Ensayo", "el domingo después de Pascua", "", None).unwrap();
         let vacia = create_playlist(&conn, "Repertorio", "", "", None).unwrap();
 
         let n = migrate_playlist_dates(&conn).unwrap();
@@ -2498,10 +2453,7 @@ mod tests {
         add_folder(&conn, "/music/himnos", "himnos", true).unwrap();
 
         // A parent of an indexed folder, and a child of one, both overlap.
-        assert_eq!(
-            overlapping_folder(&conn, "/music").unwrap(),
-            Some("/music/himnos".into())
-        );
+        assert_eq!(overlapping_folder(&conn, "/music").unwrap(), Some("/music/himnos".into()));
         assert_eq!(
             overlapping_folder(&conn, "/music/himnos/2025").unwrap(),
             Some("/music/himnos".into())
@@ -2563,7 +2515,8 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto", "2026-01-04", "Servicio dominical", None).unwrap();
+        let pid =
+            create_playlist(&conn, "Culto", "2026-01-04", "Servicio dominical", None).unwrap();
         set_playlist_order(&conn, pid, &[c, a, b]).unwrap();
 
         let copia = duplicate_playlist(&conn, pid).unwrap();
@@ -2645,13 +2598,19 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let plantilla = create_playlist(&conn, "Dominical", "", "Servicio dominical", None).unwrap();
+        let plantilla =
+            create_playlist(&conn, "Dominical", "", "Servicio dominical", None).unwrap();
         set_playlist_order(&conn, plantilla, &[b, a]).unwrap();
         set_playlist_template(&conn, plantilla, true).unwrap();
 
-        let nueva =
-            create_playlist(&conn, "Culto 4 Ene", "2026-01-04", "Servicio dominical", Some(plantilla))
-                .unwrap();
+        let nueva = create_playlist(
+            &conn,
+            "Culto 4 Ene",
+            "2026-01-04",
+            "Servicio dominical",
+            Some(plantilla),
+        )
+        .unwrap();
 
         let listas = list_playlists(&conn).unwrap();
         let hecha = listas.iter().find(|p| p.id == nueva.to_string()).unwrap();
@@ -2970,10 +2929,7 @@ mod tests {
         set_track_tags(&conn, id, &["lento, meditativo".into()]).unwrap();
 
         // Con group_concat volvían dos: "lento" y " meditativo".
-        assert_eq!(
-            list_tracks(&conn).unwrap()[0].tags,
-            vec!["lento, meditativo".to_string()]
-        );
+        assert_eq!(list_tracks(&conn).unwrap()[0].tags, vec!["lento, meditativo".to_string()]);
     }
 
     #[test]
@@ -3000,9 +2956,7 @@ mod tests {
         set_track_tags(&conn, a, &["  lento   suave ".into()]).unwrap();
         set_track_tags(&conn, b, &["lento suave".into()]).unwrap();
 
-        let n: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0))
-            .unwrap();
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap();
         assert_eq!(n, 1, "es la misma etiqueta, no dos");
     }
 

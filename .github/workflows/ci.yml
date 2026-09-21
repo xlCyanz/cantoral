@@ -65,17 +65,22 @@ jobs:
             librsvg2-dev libayatana-appindicator3-dev libxdo-dev \
             build-essential file
 
+      # `rustfmt` hay que pedirlo: la acción instala el perfil mínimo, que no lo
+      # trae, y `cargo fmt` fallaría con «'rustfmt' is not installed».
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: "src-tauri -> target"
 
-      # `cargo fmt --check` todavía no está aquí: el núcleo está formateado a mano
-      # y rustfmt no lo deja igual con ninguna configuración, así que activarlo hoy
-      # significaría reformatear todo de golpe. Se decide en #28.
+      # Va antes que clippy porque es lo más barato que puede fallar, y porque
+      # un diff de formato enterrado bajo avisos de clippy se lee peor. La
+      # configuración está en src-tauri/rustfmt.toml.
+      - name: Formato
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
       - name: Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 

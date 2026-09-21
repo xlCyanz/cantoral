@@ -45,7 +45,6 @@ fn duplicate_report(conn: &Connection) -> anyhow::Result<DuplicateReport> {
 /// they never hold the mutex the UI's own commands need.
 pub struct DbPath(pub std::path::PathBuf);
 
-
 type CmdResult<T> = Result<T, String>;
 
 /// Convert an error for the frontend, recording it in the log file on the way
@@ -123,10 +122,7 @@ pub fn add_and_scan_folder(
             .and_then(|s| s.to_str())
             .unwrap_or(path.as_str())
             .to_string();
-        (
-            db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?,
-            ya_estaba,
-        )
+        (db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?, ya_estaba)
     };
 
     permitir_asset(&app, &path);
@@ -264,10 +260,7 @@ fn abrible(path: &std::path::Path) -> bool {
 
 /// Parse a list of ids coming from the frontend.
 fn ids_de(ids: &[String]) -> CmdResult<Vec<i64>> {
-    ids.iter()
-        .map(|i| i.parse::<i64>())
-        .collect::<std::result::Result<Vec<i64>, _>>()
-        .map_err(e)
+    ids.iter().map(|i| i.parse::<i64>()).collect::<std::result::Result<Vec<i64>, _>>().map_err(e)
 }
 
 /// Append a whole selection to a list, in the order given, in one transaction.
@@ -278,8 +271,9 @@ pub fn add_tracks_to_playlist(
     tracks: Vec<String>,
 ) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
-    let n = db::add_tracks_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &ids_de(&tracks)?)
-        .map_err(e)?;
+    let n =
+        db::add_tracks_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &ids_de(&tracks)?)
+            .map_err(e)?;
     log::info!("{n} tracks added to playlist {playlist}");
     snapshot(&conn).map_err(e)
 }
@@ -489,8 +483,12 @@ pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> 
 #[tauri::command]
 pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
-    db::add_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, track.parse::<i64>().map_err(e)?)
-        .map_err(e)?;
+    db::add_to_playlist(
+        &conn,
+        playlist.parse::<i64>().map_err(e)?,
+        track.parse::<i64>().map_err(e)?,
+    )
+    .map_err(e)?;
     snapshot(&conn).map_err(e)
 }
 
@@ -570,11 +568,7 @@ pub fn inspect_backup(src: String) -> CmdResult<db::BackupInfo> {
 /// a Cantoral database, and the previous file is moved aside rather than deleted,
 /// so a restore that fails half way leaves the library exactly as it was.
 #[tauri::command]
-pub fn restore_database(
-    db: State<Db>,
-    db_path: State<DbPath>,
-    src: String,
-) -> CmdResult<Snapshot> {
+pub fn restore_database(db: State<Db>, db_path: State<DbPath>, src: String) -> CmdResult<Snapshot> {
     let live = db_path.0.as_path();
     let src = std::path::Path::new(&src);
 
@@ -602,7 +596,9 @@ pub fn restore_database(
             // that is left is to reopen it, so the app stays usable.
             match db::open_and_migrate(live) {
                 Ok(conn) => *db.0.lock().map_err(e)? = conn,
-                Err(reopen) => log::error!("could not reopen the database after a failed restore: {reopen}"),
+                Err(reopen) => {
+                    log::error!("could not reopen the database after a failed restore: {reopen}")
+                }
             }
             Err(e(err))
         }
@@ -697,7 +693,6 @@ mod tests {
     fn and_the_library_database_itself() {
         assert!(!abrible(Path::new("/datos/cantoral.db")));
     }
-
 
     /// A temp directory of this test's own, cleared when it goes out of scope.
     ///

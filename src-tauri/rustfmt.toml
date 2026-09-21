@@ -1,0 +1,10 @@
+# El núcleo estaba formateado a mano, y en varios sitios más compacto de lo que
+# rustfmt deja por defecto: `Ok(DbInfo { path: ..., size })` de una línea se lee
+# mejor que el mismo struct repartido en cuatro.
+#
+# `use_small_heuristics = "Max"` conserva justamente eso —structs, llamadas y
+# arrays cortos se quedan en una línea mientras quepan— y es además lo que menos
+# movía el código existente: 52 bloques frente a los 115 de la configuración por
+# defecto. El ancho se queda en el estándar de Rust.
+max_width = 100
+use_small_heuristics = "Max"

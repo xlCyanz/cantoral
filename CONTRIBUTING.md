@@ -146,13 +146,14 @@ explicar *por qué*, que es lo que no se deduce del diff.
 
 ## Antes de abrir el pull request
 
-Estos seis comandos son exactamente los que corre la CI. Si pasan en local, pasan
+Estos siete comandos son exactamente los que corre la CI. Si pasan en local, pasan
 en GitHub:
 
 ```bash
 pnpm lint
 pnpm exec tsc --noEmit
 pnpm test
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo audit --file src-tauri/Cargo.lock
@@ -172,12 +173,17 @@ CodeQL corre aparte, solo en GitHub, y publica en **Security → Code scanning a
 > [typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940).
 
 > [!NOTE]
-> `cargo fmt --check` **no** está en la CI: el núcleo está formateado a mano y
-> rustfmt no lo reproduce con ninguna configuración, así que activarlo hoy
-> reformatearía todo el archivo. Si tocas Rust, imita el estilo de alrededor en vez
-> de correr `cargo fmt` sobre un archivo entero — un `cargo fmt` suelto convierte un
-> PR de tres líneas en uno de trescientas. La decisión está abierta en
-> [#28](https://github.com/xlCyanz/cantoral/issues/28).
+> `cargo fmt` es ahora la autoridad sobre el formato de Rust, con la configuración
+> de `src-tauri/rustfmt.toml` (ancho 100 y `use_small_heuristics = "Max"`, que deja
+> en una línea los structs y llamadas cortos). Córrelo antes de abrir el PR y no
+> discutas formato en las revisiones: lo que diga rustfmt.
+>
+> El commit que reformateó el núcleo está en `.git-blame-ignore-revs`. Para que
+> `git blame` lo salte:
+>
+> ```bash
+> git config blame.ignoreRevsFile .git-blame-ignore-revs
+> ```
 
 Además:
 
@@ -231,8 +237,9 @@ versión. Es más barato descubrirlo ahí que en un release ya publicado.
 **Rust**
 
 - Clippy corre con `-D warnings` en CI; no se admiten avisos nuevos.
-- Imita el estilo del código de alrededor. No corras `cargo fmt` sobre archivos
-  enteros mientras [#28](https://github.com/xlCyanz/cantoral/issues/28) siga abierto.
+- `cargo fmt` decide el formato. Córrelo sobre lo que tocaste; la CI lo comprueba.
+  Lo que rustfmt no decide —nombres, comentarios, cómo se parte una función— sigue
+  el estilo del código de alrededor.
 - Los errores que llegan al frontend pasan por el helper `e()` de `commands.rs`, que
   los registra en el log rotativo de camino.
 - Los mensajes de error que ve el usuario van en español y dicen qué hacer, no solo

@@ -1,0 +1,11 @@
+# Commits que solo mueven formato. `git blame` los salta con:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# (GitHub y la mayoría de editores leen este archivo solos.)
+#
+# Si un commit de aquí se mergeó con squash o rebase, su hash en `main` no es
+# el que tenía en la rama: hay que apuntar al de `main` o la línea no sirve.
+
+# style: format the core with rustfmt
+f44d7df7413deac11c3ca63209af8acfa36b8008

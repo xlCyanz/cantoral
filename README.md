@@ -193,12 +193,13 @@ llama a los comandos de Rust y opera sobre la base local.
 pnpm lint                                         # ESLint (0 errores y 0 avisos)
 pnpm exec tsc --noEmit                            # tipos
 pnpm test                                         # selectores del store y hoja de exportación
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml   # esquema, consultas SQLite y escáner
 cargo audit --file src-tauri/Cargo.lock           # vulnerabilidades en dependencias
 ```
 
-Esos seis comandos son exactamente los que corre la CI en cada push y cada pull
+Esos siete comandos son exactamente los que corre la CI en cada push y cada pull
 request (`.github/workflows/ci.yml`), así que si pasan en local, pasan en GitHub.
 `cargo audit` necesita instalarse una vez: `cargo install cargo-audit --locked`.
 
@@ -206,9 +207,12 @@ Además corre **CodeQL** (`.github/workflows/codeql.yml`), el análisis estátic
 seguridad de GitHub, sobre la interfaz y el núcleo. Sus hallazgos aparecen en
 **Security → Code scanning alerts**, no en la salida del job.
 
-`cargo fmt --check` todavía no está en la CI: el núcleo está formateado a mano y
-rustfmt no lo reproduce con ninguna configuración, así que activarlo implicaría
-reformatearlo entero. Se decide en [#28](https://github.com/xlCyanz/cantoral/issues/28).
+El formato de Rust lo decide `cargo fmt`, con la configuración de
+`src-tauri/rustfmt.toml`: ancho 100 y `use_small_heuristics = "Max"`, que deja en
+una línea los structs y las llamadas que quepan —el núcleo se escribió así a mano y
+se lee mejor—. El commit que lo reformateó entero está en `.git-blame-ignore-revs`;
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` hace que `git blame` lo
+salte.
 
 ## 🖥️ Multiplataforma
 
