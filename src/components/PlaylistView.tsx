@@ -1,13 +1,13 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Calendar, ChevronDown, ChevronUp, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
-import { ocasionBadge } from "../lib/styles";
+import { ocasionBadge, ocupadoStyle } from "../lib/styles";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
-const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 58px";
+const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 86px";
 
 /** Shared empty order, so an absent list does not hand out a fresh array each read. */
 const VACIA: string[] = [];
@@ -25,7 +25,7 @@ function CoverInner({ t }: { t: Track }) {
  * One row of a culto list. Like the library's row there is an instance per
  * pista, so it reads only the two drag flags it reacts to.
  */
-const PlRow = memo(function PlRow({ t, num }: { t: Track; num: number }) {
+const PlRow = memo(function PlRow({ t, num, total }: { t: Track; num: number; total: number }) {
   const dragging = useStore((s) => s.draggingId === t.id);
   const over = useStore((s) => s.overId === t.id && !!s.draggingId && s.draggingId !== t.id);
   const setDragging = useStore((s) => s.setDragging);
@@ -34,6 +34,10 @@ const PlRow = memo(function PlRow({ t, num }: { t: Track; num: number }) {
   const clearDrag = useStore((s) => s.clearDrag);
   const play = useStore((s) => s.play);
   const removeFromPl = useStore((s) => s.removeFromPl);
+  const moveInPlaylist = useStore((s) => s.moveInPlaylist);
+
+  const primera = num === 1;
+  const ultima = num === total;
 
   const rowStyle: CSSProperties = {
     display: "grid",
@@ -51,12 +55,26 @@ const PlRow = memo(function PlRow({ t, num }: { t: Track; num: number }) {
   return (
     <div
       className="lib-row"
+      role="listitem"
+      tabIndex={0}
+      aria-label={`${num} de ${total}, ${t.titulo}, ${t.artista}`}
       draggable
       onDragStart={() => setDragging(t.id)}
       onDragOver={(e) => { e.preventDefault(); setOver(t.id); }}
       onDrop={(e) => { e.preventDefault(); reorderPl(t.id); }}
       onDragEnd={clearDrag}
       onDoubleClick={() => play(t.id)}
+      onKeyDown={(e) => {
+        // Alt, so the plain arrows keep walking the list rather than rewriting
+        // it — and so a stray keypress cannot silently reorder the service.
+        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+          e.preventDefault();
+          moveInPlaylist(t.id, e.key === "ArrowUp" ? -1 : 1);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          play(t.id);
+        }
+      }}
       style={rowStyle}
     >
       <div title="Arrastrar para reordenar" className="hb-text" style={{ display: "grid", placeItems: "center", color: "var(--text-3)", cursor: "grab" }}>
@@ -80,8 +98,30 @@ const PlRow = memo(function PlRow({ t, num }: { t: Track; num: number }) {
       <div><span style={ocasionBadge}>{t.ocasion}</span></div>
       <div style={{ fontSize: "12.5px", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{t.tono}</div>
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={() => removeFromPl(t.id)} title="Quitar de la lista" className="hb-danger" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+        {/* Visible buttons, not just the drag handle: precise dragging is a
+            skill the app should not require to change the order of a service. */}
+        <button
+          onClick={() => moveInPlaylist(t.id, -1)}
+          disabled={primera}
+          title="Subir en la lista"
+          aria-label={`Subir «${t.titulo}» en la lista`}
+          className="hb-s2t"
+          style={{ width: 24, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)", ...ocupadoStyle(primera) }}
+        >
+          <ChevronUp size={15} />
+        </button>
+        <button
+          onClick={() => moveInPlaylist(t.id, 1)}
+          disabled={ultima}
+          title="Bajar en la lista"
+          aria-label={`Bajar «${t.titulo}» en la lista`}
+          className="hb-s2t"
+          style={{ width: 24, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)", ...ocupadoStyle(ultima) }}
+        >
+          <ChevronDown size={15} />
+        </button>
+        <button onClick={() => removeFromPl(t.id)} title="Quitar de la lista" aria-label={`Quitar «${t.titulo}» de la lista`} className="hb-danger" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
           <Trash2 size={15} />
         </button>
       </div>
@@ -102,6 +142,7 @@ export default function PlaylistView() {
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const showBiblioteca = useStore((s) => s.showBiblioteca);
+  const reorderNotice = useStore((s) => s.reorderNotice);
 
   return (
     <div style={{ padding: "0 0 40px" }}>
@@ -173,11 +214,18 @@ export default function PlaylistView() {
           <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "8px 8px 9px", borderBottom: "1px solid var(--border)", fontSize: 11, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>
             <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style={{ textAlign: "right" }}>Dur.</span><span />
           </div>
-          {rows.map((t, i) => (
-            <PlRow key={t.id} t={t} num={i + 1} />
-          ))}
+          <div role="list">
+            {rows.map((t, i) => (
+              <PlRow key={t.id} t={t} num={i + 1} total={rows.length} />
+            ))}
+          </div>
+          {/* Moving a row is silent otherwise: the list re-renders, but nothing
+              says where the song ended up. */}
+          <p aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+            {reorderNotice}
+          </p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 8px", color: "var(--text-3)", fontSize: "12.5px" }}>
-            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto.
+            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto, o usa los botones de cada fila. Con el teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd>.
           </div>
         </div>
       )}

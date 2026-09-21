@@ -174,6 +174,24 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **Los diálogos ya no dejan el teclado fuera.** Decían
+  `aria-modal="true"` —que le promete a un lector de pantalla que lo de detrás
+  está inerte— mientras el DOM decía lo contrario: al abrirse el foco se
+  quedaba en el botón de atrás, `Tab` se paseaba por la página tapada por la
+  superposición, y al cerrarse el foco se perdía. Ahora el foco entra al abrir,
+  `Tab` y `Mayús+Tab` dan la vuelta dentro, y al cerrar vuelve al control que
+  abrió el diálogo. Los cinco comparten la misma carcasa, así que no hay uno
+  que se quede atrás.
+
+  La confirmación sigue arrancando en «Cancelar», a propósito.
+
+- **Reordenar una lista para culto ya no exige un ratón.** Era la función
+  central de esa vista y solo funcionaba arrastrando. Ahora las filas se
+  enfocan con el tabulador y se mueven con <kbd>Alt</kbd> +
+  <kbd>↑</kbd>/<kbd>↓</kbd>, cada fila tiene botones de subir y bajar, y cada
+  movimiento se anuncia —«Alma, Bendice al Señor, posición 1 de 6»— porque si
+  no, mover una fila con el teclado es mudo.
+
 - **Dos escaneos ya no se pisan.** La bandera de cancelación era un único
   `AtomicBool` global que cada escaneo bajaba al arrancar, así que lanzar uno
   nuevo **des-cancelaba** al que estaba terminando su archivo actual y lo dejaba
