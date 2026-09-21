@@ -67,7 +67,7 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder sus etiquetas, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
-- 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría.
+- 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. Cantoral **no hace ni una petición de red**: hasta las tipografías van dentro del paquete, así que funciona igual en un equipo sin conexión.
 - 🎨 **Claro y oscuro** — sistema de diseño cálido propio; sigue el tema del sistema o se fija a mano.
 - ⌨️ **Teclado** — ver la tabla de atajos abajo.
 
@@ -124,6 +124,7 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 | Capa | Tecnología |
 |------|------------|
 | Interfaz | React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · lucide-react |
+| Tipografías | Hanken Grotesk · Instrument Serif (SIL OFL, incluidas en `src/assets/fonts/`) |
 | Núcleo | Tauri v2 (Rust) · SQLite (`rusqlite`, bundled) · `walkdir` · `lofty` |
 | Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` |
 | Pruebas | Vitest (frontend) · `cargo test` (backend) |
