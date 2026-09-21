@@ -477,6 +477,65 @@ pub fn relocate_folder(conn: &Connection, id: i64, new_root: &Path) -> Result<i6
     Ok(n as i64)
 }
 
+// ---------------------------------------------------------------- tags
+
+/// Rename a tag, folding it into an existing one when the new name is taken.
+///
+/// Renaming «Lento» to «lento» when both exist is not an error, it is the fix:
+/// `tags.name` is case-sensitive, so the two were separate tags nobody could
+/// see were separate. Both cases end with one tag carrying every track that had
+/// either, which is what the user asked for by typing the other name.
+///
+/// Returns how many tracks ended up on the surviving tag.
+pub fn rename_tag(conn: &Connection, from: &str, to: &str) -> Result<i64> {
+    let nuevo = normalise_tag(to);
+    if nuevo.is_empty() {
+        bail!("una etiqueta no puede quedarse sin nombre");
+    }
+    let viejo_id: i64 = conn
+        .query_row("SELECT id FROM tags WHERE name=?1", params![from], |r| r.get(0))
+        .with_context(|| format!("la etiqueta «{from}» ya no existe"))?;
+
+    let tx = conn.unchecked_transaction()?;
+    let destino: Option<i64> = tx
+        .query_row("SELECT id FROM tags WHERE name=?1", params![nuevo], |r| r.get(0))
+        .ok();
+    let id_final = match destino {
+        Some(otro) if otro != viejo_id => {
+            // `OR IGNORE` for the tracks that already carried both: they end up
+            // with the tag once, not with a duplicate row.
+            tx.execute(
+                "UPDATE OR IGNORE track_tags SET tag_id=?1 WHERE tag_id=?2",
+                params![otro, viejo_id],
+            )?;
+            tx.execute("DELETE FROM tags WHERE id=?1", params![viejo_id])?;
+            otro
+        }
+        _ => {
+            tx.execute("UPDATE tags SET name=?1 WHERE id=?2", params![nuevo, viejo_id])?;
+            viejo_id
+        }
+    };
+    let total: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM track_tags WHERE tag_id=?1",
+        params![id_final],
+        |r| r.get(0),
+    )?;
+    tx.commit()?;
+    Ok(total)
+}
+
+/// Remove a tag from every track that carried it.
+///
+/// The tracks themselves are untouched; only the label goes.
+pub fn delete_tag(conn: &Connection, name: &str) -> Result<()> {
+    let filas = conn.execute("DELETE FROM tags WHERE name=?1", params![name])?;
+    if filas == 0 {
+        bail!("la etiqueta «{name}» ya no existe");
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- sheets
 
 /// The lyrics and chords of one track.
@@ -1226,6 +1285,107 @@ mod tests {
 
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
         upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100).unwrap()
+    }
+
+    // ---- tags ----
+
+    fn etiquetas_de(conn: &Connection, id: i64) -> Vec<String> {
+        list_tracks(conn).unwrap().into_iter().find(|t| t.id == id.to_string()).unwrap().tags
+    }
+
+    fn cuantas_etiquetas(conn: &Connection) -> i64 {
+        conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn renaming_a_tag_moves_every_track_that_carried_it() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        set_track_tags(&conn, a, &["lemto".into()]).unwrap();
+        set_track_tags(&conn, b, &["lemto".into(), "clásico".into()]).unwrap();
+
+        let total = rename_tag(&conn, "lemto", "lento").unwrap();
+
+        assert_eq!(total, 2);
+        assert!(etiquetas_de(&conn, a).contains(&"lento".to_string()));
+        assert!(etiquetas_de(&conn, b).contains(&"lento".to_string()));
+        assert!(!etiquetas_de(&conn, b).contains(&"lemto".to_string()));
+    }
+
+    #[test]
+    fn renaming_onto_a_name_that_exists_folds_the_two_together() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        // `tags.name` is case-sensitive, so these were two tags nobody could
+        // see were two.
+        set_track_tags(&conn, a, &["Lento".into()]).unwrap();
+        set_track_tags(&conn, b, &["lento".into()]).unwrap();
+        assert_eq!(cuantas_etiquetas(&conn), 2);
+
+        let total = rename_tag(&conn, "Lento", "lento").unwrap();
+
+        assert_eq!(total, 2, "both tracks end up on the surviving tag");
+        assert_eq!(cuantas_etiquetas(&conn), 1);
+        assert_eq!(etiquetas_de(&conn, a), vec!["lento"]);
+    }
+
+    #[test]
+    fn a_track_that_had_both_ends_up_with_the_tag_once() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_tags(&conn, a, &["Lento".into(), "lento".into()]).unwrap();
+
+        rename_tag(&conn, "Lento", "lento").unwrap();
+
+        assert_eq!(etiquetas_de(&conn, a), vec!["lento"]);
+    }
+
+    #[test]
+    fn renaming_tidies_the_new_name_like_any_other_tag() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_tags(&conn, a, &["x".into()]).unwrap();
+
+        rename_tag(&conn, "x", "  muy   lento  ").unwrap();
+
+        assert_eq!(etiquetas_de(&conn, a), vec!["muy lento"]);
+    }
+
+    #[test]
+    fn a_rename_that_makes_no_sense_is_refused() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_tags(&conn, a, &["lento".into()]).unwrap();
+
+        assert!(rename_tag(&conn, "lento", "   ").is_err(), "a tag needs a name");
+        assert!(rename_tag(&conn, "no-existe", "otra").is_err());
+        assert_eq!(etiquetas_de(&conn, a), vec!["lento"], "and nothing moved");
+    }
+
+    #[test]
+    fn deleting_a_tag_takes_it_off_every_track_and_leaves_the_tracks() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_tags(&conn, a, &["lento".into(), "clásico".into()]).unwrap();
+
+        delete_tag(&conn, "lento").unwrap();
+
+        assert_eq!(etiquetas_de(&conn, a), vec!["clásico"]);
+        assert_eq!(list_tracks(&conn).unwrap().len(), 1, "the track itself stays");
+    }
+
+    #[test]
+    fn deleting_a_tag_that_is_gone_is_refused() {
+        let conn = mem();
+        assert!(delete_tag(&conn, "no-existe").is_err());
     }
 
     // ---- lyrics and chords ----

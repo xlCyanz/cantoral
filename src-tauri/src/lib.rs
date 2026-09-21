@@ -42,6 +42,8 @@ pub fn run() {
             commands::add_and_scan_folder,
             commands::rescan_folder,
             commands::cancel_scan,
+            commands::rename_tag,
+            commands::delete_tag,
             commands::get_track_sheet,
             commands::get_sheets,
             commands::update_track_sheet,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Check, ChevronDown, FileText, FolderOpen, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
-import { ocasiones, useStore } from "../store";
+import { etiquetas, ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
@@ -49,6 +49,7 @@ export default function DetailPanel() {
   const tagDraft = useStore((s) => s.tagDraft);
   const saveState = useStore((s) => s.saveState);
   const ocasionesDelCatalogo = useStore(ocasiones);
+  const todasLasEtiquetas = useStore(etiquetas);
 
   const closeDetail = useStore((s) => s.closeDetail);
   const relocateTrack = useStore((s) => s.relocateTrack);
@@ -251,9 +252,20 @@ export default function DetailPanel() {
               onChange={(e) => onTagDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") addTag(tagDraft); }}
               placeholder="Agregar etiqueta y Enter…"
+              list="etiquetas-existentes"
               className="in-focus"
               style={{ width: "100%", height: 36, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, padding: "0 12px 0 32px", fontSize: 13, outline: "none" }}
             />
+            {/* The tags already in use, so a second spelling of one never gets
+                invented. Ones this track carries are left out — offering them
+                would only invite a no-op. */}
+            <datalist id="etiquetas-existentes">
+              {todasLasEtiquetas
+                .filter((e) => !tags.includes(e.nombre))
+                .map((e) => (
+                  <option key={e.nombre} value={e.nombre} />
+                ))}
+            </datalist>
           </div>
         </div>
 

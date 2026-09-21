@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Search, Sun, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Search, Sun, Tag, X } from "lucide-react";
 import type { CSSProperties } from "react";
-import { applyFilters, ocasiones, useStore } from "../store";
+import { applyFilters, etiquetas, ocasiones, useStore } from "../store";
 import { chipStyle, ocupadoStyle } from "../lib/styles";
 import type { GroupBy } from "../lib/types";
 
@@ -24,6 +24,8 @@ export default function TopBar() {
   // here costs nothing beyond what the library view already paid.
   const total = useStore((s) => applyFilters(s).length);
   const ocs = useStore(ocasiones);
+  const tags = useStore(etiquetas);
+  const tagFilter = useStore((s) => s.tagFilter);
 
   const onQuery = useStore((s) => s.onQuery);
   const clearQuery = useStore((s) => s.clearQuery);
@@ -31,6 +33,7 @@ export default function TopBar() {
   const toggleTheme = useStore((s) => s.toggleTheme);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const onOcasion = useStore((s) => s.onOcasion);
+  const onTagFilter = useStore((s) => s.onTagFilter);
   const onGroupBy = useStore((s) => s.onGroupBy);
 
   const showSearch = view === "biblioteca";
@@ -155,6 +158,33 @@ export default function TopBar() {
                 </button>
               );
             })}
+
+            {/* Tags share the row with the occasions, behind a divider: they
+                are a different axis — several can be on at once, and they
+                narrow together. */}
+            {showFilterBar && tags.length > 0 && (
+              <>
+                {chips.length > 0 && (
+                  <span style={{ flex: "0 0 auto", width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+                )}
+                {tags.map((t) => {
+                  const activa = tagFilter.includes(t.nombre);
+                  return (
+                    <button
+                      key={t.nombre}
+                      onClick={() => onTagFilter(t.nombre)}
+                      aria-pressed={activa}
+                      title={activa ? `Quitar el filtro «${t.nombre}»` : `Filtrar por «${t.nombre}»`}
+                      style={{ ...chipStyle(activa), display: "inline-flex", alignItems: "center", gap: 6, paddingLeft: 10 }}
+                    >
+                      <Tag size={12} strokeWidth={2.2} />
+                      {t.nombre}
+                      <span style={{ fontSize: 11, opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>{t.cuenta}</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>

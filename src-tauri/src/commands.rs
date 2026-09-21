@@ -216,6 +216,24 @@ pub fn restore_dismissed_duplicates(db: State<Db>) -> CmdResult<DuplicateReport>
     duplicate_report(&conn).map_err(e)
 }
 
+/// Rename a tag everywhere, folding it into an existing one if the name is taken.
+#[tauri::command]
+pub fn rename_tag(db: State<Db>, from: String, to: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    let total = db::rename_tag(&conn, &from, &to).map_err(e)?;
+    log::info!("tag «{from}» renamed to «{to}» ({total} tracks)");
+    snapshot(&conn).map_err(e)
+}
+
+/// Remove a tag from every track that carried it.
+#[tauri::command]
+pub fn delete_tag(db: State<Db>, name: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::delete_tag(&conn, &name).map_err(e)?;
+    log::info!("tag «{name}» deleted");
+    snapshot(&conn).map_err(e)
+}
+
 /// The lyrics and chords of one track.
 #[tauri::command]
 pub fn get_track_sheet(db: State<Db>, id: String) -> CmdResult<Sheet> {
