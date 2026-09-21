@@ -22,6 +22,7 @@ function resolveTheme(mode: ThemeMode): Theme {
 }
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
+import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import {
   addAndScanFolder,
   addToPlaylistCmd,
@@ -76,6 +77,8 @@ let lastFailedAction: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 /** Id of the track whose edit is waiting out the debounce, if any. */
 let pendingSave: string | null = null;
+/** Debounce for writing the interface preferences back. */
+let prefsTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * A destructive action waiting to be confirmed.
@@ -740,10 +743,11 @@ export const useStore = create<CantoralState>((set, get) => {
           set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
         }
         // Restore saved preferences.
-        const [modeS, themeS, openExtS] = await Promise.all([
+        const [modeS, themeS, openExtS, uiS] = await Promise.all([
           getSetting("themeMode"),
           getSetting("theme"),
           getSetting("openExt"),
+          getSetting(UI_PREFS_KEY),
         ]);
         const patch: Partial<CantoralState> = {};
         const mode: ThemeMode | null =
@@ -757,7 +761,22 @@ export const useStore = create<CantoralState>((set, get) => {
           patch.theme = resolveTheme(mode);
         }
         if (openExtS != null) patch.openExt = openExtS === "1";
-        if (Object.keys(patch).length) set(patch);
+        // The rest of the interface: volume, transport, sorting, grouping and
+        // where the user was. Only the fields that survived validation, over
+        // whatever the defaults are, and settled against the lists that exist.
+        const prefs = parsePrefs(uiS);
+        Object.assign(patch, prefs, resolveView(prefs, snap?.playlists ?? get().playlists));
+        if (Object.keys(patch).length) {
+          set(patch);
+          // Nothing read at startup is worth writing back, and `applySnapshot`
+          // ran a moment ago and may already have queued a write of a
+          // `curPlaylist` it picked on its own. What was just restored is the
+          // newer truth, so whatever is queued goes.
+          if (prefsTimer) {
+            clearTimeout(prefsTimer);
+            prefsTimer = null;
+          }
+        }
 
         // Files can disappear while the app is closed; re-check them once the
         // catalogue is on screen rather than blocking the first paint.
@@ -1312,6 +1331,51 @@ export const useStore = create<CantoralState>((set, get) => {
     },
   };
 });
+
+// ============================================================
+// Writing the interface preferences back
+// ============================================================
+
+/** How long a change waits before it is written. */
+const PREFS_MS = 400;
+
+function writePrefs() {
+  if (prefsTimer) clearTimeout(prefsTimer);
+  prefsTimer = null;
+  void setSetting(UI_PREFS_KEY, serialisePrefs(useStore.getState())).catch((err) =>
+    console.error("could not save the interface preferences", err),
+  );
+}
+
+function schedulePrefsSave() {
+  if (prefsTimer) clearTimeout(prefsTimer);
+  prefsTimer = setTimeout(writePrefs, PREFS_MS);
+}
+
+/**
+ * Write a preference that is still waiting out the debounce, right now.
+ *
+ * Lowering the volume and closing the window is the exact sequence the whole
+ * feature exists for, so it must not be the one that gets lost.
+ */
+export function flushUiPrefs() {
+  if (prefsTimer) writePrefs();
+}
+
+/**
+ * Watch the preferences instead of saving from each action that changes one.
+ *
+ * Nine fields are reached from a dozen places — a dragged volume bar, a clicked
+ * column header, a list opened from the sidebar — and a save hung off each one
+ * is a save that gets forgotten the next time somebody adds a tenth. This sees
+ * the change wherever it came from.
+ */
+if (isTauri()) {
+  useStore.subscribe((s, previo) => {
+    if (PREF_FIELDS.every((campo) => s[campo] === previo[campo])) return;
+    schedulePrefsSave();
+  });
+}
 
 // ============================================================
 // Derived selectors (pure) — used by components against a state snapshot.

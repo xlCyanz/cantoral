@@ -11,6 +11,22 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **La interfaz recuerda cómo la dejaste.** Hasta ahora solo sobrevivían al
+  cierre el tema y la preferencia de reproductor externo; el volumen volvía a
+  0.72 en cada arranque, que en un ensayo significa abrir la app a todo lo que
+  dé el equipo de sonido. Ahora también se guardan silencio, aleatorio,
+  repetir, el orden y la agrupación de la tabla, y en qué vista —o en qué lista
+  para culto— estabas.
+
+  Va todo en una sola clave con un JSON, no una por campo, y se escribe con un
+  respiro de 400 ms para que arrastrar la barra de volumen no sea una escritura
+  por píxel. Al arrancar, cada campo se valida por separado: la base es un
+  archivo que se pudo restaurar desde otra versión, así que lo que no se
+  sostiene se descarta y esa preferencia queda en su valor por defecto en vez
+  de estropear el resto. Una lista que ya no existe abre la biblioteca.
+
+  Los filtros —búsqueda, favoritas, ocasión— **no** se guardan, a propósito.
+
 - **Detectar y fusionar pistas duplicadas**, en Configuración. Una biblioteca de
   iglesia acumula la misma canción varias veces —el MP3 y el WAV, la que bajó
   cada quien en su carpeta— y hasta ahora Cantoral las indexaba todas por igual

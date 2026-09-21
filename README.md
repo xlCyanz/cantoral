@@ -112,8 +112,10 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 
 - **Sin actualizaciones automáticas** ([#19](https://github.com/xlCyanz/cantoral/issues/19)) y **sin firma de código** mientras no haya
   certificados (ver [Firma de código](#-firma-de-código)).
-- Solo se conservan entre sesiones el tema y la preferencia de reproductor
-  externo ([#18](https://github.com/xlCyanz/cantoral/issues/18)); volumen, orden, agrupación y filtros vuelven a su valor inicial.
+- Los filtros de la biblioteca (búsqueda, favoritas, ocasión) no se conservan
+  entre sesiones, a propósito: abrir la app con la biblioteca filtrada sin
+  recordar por qué desconcierta más de lo que ayuda. El resto —volumen,
+  silencio, aleatorio, repetir, orden, agrupación y dónde estabas— sí.
 
 ## 🧱 Stack
 
