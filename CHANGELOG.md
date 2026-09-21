@@ -9,6 +9,10 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+Nada todavía.
+
+## [0.2.0] - 2026-09-21
+
 ### Añadido
 
 - **Cantoral se actualiza sola.** Hasta ahora, actualizar significaba entrar a
@@ -473,5 +477,5 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/xlCyanz/cantoral/releases/tag/v0.1.0
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/xlCyanz/cantoral/releases/tag/v0.2.0
