@@ -108,6 +108,15 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN fsize INTEGER NOT NULL DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN letra TEXT NOT NULL DEFAULT ''", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN acordes TEXT NOT NULL DEFAULT ''", []);
+
+    // Dates used to be free text. Whatever can be read becomes ISO so it can be
+    // sorted; whatever cannot is left alone. Runs on every open and is a no-op
+    // once there is nothing left to convert.
+    match migrate_playlist_dates(&conn) {
+        Ok(0) => {}
+        Ok(n) => log::info!("{n} playlist dates rewritten as ISO"),
+        Err(err) => log::error!("could not migrate the playlist dates: {err}"),
+    }
     Ok(conn)
 }
 
@@ -804,10 +813,144 @@ pub fn touch_folder_scan(conn: &Connection, id: i64) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- dates
+
+/// Spanish month names, in order, as they are written and as they are typed.
+const MESES: [&str; 12] = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+    "octubre", "noviembre", "diciembre",
+];
+
+/// Fold a word for comparison: lowercase, no accents. «Miércoles» → «miercoles».
+fn plano(s: &str) -> String {
+    s.chars()
+        .flat_map(|c| c.to_lowercase())
+        .map(|c| match c {
+            'á' => 'a',
+            'é' => 'e',
+            'í' => 'i',
+            'ó' => 'o',
+            'ú' | 'ü' => 'u',
+            otro => otro,
+        })
+        .collect()
+}
+
+/// Whether a string is already an ISO date this app can sort.
+pub fn es_iso(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
+}
+
+/// Read a date a person typed, as `YYYY-MM-DD`, or `None` if it cannot be read.
+///
+/// Covers what this app itself suggested — «Domingo 13 de julio, 2025» was the
+/// placeholder — plus the numeric forms people reach for. Deliberately no
+/// guessing between `3/4` and `4/3`: day first, which is what Spanish writes.
+pub fn fecha_iso(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return None;
+    }
+    if es_iso(t) {
+        return Some(t.to_string());
+    }
+
+    // Numeric: 13/7/2025, 13-7-25, 13.07.2025
+    let partes: Vec<&str> = t.split(['/', '-', '.']).map(str::trim).collect();
+    if partes.len() == 3 && partes.iter().all(|p| p.chars().all(|c| c.is_ascii_digit())) {
+        let d: u32 = partes[0].parse().ok()?;
+        let m: u32 = partes[1].parse().ok()?;
+        let a: i32 = partes[2].parse().ok()?;
+        // Two digits mean this century: a church list is not from 1925.
+        let a = if partes[2].len() <= 2 { 2000 + a } else { a };
+        return armar(a, m, d);
+    }
+
+    // Words: [weekday] 13 de julio[ de| ,] 2025
+    let palabras: Vec<String> = t
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|p| !p.is_empty())
+        .map(plano)
+        .collect();
+    let dia = palabras.iter().find_map(|p| p.parse::<u32>().ok().filter(|d| (1..=31).contains(d)))?;
+    let mes = palabras
+        .iter()
+        .find_map(|p| MESES.iter().position(|m| *m == p).map(|i| i as u32 + 1))?;
+    let anio = palabras
+        .iter()
+        .find_map(|p| p.parse::<i32>().ok().filter(|a| (1900..=2999).contains(a)))?;
+    armar(anio, mes, dia)
+}
+
+/// Build the ISO string, refusing a day the month does not have.
+fn armar(anio: i32, mes: u32, dia: u32) -> Option<String> {
+    if !(1..=12).contains(&mes) || dia == 0 {
+        return None;
+    }
+    let bisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;
+    let largo = match mes {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        _ => {
+            if bisiesto {
+                29
+            } else {
+                28
+            }
+        }
+    };
+    if dia > largo {
+        return None;
+    }
+    Some(format!("{anio:04}-{mes:02}-{dia:02}"))
+}
+
+/// Rewrite every playlist date that can be read into ISO, once.
+///
+/// What cannot be read is **left exactly as it was**. The alternative — the one
+/// the issue proposed — was to blank it, and a date somebody typed is worth
+/// more than a tidy column: they can still read «el domingo después de Pascua»
+/// even if nothing can sort it.
+///
+/// Idempotent: a second run finds everything already ISO or already unreadable.
+pub fn migrate_playlist_dates(conn: &Connection) -> Result<usize> {
+    let mut stmt = conn.prepare("SELECT id, fecha FROM playlists WHERE TRIM(fecha) <> ''")?;
+    let filas: Vec<(i64, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    drop(stmt);
+
+    let mut cambiadas = 0usize;
+    for (id, fecha) in filas {
+        if es_iso(&fecha) {
+            continue;
+        }
+        match fecha_iso(&fecha) {
+            Some(iso) => {
+                conn.execute("UPDATE playlists SET fecha=?1 WHERE id=?2", params![iso, id])?;
+                cambiadas += 1;
+            }
+            None => log::info!("playlist {id}: «{fecha}» left as it is, no date could be read"),
+        }
+    }
+    Ok(cambiadas)
+}
+
 // ---------------------------------------------------------------- playlists
 
 pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
-    let mut stmt = conn.prepare("SELECT id, nombre, fecha, ocasion FROM playlists ORDER BY id")?;
+    // ISO dates first and newest first; anything unreadable sinks to the end
+    // rather than sorting as if it were a date. `id` breaks ties so the order
+    // is stable between calls.
+    let mut stmt = conn.prepare(
+        "SELECT id, nombre, fecha, ocasion FROM playlists
+         ORDER BY CASE WHEN fecha GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' THEN 0 ELSE 1 END,
+                  fecha DESC, id DESC",
+    )?;
     let base: Vec<(i64, String, String, String)> = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
         .collect::<std::result::Result<_, _>>()?;
@@ -1540,6 +1683,106 @@ mod tests {
         assert_eq!(list_tracks(&conn).unwrap().len(), 1);
         // The list simply gets shorter, through the cascade.
         assert_eq!(orden_de(&conn, pl), vec![b.to_string()]);
+    }
+
+    // ---- dates ----
+
+    #[test]
+    fn an_iso_date_is_left_exactly_as_it_is() {
+        assert_eq!(fecha_iso("2025-07-13").as_deref(), Some("2025-07-13"));
+        assert!(es_iso("2025-07-13"));
+        assert!(!es_iso("13-07-2025"), "day first is not ISO, whatever the separators");
+    }
+
+    #[test]
+    fn the_placeholder_this_app_suggested_is_readable() {
+        // «Domingo 13 de julio, 2025» was the hint in the dialog, so it is what
+        // most stored dates actually look like.
+        assert_eq!(fecha_iso("Domingo 13 de julio, 2025").as_deref(), Some("2025-07-13"));
+        assert_eq!(fecha_iso("Miércoles 9 de julio, 2025").as_deref(), Some("2025-07-09"));
+        assert_eq!(fecha_iso("3 de agosto de 2025").as_deref(), Some("2025-08-03"));
+    }
+
+    #[test]
+    fn accents_and_capitals_do_not_matter() {
+        assert_eq!(fecha_iso("13 DE JULIO DE 2025").as_deref(), Some("2025-07-13"));
+        assert_eq!(fecha_iso("13 de Diciembre de 2025").as_deref(), Some("2025-12-13"));
+    }
+
+    #[test]
+    fn the_numeric_forms_people_type_are_readable() {
+        assert_eq!(fecha_iso("13/7/2025").as_deref(), Some("2025-07-13"));
+        assert_eq!(fecha_iso("13/07/2025").as_deref(), Some("2025-07-13"));
+        assert_eq!(fecha_iso("13.07.2025").as_deref(), Some("2025-07-13"));
+        // Two digits mean this century: a church list is not from 1925.
+        assert_eq!(fecha_iso("13/7/25").as_deref(), Some("2025-07-13"));
+    }
+
+    #[test]
+    fn the_day_comes_first_because_that_is_what_spanish_writes() {
+        // Never guessed from the values: 3/4 is the 3rd of April, always.
+        assert_eq!(fecha_iso("3/4/2025").as_deref(), Some("2025-04-03"));
+    }
+
+    #[test]
+    fn a_day_the_month_does_not_have_is_not_a_date() {
+        assert_eq!(fecha_iso("31 de febrero de 2025"), None);
+        assert_eq!(fecha_iso("31/4/2025"), None);
+        assert_eq!(fecha_iso("29 de febrero de 2025"), None, "2025 is not a leap year");
+        assert_eq!(fecha_iso("29 de febrero de 2024").as_deref(), Some("2024-02-29"));
+    }
+
+    #[test]
+    fn what_is_not_a_date_reads_as_nothing() {
+        assert_eq!(fecha_iso(""), None);
+        assert_eq!(fecha_iso("   "), None);
+        assert_eq!(fecha_iso("el domingo después de Pascua"), None);
+        assert_eq!(fecha_iso("Ensayo semanal"), None);
+        assert_eq!(fecha_iso("13 de julio"), None, "a year is required to place it");
+    }
+
+    #[test]
+    fn the_migration_rewrites_what_it_can_and_keeps_the_rest() {
+        let conn = mem();
+        let legible = create_playlist(&conn, "Culto", "Domingo 13 de julio, 2025", "").unwrap();
+        let ilegible = create_playlist(&conn, "Ensayo", "el domingo después de Pascua", "").unwrap();
+        let vacia = create_playlist(&conn, "Repertorio", "", "").unwrap();
+
+        let n = migrate_playlist_dates(&conn).unwrap();
+
+        assert_eq!(n, 1);
+        let fecha = |id: i64| -> String {
+            conn.query_row("SELECT fecha FROM playlists WHERE id=?1", params![id], |r| r.get(0))
+                .unwrap()
+        };
+        assert_eq!(fecha(legible), "2025-07-13");
+        // Blanking it was the other option. What somebody typed is worth more
+        // than a tidy column — they can still read it.
+        assert_eq!(fecha(ilegible), "el domingo después de Pascua");
+        assert_eq!(fecha(vacia), "");
+    }
+
+    #[test]
+    fn the_migration_can_run_twice() {
+        let conn = mem();
+        create_playlist(&conn, "Culto", "13/7/2025", "").unwrap();
+
+        assert_eq!(migrate_playlist_dates(&conn).unwrap(), 1);
+        assert_eq!(migrate_playlist_dates(&conn).unwrap(), 0, "nothing left to convert");
+    }
+
+    #[test]
+    fn lists_come_back_newest_first_with_the_unreadable_ones_last() {
+        let conn = mem();
+        create_playlist(&conn, "Julio", "2025-07-13", "").unwrap();
+        create_playlist(&conn, "Sin fecha", "cuando se pueda", "").unwrap();
+        create_playlist(&conn, "Agosto", "2025-08-03", "").unwrap();
+        create_playlist(&conn, "Junio", "2025-06-01", "").unwrap();
+
+        let nombres: Vec<String> =
+            list_playlists(&conn).unwrap().into_iter().map(|p| p.nombre).collect();
+
+        assert_eq!(nombres, vec!["Agosto", "Julio", "Junio", "Sin fecha"]);
     }
 
     // ---- tags ----

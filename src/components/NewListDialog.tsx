@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ListMusic, Pencil } from "lucide-react";
 import { useStore } from "../store";
+import { esIso } from "../lib/fechas";
 import Modal from "./Modal";
 
 const label = { display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 7 } as const;
@@ -92,7 +93,21 @@ function ListForm({
         </div>
         <div>
           <label style={label}>Fecha <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-          <input value={fecha} onChange={(e) => setFecha(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} placeholder="Domingo 13 de julio, 2025" className="in-focus" style={field} />
+          <input
+            type="date"
+            value={esIso(fecha) ? fecha : ""}
+            onChange={(e) => setFecha(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            className="in-focus"
+            style={field}
+          />
+          {/* A date written before there was a date picker cannot go in the
+              field, so it is shown rather than vanishing without a word. */}
+          {fecha && !esIso(fecha) && (
+            <p style={{ fontSize: 11, color: "var(--text-3)", margin: "5px 0 0" }}>
+              Antes decía «{fecha}». Elige una fecha para reemplazarla, o déjalo en blanco para quitarla.
+            </p>
+          )}
         </div>
         <div>
           <label style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>

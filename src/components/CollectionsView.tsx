@@ -1,6 +1,7 @@
 import { Calendar, ListMusic, Plus } from "lucide-react";
 import { plDur, useStore } from "../store";
 import { gradientFor } from "../lib/covers";
+import { formatearFechaCorta, partirPorFecha } from "../lib/fechas";
 import Empty, { emptyBtnPrimary } from "./Empty";
 
 export default function CollectionsView() {
@@ -9,6 +10,16 @@ export default function CollectionsView() {
   const openPlaylist = useStore((s) => s.openPlaylist);
   const newList = useStore((s) => s.newList);
   const tracks = useStore((s) => s.tracks);
+
+  const { proximos, pasados, sinFecha } = partirPorFecha(playlists);
+  const secciones = [
+    { titulo: "Próximos", listas: proximos },
+    { titulo: "Anteriores", listas: pasados },
+    { titulo: "Sin fecha", listas: sinFecha },
+  ].filter((s) => s.listas.length > 0);
+  // With everything in one bucket a heading says nothing, so it is left out
+  // until the split actually separates something.
+  const mostrarTitulos = secciones.length > 1;
 
   if (playlists.length === 0) {
     return (
@@ -36,8 +47,19 @@ export default function CollectionsView() {
         </button>
       </div>
 
+      {secciones.map(({ titulo, listas }) => (
+        <div key={titulo} style={{ marginBottom: 26 }}>
+          {mostrarTitulos && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 12px" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: titulo === "Próximos" ? "var(--primary)" : "var(--text-3)" }}>
+                {titulo}
+              </span>
+              <span style={{ fontSize: "11.5px", color: "var(--text-3)" }}>{listas.length}</span>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            </div>
+          )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(196px,1fr))", gap: 18 }}>
-        {playlists.map((p) => {
+        {listas.map((p) => {
           const ids = plOrder[p.id] || p.ids;
           return (
             <div key={p.id} onClick={() => openPlaylist(p.id)} className="pl-card" style={{ cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 15, padding: 12 }}>
@@ -54,7 +76,7 @@ export default function CollectionsView() {
                 <div style={{ fontSize: "14.5px", fontWeight: 700, letterSpacing: "-.1px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "var(--text-2)" }}>
                   <Calendar size={13} style={{ flex: "0 0 auto" }} />
-                  <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.fecha}</span>
+                  <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{formatearFechaCorta(p.fecha) || "Sin fecha"}</span>
                 </div>
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: 3, fontWeight: 500 }}>
                   {ids.length} pistas · {plDur({ tracks }, ids)}
@@ -64,6 +86,11 @@ export default function CollectionsView() {
           );
         })}
 
+      </div>
+        </div>
+      ))}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(196px,1fr))", gap: 18 }}>
         <button onClick={newList} className="pl-new" style={{ cursor: "pointer", background: "none", border: "1.5px dashed var(--border-2)", borderRadius: 15, minHeight: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 11, color: "var(--text-3)" }}>
           <div style={{ width: 46, height: 46, borderRadius: "50%", background: "var(--surface-2)", display: "grid", placeItems: "center" }}>
             <Plus size={22} />
