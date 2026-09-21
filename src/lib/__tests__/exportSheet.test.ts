@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { playlistSheetHtml, sheetFileName } from "../exportSheet";
+import { hayLetras, playlistSheetHtml, sheetFileName } from "../exportSheet";
 import type { Sheet } from "../api";
 import type { Playlist, Track } from "../types";
 
@@ -146,5 +146,85 @@ describe("las letras en la hoja impresa", () => {
     const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ acordes: "{Coro}\n[Sol]Santo" }));
 
     expect(html).toContain("<h3>Coro</h3>");
+  });
+});
+
+// Ofrecer «con letras y acordes» cuando no hay nada escrito produce una hoja
+// idéntica a la otra, y quien la pide se queda pensando qué se perdió.
+describe("hayLetras", () => {
+  const hoja = (over: Partial<Sheet> = {}): Sheet => ({
+    trackId: "1",
+    letra: "",
+    acordes: "",
+    ...over,
+  });
+
+  it("es cierto si alguna pista tiene letra", () => {
+    expect(hayLetras([track({ id: "1" })], { "1": hoja({ letra: "Sublime gracia" }) })).toBe(true);
+  });
+
+  it("también con solo acordes", () => {
+    expect(hayLetras([track({ id: "1" })], { "1": hoja({ acordes: "[Sol]Sublime" }) })).toBe(true);
+  });
+
+  it("basta con que una de varias tenga algo", () => {
+    const pistas = [track({ id: "1" }), track({ id: "2" }), track({ id: "3" })];
+
+    expect(hayLetras(pistas, { "2": hoja({ letra: "algo" }) })).toBe(true);
+  });
+
+  it("una hoja abierta y cerrada no cuenta", () => {
+    // Lo que queda dentro son saltos de línea, y una página en blanco es peor
+    // que ninguna página.
+    expect(hayLetras([track({ id: "1" })], { "1": hoja({ letra: "\n\n  \t" }) })).toBe(false);
+  });
+
+  it("sin hojas cargadas, no hay letras", () => {
+    expect(hayLetras([track({ id: "1" })], {})).toBe(false);
+    expect(hayLetras([], { "1": hoja({ letra: "algo" }) })).toBe(false);
+  });
+
+  it("dice lo mismo que acaba imprimiéndose", () => {
+    // Si esto y la hoja no coincidieran, la opción saldría activa y no
+    // cambiaría nada.
+    const pistas = [track({ id: "1", titulo: "Santo" })];
+    const soloBlancos = { "1": hoja({ letra: "\n\n" }) };
+
+    expect(hayLetras(pistas, soloBlancos)).toBe(false);
+    expect(playlistSheetHtml(pl, pistas, "4 min", soloBlancos)).toBe(
+      playlistSheetHtml(pl, pistas, "4 min", {}),
+    );
+  });
+
+  it("y cuando dice que sí, la hoja crece", () => {
+    const pistas = [track({ id: "1" })];
+    const conLetra = { "1": hoja({ letra: "Sublime gracia del Señor" }) };
+
+    expect(hayLetras(pistas, conLetra)).toBe(true);
+    expect(playlistSheetHtml(pl, pistas, "4 min", conLetra)).toContain("Sublime gracia del Señor");
+  });
+});
+
+describe("la fecha impresa", () => {
+  it("se escribe como se lee, no como se guarda", () => {
+    // Desde que la fecha es ISO, imprimirla en crudo dejaba «2026-09-25» en la
+    // hoja que se reparte en el culto.
+    const html = playlistSheetHtml({ ...pl, fecha: "2026-09-25" }, [track()], "4 min");
+
+    expect(html).toContain("septiembre");
+    expect(html).not.toContain("2026-09-25");
+  });
+
+  it("lo que no es una fecha se imprime tal cual", () => {
+    const html = playlistSheetHtml({ ...pl, fecha: "el domingo después de Pascua" }, [track()], "4 min");
+
+    expect(html).toContain("el domingo después de Pascua");
+  });
+
+  it("sin fecha no se imprime un hueco", () => {
+    const html = playlistSheetHtml({ ...pl, fecha: "" }, [track()], "4 min");
+
+    expect(html).toContain("Culto Domingo");
+    expect(html).not.toContain("· ·");
   });
 });

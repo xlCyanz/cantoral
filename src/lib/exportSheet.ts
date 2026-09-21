@@ -3,6 +3,7 @@
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
 import { parseHoja } from "./chords";
+import { formatearFecha } from "./fechas";
 import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 
@@ -39,7 +40,7 @@ function lyricsHtml(tracks: Track[], sheets: Record<string, Sheet>): string {
       const hoja = sheets[t.id];
       const acordes = hoja?.acordes?.trim() ?? "";
       const letra = hoja?.letra?.trim() ?? "";
-      if (!acordes && !letra) return "";
+      if (!escrita(hoja)) return "";
       const cuerpo = acordes ? lineasHtml(acordes) : `<pre class="letra">${esc(letra)}</pre>`;
       const tono = t.tono ? ` · Tono ${esc(t.tono)}` : "";
       return `  <section class="hoja">
@@ -50,6 +51,26 @@ ${cuerpo}
     })
     .filter(Boolean);
   return paginas.join("\n");
+}
+
+/**
+ * Whether a sheet would print anything.
+ *
+ * A sheet that was opened and closed again holds newlines, not words, and a
+ * page with nothing on it is worse than no page.
+ */
+function escrita(hoja: Sheet | undefined): boolean {
+  return !!(hoja?.acordes?.trim() || hoja?.letra?.trim());
+}
+
+/**
+ * Whether this list has any lyrics to print at all.
+ *
+ * Decides whether the preview may offer «con letras y acordes»: an option that
+ * changes nothing is an option that makes the user wonder what they missed.
+ */
+export function hayLetras(tracks: readonly Track[], sheets: Record<string, Sheet>): boolean {
+  return tracks.some((t) => escrita(sheets[t.id]));
 }
 
 /** One ChordPro sheet as chords stacked over the words they fall on. */
@@ -99,7 +120,9 @@ export function playlistSheetHtml(
     .join("\n");
 
   const lyrics = lyricsHtml(tracks, sheets);
-  const meta = [pl.fecha, pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
+  // Since the date became ISO it is what SQLite can sort, not what a person
+  // reads: printed raw, the sheet handed round at the service said «2026-09-25».
+  const meta = [formatearFecha(pl.fecha), pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
     .filter(Boolean)
     .map(esc)
     .join(" · ");

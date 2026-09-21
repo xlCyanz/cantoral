@@ -11,6 +11,21 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Imprimir deja de pasar por el navegador.** «Exportar» escribía un `.html`
+  en el disco, lo abría en el navegador predeterminado y esperaba a que alguien
+  pulsara `Cmd/Ctrl + P`: el pie de la propia hoja tenía que explicarlo, y por
+  el camino quedaba un archivo que nadie quería guardar.
+
+  Ahora **«Imprimir»** abre la hoja dentro de la app, tal como va a salir, y de
+  ahí va al diálogo del sistema —donde está tu impresora y también «Guardar
+  como PDF»—. Se elige entre **solo el repertorio**, que es lo que lee quien
+  dirige, y **con letras y acordes**, que es lo que va al atril; la elección se
+  recuerda. Si ninguna pista de la lista tiene nada escrito, la segunda opción
+  no se ofrece en vez de dar la misma hoja dos veces.
+
+  **Guardar el `.html` sigue estando**, dentro de la vista previa: mandar la
+  hoja por correo o WhatsApp es otro recado.
+
 - **Una lista se puede mandar a otra instalación.** «Exportar» hacía una hoja
   para imprimir: sirve para el equipo, no para la otra copia de Cantoral. El
   director armaba el repertorio en su portátil y en el PC de la iglesia había
@@ -169,6 +184,12 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   dependencias de Rust.
 - **CodeQL** (`.github/workflows/codeql.yml`) sobre la interfaz y el núcleo, en
   cada push, cada pull request y semanalmente.
+
+### Corregido
+
+- **La fecha volvía a la hoja impresa en crudo.** Desde que se guarda en un
+  formato que se puede ordenar, imprimirla sin traducir dejaba «2026-09-25» en
+  el papel que se reparte en el culto. Ahora se escribe como se lee.
 
 ### Cambiado
 

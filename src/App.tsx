@@ -15,6 +15,7 @@ import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
 import NewListDialog from "./components/NewListDialog";
 import ImportListDialog from "./components/ImportListDialog";
+import PrintPreview from "./components/PrintPreview";
 import HelpDialog from "./components/HelpDialog";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
@@ -119,6 +120,7 @@ export default function App() {
       <AddFolderDialog />
       <NewListDialog />
       <ImportListDialog />
+      <PrintPreview />
       <HelpDialog />
       <ConfirmDialog />
       <ServiceView />

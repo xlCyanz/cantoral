@@ -203,7 +203,7 @@ export interface CantoralState {
   saveState: SaveState;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | null;
   /**
    * A shared playlist file that has been read and matched, waiting for the
    * user to look at what was found before anything is created.
@@ -358,6 +358,16 @@ export interface CantoralState {
 
   playAll: () => void;
   exportPl: () => void;
+  /** Show the sheet as it will be printed, before anything leaves the app. */
+  openPrintPreview: () => void;
+  /**
+   * Whether the printed sheet carries the lyrics and chords.
+   *
+   * Remembered between sessions: whoever prints for the music stand prints for
+   * the music stand every week.
+   */
+  printWithLyrics: boolean;
+  setPrintWithLyrics: (con: boolean) => void;
   newList: () => void;
   /** `desde` is the id of the template whose order the new list starts from. */
   createList: (nombre: string, fecha: string, ocasion: string, desde?: string) => void;
@@ -675,6 +685,7 @@ export const useStore = create<CantoralState>((set, get) => {
 
     dialog: null,
     importPreview: null,
+    printWithLyrics: false,
     scanning: false,
     scanPct: 0,
     scanIdx: 0,
@@ -1215,6 +1226,24 @@ export const useStore = create<CantoralState>((set, get) => {
           escribirHoja(pl, rows, ord);
         });
     },
+    openPrintPreview: () => {
+      const s = get();
+      const ord = s.plOrder[s.curPlaylist] || [];
+      const hay = ord.some((id) => s.tracks.some((t) => t.id === id));
+      if (!s.playlists.some((p) => p.id === s.curPlaylist) || !hay) {
+        toast("La lista está vacía");
+        return;
+      }
+      // Open first, fetch after: the table is the whole sheet for a list with
+      // nothing written, and waiting on a round trip to show it would make the
+      // button feel broken.
+      set({ dialog: "printPreview" });
+      // `loadSheets` answers for its own failure — it logs and tells the user —
+      // and never rejects, so there is nothing here to catch. The preview stays
+      // open either way: the table is what whoever leads the service reads.
+      void get().loadSheets(ord);
+    },
+    setPrintWithLyrics: (con) => set({ printWithLyrics: con }),
     newList: () => set({ dialog: "newList" }),
     createList: (nombre, fecha, ocasion, desde) => {
       set({ dialog: null });

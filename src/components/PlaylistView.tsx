@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, Share2, ChevronDown, ChevronUp, Copy, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
@@ -152,7 +152,7 @@ export default function PlaylistView() {
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
   const openService = useStore((s) => s.openService);
-  const exportPl = useStore((s) => s.exportPl);
+  const openPrintPreview = useStore((s) => s.openPrintPreview);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
@@ -192,8 +192,12 @@ export default function PlaylistView() {
             <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <Presentation size={16} />Modo culto
             </button>
-            <button onClick={exportPl} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
-              <Download size={16} />Exportar
+            {/* Era «Exportar», que escribía un .html y lo abría en el
+                navegador para que allí alguien pulsara Cmd/Ctrl+P. Lo que se
+                quería era la hoja; el archivo suelto era el peaje. Guardar el
+                .html sigue estando, dentro de la vista previa. */}
+            <button onClick={openPrintPreview} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+              <Printer size={16} />Imprimir
             </button>
             <div style={{ position: "relative" }}>
               <button title="Más acciones" onClick={() => setMenuOpen((v) => !v)} className="hb-s2t" style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
