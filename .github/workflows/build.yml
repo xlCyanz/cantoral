@@ -174,8 +174,9 @@ jobs:
           # el release sale como siempre.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS signing + notarization. Tauri picks these up automatically;
-          # with none of them set the .app/.dmg are produced unsigned.
+          # macOS signing + notarization. Tauri las lee solas; las vacías se
+          # quitan abajo antes de compilar, porque «vacía» y «ausente» no son
+          # lo mismo para quien solo mira si la variable existe.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -185,6 +186,19 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+
+          # Un secret que no existe llega como cadena **vacía**, no ausente.
+          # Tauri solo mira si la variable está definida, así que con
+          # APPLE_CERTIFICATE="" intentaba `security import` de un certificado
+          # vacío y el bundle de macOS moría con «SecKeychainItemImport: One or
+          # more parameters passed to a function were not valid», después de
+          # seis minutos de compilación. Solo llegan al build las que traen algo.
+          for var in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+                     KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID \
+                     TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+            if [ -z "${!var:-}" ]; then unset "$var"; fi
+          done
+
           overrides='{}'
           thumbprint="${{ steps.winsign.outputs.thumbprint }}"
           if [ -n "$thumbprint" ]; then
