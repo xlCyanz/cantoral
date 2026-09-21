@@ -153,6 +153,18 @@ export interface ScanProgressEvent {
   added: number;
 }
 
+/** Rename a tag everywhere, folding it into an existing one if the name is taken. */
+export async function renameTagCmd(from: string, to: string): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("rename_tag", { from, to });
+}
+
+/** Take a tag off every track that carried it. The tracks are untouched. */
+export async function deleteTagCmd(name: string): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("delete_tag", { name });
+}
+
 /** The lyrics and chords of one track. */
 export interface Sheet {
   trackId: string;

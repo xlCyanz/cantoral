@@ -23,6 +23,7 @@ function resolveTheme(mode: ThemeMode): Theme {
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
+import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
 import {
   addAndScanFolder,
   addToPlaylistCmd,
@@ -50,6 +51,8 @@ import {
   pickMediaFile,
   pickSavePath,
   reconcileLibraryCmd,
+  renameTagCmd,
+  deleteTagCmd,
   revealFile,
   relocateFolderCmd,
   relocateTrackCmd,
@@ -136,6 +139,14 @@ export interface CantoralState {
   query: string;
   qf: QuickFilter;
   ocasion: string | null;
+  /**
+   * Tags the library is filtered by, ANDed together.
+   *
+   * Separate from `query` because a tag is the one field the user controls
+   * completely, and folding it into the free-text search meant «lento» also
+   * matched an album called «Lento».
+   */
+  tagFilter: string[];
   groupBy: GroupBy;
   sortKey: SortKey;
   sortDir: "asc" | "desc";
@@ -228,6 +239,12 @@ export interface CantoralState {
   clearQuery: () => void;
   onQuickFilter: (q: Exclude<QuickFilter, null>) => void;
   onOcasion: (o: string) => void;
+  /** Add or remove a tag from the filter. Several tags narrow, never widen. */
+  onTagFilter: (tag: string) => void;
+  /** Rename a tag everywhere, folding it into an existing one if taken. */
+  renameTag: (from: string, to: string) => void;
+  /** Take a tag off every track that carried it, after confirming. */
+  deleteTag: (name: string) => void;
   onGroupBy: (g: GroupBy) => void;
   onSortHeader: (k: SortKey) => void;
 
@@ -553,6 +570,7 @@ export const useStore = create<CantoralState>((set, get) => {
     query: "",
     qf: null,
     ocasion: null,
+    tagFilter: [],
     groupBy: "none",
     sortKey: "titulo",
     sortDir: "asc",
@@ -623,6 +641,14 @@ export const useStore = create<CantoralState>((set, get) => {
     onQuickFilter: (q) =>
       set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: "content" })),
     onOcasion: (o) => set((s) => ({ ocasion: s.ocasion === o ? null : o || null })),
+    onTagFilter: (tag) =>
+      set((st) => ({
+        // A new array every time: the memoised selectors key on its identity.
+        tagFilter: st.tagFilter.includes(tag)
+          ? st.tagFilter.filter((t) => t !== tag)
+          : [...st.tagFilter, tag],
+        view: "biblioteca",
+      })),
     onGroupBy: (g) => set({ groupBy: g }),
     onSortHeader: (k) =>
       set((s) => ({
@@ -732,15 +758,21 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     onTagDraft: (v) => set({ tagDraft: v }),
     addTag: (v) => {
-      const val = v.trim();
+      const val = normalizarEtiqueta(v);
       if (!val) return;
       const s = get();
       if (!s.selId) return;
+      // A tag that already exists but for its capitalisation is the same tag to
+      // everyone except SQLite, so the one in the catalogue wins and the pair
+      // never forms in the first place.
+      const yaExiste = etiquetaEquivalente(val, etiquetas(s).map((e) => e.nombre));
+      const nombre = yaExiste ?? val;
       const curT = s.tracks.find((x) => x.id === s.selId);
       const tags = (curT?.tags || []).slice();
-      if (!tags.includes(val)) tags.push(val);
+      if (!tags.includes(nombre)) tags.push(nombre);
       s.setEdit("tags", tags);
       set({ tagDraft: "" });
+      if (nombre !== val) toast(`Se usó «${nombre}», que ya existía`, "info");
     },
     removeTag: (tag) => {
       const s = get();
@@ -1415,6 +1447,86 @@ export const useStore = create<CantoralState>((set, get) => {
     scaleService: (delta) =>
       set((st) => ({ serviceScale: Math.max(0.7, Math.min(2.4, +(st.serviceScale + delta).toFixed(2))) })),
 
+    // ---------- tags ----------
+    renameTag: (from, to) => {
+      const nombre = normalizarEtiqueta(to);
+      if (!nombre || nombre === from) return;
+      const fusion = etiquetas(get()).some((e) => e.nombre !== from && e.nombre === nombre);
+      const aplicar = () => {
+        // The filter follows the rename, or it would be pinned to a tag that
+        // no longer exists and quietly show nothing.
+        set((st) => ({ tagFilter: st.tagFilter.map((t) => (t === from ? nombre : t)) }));
+        if (!isTauri()) {
+          set((st) => ({
+            tracks: st.tracks.map((t) => {
+              const tags = t.tags || [];
+              if (!tags.includes(from)) return t;
+              return { ...t, tags: [...new Set(tags.map((x) => (x === from ? nombre : x)))].sort() };
+            }),
+          }));
+          toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada");
+          return;
+        }
+        renameTagCmd(from, nombre)
+          .then((snap) => {
+            if (snap) applySnapshot(snap);
+            toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada");
+          })
+          .catch((err) => {
+            console.error("rename_tag failed", err);
+            toast(String(err), "error");
+          });
+      };
+
+      if (!fusion) {
+        aplicar();
+        return;
+      }
+      // Folding two tags together cannot be undone by renaming back, so it is
+      // asked rather than assumed.
+      const cuantas = etiquetas(get()).find((e) => e.nombre === from)?.cuenta ?? 0;
+      get().askConfirm({
+        title: "¿Unir las dos etiquetas?",
+        message: `Ya existe una etiqueta «${nombre}». Las pistas de «${from}» pasarán a ella y «${from}» desaparecerá.`,
+        detail: `${cuantas} ${cuantas === 1 ? "pista lleva" : "pistas llevan"} «${from}».`,
+        safe: "Ninguna pista sale de la biblioteca; solo cambia la etiqueta.",
+        confirmLabel: "Unir",
+        onConfirm: aplicar,
+      });
+    },
+
+    deleteTag: (name) => {
+      const cuantas = etiquetas(get()).find((e) => e.nombre === name)?.cuenta ?? 0;
+      get().askConfirm({
+        title: "¿Quitar esta etiqueta?",
+        message: `«${name}» se quitará de todas las pistas que la llevan.`,
+        detail: `${cuantas} ${cuantas === 1 ? "pista la lleva" : "pistas la llevan"}.`,
+        safe: "Las pistas se quedan en la biblioteca con el resto de sus etiquetas.",
+        confirmLabel: "Quitar etiqueta",
+        onConfirm: () => {
+          set((st) => ({ tagFilter: st.tagFilter.filter((t) => t !== name) }));
+          if (!isTauri()) {
+            set((st) => ({
+              tracks: st.tracks.map((t) =>
+                (t.tags || []).includes(name) ? { ...t, tags: (t.tags || []).filter((x) => x !== name) } : t,
+              ),
+            }));
+            toast("Etiqueta quitada");
+            return;
+          }
+          deleteTagCmd(name)
+            .then((snap) => {
+              if (snap) applySnapshot(snap);
+              toast("Etiqueta quitada");
+            })
+            .catch((err) => {
+              console.error("delete_tag failed", err);
+              toast(String(err), "error");
+            });
+        },
+      });
+    },
+
     // ---------- duplicates ----------
     findDuplicates: () => {
       set({ duplicatesState: "buscando" });
@@ -1688,6 +1800,40 @@ export const filasDeLista = recordar(
   (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks],
 );
 
+/** A tag and how many tracks carry it. */
+export interface Etiqueta {
+  nombre: string;
+  cuenta: number;
+}
+
+/**
+ * Every tag in the catalogue, with its use count.
+ *
+ * Derived rather than fetched: tags already travel with the tracks, so asking
+ * the backend for a list it could only recompute from the same rows would be a
+ * round trip for nothing.
+ */
+export const etiquetas = recordar(
+  (s: CantoralState): Etiqueta[] => {
+    const cuenta = new Map<string, number>();
+    s.tracks.forEach((t) =>
+      (t.tags || []).forEach((raw) => {
+        const tag = raw.trim();
+        if (tag) cuenta.set(tag, (cuenta.get(tag) ?? 0) + 1);
+      }),
+    );
+    // A tag being filtered on stays listed even once nothing carries it,
+    // otherwise its chip vanishes and the filter can never be switched off.
+    s.tagFilter.forEach((t) => {
+      if (!cuenta.has(t)) cuenta.set(t, 0);
+    });
+    return [...cuenta.entries()]
+      .map(([nombre, c]) => ({ nombre, cuenta: c }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  },
+  (s: CantoralState) => [s.tracks, s.tagFilter],
+);
+
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
   if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();
@@ -1709,6 +1855,14 @@ export const applyFilters = recordar(
     else if (s.qf === "missing") list = list.filter((t) => t.missing);
     else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
+    // Every selected tag has to be on the track: picking two is «both», which
+    // is the only reading that makes picking a second one useful.
+    if (s.tagFilter.length) {
+      list = list.filter((t) => {
+        const tags = t.tags || [];
+        return s.tagFilter.every((f) => tags.includes(f));
+      });
+    }
     if (s.query) {
       const q = s.query.toLowerCase();
       list = list.filter((t) =>
@@ -1734,7 +1888,7 @@ export const applyFilters = recordar(
     }
     return list;
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir],
 );
 
 export interface Group {

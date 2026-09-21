@@ -11,6 +11,28 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Las etiquetas dejan de estar a medias.** Se podían poner y ahí se acababa:
+  no había forma de filtrar por ellas, ni de ver cuáles existían, ni de
+  corregir una mal escrita sin abrir cada pista.
+
+  Ahora **filtras con chips propios**, junto a los de ocasión. Elegir dos acota
+  a las pistas que llevan las dos, no a las que llevan cualquiera — que es lo
+  único que hace útil elegir la segunda. Antes las etiquetas solo entraban en
+  la búsqueda de texto libre, donde `lento` también encontraba un álbum llamado
+  «Lento».
+
+  El campo del panel de detalle **autocompleta** con las que ya existen, sin
+  ofrecer las que la pista ya lleva.
+
+  En Configuración hay una sección **«Etiquetas»** con todas y cuántas pistas
+  llevan cada una. Cambiar el nombre lo corrige en todas a la vez; ponerle el
+  nombre de otra que ya existe las **une en una**, previa confirmación, porque
+  eso no se deshace renombrando de vuelta.
+
+  Y el par no llega a formarse: `tags.name` distingue mayúsculas, así que
+  escribir `Lento` donde ya existe `lento` usaba dos filas que nadie veía que
+  eran dos. Ahora se acopla a la que ya está y lo dice.
+
 - **Letra y acordes por pista, con modo culto y transposición.** Cantoral ya
   sabía el tono de cada canción; lo único que no podía guardar era lo que el
   equipo necesita ver mientras toca. Eso vivía fuera de la app —un PDF suelto,
