@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap");
+@import "./fonts.css";
 @import "tailwindcss";
 
 /* Enable `dark:` utilities to follow the app's [data-theme="dark"] attribute. */

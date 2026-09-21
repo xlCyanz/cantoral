@@ -277,6 +277,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Seguridad
 
+- **Las tipografías dejan de venir de Google en cada arranque.** `global.css`
+  las pedía a `fonts.googleapis.com`, así que cada vez que alguien abría
+  Cantoral salía una petición con su IP hacia un tercero — en una app cuyo
+  README promete «sin nube, sin cuentas, sin telemetría»—, la tipografía
+  dependía de que hubiera red, y la CSP tenía que dejar abiertos dos orígenes
+  solo para eso.
+
+  Ahora van dentro del paquete (99 KB, solo los subconjuntos `latin` y
+  `latin-ext`; el cirílico y el vietnamita sobraban en una app en español).
+  Ambas son SIL Open Font License y su texto viaja junto a los archivos. La
+  política se queda en `style-src 'self' 'unsafe-inline'; font-src 'self'`, sin
+  un solo origen externo.
+
 - **La webview ya no puede pedirle al sistema que abra cualquier archivo.**
   Tenía el permiso `opener:allow-open-path` con alcance `**`, y `open_path`
   abre el archivo con la aplicación predeterminada: un ejecutable incluido.
