@@ -20,7 +20,7 @@ function osPrefersDark(): boolean {
 function resolveTheme(mode: ThemeMode): Theme {
   return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
 }
-import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
+import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import {
@@ -35,6 +35,8 @@ import {
   exportPlaylistCmd,
   getLibrary,
   getSetting,
+  getSheets,
+  getTrackSheet,
   dismissDuplicatesCmd,
   findDuplicatesCmd,
   inspectBackup,
@@ -59,7 +61,9 @@ import {
   setTrackFav,
   updatePlaylistCmd,
   updateTrackCmd,
+  updateTrackSheet,
   type DuplicateGroup,
+  type Sheet,
   type Snapshot,
 } from "./lib/api";
 
@@ -73,6 +77,11 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let dragId: string | null = null;
 /** Action to re-run from the error state — set whenever a backend call fails. */
 let lastFailedAction: (() => void) | null = null;
+/** Debounce for a sheet being typed into the editor. */
+let sheetTimer: ReturnType<typeof setTimeout> | null = null;
+/** Id of the track whose sheet is waiting out that debounce, if any. */
+let pendingSheet: string | null = null;
+
 /** Debounce for track edits, which now write themselves. */
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 /** Id of the track whose edit is waiting out the debounce, if any. */
@@ -175,6 +184,29 @@ export interface CantoralState {
   /** Destructive action awaiting confirmation, or null. */
   confirm: ConfirmRequest | null;
 
+  // ---- lyrics and chords ----
+  /**
+   * Sheets already fetched, by track id.
+   *
+   * A cache rather than part of the catalogue: the snapshot travels whole and
+   * has no business carrying a few thousand songs' worth of text.
+   */
+  sheets: Record<string, Sheet>;
+  /** Track whose sheet is open in the editor, or null. */
+  sheetDialog: string | null;
+  /** How the sheet being edited is doing, reusing the panel's own states. */
+  sheetState: SaveState;
+
+  // ---- service view ----
+  /** Whether the full-screen view for playing from the stand is up. */
+  serviceOpen: boolean;
+  /** Position within the open list's order. */
+  serviceIdx: number;
+  /** Semitones the sheets are shifted by, for the key the group sings in. */
+  serviceSemitones: number;
+  /** Text size multiplier, for the distance between the stand and the eyes. */
+  serviceScale: number;
+
   // ---- duplicates ----
   /** Groups of tracks that look like the same song. Empty until searched. */
   duplicates: DuplicateGroup[];
@@ -264,6 +296,25 @@ export interface CantoralState {
 
   tick: () => void;
   showToast: (m: string, type?: ToastType) => void;
+
+  /** Fetch one track's sheet if it is not already in hand. */
+  loadSheet: (id: string) => void;
+  /** Fetch the sheets of a whole list, for the service view and the export. */
+  loadSheets: (ids: string[]) => Promise<void>;
+  /** Open the sheet editor on a track. */
+  openSheetEditor: (id: string) => void;
+  closeSheetEditor: () => void;
+  /** Change one half of the open sheet. It writes itself, debounced. */
+  setSheet: (campo: "letra" | "acordes", valor: string) => void;
+  /** Write a sheet still waiting out the debounce, right now. */
+  flushSheet: () => void;
+
+  /** Open the full-screen view over the list that is open. */
+  openService: () => void;
+  closeService: () => void;
+  serviceGo: (delta: number) => void;
+  transposeService: (delta: number) => void;
+  scaleService: (delta: number) => void;
 
   /** Look for tracks that are the same song. */
   findDuplicates: () => void;
@@ -360,6 +411,70 @@ export const useStore = create<CantoralState>((set, get) => {
   const stopLiveRefresh = () => {
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = null;
+  };
+
+  /**
+   * Build the printable page for a list and hand it wherever it goes.
+   *
+   * Split out of `exportPl` because that now has to wait for the lyrics before
+   * it can build anything, and the waiting has two endings — with them, and
+   * without them if they could not be read.
+   */
+  const escribirHoja = (pl: Playlist, rows: Track[], ord: string[]) => {
+    const s = get();
+    const html = playlistSheetHtml(pl, rows, plDur(s, ord), s.sheets);
+    const name = sheetFileName(pl.nombre);
+    if (!isTauri()) {
+      // Browser fallback so the sheet is testable with `pnpm dev`.
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Hoja de la lista exportada");
+      return;
+    }
+    void pickExportPath(name).then((dest) => {
+      if (!dest) return;
+      exportPlaylistCmd(dest, html)
+        .then(() => {
+          toast("Hoja de la lista exportada");
+          // Opens in the default browser, where Cmd/Ctrl+P saves it as PDF.
+          return openExternalPath(dest);
+        })
+        .catch((err) => {
+          console.error(err);
+          toast("No se pudo exportar la lista", "error");
+        });
+    });
+  };
+
+  /** Write the sheet waiting out its debounce, reading the latest text. */
+  const writePendingSheet = () => {
+    const id = pendingSheet;
+    pendingSheet = null;
+    if (sheetTimer) clearTimeout(sheetTimer);
+    sheetTimer = null;
+    if (!id) return;
+    const hoja = get().sheets[id];
+    if (!hoja) return;
+    updateTrackSheet(id, hoja.letra, hoja.acordes)
+      .then(() => {
+        if (get().sheetDialog === id) set({ sheetState: "saved" });
+      })
+      .catch((err) => {
+        console.error("update_track_sheet failed", err);
+        if (get().sheetDialog === id) set({ sheetState: "error" });
+        toast("No se pudo guardar la letra", "error");
+      });
+  };
+
+  const scheduleSheetSave = (id: string) => {
+    if (pendingSheet && pendingSheet !== id) writePendingSheet();
+    pendingSheet = id;
+    if (sheetTimer) clearTimeout(sheetTimer);
+    sheetTimer = setTimeout(writePendingSheet, 600);
   };
 
   /**
@@ -469,6 +584,15 @@ export const useStore = create<CantoralState>((set, get) => {
 
     toast: null,
     confirm: null,
+
+    sheets: {},
+    sheetDialog: null,
+    sheetState: "idle",
+
+    serviceOpen: false,
+    serviceIdx: 0,
+    serviceSemitones: 0,
+    serviceScale: 1,
 
     duplicates: [],
     duplicatesDismissed: 0,
@@ -811,32 +935,17 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("La lista está vacía");
         return;
       }
-      const html = playlistSheetHtml(pl, rows, plDur(s, ord));
-      const name = sheetFileName(pl.nombre);
-      if (!isTauri()) {
-        // Browser fallback so the sheet is testable with `pnpm dev`.
-        const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = name;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast("Hoja de la lista exportada");
-        return;
-      }
-      void pickExportPath(name).then((dest) => {
-        if (!dest) return;
-        exportPlaylistCmd(dest, html)
-          .then(() => {
-            toast("Hoja de la lista exportada");
-            // Opens in the default browser, where Cmd/Ctrl+P saves it as PDF.
-            return openExternalPath(dest);
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo exportar la lista", "error");
-          });
-      });
+      // The sheets are not part of the catalogue, so they are fetched for this
+      // list before the page is built. Whoever prints this is the person who
+      // wanted the lyrics on paper.
+      void get()
+        .loadSheets(ord)
+        .then(() => escribirHoja(pl, rows, ord))
+        .catch((err) => {
+          console.error("could not read the lyrics for the export", err);
+          // The table is still worth printing without them.
+          escribirHoja(pl, rows, ord);
+        });
     },
     newList: () => set({ dialog: "newList" }),
     createList: (nombre, fecha, ocasion) => {
@@ -1194,6 +1303,118 @@ export const useStore = create<CantoralState>((set, get) => {
       if (p >= t.durSec) get().advance();
       else set({ posSec: p });
     },
+    // ---------- lyrics and chords ----------
+    loadSheet: (id) => {
+      if (get().sheets[id]) return;
+      if (!isTauri()) {
+        const semilla = SEED_SHEETS[id];
+        set((st) => ({
+          sheets: { ...st.sheets, [id]: semilla ?? { trackId: id, letra: "", acordes: "" } },
+        }));
+        return;
+      }
+      getTrackSheet(id)
+        .then((hoja) => {
+          if (hoja) set((st) => ({ sheets: { ...st.sheets, [id]: hoja } }));
+        })
+        .catch((err) => {
+          console.error("get_track_sheet failed", err);
+          toast("No se pudo leer la letra de esta pista", "error");
+        });
+    },
+
+    loadSheets: async (ids) => {
+      const faltan = ids.filter((id) => !get().sheets[id]);
+      if (faltan.length === 0) return;
+      // Tracks with nothing written do not come back, so they are seeded empty
+      // here — otherwise every view of them would ask again.
+      const vacias = Object.fromEntries(
+        faltan.map((id) => [id, { trackId: id, letra: "", acordes: "" }] as const),
+      );
+      if (!isTauri()) {
+        const deSemilla = Object.fromEntries(
+          faltan.filter((id) => SEED_SHEETS[id]).map((id) => [id, SEED_SHEETS[id]] as const),
+        );
+        set((st) => ({ sheets: { ...st.sheets, ...vacias, ...deSemilla } }));
+        return;
+      }
+      try {
+        const hojas = await getSheets(faltan);
+        const traidas = Object.fromEntries((hojas ?? []).map((h) => [h.trackId, h] as const));
+        set((st) => ({ sheets: { ...st.sheets, ...vacias, ...traidas } }));
+      } catch (err) {
+        console.error("get_sheets failed", err);
+        toast("No se pudieron leer las letras de esta lista", "error");
+      }
+    },
+
+    openSheetEditor: (id) => {
+      get().loadSheet(id);
+      set({ sheetDialog: id, sheetState: "idle" });
+    },
+
+    closeSheetEditor: () => {
+      writePendingSheet();
+      set({ sheetDialog: null });
+    },
+
+    setSheet: (campo, valor) => {
+      const id = get().sheetDialog;
+      if (!id) return;
+      const actual = get().sheets[id] ?? { trackId: id, letra: "", acordes: "" };
+      const siguiente = { ...actual, [campo]: valor };
+      set((st) => ({
+        sheets: { ...st.sheets, [id]: siguiente },
+        // The catalogue only carries whether there is a sheet, so it is kept in
+        // step here rather than waiting for the next snapshot.
+        tracks: st.tracks.map((t) =>
+          t.id === id
+            ? { ...t, tieneHoja: !!(siguiente.letra.trim() || siguiente.acordes.trim()) }
+            : t,
+        ),
+        sheetState: "saving",
+      }));
+      scheduleSheetSave(id);
+    },
+
+    flushSheet: () => writePendingSheet(),
+
+    // ---------- service view ----------
+    openService: () => {
+      const ids = get().plOrder[get().curPlaylist] || [];
+      if (ids.length === 0) {
+        toast("Esta lista está vacía", "info");
+        return;
+      }
+      void get().loadSheets(ids);
+      // Starts on whatever is playing if it belongs to this list, so opening
+      // the view mid-song lands on the song.
+      const enCurso = ids.indexOf(get().playerId);
+      set({
+        serviceOpen: true,
+        serviceIdx: enCurso >= 0 ? enCurso : 0,
+        serviceSemitones: 0,
+      });
+    },
+
+    closeService: () => set({ serviceOpen: false }),
+
+    serviceGo: (delta) => {
+      const ids = get().plOrder[get().curPlaylist] || [];
+      if (ids.length === 0) return;
+      const siguiente = Math.min(ids.length - 1, Math.max(0, get().serviceIdx + delta));
+      // Moving to another song drops the transposition: it belonged to the one
+      // being left, and carrying it over would silently put the next song in a
+      // key nobody asked for.
+      set({ serviceIdx: siguiente, serviceSemitones: 0 });
+    },
+
+    transposeService: (delta) =>
+      set((st) => ({ serviceSemitones: Math.max(-11, Math.min(11, st.serviceSemitones + delta)) })),
+
+    scaleService: (delta) =>
+      set((st) => ({ serviceScale: Math.max(0.7, Math.min(2.4, +(st.serviceScale + delta).toFixed(2))) })),
+
     // ---------- duplicates ----------
     findDuplicates: () => {
       set({ duplicatesState: "buscando" });

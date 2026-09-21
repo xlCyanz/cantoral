@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, ChevronDown, FolderOpen, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronDown, FileText, FolderOpen, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
 import { ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
@@ -61,6 +61,7 @@ export default function DetailPanel() {
   const addTag = useStore((s) => s.addTag);
   const removeTag = useStore((s) => s.removeTag);
   const revealTrack = useStore((s) => s.revealTrack);
+  const openSheetEditor = useStore((s) => s.openSheetEditor);
 
   if (!detailOpen || !sel) return null;
 
@@ -254,6 +255,23 @@ export default function DetailPanel() {
               style={{ width: "100%", height: 36, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, padding: "0 12px 0 32px", fontSize: 13, outline: "none" }}
             />
           </div>
+        </div>
+
+        {/* letra y acordes */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ ...labelStyle, marginBottom: 7 }}>Letra y acordes</label>
+          <button
+            onClick={() => openSheetEditor(sel.id)}
+            className="hb-s2"
+            style={{ width: "100%", height: 38, display: "flex", alignItems: "center", gap: 9, padding: "0 12px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "13px", fontWeight: 600 }}
+          >
+            <FileText size={15} color={sel.tieneHoja ? "var(--primary)" : "var(--text-3)"} />
+            {sel.tieneHoja ? "Editar la hoja" : "Escribir la letra"}
+            <div style={{ flex: 1 }} />
+            {sel.tieneHoja && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)" }}>ESCRITA</span>
+            )}
+          </button>
         </div>
 
         {/* file info */}

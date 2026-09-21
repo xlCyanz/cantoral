@@ -16,7 +16,9 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "← / →", label: "Pista anterior / siguiente" },
   { keys: "⌘/Ctrl + F", label: "Buscar en la biblioteca" },
   { keys: "⌘/Ctrl + N", label: "Nueva lista para culto" },
-  { keys: "Esc", label: "Cerrar diálogo o panel" },
+  { keys: "Esc", label: "Cerrar diálogo, panel o modo culto" },
+  { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
+  { keys: "+ / −", label: "Subir o bajar el tono en modo culto" },
   { keys: "?", label: "Mostrar esta ayuda" },
 ];
 
@@ -33,6 +35,12 @@ export function registerShortcuts(): () => void {
       if (s.confirm) {
         e.preventDefault();
         s.closeConfirm();
+      } else if (s.sheetDialog) {
+        e.preventDefault();
+        s.closeSheetEditor();
+      } else if (s.serviceOpen) {
+        e.preventDefault();
+        s.closeService();
       } else if (s.dialog) {
         e.preventDefault();
         s.closeDialog();
@@ -69,7 +77,33 @@ export function registerShortcuts(): () => void {
 
     // Everything below is a bare key, so never while typing or in a dialog —
     // pressing space to pause must not reach through a confirmation.
-    if (isTyping(e.target) || s.dialog || s.confirm) return;
+    if (isTyping(e.target) || s.dialog || s.confirm || s.sheetDialog) return;
+
+    // The service view takes the arrows while it is up: on the stand they walk
+    // the list being sung, not the play queue behind it. Space is left alone,
+    // because starting the track is exactly what it is wanted for.
+    if (s.serviceOpen) {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
+        e.preventDefault();
+        s.serviceGo(1);
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
+        e.preventDefault();
+        s.serviceGo(-1);
+        return;
+      }
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        s.transposeService(1);
+        return;
+      }
+      if (e.key === "-") {
+        e.preventDefault();
+        s.transposeService(-1);
+        return;
+      }
+    }
 
     // `code` is layout-independent and survives input methods that leave
     // `key` empty, so accept either spelling of the space bar.

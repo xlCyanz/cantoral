@@ -60,7 +60,9 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - 🎼 **Tono, tempo y ocasión** — edítalos desde el panel de detalle, con sugerencias de tonos en notación latina y de ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, la columna Tono y la hoja imprimible.
 - 🏷️ **Etiquetas** — etiqueta cada pista para encontrarla rápido; se conservan al re-escanear, igual que los favoritos.
 - 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, reordena arrastrando, edita nombre/fecha/ocasión y reproduce toda la lista.
-- 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>P</kbd>.
+- 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
+- 🎚️ **Transposición** — sube o baja medio tono y la hoja entera se reescribe en el tono en que canta el grupo esta semana, con la armadura correcta: en un tono con bemoles verás `Lab`, no `Sol#`.
+- 🖨️ **Exportar** — genera una hoja imprimible de la lista (título, artista, ocasión, tono, BPM, duración) que se abre en el navegador; de ahí sale PDF con <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>P</kbd>. Detrás de la tabla van las letras y acordes del repertorio, una canción por página.
 - ▶️ **Reproducción** — reproductor integrado con cola que sigue el orden del culto; los videos de proyección se abren en el reproductor predeterminado del sistema.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder sus etiquetas, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
@@ -423,12 +425,13 @@ propósito: optimizar una interfaz que todavía va a cambiar es trabajo que se t
 ### [Fase 4 · El flujo del culto](https://github.com/xlCyanz/cantoral/milestone/4)
 
 Lo que un equipo de alabanza hace cada semana y hoy la app resuelve a medias.
-La pieza grande es **letras y acordes con transposición**
-([#21](https://github.com/xlCyanz/cantoral/issues/21)): es lo que haría que alguien
-use Cantoral **durante** el culto y no solo antes. Con ella van la selección
-múltiple ([#20](https://github.com/xlCyanz/cantoral/issues/20)), las etiquetas
-gestionables ([#22](https://github.com/xlCyanz/cantoral/issues/22)) y poder
-compartir una lista con el equipo ([#26](https://github.com/xlCyanz/cantoral/issues/26)).
+La pieza grande —**letras y acordes con transposición**
+([#21](https://github.com/xlCyanz/cantoral/issues/21))— ya está: es lo que hace
+que alguien use Cantoral **durante** el culto y no solo antes. Quedan la
+selección múltiple ([#20](https://github.com/xlCyanz/cantoral/issues/20)), las
+etiquetas gestionables ([#22](https://github.com/xlCyanz/cantoral/issues/22)) y
+poder compartir una lista con el equipo
+([#26](https://github.com/xlCyanz/cantoral/issues/26)).
 
 ### [Fase 5 · Llegar a la iglesia](https://github.com/xlCyanz/cantoral/milestone/5)
 

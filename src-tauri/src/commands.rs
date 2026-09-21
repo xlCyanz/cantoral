@@ -3,7 +3,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{self, Db};
-use crate::models::{DuplicateGroup, Folder, Playlist, Track};
+use crate::models::{DuplicateGroup, Folder, Playlist, Sheet, Track};
 use crate::scanner::{self, ScanSlot};
 
 /// Everything the frontend needs to hydrate its store.
@@ -214,6 +214,37 @@ pub fn restore_dismissed_duplicates(db: State<Db>) -> CmdResult<DuplicateReport>
     let conn = db.0.lock().map_err(e)?;
     db::clear_duplicate_dismissals(&conn).map_err(e)?;
     duplicate_report(&conn).map_err(e)
+}
+
+/// The lyrics and chords of one track.
+#[tauri::command]
+pub fn get_track_sheet(db: State<Db>, id: String) -> CmdResult<Sheet> {
+    let conn = db.0.lock().map_err(e)?;
+    db::track_sheet(&conn, id.parse::<i64>().map_err(e)?).map_err(e)
+}
+
+/// The sheets of several tracks at once, for a whole service list.
+#[tauri::command]
+pub fn get_sheets(db: State<Db>, ids: Vec<String>) -> CmdResult<Vec<Sheet>> {
+    let parsed = ids
+        .iter()
+        .map(|i| i.parse::<i64>())
+        .collect::<std::result::Result<Vec<i64>, _>>()
+        .map_err(e)?;
+    let conn = db.0.lock().map_err(e)?;
+    db::sheets_for(&conn, &parsed).map_err(e)
+}
+
+/// Write a track's lyrics and chords.
+#[tauri::command]
+pub fn update_track_sheet(
+    db: State<Db>,
+    id: String,
+    letra: String,
+    acordes: String,
+) -> CmdResult<()> {
+    let conn = db.0.lock().map_err(e)?;
+    db::set_track_sheet(&conn, id.parse::<i64>().map_err(e)?, &letra, &acordes).map_err(e)
 }
 
 /// Re-check every indexed file on disk. Called after startup so tracks deleted

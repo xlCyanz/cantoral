@@ -11,6 +11,32 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Letra y acordes por pista, con modo culto y transposición.** Cantoral ya
+  sabía el tono de cada canción; lo único que no podía guardar era lo que el
+  equipo necesita ver mientras toca. Eso vivía fuera de la app —un PDF suelto,
+  un cuaderno, un grupo de WhatsApp—.
+
+  Se escriben desde el panel de detalle en formato **ChordPro**
+  (`[Sol]Sublime [Do]gracia`), con vista previa al lado, porque lo que importa
+  es sobre qué sílaba cae cada acorde y eso el texto fuente no lo enseña.
+
+  El **modo culto** se abre desde cualquier lista: pantalla completa, letra
+  grande, los acordes encima de su sílaba, las flechas para pasar de canción y
+  el tamaño de letra a gusto del atril. Arranca en la canción que esté sonando,
+  si es de esa lista.
+
+  **Transponer** sube o baja medio tono y reescribe la hoja entera, eligiendo la
+  armadura del tono de destino: en un tono con bemoles verás `Lab` y no `Sol#`,
+  que es la traducción que el músico tendría que hacer de cabeza. Al cambiar de
+  canción se olvida, porque pertenecía a la anterior.
+
+  La hoja imprimible lleva ahora las letras del repertorio detrás de la tabla,
+  una canción por página.
+
+  Las hojas **no viajan con el catálogo**: se piden cuando alguien va a leerlas.
+  El catálogo solo lleva si una pista tiene hoja o no, para que una biblioteca
+  de miles de canciones no arrastre megabytes de texto en cada refresco.
+
 - **La interfaz recuerda cómo la dejaste.** Hasta ahora solo sobrevivían al
   cierre el tema y la preferencia de reproductor externo; el volumen volvía a
   0.72 en cada arranque, que en un ensayo significa abrir la app a todo lo que
