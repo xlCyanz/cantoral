@@ -444,27 +444,52 @@ pub fn backup_database(db: State<Db>, db_path: State<DbPath>, dest: String) -> C
 mod tests {
     use super::export_playlist;
 
-    fn tmp(name: &str) -> String {
-        std::env::temp_dir().join(name).to_string_lossy().to_string()
+    /// A temp directory of this test's own, cleared when it goes out of scope.
+    ///
+    /// One per test rather than one shared filename. These tests all wrote to
+    /// `cantoral-export-test.*` in the shared temp directory, and on a
+    /// case-insensitive filesystem `…test.HTML` and `…test.html` are the same
+    /// file — so the test that writes the uppercase one could delete the file
+    /// another was in the middle of reading. `cargo test` runs them in
+    /// parallel, so it showed up as a failure roughly one run in four, and only
+    /// on macOS: the Linux runners in CI never saw it.
+    struct Dir(std::path::PathBuf);
+
+    impl Dir {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!("cantoral-export-{name}"));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Dir(dir)
+        }
+
+        fn path(&self, name: &str) -> String {
+            self.0.join(name).to_string_lossy().to_string()
+        }
+    }
+
+    impl Drop for Dir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
     }
 
     #[test]
     fn export_writes_the_sheet_verbatim() {
-        let dest = tmp("cantoral-export-test.html");
-        let _ = std::fs::remove_file(&dest);
+        let dir = Dir::new("verbatim");
+        let dest = dir.path("culto.html");
 
         export_playlist(dest.clone(), "<h1>Culto</h1>".into()).unwrap();
 
         assert_eq!(std::fs::read_to_string(&dest).unwrap(), "<h1>Culto</h1>");
-        let _ = std::fs::remove_file(&dest);
     }
 
     #[test]
     fn export_refuses_anything_that_is_not_html() {
         // The command must not double as a write-anything primitive.
-        for bad in ["cantoral-export-test.db", "cantoral-export-test.sh", "cantoral-export-test"] {
-            let dest = tmp(bad);
-            let _ = std::fs::remove_file(&dest);
+        let dir = Dir::new("refuses");
+        for bad in ["culto.db", "culto.sh", "culto"] {
+            let dest = dir.path(bad);
             assert!(export_playlist(dest.clone(), "x".into()).is_err(), "{bad} should be refused");
             assert!(!std::path::Path::new(&dest).exists(), "{bad} must not be created");
         }
@@ -472,11 +497,10 @@ mod tests {
 
     #[test]
     fn export_accepts_either_html_spelling_and_ignores_case() {
-        for ok in ["cantoral-export-test.htm", "cantoral-export-test.HTML"] {
-            let dest = tmp(ok);
-            let _ = std::fs::remove_file(&dest);
+        let dir = Dir::new("spellings");
+        for ok in ["culto.htm", "culto.HTML"] {
+            let dest = dir.path(ok);
             assert!(export_playlist(dest.clone(), "x".into()).is_ok(), "{ok} should be accepted");
-            let _ = std::fs::remove_file(&dest);
         }
     }
 }
