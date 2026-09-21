@@ -11,6 +11,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 Nada todavía.
 
+## [0.2.1] - 2026-09-21
+
+**Sin cambios funcionales.** Publicada para ejercer el actualizador de punta a
+punta: la 0.2.0 fue el primer release, así que no había ninguna instalación
+anterior a la que ofrecerle nada, y el camino completo —detectar, descargar,
+verificar la firma, reemplazar la app y reiniciar— no se puede probar con una
+sola versión publicada.
+
 ## [0.2.0] - 2026-09-21
 
 ### Añadido
@@ -477,5 +485,6 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.2.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/xlCyanz/cantoral/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/xlCyanz/cantoral/releases/tag/v0.2.0
