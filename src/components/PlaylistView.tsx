@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Calendar, ChevronDown, ChevronUp, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, ChevronDown, ChevronUp, Copy, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
@@ -9,6 +9,19 @@ import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
 const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 86px";
+
+const menuItem = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  width: "100%",
+  padding: "9px 11px",
+  borderRadius: 8,
+  color: "var(--text)",
+  fontSize: 13,
+  fontWeight: 600,
+  textAlign: "left",
+} as const;
 
 /** Shared empty order, so an absent list does not hand out a fresh array each read. */
 const VACIA: string[] = [];
@@ -142,6 +155,8 @@ export default function PlaylistView() {
   const exportPl = useStore((s) => s.exportPl);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
+  const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
+  const toggleCurrentTemplate = useStore((s) => s.toggleCurrentTemplate);
   const showBiblioteca = useStore((s) => s.showBiblioteca);
   const reorderNotice = useStore((s) => s.reorderNotice);
   const arrastrandoDesdeBiblioteca = useStore((s) => s.dragFromLibrary.length);
@@ -161,11 +176,11 @@ export default function PlaylistView() {
         </div>
         <div style={{ minWidth: 0, paddingBottom: 2 }}>
           <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", color: "var(--primary)", background: "var(--primary-soft)", padding: "3px 10px", borderRadius: 7, marginBottom: 10 }}>
-            Lista para culto
+            {pl?.plantilla ? "Plantilla" : "Lista para culto"}
           </span>
           <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-.8px", lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{formatearFecha(pl?.fecha)}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{formatearFecha(pl?.fecha) || "Sin fecha"}</span>
             <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-3)" }} />
             <span>{order.length} pistas · {duracion}</span>
           </div>
@@ -189,6 +204,13 @@ export default function PlaylistView() {
                   <div style={{ position: "absolute", right: 0, top: 48, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, minWidth: 190 }}>
                     <button onClick={() => { setMenuOpen(false); editCurrentList(); }} className="hb-s2" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--text)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Pencil size={15} />Editar lista
+                    </button>
+                    <button onClick={() => { setMenuOpen(false); duplicateCurrentList(); }} className="hb-s2" style={menuItem}>
+                      <Copy size={15} />Duplicar lista
+                    </button>
+                    <button onClick={() => { setMenuOpen(false); toggleCurrentTemplate(); }} className="hb-s2" style={menuItem}>
+                      {pl?.plantilla ? <BookmarkMinus size={15} /> : <BookmarkPlus size={15} />}
+                      {pl?.plantilla ? "Quitar de plantillas" : "Guardar como plantilla"}
                     </button>
                     <button onClick={() => { setMenuOpen(false); deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Trash2 size={15} />Eliminar lista

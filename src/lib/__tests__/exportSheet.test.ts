@@ -31,6 +31,7 @@ const pl: Playlist = {
   fecha: "Domingo 13 de julio",
   ocasion: "Servicio dominical",
   ids: ["1"],
+  plantilla: false,
 };
 
 describe("sheetFileName", () => {

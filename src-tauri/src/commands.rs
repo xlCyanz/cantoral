@@ -441,16 +441,40 @@ pub fn update_track(
     Ok(())
 }
 
+/// Create a playlist, optionally with the track order of `desde` (a template).
 #[tauri::command]
 pub fn create_playlist(
     db: State<Db>,
     nombre: String,
     fecha: String,
     ocasion: String,
+    desde: Option<String>,
 ) -> CmdResult<String> {
     let conn = db.0.lock().map_err(e)?;
-    let id = db::create_playlist(&conn, &nombre, &fecha, &ocasion).map_err(e)?;
+    // An unparseable id means «no template», not an error: the list is what the
+    // user asked for, and creating it empty beats refusing to create it.
+    let origen = desde.and_then(|d| d.parse::<i64>().ok());
+    let id = db::create_playlist(&conn, &nombre, &fecha, &ocasion, origen).map_err(e)?;
     Ok(id.to_string())
+}
+
+/// Copy a playlist with its order. Returns the new id so the UI can open it.
+#[tauri::command]
+pub fn duplicate_playlist(db: State<Db>, playlist: String) -> CmdResult<String> {
+    let conn = db.0.lock().map_err(e)?;
+    let id = db::duplicate_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)?;
+    Ok(id.to_string())
+}
+
+#[tauri::command]
+pub fn set_playlist_template(
+    db: State<Db>,
+    playlist: String,
+    plantilla: bool,
+) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::set_playlist_template(&conn, playlist.parse::<i64>().map_err(e)?, plantilla).map_err(e)?;
+    snapshot(&conn).map_err(e)
 }
 
 #[tauri::command]

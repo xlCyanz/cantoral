@@ -66,6 +66,8 @@ pub struct Playlist {
     pub fecha: String,
     pub ocasion: String,
     pub ids: Vec<String>,
+    /// A list kept as a starting point rather than as a service of its own.
+    pub plantilla: bool,
 }
 
 /// One track inside a group of suspected duplicates.

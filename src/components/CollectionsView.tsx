@@ -1,5 +1,5 @@
-import { Calendar, ListMusic, Plus } from "lucide-react";
-import { plDur, useStore } from "../store";
+import { Calendar, Layers, ListMusic, Plus, RotateCcw } from "lucide-react";
+import { plDur, repetibles, useStore } from "../store";
 import { gradientFor } from "../lib/covers";
 import { formatearFechaCorta, partirPorFecha } from "../lib/fechas";
 import Empty, { emptyBtnPrimary } from "./Empty";
@@ -10,12 +10,20 @@ export default function CollectionsView() {
   const openPlaylist = useStore((s) => s.openPlaylist);
   const newList = useStore((s) => s.newList);
   const tracks = useStore((s) => s.tracks);
+  const duplicateList = useStore((s) => s.duplicateList);
+  const repetir = useStore(repetibles);
 
-  const { proximos, pasados, sinFecha } = partirPorFecha(playlists);
+  // Templates are not services, so they are kept out of the date split: a
+  // template has no date and would otherwise pile up under «Sin fecha» next to
+  // lists that merely lost theirs.
+  const cultos = playlists.filter((p) => !p.plantilla);
+  const plantillas = playlists.filter((p) => p.plantilla);
+  const { proximos, pasados, sinFecha } = partirPorFecha(cultos);
   const secciones = [
     { titulo: "Próximos", listas: proximos },
     { titulo: "Anteriores", listas: pasados },
     { titulo: "Sin fecha", listas: sinFecha },
+    { titulo: "Plantillas", listas: plantillas },
   ].filter((s) => s.listas.length > 0);
   // With everything in one bucket a heading says nothing, so it is left out
   // until the split actually separates something.
@@ -47,6 +55,29 @@ export default function CollectionsView() {
         </button>
       </div>
 
+      {repetir.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, margin: "0 0 22px" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)" }}>
+            <RotateCcw size={14} />Repetir el culto anterior:
+          </span>
+          {/* The label spells the action out: read aloud, «Servicio dominical
+              25 sept» says neither what the button does nor what it copies. */}
+          {repetir.map(({ ocasion, lista }) => (
+            <button
+              key={ocasion}
+              onClick={() => duplicateList(lista.id)}
+              className="hb-s2"
+              title={`Copiar «${lista.nombre}» del ${formatearFechaCorta(lista.fecha)}`}
+              aria-label={`Repetir ${ocasion}: copiar «${lista.nombre}» del ${formatearFechaCorta(lista.fecha)}`}
+              style={{ display: "flex", alignItems: "center", gap: 7, height: 32, padding: "0 12px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}
+            >
+              {ocasion}
+              <span style={{ color: "var(--text-3)", fontWeight: 500 }}>{formatearFechaCorta(lista.fecha)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {secciones.map(({ titulo, listas }) => (
         <div key={titulo} style={{ marginBottom: 26 }}>
           {mostrarTitulos && (
@@ -71,12 +102,19 @@ export default function CollectionsView() {
                 <div style={{ position: "absolute", left: 9, top: 9, background: "rgba(20,14,9,.42)", backdropFilter: "blur(4px)", color: "#fff", fontSize: "10.5px", fontWeight: 600, padding: "2px 8px", borderRadius: 6 }}>
                   {p.ocasion}
                 </div>
+                {p.plantilla && (
+                  <div title="Plantilla" style={{ position: "absolute", right: 9, top: 9, display: "grid", placeItems: "center", width: 22, height: 22, background: "rgba(20,14,9,.42)", backdropFilter: "blur(4px)", color: "#fff", borderRadius: 6 }}>
+                    <Layers size={12} />
+                  </div>
+                )}
               </div>
               <div style={{ padding: "12px 4px 4px" }}>
                 <div style={{ fontSize: "14.5px", fontWeight: 700, letterSpacing: "-.1px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "var(--text-2)" }}>
-                  <Calendar size={13} style={{ flex: "0 0 auto" }} />
-                  <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{formatearFechaCorta(p.fecha) || "Sin fecha"}</span>
+                  {p.plantilla ? <Layers size={13} style={{ flex: "0 0 auto" }} /> : <Calendar size={13} style={{ flex: "0 0 auto" }} />}
+                  <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {p.plantilla ? "Plantilla" : formatearFechaCorta(p.fecha) || "Sin fecha"}
+                  </span>
                 </div>
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: 3, fontWeight: 500 }}>
                   {ids.length} pistas · {plDur({ tracks }, ids)}

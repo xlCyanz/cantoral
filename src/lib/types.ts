@@ -67,6 +67,8 @@ export interface Playlist {
   ocasion: string;
   /** Default ordered track ids (live order is kept in store.plOrder). */
   ids: string[];
+  /** A list kept as a starting point rather than as a service of its own. */
+  plantilla: boolean;
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */

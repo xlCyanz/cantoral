@@ -21,6 +21,8 @@ function resolveTheme(mode: ThemeMode): Theme {
   return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
 }
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
+import { nombreDeCopia } from "./lib/copias";
+import { ultimaPorOcasion } from "./lib/repetir";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
@@ -35,6 +37,7 @@ import {
   backupDatabase,
   createPlaylistCmd,
   deletePlaylistCmd,
+  duplicatePlaylistCmd,
   deleteTrackCmd,
   exportPlaylistCmd,
   getLibrary,
@@ -63,6 +66,7 @@ import {
   rescanFolderCmd,
   restoreDatabaseCmd,
   setPlaylistOrderCmd,
+  setPlaylistTemplateCmd,
   setSetting,
   setTrackFav,
   setTracksFavCmd,
@@ -331,11 +335,18 @@ export interface CantoralState {
   playAll: () => void;
   exportPl: () => void;
   newList: () => void;
-  createList: (nombre: string, fecha: string, ocasion: string) => void;
+  /** `desde` is the id of the template whose order the new list starts from. */
+  createList: (nombre: string, fecha: string, ocasion: string, desde?: string) => void;
   editCurrentList: () => void;
   updateList: (nombre: string, fecha: string, ocasion: string) => void;
   addToList: (playlistId: string, trackId: string) => void;
   deleteCurrentList: () => void;
+  /** Copy a list with its whole order and open the copy. */
+  duplicateList: (id: string) => void;
+  /** Copy the open list. */
+  duplicateCurrentList: () => void;
+  /** Keep the open list as a starting point for new ones, or stop doing so. */
+  toggleCurrentTemplate: () => void;
   removeFromPl: (id: string) => void;
   reorderPl: (toId: string) => void;
   /** Move a track up or down the open list. The keyboard's way in. */
@@ -1174,16 +1185,16 @@ export const useStore = create<CantoralState>((set, get) => {
         });
     },
     newList: () => set({ dialog: "newList" }),
-    createList: (nombre, fecha, ocasion) => {
+    createList: (nombre, fecha, ocasion, desde) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
       if (isTauri()) {
-        createPlaylistCmd(name, fecha, ocasion)
+        createPlaylistCmd(name, fecha, ocasion, desde)
           .then(async (id) => {
             const snap = await getLibrary();
             if (snap) applySnapshot(snap);
             set({ view: "lista", curPlaylist: id });
-            toast("Lista creada");
+            toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
           })
           .catch((err) => {
             console.error(err);
@@ -1191,14 +1202,78 @@ export const useStore = create<CantoralState>((set, get) => {
           });
       } else {
         const id = "new-" + Date.now();
-        const pl: Playlist = { id, nombre: name, fecha, ocasion, ids: [] };
+        const base = desde ? get().plOrder[desde] ?? [] : [];
+        const ids = base.slice();
+        const pl: Playlist = { id, nombre: name, fecha, ocasion, ids, plantilla: false };
         set((s) => ({
           playlists: [...s.playlists, pl],
-          plOrder: { ...s.plOrder, [id]: [] },
+          plOrder: { ...s.plOrder, [id]: ids },
           view: "lista",
           curPlaylist: id,
         }));
-        toast("Lista creada");
+        toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
+      }
+    },
+    duplicateList: (id) => {
+      const st = get();
+      const pl = st.playlists.find((p) => p.id === id);
+      if (!pl) return;
+      if (isTauri()) {
+        duplicatePlaylistCmd(id)
+          .then(async (nuevo) => {
+            const snap = await getLibrary();
+            if (snap) applySnapshot(snap);
+            set({ view: "lista", curPlaylist: nuevo });
+            toast("Lista duplicada");
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo duplicar la lista", "error");
+          });
+      } else {
+        const nuevo = "copy-" + Date.now();
+        const ids = (st.plOrder[id] ?? pl.ids).slice();
+        const copia: Playlist = {
+          id: nuevo,
+          nombre: nombreDeCopia(pl.nombre, st.playlists.map((p) => p.nombre)),
+          // No date: a copy is the *next* service, not the one it came from.
+          fecha: "",
+          ocasion: pl.ocasion,
+          ids,
+          plantilla: false,
+        };
+        set((s) => ({
+          playlists: [...s.playlists, copia],
+          plOrder: { ...s.plOrder, [nuevo]: ids },
+          view: "lista",
+          curPlaylist: nuevo,
+        }));
+        toast("Lista duplicada");
+      }
+    },
+    duplicateCurrentList: () => get().duplicateList(get().curPlaylist),
+    toggleCurrentTemplate: () => {
+      const st = get();
+      const id = st.curPlaylist;
+      const pl = st.playlists.find((p) => p.id === id);
+      if (!pl) return;
+      const plantilla = !pl.plantilla;
+      const aviso = plantilla ? "Guardada como plantilla" : "Ya no es una plantilla";
+      if (isTauri()) {
+        setPlaylistTemplateCmd(id, plantilla)
+          .then((snap) => {
+            applySnapshot(snap);
+            toast(aviso);
+          })
+          .catch((err) => {
+            console.error(err);
+            toast("No se pudo cambiar la plantilla", "error");
+          });
+      } else {
+        set((s) => ({
+          playlists: s.playlists.map((p) => (p.id === id ? { ...p, plantilla } : p)),
+        }));
+        toast(aviso);
       }
     },
     editCurrentList: () => set({ dialog: "editList" }),
@@ -2022,6 +2097,29 @@ export const seleccionVigente = recordar(
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
   (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir, s.selection],
+);
+
+/**
+ * The lists kept as starting points for new ones.
+ *
+ * Remembered so that the «Nueva lista» dialog is handed the same array while
+ * nothing changed: a fresh one on every read would re-render the dialog on
+ * each tick of the player.
+ */
+export const plantillas = recordar(
+  (s: CantoralState): Playlist[] => s.playlists.filter((p) => p.plantilla),
+  (s: CantoralState) => [s.playlists],
+);
+
+/**
+ * The last service held, per occasion — what «repetir el culto anterior»
+ * offers. Templates and undated lists are left out; see `ultimaPorOcasion`.
+ */
+export const repetibles = recordar(
+  (s: CantoralState) => ultimaPorOcasion(s.playlists),
+  // The day is a dependency: «anterior» means «before today», so an app left
+  // open overnight would otherwise keep offering yesterday's answer.
+  (s: CantoralState) => [s.playlists, new Date().toDateString()],
 );
 
 /** A tag and how many tracks carry it. */
