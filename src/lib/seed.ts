@@ -1,4 +1,4 @@
-import type { DuplicateGroup, DuplicateTrack } from "./api";
+import type { DuplicateGroup, DuplicateTrack, Sheet } from "./api";
 import type { Folder, Playlist, Track } from "./types";
 
 // Seed catalogue — transcribed verbatim from design/Cantoral.dc.html.
@@ -16,13 +16,48 @@ export const SCAN_FILES = [
   "Himnos\\En la Cruz.mp3",
 ];
 
+/**
+ * A couple of sheets so the lyrics view has something to show in the browser.
+ *
+ * Written for the demo rather than taken from anywhere: what they are for is
+ * showing the ChordPro shape — `[Sol]` over the syllable it falls on — and a
+ * `{seccion}` heading.
+ */
+export const SEED_SHEETS: Record<string, Sheet> = {
+  t1: {
+    trackId: "t1",
+    letra: [
+      "Cantaré de tu amor por siempre,",
+      "de tu gracia que no se acaba.",
+      "",
+      "Coro",
+      "Santo, santo es el Señor,",
+      "toda la tierra canta su honor.",
+    ].join("\n"),
+    acordes: [
+      "{Estrofa}",
+      "[Sol]Cantaré de tu [Do]amor por [Sol]siempre,",
+      "de tu [Mim]gracia que no se a[Re]caba.",
+      "",
+      "{Coro}",
+      "[Do]Santo, santo [Sol]es el Señor,",
+      "[Mim]toda la tierra [Re]canta su ho[Sol]nor.",
+    ].join("\n"),
+  },
+  t3: {
+    trackId: "t3",
+    letra: ["Firme en la roca estoy,", "nada me moverá."].join("\n"),
+    acordes: ["[Do]Firme en la [Fa]roca es[Do]toy,", "nada me mo[Sol]ve[Do]rá."].join("\n"),
+  },
+};
+
 export const SEED_FOLDERS: Folder[] = [
   { id: "f1", nombre: "Himnos", ruta: "C:\\Música\\Iglesia\\Himnos", count: 128 },
   { id: "f2", nombre: "Pistas 2025", ruta: "D:\\Alabanza\\Pistas 2025", count: 64 },
   { id: "f3", nombre: "Coros", ruta: "C:\\Users\\Alabanza\\Coros", count: 47 },
 ];
 
-const PISTAS: Omit<Track, "path">[] = [
+const PISTAS: Omit<Track, "path" | "tieneHoja">[] = [
   { id: "t1", titulo: "Sublime Gracia", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 1", dur: "4:12", durSec: 252, tono: "Sol", bpm: 68, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", tags: ["clásico", "lento"], fav: true, missing: false, added: 6 },
   { id: "t2", titulo: "Santo, Santo, Santo", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 1", dur: "3:48", durSec: 228, tono: "Re", bpm: 72, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", tags: ["clásico"], fav: false, missing: false, added: 5 },
   { id: "t3", titulo: "Castillo Fuerte", artista: "Coro Congregacional", album: "Herencia de la Reforma", dur: "3:20", durSec: 200, tono: "Do", bpm: 96, ocasion: "Alabanza", formato: "WAV", carpeta: "Coros", tags: ["júbilo"], fav: false, missing: false, added: 4 },
@@ -55,6 +90,7 @@ const PISTAS: Omit<Track, "path">[] = [
 export const SEED_TRACKS: Track[] = PISTAS.map((t) => ({
   ...t,
   path: `${SEED_FOLDERS.find((f) => f.nombre === t.carpeta)?.ruta ?? "C:\\Música"}\\${t.titulo}.${t.formato.toLowerCase()}`,
+  tieneHoja: t.id in SEED_SHEETS,
 }));
 
 export const SEED_PLAYLISTS: Playlist[] = [

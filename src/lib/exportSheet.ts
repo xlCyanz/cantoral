@@ -2,6 +2,8 @@
 // no external CSS, fonts or images — that opens in the system browser, where
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
+import { parseHoja } from "./chords";
+import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 
 /** Escape text for HTML body / attribute interpolation. */
@@ -24,7 +26,55 @@ export function sheetFileName(nombre: string): string {
  *
  * `tracks` must already be in service order, with any pending edits applied.
  */
-export function playlistSheetHtml(pl: Playlist, tracks: Track[], durLabel: string): string {
+/**
+ * The lyrics of the repertoire, each song on its own page.
+ *
+ * Printed after the table rather than instead of it: the table is what the
+ * person running the service reads, and this is what the musicians read. Songs
+ * with nothing written are left out rather than printed as a blank page.
+ */
+function lyricsHtml(tracks: Track[], sheets: Record<string, Sheet>): string {
+  const paginas = tracks
+    .map((t) => {
+      const hoja = sheets[t.id];
+      const acordes = hoja?.acordes?.trim() ?? "";
+      const letra = hoja?.letra?.trim() ?? "";
+      if (!acordes && !letra) return "";
+      const cuerpo = acordes ? lineasHtml(acordes) : `<pre class="letra">${esc(letra)}</pre>`;
+      const tono = t.tono ? ` · Tono ${esc(t.tono)}` : "";
+      return `  <section class="hoja">
+    <h2>${esc(t.titulo)}</h2>
+    <p class="meta">${esc(t.artista)}${tono}</p>
+${cuerpo}
+  </section>`;
+    })
+    .filter(Boolean);
+  return paginas.join("\n");
+}
+
+/** One ChordPro sheet as chords stacked over the words they fall on. */
+function lineasHtml(acordes: string): string {
+  return parseHoja(acordes)
+    .map((linea) => {
+      if (linea.tipo === "vacia") return '    <div class="blanco"></div>';
+      if (linea.tipo === "seccion") return `    <h3>${esc(linea.etiqueta ?? "")}</h3>`;
+      const trozos = linea.segmentos
+        .map(
+          (seg) =>
+            `<span class="t"><span class="a">${esc(seg.acorde)}</span><span class="w">${esc(seg.texto)}</span></span>`,
+        )
+        .join("");
+      return `    <div class="linea">${trozos}</div>`;
+    })
+    .join("\n");
+}
+
+export function playlistSheetHtml(
+  pl: Playlist,
+  tracks: Track[],
+  durLabel: string,
+  sheets: Record<string, Sheet> = {},
+): string {
   const rows = tracks
     .map((t, i) => {
       const cells = [
@@ -48,6 +98,7 @@ export function playlistSheetHtml(pl: Playlist, tracks: Track[], durLabel: strin
     })
     .join("\n");
 
+  const lyrics = lyricsHtml(tracks, sheets);
   const meta = [pl.fecha, pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
     .filter(Boolean)
     .map(esc)
@@ -86,6 +137,16 @@ export function playlistSheetHtml(pl: Playlist, tracks: Track[], durLabel: strin
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th.num { text-align: right; }
   footer { margin-top: 26px; font-size: 10.5px; color: #9a8b7d; }
+  .hoja { page-break-before: always; margin-top: 34px; }
+  .hoja h2 { font-size: 19px; margin: 0 0 2px; }
+  .hoja .meta { font-size: 11px; color: #9a8b7d; margin: 0 0 14px; }
+  .hoja h3 { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #a6612f; margin: 16px 0 4px; }
+  .linea { display: flex; flex-wrap: wrap; margin-bottom: 3px; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 13px; line-height: 1.25; }
+  .linea .t { display: inline-block; white-space: pre; }
+  .linea .a { display: block; font-weight: 700; color: #a6612f; min-height: 1.2em; }
+  .linea .w { display: block; }
+  .blanco { height: 12px; }
+  pre.letra { font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 0; }
   @media print { body { padding: 0; } }
 </style>
 </head>
@@ -111,6 +172,7 @@ export function playlistSheetHtml(pl: Playlist, tracks: Track[], durLabel: strin
 ${rows}
     </tbody>
   </table>
+${lyrics}
   <footer>Generado por Cantoral · Imprime esta hoja o guárdala como PDF (Cmd/Ctrl + P).</footer>
 </body>
 </html>
