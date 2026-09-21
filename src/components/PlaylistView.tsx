@@ -143,6 +143,10 @@ export default function PlaylistView() {
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const showBiblioteca = useStore((s) => s.showBiblioteca);
   const reorderNotice = useStore((s) => s.reorderNotice);
+  const arrastrandoDesdeBiblioteca = useStore((s) => s.dragFromLibrary.length);
+  const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
+  const endLibraryDrag = useStore((s) => s.endLibraryDrag);
+  const [sobreLaLista, setSobreLaLista] = useState(false);
 
   return (
     <div style={{ padding: "0 0 40px" }}>
@@ -210,7 +214,22 @@ export default function PlaylistView() {
           }
         />
       ) : (
-        <div style={{ padding: "8px 24px 0" }}>
+        <div
+          onDragOver={(e) => {
+            if (!arrastrandoDesdeBiblioteca) return;
+            e.preventDefault();
+            setSobreLaLista(true);
+          }}
+          onDragLeave={() => setSobreLaLista(false)}
+          onDrop={(e) => {
+            if (!arrastrandoDesdeBiblioteca) return;
+            e.preventDefault();
+            setSobreLaLista(false);
+            bulkAddToPlaylist(curPlaylist);
+            endLibraryDrag();
+          }}
+          style={{ padding: "8px 24px 0", ...(sobreLaLista ? { outline: "2px dashed var(--primary)", outlineOffset: -6, borderRadius: 14 } : {}) }}
+        >
           <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "8px 8px 9px", borderBottom: "1px solid var(--border)", fontSize: 11, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>
             <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style={{ textAlign: "right" }}>Dur.</span><span />
           </div>

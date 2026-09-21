@@ -477,6 +477,117 @@ pub fn relocate_folder(conn: &Connection, id: i64, new_root: &Path) -> Result<i6
     Ok(n as i64)
 }
 
+// ---------------------------------------------------------------- bulk edits
+
+/// Append several tracks to a list in one go, keeping the order given.
+///
+/// One transaction rather than a call per track: twenty songs used to be twenty
+/// round trips, each answering with the whole catalogue serialised. Tracks
+/// already on the list are skipped — adding a selection that overlaps what is
+/// there should top the list up, not double it.
+///
+/// Returns how many were actually added.
+pub fn add_tracks_to_playlist(conn: &Connection, playlist_id: i64, ids: &[i64]) -> Result<usize> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let tx = conn.unchecked_transaction()?;
+    let mut pos: i64 = tx.query_row(
+        "SELECT COALESCE(MAX(position)+1,0) FROM playlist_tracks WHERE playlist_id=?1",
+        params![playlist_id],
+        |r| r.get(0),
+    )?;
+    let mut puestas = 0usize;
+    for id in ids {
+        let filas = tx.execute(
+            "INSERT OR IGNORE INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
+            params![playlist_id, id, pos],
+        )?;
+        // Only a row that went in takes its position with it; otherwise the
+        // list would grow gaps wherever a track was already on it.
+        if filas > 0 {
+            pos += 1;
+            puestas += 1;
+        }
+    }
+    tx.commit()?;
+    Ok(puestas)
+}
+
+/// Mark or unmark several tracks as favourites at once.
+pub fn set_tracks_fav(conn: &Connection, ids: &[i64], fav: bool) -> Result<()> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    conn.execute(
+        &format!("UPDATE tracks SET fav=?1 WHERE id IN ({})", lista_de_ids(ids)),
+        params![fav as i64],
+    )?;
+    Ok(())
+}
+
+/// Put a tag on several tracks, or take it off them.
+///
+/// Adding uses the tag already in the catalogue when one matches, so a bulk
+/// edit cannot be the thing that creates a second spelling of a tag.
+pub fn tag_tracks(conn: &Connection, ids: &[i64], raw: &str, poner: bool) -> Result<()> {
+    let nombre = normalise_tag(raw);
+    if nombre.is_empty() || ids.is_empty() {
+        return Ok(());
+    }
+    let lista = lista_de_ids(ids);
+    let tx = conn.unchecked_transaction()?;
+    if poner {
+        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![nombre])?;
+        let tag_id: i64 =
+            tx.query_row("SELECT id FROM tags WHERE name=?1", params![nombre], |r| r.get(0))?;
+        tx.execute(
+            &format!(
+                "INSERT OR IGNORE INTO track_tags(track_id, tag_id)
+                 SELECT id, ?1 FROM tracks WHERE id IN ({lista})"
+            ),
+            params![tag_id],
+        )?;
+    } else {
+        tx.execute(
+            &format!(
+                "DELETE FROM track_tags
+                 WHERE track_id IN ({lista})
+                   AND tag_id IN (SELECT id FROM tags WHERE name=?1)"
+            ),
+            params![nombre],
+        )?;
+        drop_orphan_tags(&tx)?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Remove several tracks from the catalogue. The audio files are never touched.
+pub fn delete_tracks(conn: &Connection, ids: &[i64]) -> Result<()> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let lista = lista_de_ids(ids);
+    let mut stmt = conn.prepare(&format!(
+        "SELECT cover_path FROM tracks WHERE id IN ({lista}) AND cover_path IS NOT NULL"
+    ))?;
+    let portadas: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    drop(stmt);
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(&format!("DELETE FROM tracks WHERE id IN ({lista})"), [])?;
+    drop_orphan_tags(&tx)?;
+    tx.commit()?;
+
+    for c in portadas {
+        let _ = std::fs::remove_file(c);
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- tags
 
 /// Rename a tag, folding it into an existing one when the new name is taken.
@@ -1285,6 +1396,150 @@ mod tests {
 
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
         upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100).unwrap()
+    }
+
+    // ---- bulk edits ----
+
+    fn orden_de(conn: &Connection, pl: i64) -> Vec<String> {
+        list_playlists(conn).unwrap().into_iter().find(|p| p.id == pl.to_string()).unwrap().ids
+    }
+
+    #[test]
+    fn a_whole_selection_lands_on_the_list_in_the_order_given() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+        let pl = create_playlist(&conn, "Culto", "", "").unwrap();
+
+        let n = add_tracks_to_playlist(&conn, pl, &[c, a, b]).unwrap();
+
+        assert_eq!(n, 3);
+        assert_eq!(orden_de(&conn, pl), vec![c.to_string(), a.to_string(), b.to_string()]);
+    }
+
+    #[test]
+    fn a_selection_that_overlaps_the_list_tops_it_up_instead_of_doubling_it() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let pl = create_playlist(&conn, "Culto", "", "").unwrap();
+        add_to_playlist(&conn, pl, a).unwrap();
+
+        let n = add_tracks_to_playlist(&conn, pl, &[a, b]).unwrap();
+
+        assert_eq!(n, 1, "only the one that was not already there");
+        assert_eq!(orden_de(&conn, pl), vec![a.to_string(), b.to_string()]);
+    }
+
+    #[test]
+    fn a_skipped_track_does_not_leave_a_hole_in_the_positions() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+        let pl = create_playlist(&conn, "Culto", "", "").unwrap();
+        add_to_playlist(&conn, pl, b).unwrap();
+
+        add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
+
+        let pos: Vec<i64> = conn
+            .prepare("SELECT position FROM playlist_tracks WHERE playlist_id=?1 ORDER BY position")
+            .unwrap()
+            .query_map(params![pl], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(pos, vec![0, 1, 2], "consecutive, no gap where B was skipped");
+    }
+
+    #[test]
+    fn adding_nothing_is_not_an_error() {
+        let conn = mem();
+        let pl = create_playlist(&conn, "Culto", "", "").unwrap();
+        assert_eq!(add_tracks_to_playlist(&conn, pl, &[]).unwrap(), 0);
+    }
+
+    #[test]
+    fn a_selection_can_be_favourited_and_unfavourited_at_once() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+
+        set_tracks_fav(&conn, &[a, b], true).unwrap();
+        let favs: Vec<bool> = list_tracks(&conn).unwrap().into_iter().map(|t| t.fav).collect();
+        assert_eq!(favs, vec![true, true, false], "and only the ones asked for");
+
+        set_tracks_fav(&conn, &[a], false).unwrap();
+        assert!(!list_tracks(&conn).unwrap()[0].fav);
+        let _ = c;
+    }
+
+    #[test]
+    fn a_tag_goes_on_a_whole_selection_and_comes_off_it() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+
+        tag_tracks(&conn, &[a, b], "  navidad  ", true).unwrap();
+        let t = list_tracks(&conn).unwrap();
+        assert_eq!(t[0].tags, vec!["navidad"], "and tidied like any other tag");
+        assert_eq!(t[1].tags, vec!["navidad"]);
+
+        tag_tracks(&conn, &[a], "navidad", false).unwrap();
+        let t = list_tracks(&conn).unwrap();
+        assert!(t[0].tags.is_empty());
+        assert_eq!(t[1].tags, vec!["navidad"]);
+    }
+
+    #[test]
+    fn tagging_in_bulk_reuses_the_tag_that_already_exists() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        set_track_tags(&conn, a, &["navidad".into()]).unwrap();
+
+        tag_tracks(&conn, &[b], "navidad", true).unwrap();
+
+        let cuantas: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap();
+        assert_eq!(cuantas, 1, "a bulk edit must not invent a second spelling");
+    }
+
+    #[test]
+    fn taking_off_the_last_use_of_a_tag_clears_the_tag_itself() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        tag_tracks(&conn, &[a], "navidad", true).unwrap();
+
+        tag_tracks(&conn, &[a], "navidad", false).unwrap();
+
+        let cuantas: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap();
+        assert_eq!(cuantas, 0);
+    }
+
+    #[test]
+    fn a_selection_can_be_dropped_from_the_catalogue_at_once() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+        let pl = create_playlist(&conn, "Culto", "", "").unwrap();
+        add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
+
+        delete_tracks(&conn, &[a, c]).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap().len(), 1);
+        // The list simply gets shorter, through the cascade.
+        assert_eq!(orden_de(&conn, pl), vec![b.to_string()]);
     }
 
     // ---- tags ----

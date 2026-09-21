@@ -261,6 +261,54 @@ fn abrible(path: &std::path::Path) -> bool {
     scanner::is_media_path(path) || hoja
 }
 
+/// Parse a list of ids coming from the frontend.
+fn ids_de(ids: &[String]) -> CmdResult<Vec<i64>> {
+    ids.iter()
+        .map(|i| i.parse::<i64>())
+        .collect::<std::result::Result<Vec<i64>, _>>()
+        .map_err(e)
+}
+
+/// Append a whole selection to a list, in the order given, in one transaction.
+#[tauri::command]
+pub fn add_tracks_to_playlist(
+    db: State<Db>,
+    playlist: String,
+    tracks: Vec<String>,
+) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    let n = db::add_tracks_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &ids_de(&tracks)?)
+        .map_err(e)?;
+    log::info!("{n} tracks added to playlist {playlist}");
+    snapshot(&conn).map_err(e)
+}
+
+/// Mark or unmark a whole selection as favourites.
+#[tauri::command]
+pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::set_tracks_fav(&conn, &ids_de(&ids)?, fav).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Put a tag on a whole selection, or take it off it.
+#[tauri::command]
+pub fn tag_tracks(db: State<Db>, ids: Vec<String>, tag: String, add: bool) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::tag_tracks(&conn, &ids_de(&ids)?, &tag, add).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Drop a whole selection from the catalogue. The audio files are untouched.
+#[tauri::command]
+pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    let parsed = ids_de(&ids)?;
+    db::delete_tracks(&conn, &parsed).map_err(e)?;
+    log::info!("{} tracks removed from the catalogue", parsed.len());
+    snapshot(&conn).map_err(e)
+}
+
 /// Rename a tag everywhere, folding it into an existing one if the name is taken.
 #[tauri::command]
 pub fn rename_tag(db: State<Db>, from: String, to: String) -> CmdResult<Snapshot> {

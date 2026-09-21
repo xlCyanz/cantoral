@@ -16,6 +16,8 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "← / →", label: "Pista anterior / siguiente" },
   { keys: "⌘/Ctrl + F", label: "Buscar en la biblioteca" },
   { keys: "⌘/Ctrl + N", label: "Nueva lista para culto" },
+  { keys: "⌘/Ctrl + A", label: "Seleccionar todo lo que muestra la biblioteca" },
+  { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
   { keys: "Esc", label: "Cerrar diálogo, panel o modo culto" },
   { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
   { keys: "+ / −", label: "Subir o bajar el tono en modo culto" },
@@ -47,6 +49,12 @@ export function registerShortcuts(): () => void {
       } else if (s.detailOpen) {
         e.preventDefault();
         s.closeDetail();
+      } else if (s.rowMenu) {
+        e.preventDefault();
+        s.closeRowMenu();
+      } else if (s.selection.length) {
+        e.preventDefault();
+        s.clearSelection();
       } else if (s.query) {
         e.preventDefault();
         s.clearQuery();
@@ -66,6 +74,15 @@ export function registerShortcuts(): () => void {
         return !!el;
       };
       if (!focusSearch()) setTimeout(focusSearch, 0);
+      return;
+    }
+
+    if (mod && (e.key === "a" || e.key === "A")) {
+      // Only in the library, and never while typing — where ⌘A means «select
+      // this text» and taking it would be infuriating.
+      if (isTyping(e.target) || s.view !== "biblioteca" || s.dialog || s.confirm || s.sheetDialog) return;
+      e.preventDefault();
+      s.selectAllVisible();
       return;
     }
 
