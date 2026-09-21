@@ -174,6 +174,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **La versión deja de estar escrita en dos sitios que nada sincronizaba.**
+  `package.json` alimentaba el número del pie de Configuración y
+  `tauri.conf.json` el de los instaladores; en cuanto se subiera uno y se
+  olvidara el otro, la app y su instalador anunciarían versiones distintas —
+  justo el dato que se pide en un reporte de fallo desde un PC de la iglesia.
+  Ahora `tauri.conf.json` toma la versión de `package.json` y no lleva número
+  propio.
+
+  Queda una tercera copia que el issue no mencionaba, `src-tauri/Cargo.toml`,
+  porque Cargo no sabe leer `package.json`. El workflow de publicación la
+  compara antes de compilar nada, y también comprueba que `tauri.conf.json`
+  siga delegando en vez de volver a llevar un número a mano.
+
 - **Los diálogos ya no dejan el teclado fuera.** Decían
   `aria-modal="true"` —que le promete a un lector de pantalla que lo de detrás
   está inerte— mientras el DOM decía lo contrario: al abrirse el foco se

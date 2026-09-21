@@ -191,6 +191,20 @@ Además:
 No hace falta que el PR esté perfecto para abrirlo: márcalo como **borrador** si
 quieres comentarios a medio camino.
 
+## Subir de versión
+
+La versión se escribe en **dos** archivos y los dos tienen que decir lo mismo:
+
+| Archivo | Por qué |
+|---|---|
+| `package.json` | La fuente. De aquí salen el número del pie de Configuración y el de los instaladores — `src-tauri/tauri.conf.json` lo lee con `"version": "../package.json"` y no lleva número propio. |
+| `src-tauri/Cargo.toml` | La versión del *crate*. Cargo no sabe leer `package.json`, así que esta se cambia a mano. |
+
+El workflow de publicación lo comprueba antes de compilar nada: falla si
+`tauri.conf.json` vuelve a llevar un número escrito a mano, si `Cargo.toml` no
+coincide con `package.json`, o si la etiqueta `vX.Y.Z` no corresponde a esa
+versión. Es más barato descubrirlo ahí que en un release ya publicado.
+
 ## Estilo de código
 
 **TypeScript / React**

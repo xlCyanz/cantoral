@@ -4,7 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 
-// Single source of truth for the version shown in the app (Configuración → pie).
+// The one place the version is written. `src-tauri/tauri.conf.json` reads it
+// from here too (`"version": "../package.json"`), so the number in
+// Configuración and the number on the installer cannot drift apart.
 const { version } = JSON.parse(
   readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf-8"),
 ) as { version: string };
