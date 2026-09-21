@@ -42,10 +42,20 @@ jobs:
           set -euo pipefail
           pkg=$(node -p "require('./package.json').version")
           tauri=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          cargo_v=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
           echo "version=$pkg" >> "$GITHUB_OUTPUT"
 
-          if [ "$pkg" != "$tauri" ]; then
-            echo "::error::package.json dice $pkg y tauri.conf.json dice $tauri. Deben coincidir."
+          # tauri.conf.json no lleva número propio: lo toma de package.json.
+          # Comprobar que sigue delegando es más fuerte que comparar dos
+          # números, porque impide que alguien vuelva a escribirlo a mano.
+          if [ "$tauri" != "../package.json" ]; then
+            echo "::error::src-tauri/tauri.conf.json debe decir \"version\": \"../package.json\", no $tauri."
+            exit 1
+          fi
+
+          # Cargo.toml es la única copia que queda; nada la sincroniza sola.
+          if [ "$cargo_v" != "$pkg" ]; then
+            echo "::error::src-tauri/Cargo.toml dice $cargo_v y package.json dice $pkg. Deben coincidir."
             exit 1
           fi
 
