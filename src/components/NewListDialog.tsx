@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ListMusic, Pencil } from "lucide-react";
 import { useStore } from "../store";
+import Modal from "./Modal";
 
 const label = { display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 7 } as const;
 const field = {
@@ -69,51 +70,49 @@ function ListForm({
   };
 
   return (
-    <div onClick={closeDialog} style={{ position: "fixed", inset: 0, zIndex: 40, background: "rgba(25,18,12,.42)", backdropFilter: "blur(2px)", display: "grid", placeItems: "center", padding: 24, animation: "canOverlay .18s ease" }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="list-dialog-title" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)" }}>
-        <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 13 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--primary-soft)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-            {editing ? <Pencil size={20} color="var(--primary)" /> : <ListMusic size={21} color="var(--primary)" />}
-          </div>
-          <div>
-            <h2 id="list-dialog-title" style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>
-              {editing ? "Editar lista" : "Nueva lista para culto"}
-            </h2>
-            <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
-              {editing ? "Cambia el nombre, la fecha o la ocasión." : "Dale un nombre y arma el repertorio."}
-            </p>
-          </div>
+    <Modal labelledBy="list-dialog-title" onClose={closeDialog} maxWidth={480}>
+      <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 13 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--primary-soft)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+          {editing ? <Pencil size={20} color="var(--primary)" /> : <ListMusic size={21} color="var(--primary)" />}
         </div>
-
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={label}>Nombre</label>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
-          </div>
-          <div>
-            <label style={label}>Fecha <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-            <input value={fecha} onChange={(e) => setFecha(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} placeholder="Domingo 13 de julio, 2025" className="in-focus" style={field} />
-          </div>
-          <div>
-            <label style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-            <input value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
-            <datalist id="ocasiones-lista">
-              <option value="Servicio dominical" />
-              <option value="Reunión juvenil" />
-              <option value="Comunión" />
-              <option value="Ensayo" />
-              <option value="Adoración especial" />
-            </datalist>
-          </div>
-        </div>
-
-        <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
-          <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>Cancelar</button>
-          <button onClick={submit} disabled={!nombre.trim()} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nombre.trim() ? 1 : 0.55, cursor: nombre.trim() ? "pointer" : "not-allowed" }}>
-            {editing ? "Guardar cambios" : "Crear lista"}
-          </button>
+        <div>
+          <h2 id="list-dialog-title" style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>
+            {editing ? "Editar lista" : "Nueva lista para culto"}
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
+            {editing ? "Cambia el nombre, la fecha o la ocasión." : "Dale un nombre y arma el repertorio."}
+          </p>
         </div>
       </div>
-    </div>
+
+      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <label style={label}>Nombre</label>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
+        </div>
+        <div>
+          <label style={label}>Fecha <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
+          <input value={fecha} onChange={(e) => setFecha(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} placeholder="Domingo 13 de julio, 2025" className="in-focus" style={field} />
+        </div>
+        <div>
+          <label style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
+          <input value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
+          <datalist id="ocasiones-lista">
+            <option value="Servicio dominical" />
+            <option value="Reunión juvenil" />
+            <option value="Comunión" />
+            <option value="Ensayo" />
+            <option value="Adoración especial" />
+          </datalist>
+        </div>
+      </div>
+
+      <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
+        <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>Cancelar</button>
+        <button onClick={submit} disabled={!nombre.trim()} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nombre.trim() ? 1 : 0.55, cursor: nombre.trim() ? "pointer" : "not-allowed" }}>
+          {editing ? "Guardar cambios" : "Crear lista"}
+        </button>
+      </div>
+    </Modal>
   );
 }

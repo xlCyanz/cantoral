@@ -3,6 +3,7 @@ import { Check, Save, TriangleAlert, X } from "lucide-react";
 import { useStore } from "../store";
 import type { SaveState } from "../store";
 import { parseHoja } from "../lib/chords";
+import Modal from "./Modal";
 
 const labelStyle: CSSProperties = {
   display: "block",
@@ -97,81 +98,76 @@ export default function SheetDialog() {
   const acordes = hoja?.acordes ?? "";
 
   return (
-    <div
-      onClick={closeSheetEditor}
-      style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(25,18,12,.42)", backdropFilter: "blur(2px)", display: "grid", placeItems: "center", padding: 24, animation: "canOverlay .18s ease" }}
+    <Modal
+      labelledBy="sheet-title"
+      onClose={closeSheetEditor}
+      maxWidth={940}
+      overlayZ={45}
+      boxStyle={{ maxHeight: "100%", display: "flex", flexDirection: "column" }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sheet-title"
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 940, maxHeight: "100%", display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)" }}
-      >
-        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 12, padding: "16px 18px 14px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ minWidth: 0 }}>
-            <h2 id="sheet-title" style={{ fontSize: "16.5px", fontWeight: 700, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              Letra y acordes · {pista.titulo}
-            </h2>
-            <p style={{ fontSize: "12.5px", color: "var(--text-2)", margin: "3px 0 0" }}>
-              Los acordes van entre corchetes, pegados a la sílaba donde caen:{" "}
-              <code style={{ fontFamily: "ui-monospace,monospace" }}>[Sol]Sublime [Do]gracia</code>. Una línea
-              como <code style={{ fontFamily: "ui-monospace,monospace" }}>{"{Coro}"}</code> hace un encabezado.
-            </p>
-          </div>
-          <div style={{ flex: 1 }} />
-          <button onClick={closeSheetEditor} title="Cerrar" className="hb-s2t" style={{ flex: "0 0 auto", width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center", color: "var(--text-2)" }}>
-            <X size={17} />
-          </button>
+      <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 12, padding: "16px 18px 14px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ minWidth: 0 }}>
+          <h2 id="sheet-title" style={{ fontSize: "16.5px", fontWeight: 700, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Letra y acordes · {pista.titulo}
+          </h2>
+          <p style={{ fontSize: "12.5px", color: "var(--text-2)", margin: "3px 0 0" }}>
+            Los acordes van entre corchetes, pegados a la sílaba donde caen:{" "}
+            <code style={{ fontFamily: "ui-monospace,monospace" }}>[Sol]Sublime [Do]gracia</code>. Una línea
+            como <code style={{ fontFamily: "ui-monospace,monospace" }}>{"{Coro}"}</code> hace un encabezado.
+          </p>
         </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px 18px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label htmlFor="hoja-acordes" style={labelStyle}>Acordes (ChordPro)</label>
-              <textarea
-                id="hoja-acordes"
-                value={acordes}
-                onChange={(e) => setSheet("acordes", e.target.value)}
-                placeholder={"{Estrofa}\n[Sol]Cantaré de tu [Do]amor por [Sol]siempre"}
-                className="in-focus"
-                style={areaStyle}
-              />
-            </div>
-            <div>
-              <label htmlFor="hoja-letra" style={labelStyle}>Letra sola</label>
-              <textarea
-                id="hoja-letra"
-                value={letra}
-                onChange={(e) => setSheet("letra", e.target.value)}
-                placeholder={"Para proyectar o leer sin acordes."}
-                className="in-focus"
-                style={areaStyle}
-              />
-            </div>
-          </div>
-
-          {acordes.trim() && (
-            <div style={{ marginTop: 16 }}>
-              <span style={labelStyle}>Cómo se verá</span>
-              <div style={{ border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface-2)", padding: "12px 14px", overflowX: "auto" }}>
-                <Vista acordes={acordes} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderTop: "1px solid var(--border)" }}>
-          {ESTADO[estado].icono}
-          <span aria-live="polite" style={{ fontSize: "12.5px", fontWeight: estado === "idle" ? 400 : 600, color: ESTADO[estado].color }}>
-            {ESTADO[estado].texto}
-          </span>
-          <div style={{ flex: 1 }} />
-          <button onClick={closeSheetEditor} className="hb-s2" style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>
-            Cerrar
-          </button>
-        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={closeSheetEditor} title="Cerrar" className="hb-s2t" style={{ flex: "0 0 auto", width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center", color: "var(--text-2)" }}>
+          <X size={17} />
+        </button>
       </div>
-    </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px 18px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <label htmlFor="hoja-acordes" style={labelStyle}>Acordes (ChordPro)</label>
+            <textarea
+              id="hoja-acordes"
+              value={acordes}
+              onChange={(e) => setSheet("acordes", e.target.value)}
+              placeholder={"{Estrofa}\n[Sol]Cantaré de tu [Do]amor por [Sol]siempre"}
+              className="in-focus"
+              style={areaStyle}
+            />
+          </div>
+          <div>
+            <label htmlFor="hoja-letra" style={labelStyle}>Letra sola</label>
+            <textarea
+              id="hoja-letra"
+              value={letra}
+              onChange={(e) => setSheet("letra", e.target.value)}
+              placeholder={"Para proyectar o leer sin acordes."}
+              className="in-focus"
+              style={areaStyle}
+            />
+          </div>
+        </div>
+
+        {acordes.trim() && (
+          <div style={{ marginTop: 16 }}>
+            <span style={labelStyle}>Cómo se verá</span>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface-2)", padding: "12px 14px", overflowX: "auto" }}>
+              <Vista acordes={acordes} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderTop: "1px solid var(--border)" }}>
+        {ESTADO[estado].icono}
+        <span aria-live="polite" style={{ fontSize: "12.5px", fontWeight: estado === "idle" ? 400 : 600, color: ESTADO[estado].color }}>
+          {ESTADO[estado].texto}
+        </span>
+        <div style={{ flex: 1 }} />
+        <button onClick={closeSheetEditor} className="hb-s2" style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>
+          Cerrar
+        </button>
+      </div>
+    </Modal>
   );
 }
