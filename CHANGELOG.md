@@ -146,6 +146,25 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **La fecha de una lista deja de ser texto libre.** Cada quien la escribía a su
+  manera —`13/7/25`, `Domingo 13`, `julio 13`— y ninguna era comparable con
+  otra, así que las listas salían en orden de creación: el culto del próximo
+  domingo podía estar en cualquier sitio de la rejilla. El icono de calendario
+  prometía una semántica que el dato no tenía.
+
+  Ahora se elige en un calendario y se guarda en un formato que se puede
+  ordenar. La vista de listas las separa en **«Próximos»** —el culto más
+  cercano arriba— **«Anteriores»** y **«Sin fecha»**, y la fecha se muestra
+  escrita en español.
+
+  **Lo que ya estaba escrito no se pierde.** Al abrir la base, las fechas que
+  se pueden interpretar se convierten solas —incluida «Domingo 13 de julio,
+  2025», que era el ejemplo que la propia app sugería— y **lo que no se puede
+  leer se conserva tal cual**, en su propio grupo. Un «el domingo después de
+  Pascua» sigue diciendo algo aunque nada pueda ordenarlo.
+
+  La fecha sigue siendo opcional: hay listas que no son de un culto concreto.
+
 - **La biblioteca sigue usable mientras se escanea.** La tarjeta de escaneo
   decía «puedes seguir usando la app mientras tanto» y hacía exactamente lo
   contrario: tapaba la tabla entera, así que durante todo el escaneo no se podía

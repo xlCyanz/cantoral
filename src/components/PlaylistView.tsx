@@ -4,6 +4,7 @@ import { ArrowUpDown, Calendar, ChevronDown, ChevronUp, Download, EllipsisVertic
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
+import { formatearFecha } from "../lib/fechas";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
@@ -164,7 +165,7 @@ export default function PlaylistView() {
           </span>
           <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-.8px", lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{pl?.fecha}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{formatearFecha(pl?.fecha)}</span>
             <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-3)" }} />
             <span>{order.length} pistas · {duracion}</span>
           </div>
