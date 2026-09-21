@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useStore } from "./store";
+import { flushUiPrefs, useStore } from "./store";
 import { onScanProgress } from "./lib/api";
 import { registerShortcuts } from "./lib/shortcuts";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -62,10 +62,14 @@ export default function App() {
   // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).
   useEffect(() => registerShortcuts(), []);
 
-  // An edit waits out a short debounce before it is written. Closing the window
-  // inside that window would drop it, so flush on the way out.
+  // Edits and interface preferences both wait out a short debounce before they
+  // are written. Closing the window inside it would drop them, so flush on the
+  // way out.
   useEffect(() => {
-    const flush = () => useStore.getState().flushEdit();
+    const flush = () => {
+      useStore.getState().flushEdit();
+      flushUiPrefs();
+    };
     window.addEventListener("beforeunload", flush);
     return () => {
       window.removeEventListener("beforeunload", flush);
