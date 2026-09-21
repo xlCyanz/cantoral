@@ -133,7 +133,7 @@ export default function TopBar() {
             gap: 8,
             padding: "0 15px",
             borderRadius: 10,
-            background: "var(--primary)",
+            background: "var(--primary-fill)",
             color: "var(--on-primary)",
             fontSize: "13.5px",
             fontWeight: 600,

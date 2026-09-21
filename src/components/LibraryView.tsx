@@ -238,16 +238,16 @@ function EmptyState() {
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ width: 46, height: 46 }}>
           <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
-        <div style={{ position: "absolute", bottom: -2, right: -2, width: 38, height: 38, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center", border: "3px solid var(--bg)", boxShadow: "var(--sh-sm)" }}>
+        <div style={{ position: "absolute", bottom: -2, right: -2, width: 38, height: 38, borderRadius: "50%", background: "var(--primary-fill)", display: "grid", placeItems: "center", border: "3px solid var(--bg)", boxShadow: "var(--sh-sm)" }}>
           <FolderPlus size={18} color="var(--on-primary)" strokeWidth={2.2} />
         </div>
       </div>
-      <h2 className="serif" style={{ fontSize: 32, margin: "0 0 10px" }}>Tu biblioteca está vacía</h2>
+      <h2 className="display" style={{ fontSize: 32, margin: "0 0 10px" }}>Tu biblioteca está vacía</h2>
       <p style={{ fontSize: "14.5px", color: "var(--text-2)", maxWidth: 420, lineHeight: 1.55, margin: "0 0 26px" }}>
         Agrega una carpeta con tus pistas y coros. Cantoral la revisará y organizará tu música automáticamente, sin mover ni copiar tus archivos.
       </p>
       <div style={{ display: "flex", gap: 12 }}>
-        <button onClick={openAddFolder} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
+        <button onClick={openAddFolder} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
           <FolderPlus size={18} strokeWidth={2.2} />Agregar carpeta de música
         </button>
         <button onClick={openHelp} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
@@ -313,7 +313,7 @@ function ErrorState() {
         <code style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "5px 11px", borderRadius: 8, maxWidth: 460, textAlign: "left", overflowWrap: "anywhere" }}>{scanError}</code>
       )}
       <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-        <button onClick={retryError} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
+        <button onClick={retryError} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
           <RefreshCw size={17} strokeWidth={2.2} />Reintentar
         </button>
         <button onClick={showConfig} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>

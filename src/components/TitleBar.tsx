@@ -41,7 +41,7 @@ export default function TitleBar() {
             width: 16,
             height: 16,
             borderRadius: 5,
-            background: "linear-gradient(140deg,#C77A4E,#A9502E)",
+            background: "var(--brand-grad)",
             display: "grid",
             placeItems: "center",
             boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)",

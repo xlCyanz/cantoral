@@ -110,7 +110,7 @@ function Grupo({ grupo }: { grupo: DuplicateGroup }) {
         <button
           onClick={() => mergeDuplicates(grupo.signature, queda)}
           className="hb-primary"
-          style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "var(--primary)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}
+          style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}
         >
           Conservar esta y fusionar el resto
         </button>

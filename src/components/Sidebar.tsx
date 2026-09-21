@@ -57,10 +57,10 @@ export default function Sidebar() {
               width: 36,
               height: 36,
               borderRadius: 11,
-              background: "linear-gradient(140deg,#C77A4E,#A9502E)",
+              background: "var(--brand-grad)",
               display: "grid",
               placeItems: "center",
-              boxShadow: "0 4px 12px rgba(169,80,46,.32),inset 0 1px 0 rgba(255,255,255,.3)",
+              boxShadow: "0 4px 12px rgba(58,77,143,.32),inset 0 1px 0 rgba(255,255,255,.3)",
             }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 19, height: 19 }}>
@@ -70,7 +70,7 @@ export default function Sidebar() {
             </svg>
           </div>
           <div style={{ lineHeight: 1.05 }}>
-            <div className="serif" style={{ fontSize: 23, letterSpacing: ".2px" }}>Cantoral</div>
+            <div className="display" style={{ fontSize: 23 }}>Cantoral</div>
             <div style={{ fontSize: "10.5px", color: "var(--text-3)", fontWeight: 500, letterSpacing: ".3px", marginTop: 1 }}>
               Música de la iglesia
             </div>

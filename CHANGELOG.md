@@ -9,7 +9,22 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
-Nada todavía.
+### Cambiado
+
+- **Cantoral estrena piel.** Primera etapa del rediseño: las tipografías y los
+  colores. La interfaz pasa a **Public Sans**, los títulos a **Bricolage
+  Grotesque**, y la paleta cálida de papel deja paso a grises fríos con acento
+  índigo, en los dos temas. Las carátulas que Cantoral genera para las pistas
+  sin arte incrustado dejan de ser ocho gradientes de colores distintos y pasan
+  a seis tonos de la misma familia azul: en una biblioteca de iglesia casi
+  ninguna pista trae carátula, y ocho colores compitiendo hacían ruido en vez
+  de ayudar a distinguir. La hoja impresa y el PDF cambian con ella, para que
+  lo que sale por la impresora no contradiga lo que se ve en pantalla.
+
+  Ningún comportamiento cambia: solo el valor de los tokens, la familia
+  tipográfica y los colores que estaban escritos a mano en cuatro sitios. Las
+  dos familias nuevas son SIL OFL 1.1 y viajan dentro del paquete, como las
+  anteriores: la CSP declara `font-src 'self'` y la app no habla con la red.
 
 ## [0.2.1] - 2026-09-21
 

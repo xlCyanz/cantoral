@@ -62,7 +62,7 @@ export default function CollectionsView() {
           <button onClick={importList} className="hb-s2" title="Abrir una lista exportada desde otra instalación" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
             <FileInput size={16} />Importar lista
           </button>
-          <button onClick={newList} className="hb-primary" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
+          <button onClick={newList} className="hb-primary" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
             <Plus size={16} strokeWidth={2.2} />Nueva lista
           </button>
         </div>

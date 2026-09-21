@@ -104,7 +104,7 @@ export default function DetailPanel() {
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button
                   onClick={() => relocateTrack(sel.id)}
-                  style={{ flex: 1, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 9, background: "var(--danger)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
+                  style={{ flex: 1, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 9, background: "var(--danger-fill)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
                   className="hb-danger-solid"
                 >
                   <Search size={14} strokeWidth={2.4} />Localizar…
@@ -127,7 +127,7 @@ export default function DetailPanel() {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16, width: "100%" }}>
-            <button onClick={() => play(sel.id)} className="hb-primary" style={{ flex: 1, height: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+            <button onClick={() => play(sel.id)} className="hb-primary" style={{ flex: 1, height: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               {sel.video ? <SquareArrowOutUpRight size={15} /> : <Play size={15} fill="currentColor" stroke="none" />}
               {sel.video ? "Abrir video" : "Reproducir"}
             </button>

@@ -71,7 +71,7 @@ export const emptyBtnPrimary: CSSProperties = {
   gap: 9,
   padding: "0 20px",
   borderRadius: 11,
-  background: "var(--primary)",
+  background: "var(--primary-fill)",
   color: "var(--on-primary)",
   fontSize: 14,
   fontWeight: 600,

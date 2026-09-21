@@ -116,7 +116,7 @@ export default function PrintPreview() {
           <button onClick={closeDialog} className="hb-s3" style={{ height: 38, padding: "0 16px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13px", fontWeight: 600 }}>
             Cerrar
           </button>
-          <button onClick={imprimir} className="hb-primary" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>
+          <button onClick={imprimir} className="hb-primary" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>
             <Printer size={15} />Imprimir o guardar PDF
           </button>
         </div>
