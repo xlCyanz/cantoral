@@ -188,6 +188,13 @@ export interface CantoralState {
   openExt: boolean;
   draggingId: string | null;
   overId: string | null;
+  /**
+   * What just happened to the order, for a screen reader.
+   *
+   * Moving a row with the keyboard is silent otherwise: the list re-renders,
+   * but nothing says where the song ended up.
+   */
+  reorderNotice: string;
 
   // ---- toast ----
   toast: ToastNotice | null;
@@ -293,6 +300,8 @@ export interface CantoralState {
   deleteCurrentList: () => void;
   removeFromPl: (id: string) => void;
   reorderPl: (toId: string) => void;
+  /** Move a track up or down the open list. The keyboard's way in. */
+  moveInPlaylist: (id: string, delta: number) => void;
   setDragging: (id: string) => void;
   setOver: (id: string | null) => void;
   clearDrag: () => void;
@@ -599,6 +608,7 @@ export const useStore = create<CantoralState>((set, get) => {
     openExt: false,
     draggingId: null,
     overId: null,
+    reorderNotice: "",
 
     toast: null,
     confirm: null,
@@ -1110,6 +1120,21 @@ export const useStore = create<CantoralState>((set, get) => {
       }
       set({ draggingId: null, overId: null });
       dragId = null;
+    },
+    moveInPlaylist: (id, delta) => {
+      const pid = get().curPlaylist;
+      const prev = (get().plOrder[pid] || []).slice();
+      const desde = prev.indexOf(id);
+      const hasta = desde + delta;
+      // Silently at the ends: the buttons are disabled there, and a keypress
+      // that cannot move anything should do nothing rather than wrap around.
+      if (desde < 0 || hasta < 0 || hasta >= prev.length) return;
+      const next = prev.slice();
+      next.splice(desde, 1);
+      next.splice(hasta, 0, id);
+      saveOrder(pid, next, prev);
+      const titulo = get().tracks.find((t) => t.id === id)?.titulo ?? "La pista";
+      set({ reorderNotice: `«${titulo}», posición ${hasta + 1} de ${next.length}` });
     },
     clearDrag: () => {
       set({ draggingId: null, overId: null });
