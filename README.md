@@ -40,6 +40,7 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - [✨ Funciones](#-funciones)
 - [⬇️ Instalación](#️-instalación)
 - [⚠️ Limitaciones conocidas](#️-limitaciones-conocidas)
+- [🔄 Actualizaciones automáticas](#-actualizaciones-automáticas)
 - [🧱 Stack](#-stack)
 - [🚀 Desarrollo](#-desarrollo)
 - [🧪 Pruebas](#-pruebas)
@@ -115,8 +116,19 @@ xattr -dr com.apple.quarantine /Applications/Cantoral.app
 
 Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 
-- **Sin actualizaciones automáticas** ([#19](https://github.com/xlCyanz/cantoral/issues/19)) y **sin firma de código** mientras no haya
-  certificados (ver [Firma de código](#-firma-de-código)).
+- **Sin firma de código** mientras no haya certificados (ver
+  [Firma de código](#-firma-de-código)). Las actualizaciones automáticas van
+  firmadas con su propia clave y no dependen de eso, pero en macOS la app
+  actualizada vuelve a quedar en cuarentena hasta que exista el certificado; la
+  app lo avisa antes de instalar.
+- **Las actualizaciones automáticas solo alcanzan a Apple Silicon y a Windows
+  x86-64.** Cada instalador se compila en el runner de su sistema, y los de
+  macOS son ARM, así que un Mac Intel seguirá actualizándose a mano hasta que la
+  compilación use `--target universal-apple-darwin`.
+- **Una compilación sin la clave de firma del actualizador no se actualiza
+  sola**, y lo dice en Configuración en vez de fingir que está al día. Es lo que
+  pasa en un fork, y también aquí hasta que el secret exista (ver
+  [Actualizaciones automáticas](#-actualizaciones-automáticas)).
 - Los filtros de la biblioteca (búsqueda, favoritas, ocasión) no se conservan
   entre sesiones, a propósito: abrir la app con la biblioteca filtrada sin
   recordar por qué desconcierta más de lo que ayuda. El resto —volumen,
@@ -129,7 +141,7 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 | Interfaz | React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · lucide-react |
 | Tipografías | Hanken Grotesk · Instrument Serif (SIL OFL, incluidas en `src/assets/fonts/`) |
 | Núcleo | Tauri v2 (Rust) · SQLite (`rusqlite`, bundled) · `walkdir` · `lofty` |
-| Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` |
+| Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` · `updater` |
 | Pruebas | Vitest (frontend) · `cargo test` (backend) |
 | Calidad | ESLint · `cargo clippy` · `cargo audit` · CodeQL |
 
@@ -257,6 +269,53 @@ Produce, según el sistema:
 El workflow `build.yml` verifica que la etiqueta coincida con `package.json`, corre
 las pruebas, compila macOS + Windows en paralelo y **crea el GitHub Release**
 adjuntando los `.dmg`, `.msi` y `.exe`, con las notas tomadas del `CHANGELOG.md`.
+
+## 🔄 Actualizaciones automáticas
+
+Cantoral mira si hay una versión nueva **al abrirse, sin interrumpir**: si la
+hay, aparece en **Configuración → Actualizaciones**, con el número de versión y
+las novedades. También hay un botón para comprobarlo cuando se quiera. Instalar
+descarga, verifica la firma, reemplaza la app y la reinicia.
+
+La firma del actualizador es **independiente** de la de Apple y Microsoft: con
+ella, una actualización queda verificada criptográficamente aunque el instalador
+siga sin firmar.
+
+### Poner la clave (una vez)
+
+La clave privada firma lo que se instalará en los equipos de la iglesia, así que
+la genera y la guarda quien mantiene el repositorio:
+
+```bash
+# 1. Generar el par. Guarda la privada donde no la vea nadie.
+pnpm tauri signer generate -w ~/.tauri/cantoral.key
+
+# 2. Subir la privada como secret del repositorio.
+gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cantoral.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD   # la contraseña del paso 1
+
+# 3. Poner la pública en la configuración y commitearla.
+cat ~/.tauri/cantoral.key.pub
+```
+
+La pública va en `src-tauri/tauri.conf.json`, en `plugins.updater.pubkey`. Hasta
+que esté, el campo queda vacío a propósito: la app compila y funciona igual, y
+Configuración dice que esta compilación no trae actualizaciones automáticas en
+vez de fallar con un error que nadie puede arreglar.
+
+**Si la clave privada se pierde, se pierde la capacidad de actualizar las
+instalaciones existentes**: generar otra obliga a reinstalar a mano en cada
+equipo, porque las apps instaladas solo confían en la pública con la que se
+compilaron.
+
+### Qué publica cada release
+
+El workflow de `build.yml` adjunta, además de los instaladores, un `latest.json`
+armado por `.github/scripts/latest-json.mjs` con la firma y la URL de cada
+plataforma. El endpoint que consulta la app es
+`releases/latest/download/latest.json`, que GitHub resuelve siempre al último
+release publicado. Sin el secret no se genera, y el release sale como siempre
+—solo que sin actualizar a nadie—.
 
 ## 🔏 Firma de código
 

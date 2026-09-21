@@ -5,6 +5,8 @@ mod compartir;
 mod db;
 mod models;
 mod scanner;
+#[cfg(desktop)]
+mod updates;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -29,6 +31,12 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // El actualizador se registra aquí y no con `.plugin(...)` porque
+            // solo existe en escritorio: en móvil la app se actualiza por la
+            // tienda y el plugin ni siquiera compila.
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+
             let dir = app.path().app_data_dir().expect("resolve app data dir");
             std::fs::create_dir_all(&dir).ok();
             let db_path = dir.join("cantoral.db");
@@ -78,6 +86,8 @@ pub fn run() {
             commands::relocate_folder,
             commands::set_track_fav,
             commands::update_track,
+            commands::check_for_update,
+            commands::install_update,
             commands::create_playlist,
             commands::duplicate_playlist,
             commands::set_playlist_template,
