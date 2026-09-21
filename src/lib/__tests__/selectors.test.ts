@@ -18,6 +18,7 @@ function track(over: Partial<Track> & { id: string }): Track {
     tags: [],
     fav: false,
     missing: false,
+    tieneHoja: false,
     added: 1,
     ...over,
   };

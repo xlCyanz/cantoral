@@ -3,10 +3,18 @@ use rusqlite::{params, Connection, OpenFlags};
 use std::path::Path;
 use std::sync::Mutex;
 
-use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Playlist, Track};
+use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Playlist, Sheet, Track};
 
 /// Tauri-managed database handle.
 pub struct Db(pub Mutex<Connection>);
+
+/// SQL that is true when a track has something written on its sheet.
+///
+/// The blanks are spelled out because SQLite's one-argument `TRIM` only strips
+/// spaces: a sheet holding nothing but newlines — what the editor leaves behind
+/// when it is opened and closed again — counted as written on.
+const CON_HOJA: &str = "(TRIM(letra, ' ' || char(9) || char(10) || char(13)) <> '' \
+     OR TRIM(acordes, ' ' || char(9) || char(10) || char(13)) <> '')";
 
 pub const SCHEMA: &str = r#"
 PRAGMA journal_mode = WAL;
@@ -39,7 +47,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   cover_path TEXT,
   added_at  TEXT NOT NULL,
   mtime     INTEGER NOT NULL DEFAULT 0,
-  fsize     INTEGER NOT NULL DEFAULT 0
+  fsize     INTEGER NOT NULL DEFAULT 0,
+  letra     TEXT NOT NULL DEFAULT '',
+  acordes   TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS playlists (
@@ -96,6 +106,8 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     );
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN fsize INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN letra TEXT NOT NULL DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN acordes TEXT NOT NULL DEFAULT ''", []);
     Ok(conn)
 }
 
@@ -136,14 +148,15 @@ fn tags_by_track(conn: &Connection) -> Result<std::collections::HashMap<i64, Vec
 
 pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
     let mut tags_of = tags_by_track(conn)?;
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
                 t.tono, t.bpm, t.ocasion, t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
-                t.cover_path
+                t.cover_path,
+                {CON_HOJA}
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
-         ORDER BY t.id",
-    )?;
+         ORDER BY t.id"
+    ))?;
     let rows = stmt.query_map([], |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
@@ -167,6 +180,7 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
             tags,
             added: id,
             cover: r.get::<_, Option<String>>(14)?,
+            tiene_hoja: r.get::<_, i64>(15)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -461,6 +475,54 @@ pub fn relocate_folder(conn: &Connection, id: i64, new_root: &Path) -> Result<i6
 
     reconcile_missing(conn, id)?;
     Ok(n as i64)
+}
+
+// ---------------------------------------------------------------- sheets
+
+/// The lyrics and chords of one track.
+pub fn track_sheet(conn: &Connection, id: i64) -> Result<Sheet> {
+    let (letra, acordes): (String, String) = conn.query_row(
+        "SELECT letra, acordes FROM tracks WHERE id=?1",
+        params![id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    Ok(Sheet { track_id: id.to_string(), letra, acordes })
+}
+
+/// The sheets of several tracks at once, for a whole service list.
+///
+/// Only the tracks that actually have something written come back, so an
+/// eleven-song list with two sheets costs two rows rather than eleven.
+pub fn sheets_for(conn: &Connection, ids: &[i64]) -> Result<Vec<Sheet>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let lista = lista_de_ids(ids);
+    let mut stmt = conn.prepare(&format!(
+        "SELECT id, letra, acordes FROM tracks
+         WHERE id IN ({lista}) AND {CON_HOJA}
+         ORDER BY id"
+    ))?;
+    let rows = stmt.query_map([], |r| {
+        Ok(Sheet {
+            track_id: r.get::<_, i64>(0)?.to_string(),
+            letra: r.get(1)?,
+            acordes: r.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Write a track's lyrics and chords.
+pub fn set_track_sheet(conn: &Connection, id: i64, letra: &str, acordes: &str) -> Result<()> {
+    let filas = conn.execute(
+        "UPDATE tracks SET letra=?1, acordes=?2 WHERE id=?3",
+        params![letra, acordes, id],
+    )?;
+    if filas == 0 {
+        bail!("la pista ya no está en la biblioteca");
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------- folders
@@ -1164,6 +1226,126 @@ mod tests {
 
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
         upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100).unwrap()
+    }
+
+    // ---- lyrics and chords ----
+
+    #[test]
+    fn a_sheet_goes_in_and_comes_back_out() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "Sublime Gracia");
+
+        set_track_sheet(&conn, id, "Sublime gracia del Señor", "[Sol]Sublime [Do]gracia").unwrap();
+
+        let hoja = track_sheet(&conn, id).unwrap();
+        assert_eq!(hoja.track_id, id.to_string());
+        assert_eq!(hoja.letra, "Sublime gracia del Señor");
+        assert_eq!(hoja.acordes, "[Sol]Sublime [Do]gracia");
+    }
+
+    #[test]
+    fn a_track_starts_with_no_sheet_at_all() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        let hoja = track_sheet(&conn, id).unwrap();
+        assert_eq!((hoja.letra.as_str(), hoja.acordes.as_str()), ("", ""));
+        assert!(!list_tracks(&conn).unwrap()[0].tiene_hoja);
+    }
+
+    #[test]
+    fn the_catalogue_carries_whether_there_is_a_sheet_but_not_the_sheet() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let con = add_track(&conn, fid, "/m/a.mp3", "Con letra");
+        add_track(&conn, fid, "/m/b.mp3", "Sin nada");
+        set_track_sheet(&conn, con, "Aleluya", "").unwrap();
+
+        let tracks = list_tracks(&conn).unwrap();
+
+        assert!(tracks[0].tiene_hoja, "chords alone would do too");
+        assert!(!tracks[1].tiene_hoja);
+    }
+
+    #[test]
+    fn whitespace_is_not_a_sheet() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+
+        // Opening the editor and closing it must not light the indicator.
+        set_track_sheet(&conn, id, "   \n\n  ", "  ").unwrap();
+
+        assert!(!list_tracks(&conn).unwrap()[0].tiene_hoja);
+    }
+
+    #[test]
+    fn a_service_list_only_pays_for_the_sheets_that_exist() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let uno = add_track(&conn, fid, "/m/a.mp3", "Uno");
+        let dos = add_track(&conn, fid, "/m/b.mp3", "Dos");
+        let tres = add_track(&conn, fid, "/m/c.mp3", "Tres");
+        set_track_sheet(&conn, uno, "letra de uno", "").unwrap();
+        set_track_sheet(&conn, tres, "", "[Sol]tres").unwrap();
+
+        let hojas = sheets_for(&conn, &[uno, dos, tres]).unwrap();
+
+        assert_eq!(
+            hojas.iter().map(|h| h.track_id.clone()).collect::<Vec<_>>(),
+            vec![uno.to_string(), tres.to_string()],
+            "the one with nothing written is not a row"
+        );
+    }
+
+    #[test]
+    fn asking_for_no_sheets_asks_the_database_nothing() {
+        let conn = mem();
+        assert!(sheets_for(&conn, &[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn writing_a_sheet_onto_a_track_that_is_gone_is_refused() {
+        let conn = mem();
+        assert!(set_track_sheet(&conn, 9_999, "letra", "").is_err());
+    }
+
+    #[test]
+    fn a_database_from_before_sheets_existed_gains_the_columns() {
+        // The path a restored backup takes: `restore_from_backup` reopens
+        // through `open_and_migrate`, and every query after that expects the
+        // columns to be there.
+        let dir = Dir::new("sheet-migration");
+        let path = dir.path("vieja.db");
+        {
+            let vieja = Connection::open(&path).unwrap();
+            vieja
+                .execute_batch(
+                    "CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL UNIQUE,
+                        nombre TEXT NOT NULL, added_at TEXT NOT NULL, last_scan TEXT);
+                     CREATE TABLE tracks (id INTEGER PRIMARY KEY AUTOINCREMENT, folder_id INTEGER,
+                        path TEXT NOT NULL UNIQUE, titulo TEXT NOT NULL DEFAULT '',
+                        artista TEXT NOT NULL DEFAULT '', album TEXT NOT NULL DEFAULT '',
+                        dur_sec INTEGER NOT NULL DEFAULT 0, formato TEXT NOT NULL DEFAULT '',
+                        tono TEXT NOT NULL DEFAULT '', bpm INTEGER NOT NULL DEFAULT 0,
+                        ocasion TEXT NOT NULL DEFAULT '', fav INTEGER NOT NULL DEFAULT 0,
+                        missing INTEGER NOT NULL DEFAULT 0, video INTEGER NOT NULL DEFAULT 0,
+                        added_at TEXT NOT NULL);
+                     INSERT INTO tracks(path, titulo, added_at) VALUES('/m/a.mp3','Vieja','2020-01-01');",
+                )
+                .unwrap();
+        }
+
+        let conn = open_and_migrate(&path).unwrap();
+
+        let tracks = list_tracks(&conn).unwrap();
+        assert_eq!(tracks.len(), 1);
+        assert!(!tracks[0].tiene_hoja);
+        let id: i64 = tracks[0].id.parse().unwrap();
+        set_track_sheet(&conn, id, "letra nueva", "").unwrap();
+        assert_eq!(track_sheet(&conn, id).unwrap().letra, "letra nueva");
     }
 
     // ---- duplicates ----

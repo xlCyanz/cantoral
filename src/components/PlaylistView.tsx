@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Calendar, Download, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover } from "../lib/covers";
 import { ocasionBadge } from "../lib/styles";
@@ -97,6 +97,7 @@ export default function PlaylistView() {
   const rows = useStore(filasDeLista);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
+  const openService = useStore((s) => s.openService);
   const exportPl = useStore((s) => s.exportPl);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
@@ -125,6 +126,9 @@ export default function PlaylistView() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
             <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
+            </button>
+            <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+              <Presentation size={16} />Modo culto
             </button>
             <button onClick={exportPl} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <Download size={16} />Exportar

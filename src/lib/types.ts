@@ -39,6 +39,14 @@ export interface Track {
   path?: string;
   /** Cover art URL (asset:// in the app), if the file had embedded art. */
   cover?: string;
+  /**
+   * Whether this track has lyrics or chords written down.
+   *
+   * A flag, not the sheet: the catalogue travels whole on every refresh, and a
+   * few thousand sheets would make every snapshot megabytes of text that the
+   * screen asking for it is not going to read.
+   */
+  tieneHoja: boolean;
 }
 
 export interface Folder {

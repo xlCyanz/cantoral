@@ -153,6 +153,32 @@ export interface ScanProgressEvent {
   added: number;
 }
 
+/** The lyrics and chords of one track. */
+export interface Sheet {
+  trackId: string;
+  letra: string;
+  /** ChordPro, e.g. `[Sol]Sublime [Do]gracia`. */
+  acordes: string;
+}
+
+/** One track's sheet. Null in the browser, where the seed stands in. */
+export async function getTrackSheet(id: string): Promise<Sheet | null> {
+  if (!isTauri()) return null;
+  return inv<Sheet>("get_track_sheet", { id });
+}
+
+/** The sheets of a whole service list, in one round trip. */
+export async function getSheets(ids: string[]): Promise<Sheet[] | null> {
+  if (!isTauri()) return null;
+  return inv<Sheet[]>("get_sheets", { ids });
+}
+
+/** Write a track's lyrics and chords. */
+export async function updateTrackSheet(id: string, letra: string, acordes: string): Promise<void> {
+  if (!isTauri()) return;
+  await inv("update_track_sheet", { id, letra, acordes });
+}
+
 /** One candidate inside a group of suspected duplicates. */
 export interface DuplicateTrack {
   id: string;
