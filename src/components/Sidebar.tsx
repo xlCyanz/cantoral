@@ -1,4 +1,5 @@
 import { Clock, Folder, Heart, Library, ListMusic, Plus, Settings, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { useStore } from "../store";
 import { navCountStyle, navStyle, ocupadoStyle, qfStyle } from "../lib/styles";
 import type { CSSProperties } from "react";
@@ -26,6 +27,11 @@ export default function Sidebar() {
   const onFolderClick = useStore((s) => s.onFolderClick);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const scanning = useStore((s) => s.scanning);
+  const arrastrando = useStore((s) => s.dragFromLibrary.length);
+  const playlists = useStore((s) => s.playlists);
+  const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
+  const endLibraryDrag = useStore((s) => s.endLibraryDrag);
+  const [sobre, setSobre] = useState<string | null>(null);
 
   const libActive = view === "biblioteca";
   const colActive = view === "colecciones" || view === "lista";
@@ -83,6 +89,30 @@ export default function Sidebar() {
             <span style={{ flex: 1, textAlign: "left" }}>Listas para cultos</span>
             <span style={navCountStyle(colActive)}>{plCount}</span>
           </button>
+
+          {/* Only while something is being dragged out of the library: a place
+              to drop it without leaving the library to find one. */}
+          {arrastrando > 0 && playlists.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "4px 0 2px 10px", borderLeft: "2px solid var(--primary-soft-2)", marginLeft: 8 }}>
+              <span style={{ ...sectionLabel, padding: "2px 8px 4px" }}>Soltar en…</span>
+              {playlists.map((p) => (
+                <div
+                  key={p.id}
+                  onDragOver={(e) => { e.preventDefault(); setSobre(p.id); }}
+                  onDragLeave={() => setSobre((v) => (v === p.id ? null : v))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setSobre(null);
+                    bulkAddToPlaylist(p.id);
+                    endLibraryDrag();
+                  }}
+                  style={{ padding: "8px 10px", borderRadius: 9, fontSize: "12.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: sobre === p.id ? "var(--primary)" : "var(--surface-2)", color: sobre === p.id ? "var(--on-primary)" : "var(--text-2)", border: "1px dashed " + (sobre === p.id ? "transparent" : "var(--border-2)") }}
+                >
+                  {p.nombre}
+                </div>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* quick filters */}

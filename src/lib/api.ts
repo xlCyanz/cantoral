@@ -159,6 +159,37 @@ export interface ScanProgressEvent {
   added: number;
 }
 
+/** Append a whole selection to a list, in one transaction and one snapshot. */
+export async function addTracksToPlaylistCmd(
+  playlist: string,
+  tracks: string[],
+): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("add_tracks_to_playlist", { playlist, tracks });
+}
+
+/** Mark or unmark a whole selection as favourites. */
+export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("set_tracks_fav", { ids, fav });
+}
+
+/** Put a tag on a whole selection, or take it off it. */
+export async function tagTracksCmd(
+  ids: string[],
+  tag: string,
+  add: boolean,
+): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("tag_tracks", { ids, tag, add });
+}
+
+/** Drop a whole selection from the catalogue. The audio files are untouched. */
+export async function deleteTracksCmd(ids: string[]): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("delete_tracks", { ids });
+}
+
 /** Rename a tag everywhere, folding it into an existing one if the name is taken. */
 export async function renameTagCmd(from: string, to: string): Promise<Snapshot | null> {
   if (!isTauri()) return null;

@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Clock, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
-import { applyFilters, buildGroups, escaneoAPantallaCompleta, useStore } from "../store";
+import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
 import { SCAN_FILES } from "../lib/seed";
 import { coverStyle, hasCover } from "../lib/covers";
 import Empty, { emptyBtnSecondary } from "./Empty";
@@ -58,10 +58,14 @@ function Equalizer() {
 const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
   const playing = useStore((s) => s.playerId === t.id && s.playing);
   const sel = useStore((s) => s.selId === t.id && s.detailOpen);
+  const elegida = useStore((s) => s.selection.includes(t.id));
   const onRowClick = useStore((s) => s.onRowClick);
   const play = useStore((s) => s.play);
   const onFav = useStore((s) => s.onFav);
   const onOpenExternal = useStore((s) => s.onOpenExternal);
+  const openRowMenu = useStore((s) => s.openRowMenu);
+  const startLibraryDrag = useStore((s) => s.startLibraryDrag);
+  const endLibraryDrag = useStore((s) => s.endLibraryDrag);
 
   const rowStyle: CSSProperties = {
     display: "grid",
@@ -76,7 +80,11 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
     borderRadius: 11,
     cursor: "default",
     transition: "background .13s",
-    ...(sel ? { background: "var(--primary-soft)", boxShadow: "inset 0 0 0 1px var(--primary-soft-2)" } : {}),
+    // Being in the selection and being the row the detail panel is showing are
+    // different things, so they look different: a fill for the first, a ring
+    // for the second.
+    ...(elegida ? { background: "var(--primary-soft)" } : {}),
+    ...(sel ? { boxShadow: "inset 0 0 0 1px var(--primary-soft-2)" } : {}),
     ...(t.missing ? { opacity: 0.72 } : {}),
   };
 
@@ -85,15 +93,29 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
       className="lib-row"
       tabIndex={0}
       aria-label={`${t.titulo}, ${t.artista}${t.tono ? `, tono ${t.tono}` : ""}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
-      aria-selected={sel}
-      onClick={() => onRowClick(t.id)}
+      aria-selected={elegida}
+      draggable
+      onDragStart={(e) => {
+        // A drag that starts on a row outside the selection carries just that
+        // row; one inside it carries the whole selection.
+        const st = useStore.getState();
+        const ids = st.selection.includes(t.id) ? seleccionVigente(st) : [t.id];
+        startLibraryDrag(ids);
+        e.dataTransfer.effectAllowed = "copy";
+      }}
+      onDragEnd={endLibraryDrag}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openRowMenu(t.id, e.clientX, e.clientY);
+      }}
+      onClick={(e) => onRowClick(t.id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
       onDoubleClick={() => play(t.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           // Enter opens the detail panel; ⌘/Ctrl+Enter starts playback.
           if (e.metaKey || e.ctrlKey) play(t.id);
-          else onRowClick(t.id);
+          else onRowClick(t.id, { shift: e.shiftKey });
         }
       }}
       style={rowStyle}

@@ -11,6 +11,28 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Armar un culto deja de ser de una pista en una.** Era la función central de
+  la app y el camino más largo posible: abrir el panel de detalle, «Elegir
+  lista…», la lista, repetir. Ocho canciones eran veinticuatro clics.
+
+  Ahora se eligen varias —<kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>
+  para sumar o restar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que
+  muestra el filtro— y sobre lo elegido se puede **agregar a una lista,
+  marcar o quitar favoritas, poner o quitar una etiqueta, y quitarlas de la
+  biblioteca**, todo de una vez.
+
+  También se pueden **arrastrar a una lista**: mientras arrastras, la barra
+  lateral abre sus listas como zonas donde soltar, para no tener que salir de
+  la biblioteca a buscar una.
+
+  Y el **clic derecho** por fin hace algo: la app suprimía el menú del navegador
+  desde antes de que existiera uno propio.
+
+  Agregar veinte pistas es ahora **una** ida y vuelta al núcleo en una sola
+  transacción, no veinte con veinte copias enteras del catálogo. Las que ya
+  estaban en la lista se saltan, así que agregar una selección que se solapa la
+  completa en vez de duplicarla.
+
 - **Las etiquetas dejan de estar a medias.** Se podían poner y ahí se acababa:
   no había forma de filtrar por ellas, ni de ver cuáles existían, ni de
   corregir una mal escrita sin abrir cada pista.

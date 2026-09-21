@@ -24,9 +24,12 @@ import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, see
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
+import { alHacerClic, enOrden, vigentes } from "./lib/selection";
+import type { Modificadores } from "./lib/selection";
 import {
   addAndScanFolder,
   addToPlaylistCmd,
+  addTracksToPlaylistCmd,
   assetUrl,
   cancelScanCmd,
   backupDatabase,
@@ -62,6 +65,9 @@ import {
   setPlaylistOrderCmd,
   setSetting,
   setTrackFav,
+  setTracksFavCmd,
+  tagTracksCmd,
+  deleteTracksCmd,
   updatePlaylistCmd,
   updateTrackCmd,
   updateTrackSheet,
@@ -150,6 +156,21 @@ export interface CantoralState {
   groupBy: GroupBy;
   sortKey: SortKey;
   sortDir: "asc" | "desc";
+
+  // ---- selection ----
+  /**
+   * Rows picked in the library, for acting on several at once.
+   *
+   * Click order, not display order — what is done with them is put in display
+   * order at the moment of doing it (see `seleccionVigente`).
+   */
+  selection: string[];
+  /** Row a Shift-click measures its run from. */
+  selAnchor: string | null;
+  /** Ids being dragged out of the library, or empty. */
+  dragFromLibrary: string[];
+  /** Row whose context menu is open, and where to draw it. */
+  rowMenu: { id: string; x: number; y: number } | null;
 
   // ---- detail panel ----
   selId: string | null;
@@ -255,7 +276,24 @@ export interface CantoralState {
   onGroupBy: (g: GroupBy) => void;
   onSortHeader: (k: SortKey) => void;
 
-  onRowClick: (id: string) => void;
+  onRowClick: (id: string, mods?: Modificadores) => void;
+  /** Pick every row the library is currently showing. */
+  selectAllVisible: () => void;
+  clearSelection: () => void;
+  openRowMenu: (id: string, x: number, y: number) => void;
+  closeRowMenu: () => void;
+  /** Note that a drag out of the library started, carrying `ids`. */
+  startLibraryDrag: (ids: string[]) => void;
+  endLibraryDrag: () => void;
+
+  /** Append the selection to a list, in the order it is shown. */
+  bulkAddToPlaylist: (playlistId: string) => void;
+  /** Mark or unmark the selection as favourites. */
+  bulkFav: (fav: boolean) => void;
+  /** Put a tag on the selection, or take it off it. */
+  bulkTag: (tag: string, add: boolean) => void;
+  /** Drop the selection from the catalogue, after confirming. */
+  bulkDelete: () => void;
   onFav: (id: string) => void;
   onOpenExternal: (id: string) => void;
 
@@ -584,6 +622,11 @@ export const useStore = create<CantoralState>((set, get) => {
     sortKey: "titulo",
     sortDir: "asc",
 
+    selection: [],
+    selAnchor: null,
+    dragFromLibrary: [],
+    rowMenu: null,
+
     selId: null,
     detailOpen: false,
     tagDraft: "",
@@ -667,10 +710,151 @@ export const useStore = create<CantoralState>((set, get) => {
       })),
 
     // ---------- rows ----------
-    onRowClick: (id) => {
+    onRowClick: (id, mods) => {
+      const st = get();
+      const visibles = applyFilters(st).map((t) => t.id);
+      const r = alHacerClic(visibles, st.selection, st.selAnchor, id, mods);
+      set({ selection: r.seleccion, selAnchor: r.ancla, rowMenu: null });
+      if (!r.abrirDetalle) return;
       // Moving to another track must not leave the previous one's edit in limbo.
-      if (get().selId !== id) get().flushEdit();
+      if (st.selId !== id) get().flushEdit();
       set({ selId: id, detailOpen: true, tagDraft: "", saveState: "idle" });
+    },
+
+    selectAllVisible: () => {
+      const visibles = applyFilters(get()).map((t) => t.id);
+      set({ selection: visibles, selAnchor: visibles[0] ?? null });
+    },
+
+    clearSelection: () => set({ selection: [], selAnchor: null }),
+
+    openRowMenu: (id, x, y) =>
+      set((st) => ({
+        rowMenu: { id, x, y },
+        // A menu opened on a row outside the selection is about that row, so
+        // the selection follows the click rather than the other way round.
+        selection: st.selection.includes(id) ? st.selection : [id],
+        selAnchor: st.selection.includes(id) ? st.selAnchor : id,
+      })),
+
+    closeRowMenu: () => set({ rowMenu: null }),
+
+    startLibraryDrag: (ids) => set({ dragFromLibrary: ids }),
+    endLibraryDrag: () => set({ dragFromLibrary: [] }),
+
+    // ---------- bulk actions ----------
+    bulkAddToPlaylist: (playlistId) => {
+      const ids = seleccionVigente(get());
+      if (ids.length === 0) return;
+      const nombre = get().playlists.find((p) => p.id === playlistId)?.nombre ?? "la lista";
+      const hecho = (n: number) => {
+        set({ rowMenu: null });
+        toast(n === 1 ? `1 pista agregada a «${nombre}»` : `${n} pistas agregadas a «${nombre}»`);
+      };
+      if (!isTauri()) {
+        // Browser stand-in: the same outcome, minus what is already on the list.
+        set((st) => {
+          const ya = st.plOrder[playlistId] || [];
+          const nuevas = ids.filter((id) => !ya.includes(id));
+          hecho(nuevas.length);
+          return { plOrder: { ...st.plOrder, [playlistId]: [...ya, ...nuevas] } };
+        });
+        return;
+      }
+      const yaEstaban = (get().plOrder[playlistId] || []).length;
+      addTracksToPlaylistCmd(playlistId, ids)
+        .then((snap) => {
+          if (snap) applySnapshot(snap);
+          hecho((get().plOrder[playlistId] || []).length - yaEstaban);
+        })
+        .catch((err) => {
+          console.error("add_tracks_to_playlist failed", err);
+          toast("No se pudieron agregar las pistas", "error");
+        });
+    },
+
+    bulkFav: (fav) => {
+      const ids = seleccionVigente(get());
+      if (ids.length === 0) return;
+      const marcadas = new Set(ids);
+      set((st) => ({
+        tracks: st.tracks.map((t) => (marcadas.has(t.id) ? { ...t, fav } : t)),
+        rowMenu: null,
+      }));
+      if (!isTauri()) return;
+      void setTracksFavCmd(ids, fav).catch((err) => {
+        console.error("set_tracks_fav failed", err);
+        toast("No se pudo guardar el cambio", "error");
+      });
+    },
+
+    bulkTag: (tag, add) => {
+      const ids = seleccionVigente(get());
+      const nombre = normalizarEtiqueta(tag);
+      if (ids.length === 0 || !nombre) return;
+      // The same snapping as the detail panel: a bulk edit must not be what
+      // invents a second spelling of an existing tag.
+      const existente = etiquetaEquivalente(nombre, etiquetas(get()).map((e) => e.nombre));
+      const final = add ? (existente ?? nombre) : nombre;
+      const tocadas = new Set(ids);
+      set((st) => ({
+        tracks: st.tracks.map((t) => {
+          if (!tocadas.has(t.id)) return t;
+          const tags = t.tags || [];
+          if (add) return tags.includes(final) ? t : { ...t, tags: [...tags, final].sort() };
+          return { ...t, tags: tags.filter((x) => x !== final) };
+        }),
+        rowMenu: null,
+      }));
+      toast(add ? `Etiqueta «${final}» agregada` : `Etiqueta «${final}» quitada`);
+      if (!isTauri()) return;
+      void tagTracksCmd(ids, final, add).catch((err) => {
+        console.error("tag_tracks failed", err);
+        toast("No se pudo guardar la etiqueta", "error");
+      });
+    },
+
+    bulkDelete: () => {
+      const ids = seleccionVigente(get());
+      if (ids.length === 0) return;
+      // Cuántas *pistas* están en alguna lista, no cuántas apariciones suman:
+      // una pista en tres listas es una pista, y contarla tres veces daba un
+      // número mayor que la propia selección.
+      const enAlgunaLista = new Set(Object.values(get().plOrder).flat());
+      const enListas = ids.filter((id) => enAlgunaLista.has(id)).length;
+      get().askConfirm({
+        title: ids.length === 1 ? "¿Quitar esta pista?" : `¿Quitar ${ids.length} pistas?`,
+        message: "Salen de la biblioteca y de todas las listas para culto donde estén.",
+        detail:
+          `Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.` +
+          (enListas ? `\n${enListas} ${enListas === 1 ? "está" : "están"} en alguna lista.` : ""),
+        safe: "Los archivos de audio no se borran del disco. Volverán a aparecer si escaneas su carpeta.",
+        confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
+        onConfirm: () => {
+          set({ rowMenu: null, selection: [], selAnchor: null });
+          if (!isTauri()) {
+            const fuera = new Set(ids);
+            set((st) => {
+              const plOrder: Record<string, string[]> = {};
+              Object.entries(st.plOrder).forEach(([pid, orden]) => {
+                plOrder[pid] = orden.filter((id) => !fuera.has(id));
+              });
+              return { tracks: st.tracks.filter((t) => !fuera.has(t.id)), plOrder };
+            });
+            toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`);
+            return;
+          }
+          deleteTracksCmd(ids)
+            .then((snap) => {
+              if (snap) applySnapshot(snap);
+              toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`);
+            })
+            .catch((err) => {
+              console.error("delete_tracks failed", err);
+              toast("No se pudieron quitar las pistas", "error");
+            });
+        },
+      });
     },
     onFav: (id) => {
       const t = get().tracks.find((x) => x.id === id);
@@ -1823,6 +2007,21 @@ export const filasDeLista = recordar(
       .map((id) => s.tracks.find((t) => t.id === id))
       .filter((t): t is Track => !!t),
   (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks],
+);
+
+/**
+ * The selection, pruned to what is on screen and put in display order.
+ *
+ * Both the count the user reads and the ids a bulk action sends come from
+ * here, so a selection that outlived its rows — after a filter change, a
+ * rescan or a deletion — can never be acted on behind the user's back.
+ */
+export const seleccionVigente = recordar(
+  (s: CantoralState): string[] => {
+    const visibles = applyFilters(s).map((t) => t.id);
+    return enOrden(visibles, vigentes(visibles, s.selection));
+  },
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
 /** A tag and how many tracks carry it. */
