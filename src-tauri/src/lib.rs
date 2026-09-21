@@ -32,6 +32,20 @@ pub fn run() {
             std::fs::create_dir_all(&dir).ok();
             let db_path = dir.join("cantoral.db");
             let conn = db::open_and_migrate(&db_path).expect("open cantoral.db");
+            // `asset://` starts with nothing allowed (see tauri.conf.json) and is
+            // opened here to exactly what the app reads: the covers it extracts
+            // into its own data directory, and the folders the user indexed.
+            // Anything else on the disk stays out of the webview's reach.
+            let scope = app.asset_protocol_scope();
+            if let Err(err) = scope.allow_directory(&dir, true) {
+                log::error!("could not grant asset access to the app data directory: {err}");
+            }
+            for carpeta in db::list_folders(&conn).unwrap_or_default() {
+                if let Err(err) = scope.allow_directory(&carpeta.ruta, true) {
+                    log::error!("could not grant asset access to «{}»: {err}", carpeta.ruta);
+                }
+            }
+
             app.manage(db::Db(Mutex::new(conn)));
             app.manage(commands::DbPath(db_path));
             app.manage(scanner::ScanSlot::new());
@@ -42,6 +56,7 @@ pub fn run() {
             commands::add_and_scan_folder,
             commands::rescan_folder,
             commands::cancel_scan,
+            commands::open_media_path,
             commands::rename_tag,
             commands::delete_tag,
             commands::get_track_sheet,

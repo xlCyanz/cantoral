@@ -259,6 +259,28 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Seguridad
 
+- **La webview ya no puede pedirle al sistema que abra cualquier archivo.**
+  Tenía el permiso `opener:allow-open-path` con alcance `**`, y `open_path`
+  abre el archivo con la aplicación predeterminada: un ejecutable incluido.
+  Ahora ese permiso no está, y abrir un archivo pasa por un comando del núcleo
+  que comprueba la extensión contra **la misma lista que indexa el escáner**,
+  más el `.html` de la hoja exportada. El alcance de las URL vuelve al que trae
+  `opener:default` —http, https, mailto y tel— en vez del `*` que había encima.
+
+- **Content Security Policy, donde antes había `null`.** `csp: null` la
+  desactiva entera: la webview podía cargar scripts, estilos y conexiones de
+  cualquier origen. Ahora hay una política restrictiva, con su variante de
+  desarrollo para que el recargado en caliente siga funcionando.
+
+- **El protocolo `asset` ya no alcanza todo el disco.** Su ámbito era `**`, así
+  que cualquier `asset://` dentro de la webview podía leer cualquier archivo
+  del usuario. Ahora arranca vacío y se abre en tiempo de ejecución a lo que la
+  app de verdad lee: su propio directorio de datos —donde viven las carátulas—
+  y las carpetas que tú indexaste, según se agregan o se mueven.
+
+  Hoy no había una ruta de explotación conocida; lo que faltaba era la defensa
+  en profundidad de una app que lee archivos arbitrarios del usuario.
+
 - **Restaurar un respaldo ya no puede destruir la biblioteca.** El archivo se abre
   en solo lectura y se comprueba que sea una base de Cantoral **antes** de tocar
   nada en disco, y la base anterior se aparta en vez de borrarse: si la copia o la
