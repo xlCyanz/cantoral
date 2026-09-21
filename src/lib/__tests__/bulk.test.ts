@@ -58,7 +58,7 @@ beforeEach(() => {
   }
   useStore.setState({
     tracks: CINCO,
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: [] }],
+    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: [], plantilla: false }],
     plOrder: { p1: [] },
     curPlaylist: "p1",
     selection: [],
@@ -232,9 +232,9 @@ describe("quitar en bloque", () => {
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
-        { id: "p1", nombre: "Uno", fecha: "", ocasion: "", ids: [] },
-        { id: "p2", nombre: "Dos", fecha: "", ocasion: "", ids: [] },
-        { id: "p3", nombre: "Tres", fecha: "", ocasion: "", ids: [] },
+        { id: "p1", nombre: "Uno", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p3", nombre: "Tres", fecha: "", ocasion: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["a"], p3: ["a", "b"] },
     });

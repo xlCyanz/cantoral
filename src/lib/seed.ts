@@ -94,11 +94,14 @@ export const SEED_TRACKS: Track[] = PISTAS.map((t) => ({
 }));
 
 export const SEED_PLAYLISTS: Playlist[] = [
-  { id: "p1", nombre: "Culto Domingo 13 Jul", fecha: "2026-09-25", ocasion: "Servicio dominical", ids: ["t2", "t15", "t1", "t6", "t12", "t8"] },
-  { id: "p2", nombre: "Servicio de Jóvenes", fecha: "2026-09-23", ocasion: "Reunión juvenil", ids: ["t3", "t8", "t10", "t9", "t13", "t5"] },
-  { id: "p3", nombre: "Santa Cena · Agosto", fecha: "2026-10-09", ocasion: "Comunión", ids: ["t11", "t6", "t12", "t7", "t1"] },
-  { id: "p4", nombre: "Ensayo del Coro", fecha: "2026-09-16", ocasion: "Ensayo", ids: ["t1", "t2", "t14", "t15", "t4", "t10", "t8"] },
-  { id: "p5", nombre: "Noche de Adoración", fecha: "Viernes 25 de julio, 2025", ocasion: "Adoración especial", ids: ["t1", "t4", "t15", "t6", "t14", "t7"] },
+  { id: "p1", nombre: "Culto Domingo 13 Jul", fecha: "2026-09-25", ocasion: "Servicio dominical", ids: ["t2", "t15", "t1", "t6", "t12", "t8"], plantilla: false },
+  { id: "p2", nombre: "Servicio de Jóvenes", fecha: "2026-09-23", ocasion: "Reunión juvenil", ids: ["t3", "t8", "t10", "t9", "t13", "t5"], plantilla: false },
+  { id: "p3", nombre: "Santa Cena · Agosto", fecha: "2026-10-09", ocasion: "Comunión", ids: ["t11", "t6", "t12", "t7", "t1"], plantilla: false },
+  { id: "p4", nombre: "Ensayo del Coro", fecha: "2026-09-16", ocasion: "Ensayo", ids: ["t1", "t2", "t14", "t15", "t4", "t10", "t8"], plantilla: false },
+  // Una plantilla en el seed: sin fecha, para que «Nueva lista» pueda partir
+  // de ella y la sección de plantillas tenga algo que mostrar.
+  { id: "p6", nombre: "Servicio dominical · plantilla", fecha: "", ocasion: "Servicio dominical", ids: ["t2", "t1", "t6", "t12"], plantilla: true },
+  { id: "p5", nombre: "Noche de Adoración", fecha: "Viernes 25 de julio, 2025", ocasion: "Adoración especial", ids: ["t1", "t4", "t15", "t6", "t14", "t7"], plantilla: false },
 ];
 
 /**

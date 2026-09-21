@@ -78,6 +78,8 @@ pub fn run() {
             commands::set_track_fav,
             commands::update_track,
             commands::create_playlist,
+            commands::duplicate_playlist,
+            commands::set_playlist_template,
             commands::set_playlist_order,
             commands::add_to_playlist,
             commands::update_playlist,

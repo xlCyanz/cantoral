@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, etiquetas, filasDeLista, ocasiones, plDur, playQueue, queueForView } from "../../store";
+import { applyFilters, buildGroups, etiquetas, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView, repetibles } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Track } from "../types";
 
@@ -247,6 +247,22 @@ describe("lo que los selectores recuerdan", () => {
     expect(ocasiones(state())).toBe(ocasiones(state()));
     const s = state({ curPlaylist: "p1", plOrder: { p1: ["3", "1"] } });
     expect(filasDeLista(s)).toBe(filasDeLista(s));
+  });
+
+  it("remembers the templates and the services worth repeating", () => {
+    // Both feed views the player is sitting under, so a fresh array each read
+    // would re-render them once a second for nothing.
+    const listas = [
+      { id: "p1", nombre: "Culto", fecha: "2020-01-05", ocasion: "Servicio dominical", ids: [], plantilla: false },
+      { id: "p2", nombre: "Dominical", fecha: "", ocasion: "Servicio dominical", ids: [], plantilla: true },
+    ];
+    const s = state({ playlists: listas });
+
+    expect(plantillas(s)).toBe(plantillas(s));
+    expect(plantillas(s).map((p) => p.id)).toEqual(["p2"]);
+    expect(repetibles(s)).toBe(repetibles(s));
+    expect(repetibles(s).map((r) => r.lista.id)).toEqual(["p1"]);
+    expect(plantillas(state({ playlists: [...listas] }))).not.toBe(plantillas(s));
   });
 
   it("never lets the play queue hand out the remembered list itself", () => {

@@ -339,8 +339,20 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
-export async function createPlaylistCmd(nombre: string, fecha: string, ocasion: string): Promise<string> {
-  return inv<string>("create_playlist", { nombre, fecha, ocasion });
+/** `desde` is the template to copy the order from, if the user picked one. */
+export async function createPlaylistCmd(
+  nombre: string,
+  fecha: string,
+  ocasion: string,
+  desde?: string,
+): Promise<string> {
+  return inv<string>("create_playlist", { nombre, fecha, ocasion, desde: desde ?? null });
+}
+export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
+  return inv<string>("duplicate_playlist", { playlist });
+}
+export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolean): Promise<Snapshot> {
+  return inv<Snapshot>("set_playlist_template", { playlist, plantilla });
 }
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Snapshot> {
   return inv<Snapshot>("add_to_playlist", { playlist, track });

@@ -51,7 +51,7 @@ const LISTA = ["a", "b", "c"];
 function conLista() {
   useStore.setState({
     tracks: LISTA.map((id) => track(id)),
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: LISTA }],
+    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: LISTA, plantilla: false }],
     plOrder: { p1: LISTA },
     curPlaylist: "p1",
     playerId: "",
