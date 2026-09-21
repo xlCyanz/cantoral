@@ -313,29 +313,27 @@ jobs:
             : > notes.md
           fi
 
-          cat >> notes.md <<'NOTES'
+          # Una suma por instalador, calculada sobre los mismos archivos que se
+          # suben. Mientras no existan los certificados de firma, es lo único
+          # que permite comprobar que lo descargado es lo que se publicó aquí.
+          while IFS= read -r f; do
+            printf '%s  %s\n' "$(sha256sum "$f" | cut -d' ' -f1)" "$(basename "$f")"
+          done < assets.txt > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
-          ## Instalación
-
-          **macOS** — abre el `.dmg` y arrastra Cantoral a Aplicaciones.
-          Si la compilación no está firmada, macOS dirá que la app «está dañada».
-          Para abrirla de todos modos:
-
-          ```bash
-          xattr -dr com.apple.quarantine /Applications/Cantoral.app
-          ```
-
-          **Windows** — usa el instalador `-setup.exe` (NSIS) o el `.msi`. Ambos
-          instalan el runtime WebView2 si hace falta, así que funcionan también en
-          Windows 10.
-
-          El `Cantoral.exe` suelto es portable pero **no** instala WebView2: úsalo
-          solo en equipos que ya lo tengan (Windows 11 lo trae de fábrica).
-
-          ---
-
-          ¿Algo no funciona? [Reporta un fallo](https://github.com/xlCyanz/cantoral/issues/new?template=bug_report.yml).
-          NOTES
+          # El pie fijo vive en .github/release-notes.md: es Markdown, y dentro
+          # de un `run: |` no puede empezar en la columna cero —la YAML se
+          # rompe— pero con sangría GitHub lo pinta como bloque de código. Del
+          # archivo salen las dos mitades, con las sumas entre medias.
+          marcador='<!-- SHA256SUMS -->'
+          {
+            echo
+            sed "/$marcador/q" .github/release-notes.md | sed '$d'
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+            sed -n "/$marcador/,\$p" .github/release-notes.md | sed '1d'
+          } >> notes.md
 
       - name: Publicar GitHub Release
         shell: bash
@@ -354,6 +352,9 @@ jobs:
           # apunta a releases/latest/download/latest.json, que GitHub resuelve
           # siempre al último release publicado.
           if [ -f latest.json ]; then assets+=(latest.json); fi
+          # Como asset, para que `shasum -a 256 -c SHA256SUMS.txt` funcione sin
+          # copiar las sumas a mano desde las notas.
+          if [ -f SHA256SUMS.txt ]; then assets+=(SHA256SUMS.txt); fi
 
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
