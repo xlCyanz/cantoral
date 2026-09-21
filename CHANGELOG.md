@@ -180,6 +180,11 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - **ESLint** con configuración plana (typescript-eslint, react-hooks), ejecutado en
   CI con `--max-warnings 0`. Reglas en error: `no-explicit-any`,
   `no-floating-promises` y `no-unused-vars`.
+- **`cargo fmt --check`** en CI, con `src-tauri/rustfmt.toml`: ancho 100 y
+  `use_small_heuristics = "Max"`, que deja en una línea los structs y las llamadas
+  cortos —el núcleo se escribió así a mano y se lee mejor—. Era la configuración
+  que menos movía el código existente. El commit que lo reformateó entero está en
+  `.git-blame-ignore-revs`.
 - **`cargo audit`** en CI: falla ante vulnerabilidades conocidas en las
   dependencias de Rust.
 - **CodeQL** (`.github/workflows/codeql.yml`) sobre la interfaz y el núcleo, en
