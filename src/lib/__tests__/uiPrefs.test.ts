@@ -36,6 +36,7 @@ const GUARDADAS: UiPrefs = {
   groupBy: "ocasion",
   view: "colecciones",
   curPlaylist: "p2",
+  printWithLyrics: true,
 };
 
 /** What `setSetting` was last asked to store under the ui key. */

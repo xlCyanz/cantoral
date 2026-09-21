@@ -20,6 +20,8 @@ export interface UiPrefs {
   groupBy: GroupBy;
   view: View;
   curPlaylist: string;
+  /** Whether the print preview includes the lyrics and chords. */
+  printWithLyrics: boolean;
 }
 
 /** The settings key it is stored under. */
@@ -41,6 +43,7 @@ export const PREF_FIELDS = [
   "groupBy",
   "view",
   "curPlaylist",
+  "printWithLyrics",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -54,6 +57,7 @@ export function serialisePrefs(s: UiPrefs): string {
     groupBy: s.groupBy,
     view: s.view,
     curPlaylist: s.curPlaylist,
+    printWithLyrics: s.printWithLyrics,
   };
   return JSON.stringify(limpio);
 }
@@ -95,6 +99,7 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (GROUP_BYS.includes(o.groupBy as GroupBy)) out.groupBy = o.groupBy as GroupBy;
   if (VIEWS.includes(o.view as View)) out.view = o.view as View;
   if (typeof o.curPlaylist === "string") out.curPlaylist = o.curPlaylist;
+  if (esBooleano(o.printWithLyrics)) out.printWithLyrics = o.printWithLyrics;
   return out;
 }
 
