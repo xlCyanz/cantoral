@@ -80,6 +80,28 @@ const PISTAS: Omit<Track, "path" | "tieneHoja">[] = [
 ];
 
 /**
+ * Subcarpetas de ejemplo, dentro de la carpeta indexada.
+ *
+ * Una biblioteca de iglesia de verdad no es un montón plano: quien guardó los
+ * archivos ya los separó en «Clásicos», «Coritos», «Especiales». Agrupar por
+ * la carpeta real solo se puede ver si el catálogo de ejemplo tiene ese
+ * relieve; con todo en la raíz, la agrupación existe pero no se distingue de
+ * agrupar por la carpeta indexada. Las que no aparecen aquí quedan en la raíz,
+ * que también es un caso que hay que poder ver.
+ */
+const SUBCARPETAS: Record<string, string> = {
+  t1: "Clásicos",
+  t2: "Clásicos",
+  t4: "Clásicos",
+  t6: "Clásicos/Vol 2",
+  t7: "Coritos",
+  t12: "Coritos",
+  t3: "Especiales",
+  t5: "Navidad",
+  t10: "Navidad",
+};
+
+/**
  * Rutas de ejemplo.
  *
  * El backend real manda el `path` de cada pista, leído del disco. Aquí se
@@ -87,11 +109,16 @@ const PISTAS: Omit<Track, "path" | "tieneHoja">[] = [
  * el modo navegador. Fabricar la ruta está bien en datos de ejemplo; hacerlo en
  * la interfaz, que es lo que pasaba antes, no.
  */
-export const SEED_TRACKS: Track[] = PISTAS.map((t) => ({
-  ...t,
-  path: `${SEED_FOLDERS.find((f) => f.nombre === t.carpeta)?.ruta ?? "C:\\Música"}\\${t.titulo}.${t.formato.toLowerCase()}`,
-  tieneHoja: t.id in SEED_SHEETS,
-}));
+export const SEED_TRACKS: Track[] = PISTAS.map((t) => {
+  const raiz = SEED_FOLDERS.find((f) => f.nombre === t.carpeta)?.ruta ?? "C:\\Música";
+  const sub = SUBCARPETAS[t.id];
+  const carpeta = sub ? `${raiz}\\${sub.split("/").join("\\")}` : raiz;
+  return {
+    ...t,
+    path: `${carpeta}\\${t.titulo}.${t.formato.toLowerCase()}`,
+    tieneHoja: t.id in SEED_SHEETS,
+  };
+});
 
 export const SEED_PLAYLISTS: Playlist[] = [
   { id: "p1", nombre: "Culto Domingo 13 Jul", fecha: "2026-09-25", ocasion: "Servicio dominical", ids: ["t2", "t15", "t1", "t6", "t12", "t8"], plantilla: false },

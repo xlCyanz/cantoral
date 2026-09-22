@@ -27,6 +27,7 @@ import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
 import { ultimaPorOcasion } from "./lib/repetir";
 import { partirPorFecha } from "./lib/fechas";
+import { carpetaReal } from "./lib/carpetas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
@@ -191,6 +192,14 @@ export interface CantoralState {
    */
   tagFilter: string[];
   groupBy: GroupBy;
+  /**
+   * Grupos plegados, por clave.
+   *
+   * Vive en la sesión y no en las preferencias: plegar «Himnos» es para dejar
+   * de verlo *ahora*, mientras se arma un culto con lo de otra carpeta, no una
+   * decisión que valga la pena recordar hasta la semana que viene.
+   */
+  gruposColapsados: string[];
   sortKey: SortKey;
   sortDir: "asc" | "desc";
 
@@ -324,6 +333,7 @@ export interface CantoralState {
   /** Take a tag off every track that carried it, after confirming. */
   deleteTag: (name: string) => void;
   onGroupBy: (g: GroupBy) => void;
+  toggleGrupo: (clave: string) => void;
   onSortHeader: (k: SortKey) => void;
 
   onRowClick: (id: string, mods?: Modificadores) => void;
@@ -703,6 +713,7 @@ export const useStore = create<CantoralState>((set, get) => {
     ocasion: null,
     tagFilter: [],
     groupBy: "none",
+    gruposColapsados: [],
     sortKey: "titulo",
     sortDir: "asc",
 
@@ -792,7 +803,15 @@ export const useStore = create<CantoralState>((set, get) => {
           : [...st.tagFilter, tag],
         view: "biblioteca",
       })),
-    onGroupBy: (g) => set({ groupBy: g }),
+    // Cambiar el eje deja las claves plegadas sin sentido —«f1/Clásicos» no
+    // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
+    onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
+    toggleGrupo: (clave) =>
+      set((st) => ({
+        gruposColapsados: st.gruposColapsados.includes(clave)
+          ? st.gruposColapsados.filter((c) => c !== clave)
+          : [...st.gruposColapsados, clave],
+      })),
     onSortHeader: (k) =>
       set((s) => ({
         sortKey: k,
@@ -2471,37 +2490,76 @@ export const applyFilters = recordar(
 
 export interface Group {
   showHeader: boolean;
+  /** Identidad del grupo, para plegarlo. Vacía cuando no hay agrupación. */
+  clave: string;
   label?: string;
+  /** La carpeta en el disco, solo al agrupar por carpeta. */
+  ruta?: string;
   countLabel?: string;
+  /** Cuántas pistas tiene, plegado o no: el encabezado sigue diciéndolo. */
+  count: number;
+  colapsado: boolean;
   tracks: { track: Track; num: number }[];
 }
 
-/** Group + number the filtered list like buildGroups(). */
+/**
+ * Group + number the filtered list.
+ *
+ * Agrupar por carpeta usa la carpeta *del disco*, no la raíz indexada: ver
+ * `carpetaReal`. Un grupo plegado no entrega pistas, y la numeración solo
+ * avanza sobre lo que se está viendo, así que los números siempre leen 1, 2,
+ * 3… hacia abajo de la tabla.
+ */
 export const buildGroups = recordar(
   (s: CantoralState, list: Track[]): Group[] => {
     if (s.groupBy === "none" || s.qf === "recent") {
-      return [{ showHeader: false, tracks: list.map((track, i) => ({ track, num: i + 1 })) }];
+      return [
+        {
+          showHeader: false,
+          clave: "",
+          count: list.length,
+          colapsado: false,
+          tracks: list.map((track, i) => ({ track, num: i + 1 })),
+        },
+      ];
     }
+    const porCarpeta = s.groupBy === "carpeta";
     const key = s.groupBy;
-    const map = new Map<string, Track[]>();
+    const mapa = new Map<string, { nombre: string; ruta: string; pistas: Track[] }>();
     list.forEach((t) => {
-      const g = (t[key as keyof Track] as string) || "—";
-      if (!map.has(g)) map.set(g, []);
-      map.get(g)!.push(t);
+      const c = porCarpeta
+        ? carpetaReal(t, s.folders)
+        : (() => {
+            const v = ((t[key as keyof Track] as string) || "").trim() || "—";
+            return { clave: v, nombre: v, ruta: "" };
+          })();
+      let g = mapa.get(c.clave);
+      if (!g) {
+        g = { nombre: c.nombre, ruta: c.ruta, pistas: [] };
+        mapa.set(c.clave, g);
+      }
+      g.pistas.push(t);
     });
-    const keys = [...map.keys()].sort((a, b) => String(a).localeCompare(String(b), "es"));
+    const claves = [...mapa.keys()].sort((a, b) =>
+      mapa.get(a)!.nombre.localeCompare(mapa.get(b)!.nombre, "es"),
+    );
     let n = 0;
-    return keys.map((g) => {
-      const arr = map.get(g)!.map((track) => ({ track, num: ++n }));
+    return claves.map((clave) => {
+      const g = mapa.get(clave)!;
+      const colapsado = s.gruposColapsados.includes(clave);
       return {
         showHeader: true,
-        label: g,
-        countLabel: arr.length + (arr.length === 1 ? " pista" : " pistas"),
-        tracks: arr,
+        clave,
+        label: g.nombre,
+        ruta: g.ruta,
+        count: g.pistas.length,
+        countLabel: g.pistas.length + (g.pistas.length === 1 ? " pista" : " pistas"),
+        colapsado,
+        tracks: colapsado ? [] : g.pistas.map((track) => ({ track, num: ++n })),
       };
     });
   },
-  (s: CantoralState, list: Track[]) => [list, s.groupBy, s.qf],
+  (s: CantoralState, list: Track[]) => [list, s.groupBy, s.qf, s.folders, s.gruposColapsados],
 );
 
 /**

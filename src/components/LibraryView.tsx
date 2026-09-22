@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Clock, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
+import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
 import { SCAN_FILES } from "../lib/seed";
@@ -185,13 +185,41 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
 });
 
 /** Heading that opens a group when the table is grouped. */
-function GroupHeader({ label, countLabel }: { label: string; countLabel: string }) {
+/**
+ * The bar that heads a group.
+ *
+ * Clicking it folds the group away. That is for the minute you are building a
+ * service out of one folder and the other three are in the way — so it lives
+ * in the session and is forgotten on the next launch.
+ *
+ * The path under the name only shows when grouping by folder, and it is the
+ * folder on disk: the name reads «Himnos / Clásicos», the path says which
+ * «Himnos» that is when two drives have one.
+ */
+function GroupHeader({ clave, label, ruta, countLabel, colapsado }: { clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean }) {
+  const toggleGrupo = useStore((s) => s.toggleGrupo);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, height: ALTO_GRUPO, boxSizing: "border-box", padding: "16px 12px 7px" }}>
-      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".2px" }}>{label}</span>
-      <span style={{ fontSize: "11.5px", color: "var(--text-3)", fontWeight: 500 }}>{countLabel}</span>
-      <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-    </div>
+    <button
+      onClick={() => toggleGrupo(clave)}
+      aria-expanded={!colapsado}
+      title={colapsado ? `Desplegar «${label}»` : `Plegar «${label}»`}
+      className="hb-s3"
+      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", height: ALTO_GRUPO, boxSizing: "border-box", padding: "0 12px", background: "var(--surface-2)", borderTop: "1px solid var(--border)", textAlign: "left", transition: "background .13s" }}
+    >
+      <ChevronRight
+        size={13}
+        style={{ flex: "0 0 auto", color: "var(--text-3)", transform: colapsado ? "none" : "rotate(90deg)", transition: "transform .14s" }}
+      />
+      <Folder size={13} style={{ flex: "0 0 auto", color: "var(--text-3)", opacity: ruta ? 1 : 0 }} />
+      <span style={{ flex: "0 0 auto", fontSize: "12.5px", fontWeight: 600 }}>{label}</span>
+      {ruta && (
+        <span title={ruta} style={{ minWidth: 0, fontSize: "10.5px", color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {ruta}
+        </span>
+      )}
+      <span style={{ flex: 1 }} />
+      <span style={{ flex: "0 0 auto", fontSize: "10.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{countLabel}</span>
+    </button>
   );
 }
 
@@ -410,7 +438,7 @@ function Tabla() {
         <div style={recortado ? { transform: `translateY(${plano.offsets[rango.desde]}px)` } : undefined}>
           {visibles.map((f) =>
             f.tipo === "grupo" ? (
-              <GroupHeader key={`g:${f.label}`} label={f.label} countLabel={f.countLabel} />
+              <GroupHeader key={`g:${f.clave}`} clave={f.clave} label={f.label} ruta={f.ruta} countLabel={f.countLabel} colapsado={f.colapsado} />
             ) : (
               <TrackRow key={f.track.id} t={f.track} num={f.num} />
             ),

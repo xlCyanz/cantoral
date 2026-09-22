@@ -28,6 +28,8 @@ function sinCabeceras(n: number) {
   return [
     {
       showHeader: false,
+      clave: "",
+      colapsado: false,
       tracks: Array.from({ length: n }, (_, i) => ({ track: track(String(i)), num: i + 1 })),
     },
   ];
@@ -37,6 +39,8 @@ function sinCabeceras(n: number) {
 function conCabeceras() {
   return ["Adoración", "Comunión"].map((label, g) => ({
     showHeader: true,
+    clave: label,
+    colapsado: false,
     label,
     countLabel: "3 pistas",
     tracks: Array.from({ length: 3 }, (_, i) => ({ track: track(`${g}-${i}`), num: g * 3 + i + 1 })),
