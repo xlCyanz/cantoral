@@ -141,3 +141,22 @@ export function favBtnStyle(fav: boolean): CSSProperties {
 export function ocupadoStyle(ocupado: boolean): CSSProperties {
   return ocupado ? { opacity: 0.45, cursor: "not-allowed" } : {};
 }
+
+/**
+ * One half of a two-button segmented control.
+ *
+ * Ported from the design's `segmento`: the pair shares one border and one
+ * background, and only the divider between them says there are two.
+ */
+export function segmento(active: boolean, primero: boolean): CSSProperties {
+  return {
+    width: 32,
+    height: 32,
+    display: "grid",
+    placeItems: "center",
+    borderLeft: primero ? "0" : "1px solid var(--border)",
+    background: active ? "var(--primary-soft)" : "transparent",
+    color: active ? "var(--primary)" : "var(--text-3)",
+    transition: "background .13s,color .13s",
+  };
+}

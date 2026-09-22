@@ -25,6 +25,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **La biblioteca tiene dos densidades.** Un par de botones en la fila de
+  herramientas: «cómoda», que es la de siempre, y «compacta», que baja la fila
+  de 56 a 34 px y casi duplica cuántas pistas caben en pantalla. Son dos
+  situaciones distintas y no un gradiente: preparar el culto el jueves con
+  sitio para respirar, y sostener el atril el domingo sin tener que
+  desplazarse a media alabanza. Se elige una vez y se recuerda.
+
+  En la fila compacta el título y el artista comparten línea, con el título
+  quedándose el espacio: recortar «Cristo Ya Resucit…» para que quepa entero
+  «Voces de Gracia» es al revés. Y si la fila lleva aviso —sin archivo, video—
+  el artista se va del todo: que falte el archivo importa más que quién la
+  canta.
+
 - **Los grupos se pliegan.** Un clic en el encabezado esconde su contenido y
   deja el encabezado, que sigue diciendo cuántas pistas tiene. Es para el
   minuto en que estás armando un culto con una carpeta y las otras tres

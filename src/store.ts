@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  Densidad,
   Folder,
   GroupBy,
   LibState,
@@ -192,6 +193,7 @@ export interface CantoralState {
    */
   tagFilter: string[];
   groupBy: GroupBy;
+  densidad: Densidad;
   /**
    * Grupos plegados, por clave.
    *
@@ -333,6 +335,7 @@ export interface CantoralState {
   /** Take a tag off every track that carried it, after confirming. */
   deleteTag: (name: string) => void;
   onGroupBy: (g: GroupBy) => void;
+  setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
   onSortHeader: (k: SortKey) => void;
 
@@ -713,6 +716,7 @@ export const useStore = create<CantoralState>((set, get) => {
     ocasion: null,
     tagFilter: [],
     groupBy: "none",
+    densidad: "comoda",
     gruposColapsados: [],
     sortKey: "titulo",
     sortDir: "asc",
@@ -806,6 +810,7 @@ export const useStore = create<CantoralState>((set, get) => {
     // Cambiar el eje deja las claves plegadas sin sentido —«f1/Clásicos» no
     // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
     onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
+    setDensidad: (d) => set({ densidad: d }),
     toggleGrupo: (clave) =>
       set((st) => ({
         gruposColapsados: st.gruposColapsados.includes(clave)
