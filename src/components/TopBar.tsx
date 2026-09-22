@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Rows3, Rows4, Search, Sun, Tag, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { applyFilters, etiquetas, ocasiones, useStore } from "../store";
+import { applyFilters, etiquetas, ocasiones, seleccionVigente, useStore } from "../store";
+import SelectionBar from "./SelectionBar";
 import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
 import type { Densidad, GroupBy } from "../lib/types";
 
@@ -26,6 +27,7 @@ export default function TopBar() {
   const ocs = useStore(ocasiones);
   const tags = useStore(etiquetas);
   const tagFilter = useStore((s) => s.tagFilter);
+  const haySeleccion = useStore((s) => seleccionVigente(s).length > 0);
 
   const onQuery = useStore((s) => s.onQuery);
   const clearQuery = useStore((s) => s.clearQuery);
@@ -148,9 +150,13 @@ export default function TopBar() {
         </button>
       </div>
 
-      {/* filter bar */}
+      {/* filter bar — o la barra de selección, que se queda con la fila
+          entera: mientras hay algo elegido, lo que toca es actuar sobre eso y
+          no volver a filtrar. */}
       {showFilterBar && (
         <div style={{ height: 52, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderTop: "1px solid var(--border)" }}>
+          {haySeleccion && <SelectionBar />}
+          {!haySeleccion && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
             {chips.map((c) => {
               const active = c.value ? ocasion === c.value : !ocasion;
@@ -188,6 +194,8 @@ export default function TopBar() {
               </>
             )}
           </div>
+          )}
+          {!haySeleccion && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
               <ListFilter size={14} style={{ position: "absolute", left: 10, color: "var(--text-3)", pointerEvents: "none" }} />
@@ -224,6 +232,7 @@ export default function TopBar() {
               {total + (total === 1 ? " canción" : " canciones")}
             </div>
           </div>
+          )}
         </div>
       )}
     </header>
