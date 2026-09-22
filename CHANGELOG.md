@@ -11,6 +11,21 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **Repetir el culto anterior sube a lo primero que se ve.** Estaba debajo de
+  la rejilla de tarjetas, que es donde nadie lo encontraba, y ahora va justo
+  bajo la cabecera. Cada botón repite el verbo y dice qué copia —«Repetir
+  Ensayo · Copia "Ensayo del Coro" del 16 sept»—: leído en voz alta, lo que
+  decía antes no decía ni qué hacía ni de dónde salía.
+
+- **Las tarjetas de lista llevan su inicial.** Veinte tarjetas con el mismo
+  icono no se distinguen de un vistazo; la inicial del nombre sí, y la ocasión
+  pasa a un sobrescrito sobre la portada en vez de una pastilla encima. La
+  cabecera de una lista abierta hace lo mismo: el sobrescrito dice la ocasión
+  —«Reunión juvenil»— y no «Lista para culto», que ya se sabe por estar ahí.
+
+- **Los títulos de página usan la tipografía de títulos.** Quedaba por
+  aplicarla desde la primera etapa del rediseño.
+
 - **La barra de selección entra en la fila de herramientas.** Flotaba sobre la
   tabla, cerca del reproductor, encima justamente de las filas sobre las que
   actúa: lo último que se veía antes de pulsar «Quitar» era una barra tapando
@@ -31,29 +46,6 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   No hubo que tocar el núcleo ni volver a escanear: el catálogo ya viaja con
   la ruta de cada pista y la raíz de cada carpeta, así que la resta se hace en
   la interfaz.
-
-### Añadido
-
-- **La biblioteca tiene dos densidades.** Un par de botones en la fila de
-  herramientas: «cómoda», que es la de siempre, y «compacta», que baja la fila
-  de 56 a 34 px y casi duplica cuántas pistas caben en pantalla. Son dos
-  situaciones distintas y no un gradiente: preparar el culto el jueves con
-  sitio para respirar, y sostener el atril el domingo sin tener que
-  desplazarse a media alabanza. Se elige una vez y se recuerda.
-
-  En la fila compacta el título y el artista comparten línea, con el título
-  quedándose el espacio: recortar «Cristo Ya Resucit…» para que quepa entero
-  «Voces de Gracia» es al revés. Y si la fila lleva aviso —sin archivo, video—
-  el artista se va del todo: que falte el archivo importa más que quién la
-  canta.
-
-- **Los grupos se pliegan.** Un clic en el encabezado esconde su contenido y
-  deja el encabezado, que sigue diciendo cuántas pistas tiene. Es para el
-  minuto en que estás armando un culto con una carpeta y las otras tres
-  estorban, así que vive en la sesión: la próxima vez que abras Cantoral está
-  todo desplegado otra vez. Cambiar el eje de agrupación también lo olvida.
-
-### Cambiado
 
 - **Cantoral estrena piel.** Primera etapa del rediseño: las tipografías y los
   colores. La interfaz pasa a **Public Sans**, los títulos a **Bricolage
@@ -86,6 +78,33 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   un destino que aparece a mitad del arrastre es un destino al que no se puede
   apuntar. Solo aceptan lo que salió de la biblioteca, así que arrastrar una
   carpeta del escritorio hasta ahí ya no agrega lo que estuviera seleccionado.
+
+### Añadido
+
+- **La biblioteca tiene dos densidades.** Un par de botones en la fila de
+  herramientas: «cómoda», que es la de siempre, y «compacta», que baja la fila
+  de 56 a 34 px y casi duplica cuántas pistas caben en pantalla. Son dos
+  situaciones distintas y no un gradiente: preparar el culto el jueves con
+  sitio para respirar, y sostener el atril el domingo sin tener que
+  desplazarse a media alabanza. Se elige una vez y se recuerda.
+
+  En la fila compacta el título y el artista comparten línea, con el título
+  quedándose el espacio: recortar «Cristo Ya Resucit…» para que quepa entero
+  «Voces de Gracia» es al revés. Y si la fila lleva aviso —sin archivo, video—
+  el artista se va del todo: que falte el archivo importa más que quién la
+  canta.
+
+- **Los grupos se pliegan.** Un clic en el encabezado esconde su contenido y
+  deja el encabezado, que sigue diciendo cuántas pistas tiene. Es para el
+  minuto en que estás armando un culto con una carpeta y las otras tres
+  estorban, así que vive en la sesión: la próxima vez que abras Cantoral está
+  todo desplegado otra vez. Cambiar el eje de agrupación también lo olvida.
+
+### Eliminado
+
+- **La baldosa de puntos «Crear nueva lista»** al final de la rejilla de
+  listas. «Nueva lista» está en la cabecera y en la pantalla vacía; tres
+  sitios para lo mismo es uno bueno y dos que estorban.
 
 ## [0.2.1] - 2026-09-21
 

@@ -1,6 +1,6 @@
 import { Calendar, FileInput, Layers, ListMusic, Plus, RotateCcw } from "lucide-react";
 import { plDur, repetibles, useStore } from "../store";
-import { gradientFor } from "../lib/covers";
+import { gradientFor, inicialDe } from "../lib/covers";
 import { formatearFechaCorta, partirPorFecha } from "../lib/fechas";
 import Empty, { emptyBtnPrimary, emptyBtnSecondary } from "./Empty";
 
@@ -68,13 +68,13 @@ export default function CollectionsView() {
         </div>
       </div>
 
+      {/* Repetir el culto anterior va arriba de todo, antes de la rejilla:
+          es lo primero que se hace un jueves, y estaba debajo de veinte
+          tarjetas. Cada botón repite el verbo y dice qué copia — leído en voz
+          alta, «Servicio dominical · 25 sept» no dice ni qué hace ni de dónde
+          sale. */}
       {repetir.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, margin: "0 0 22px" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)" }}>
-            <RotateCcw size={14} />Repetir el culto anterior:
-          </span>
-          {/* The label spells the action out: read aloud, «Servicio dominical
-              25 sept» says neither what the button does nor what it copies. */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "0 0 22px" }}>
           {repetir.map(({ ocasion, lista }) => (
             <button
               key={ocasion}
@@ -82,10 +82,17 @@ export default function CollectionsView() {
               className="hb-s2"
               title={`Copiar «${lista.nombre}» del ${formatearFechaCorta(lista.fecha)}`}
               aria-label={`Repetir ${ocasion}: copiar «${lista.nombre}» del ${formatearFechaCorta(lista.fecha)}`}
-              style={{ display: "flex", alignItems: "center", gap: 7, height: 32, padding: "0 12px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}
+              style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 11px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", textAlign: "left", transition: "background .14s" }}
             >
-              {ocasion}
-              <span style={{ color: "var(--text-3)", fontWeight: 500 }}>{formatearFechaCorta(lista.fecha)}</span>
+              <span style={{ width: 22, height: 22, flex: "0 0 auto", borderRadius: 6, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                <RotateCcw size={12} strokeWidth={2.2} />
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text)" }}>Repetir {ocasion}</span>
+                <span style={{ display: "block", fontSize: "10.5px", color: "var(--text-2)" }}>
+                  Copia «{lista.nombre}» del {formatearFechaCorta(lista.fecha)}
+                </span>
+              </span>
             </button>
           ))}
         </div>
@@ -102,27 +109,29 @@ export default function CollectionsView() {
               <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
           )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(196px,1fr))", gap: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(184px,1fr))", gap: 12 }}>
         {listas.map((p) => {
           const ids = plOrder[p.id] || p.ids;
           return (
-            <div key={p.id} onClick={() => openPlaylist(p.id)} className="pl-card" style={{ cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 15, padding: 12 }}>
-              <div style={{ position: "relative", width: "100%", aspectRatio: "1", borderRadius: 11, overflow: "hidden", boxShadow: "var(--sh-sm)" }}>
-                <div style={gradientFor(p.id)} />
+            <div key={p.id} onClick={() => openPlaylist(p.id)} className="pl-card" style={{ cursor: "pointer", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+              {/* La inicial en vez de un icono: veinte tarjetas con el mismo
+                  dibujo no se distinguen de un vistazo, y la inicial sí. */}
+              <div style={{ position: "relative", width: "100%", aspectRatio: "1.45", overflow: "hidden" }}>
+                <div style={gradientFor(p.id, 150)} />
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-                  <ListMusic size={42} color="rgba(255,255,255,.92)" strokeWidth={1.5} />
+                  <span className="display" style={{ fontSize: 34, color: "rgba(255,255,255,.9)" }}>{inicialDe(p.nombre)}</span>
                 </div>
-                <div style={{ position: "absolute", left: 9, top: 9, background: "rgba(20,14,9,.42)", backdropFilter: "blur(4px)", color: "#fff", fontSize: "10.5px", fontWeight: 600, padding: "2px 8px", borderRadius: 6 }}>
+                <div style={{ position: "absolute", left: 9, top: 7, right: 9, fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(255,255,255,.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {p.ocasion}
                 </div>
                 {p.plantilla && (
-                  <div title="Plantilla" style={{ position: "absolute", right: 9, top: 9, display: "grid", placeItems: "center", width: 22, height: 22, background: "rgba(20,14,9,.42)", backdropFilter: "blur(4px)", color: "#fff", borderRadius: 6 }}>
-                    <Layers size={12} />
+                  <div title="Plantilla" style={{ position: "absolute", right: 8, bottom: 8, display: "grid", placeItems: "center", width: 20, height: 20, background: "rgba(0,0,0,.34)", color: "#fff", borderRadius: 6 }}>
+                    <Layers size={11} />
                   </div>
                 )}
               </div>
-              <div style={{ padding: "12px 4px 4px" }}>
-                <div style={{ fontSize: "14.5px", fontWeight: 700, letterSpacing: "-.1px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
+              <div style={{ padding: "9px 10px 10px" }}>
+                <div style={{ fontSize: "12.5px", fontWeight: 600, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "var(--text-2)" }}>
                   {p.plantilla ? <Layers size={13} style={{ flex: "0 0 auto" }} /> : <Calendar size={13} style={{ flex: "0 0 auto" }} />}
                   <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -141,14 +150,6 @@ export default function CollectionsView() {
         </div>
       ))}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(196px,1fr))", gap: 18 }}>
-        <button onClick={newList} className="pl-new" style={{ cursor: "pointer", background: "none", border: "1.5px dashed var(--border-2)", borderRadius: 15, minHeight: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 11, color: "var(--text-3)" }}>
-          <div style={{ width: 46, height: 46, borderRadius: "50%", background: "var(--surface-2)", display: "grid", placeItems: "center" }}>
-            <Plus size={22} />
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Crear nueva lista</span>
-        </button>
-      </div>
     </div>
   );
 }

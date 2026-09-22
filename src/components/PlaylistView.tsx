@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
-import { coverStyle, gradientFor, hasCover } from "../lib/covers";
+import { coverStyle, gradientFor, hasCover, inicialDe } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
 import { formatearFecha } from "../lib/fechas";
 import type { Track } from "../lib/types";
@@ -170,16 +170,21 @@ export default function PlaylistView() {
       {/* hero */}
       <div style={{ display: "flex", gap: 22, padding: "28px 24px 24px", alignItems: "flex-end", background: "linear-gradient(180deg,var(--surface-2),transparent)" }}>
         <div style={{ position: "relative", width: 148, height: 148, flex: "0 0 auto", borderRadius: 16, overflow: "hidden", boxShadow: "var(--sh-md)" }}>
-          <div style={gradientFor(curPlaylist)} />
+          <div style={gradientFor(curPlaylist, 150)} />
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-            <ListMusic size={58} color="rgba(255,255,255,.92)" strokeWidth={1.4} />
+            <span className="display" style={{ fontSize: 58, color: "rgba(255,255,255,.9)" }}>{inicialDe(pl?.nombre ?? "")}</span>
           </div>
         </div>
         <div style={{ minWidth: 0, paddingBottom: 2 }}>
-          <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", color: "var(--primary)", background: "var(--primary-soft)", padding: "3px 10px", borderRadius: 7, marginBottom: 10 }}>
-            {pl?.plantilla ? "Plantilla" : "Lista para culto"}
+          {/* El sobrescrito dice la ocasión, no «Lista para culto». Eso último
+              lo sabe cualquiera que esté mirando esta pantalla; la ocasión es
+              lo que distingue un domingo de un ensayo. Una lista sin ocasión
+              —las importadas y las viejas pueden no tenerla— vuelve al rótulo
+              genérico antes que dejar el hueco. */}
+          <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--primary)", marginBottom: 8 }}>
+            {pl?.plantilla ? "Plantilla" : pl?.ocasion?.trim() || "Lista para culto"}
           </span>
-          <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-.8px", lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
+          <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{formatearFecha(pl?.fecha) || "Sin fecha"}</span>
             <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-3)" }} />
