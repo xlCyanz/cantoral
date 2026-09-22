@@ -103,7 +103,7 @@ export default function TopBar() {
                 <ChevronLeft size={16} />
               </button>
             )}
-            <h1 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.2px", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <h1 className="display" style={{ fontSize: 21, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {pageTitle}
             </h1>
           </div>

@@ -16,6 +16,25 @@ export const COVERS: [string, string][] = [
   ["#6c7bb5", "rgba(0,0,0,.45)"],
 ];
 
+/**
+ * La letra con la que se dibuja la portada de una lista.
+ *
+ * El rediseño pone la inicial del nombre en la carátula en vez de un icono
+ * igual en todas: veinte listas con el mismo dibujo no se distinguen de un
+ * vistazo, y la inicial sí. Se salta lo que no es letra ni número, porque una
+ * lista llamada «— Domingo» empezaría con una raya.
+ */
+export function inicialDe(nombre: string): string {
+  for (const c of (nombre ?? "").trim()) {
+    // `toLocaleUpperCase` y no `toUpperCase`: en turco la i minúscula sube a
+    // «İ», y quien tenga esa configuración regional espera ver la suya.
+    if (/[\p{L}\p{N}]/u.test(c)) return c.toLocaleUpperCase();
+  }
+  // Un nombre sin una sola letra deja la portada con su degradado y nada más,
+  // que es mejor que inventarle un signo.
+  return "";
+}
+
 /** Deterministic string hash (djb-ish, matches the design's hash()). */
 export function hash(s: string): number {
   let h = 0;
