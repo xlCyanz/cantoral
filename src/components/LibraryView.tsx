@@ -6,30 +6,31 @@ import { SCAN_FILES } from "../lib/seed";
 import { coverStyle, hasCover } from "../lib/covers";
 import Empty, { emptyBtnSecondary } from "./Empty";
 import { favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
-import { ALTO_FILA, ALTO_GRUPO, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
-import type { SortKey, Track } from "../lib/types";
+import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
+import type { Densidad, SortKey, Track } from "../lib/types";
 
 const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 48px 62px 72px";
 
 /** White glyph shown inside a cover swatch, keyed by track state. */
-function CoverInner({ t }: { t: Track }) {
+function CoverInner({ t, chico }: { t: Track; chico?: boolean }) {
   if (hasCover(t)) return null;
+  const g = (n: number) => (chico ? Math.round(n * 0.62) : n);
   if (t.missing)
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(16), height: g(16) }}>
         <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
         <path d="M12 9v4" /><path d="M12 17h.01" />
       </svg>
     );
   if (t.video)
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17 }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(17), height: g(17) }}>
         <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
         <rect x="2" y="6" width="14" height="12" rx="2" />
       </svg>
     );
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(15), height: g(15) }}>
       <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
     </svg>
   );
@@ -55,7 +56,7 @@ function Equalizer() {
  * the entire table along with it. Actions are read through the store too, but
  * they are created once and never replaced, so they never cause a render.
  */
-const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
+const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: number; densidad: Densidad }) {
   const playing = useStore((s) => s.playerId === t.id && s.playing);
   const sel = useStore((s) => s.selId === t.id && s.detailOpen);
   const elegida = useStore((s) => s.selection.includes(t.id));
@@ -67,6 +68,12 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
   const startLibraryDrag = useStore((s) => s.startLibraryDrag);
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
 
+  const compacta = densidad === "compacta";
+  // Una fila compacta no tiene sitio para el artista *y* el aviso: si hay
+  // aviso, gana el aviso y el artista se va. Y entonces nada le pone tope al
+  // hueco, porque recortar «Sin archiv…» sería peor que no decirlo.
+  const conAviso = t.missing || t.video;
+  const muestraArtista = !compacta || !conAviso;
   const rowStyle: CSSProperties = {
     display: "grid",
     gridTemplateColumns: GRID,
@@ -74,9 +81,9 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
     gap: 8,
     // Pinned rather than left to the content, so the windowing math above can
     // predict where every row lands without measuring the DOM.
-    height: ALTO_FILA,
+    height: ALTOS[densidad].fila,
     boxSizing: "border-box",
-    padding: "8px 10px",
+    padding: compacta ? "0 10px" : "8px 10px",
     borderRadius: 11,
     cursor: "default",
     transition: "background .13s",
@@ -141,13 +148,23 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
 
       {/* title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <div style={coverStyle(t, 40)}><CoverInner t={t} /></div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(sel ? { color: "var(--primary)" } : {}) }}>
+        <div style={coverStyle(t, compacta ? 24 : 40)}><CoverInner t={t} chico={compacta} /></div>
+        {/* Cómoda pone el artista debajo del título; compacta lo pone al lado,
+            porque en 34 px no caben dos líneas y perder el artista para ganar
+            filas no es un intercambio que valga la pena. */}
+        <div style={{ minWidth: 0, ...(compacta ? { display: "flex", alignItems: "center", gap: 7 } : {}) }}>
+          <div style={{ fontSize: compacta ? "12.5px" : 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(compacta ? { flex: "1 1 auto", minWidth: 0 } : {}), ...(sel ? { color: "var(--primary)" } : {}) }}>
             {t.titulo}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1 }}>
-            <span style={{ fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artista}</span>
+          {/* En una línea el título manda: el artista cede espacio primero y
+              no se queda con más de un tercio de la celda. Recortar «Cristo Ya
+              Resucit…» para que quepa entero «Voces de Gracia» es al revés.
+              Y si la fila lleva aviso, el artista se va del todo: que falte el
+              archivo importa más que quién la canta. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, marginTop: compacta ? 0 : 1, ...(compacta ? { flex: "0 0 auto", ...(muestraArtista ? { maxWidth: "34%", overflow: "hidden" } : {}) } : {}) }}>
+            {muestraArtista && (
+              <span style={{ fontSize: compacta ? "11.5px" : 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artista}</span>
+            )}
             {t.missing && (
               <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: "10.5px", fontWeight: 600, color: "var(--danger)", background: "var(--danger-soft)", padding: "1px 6px", borderRadius: 5 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" style={{ width: 10, height: 10 }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
@@ -196,7 +213,7 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
  * folder on disk: the name reads «Himnos / Clásicos», the path says which
  * «Himnos» that is when two drives have one.
  */
-function GroupHeader({ clave, label, ruta, countLabel, colapsado }: { clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean }) {
+function GroupHeader({ clave, label, ruta, countLabel, colapsado, densidad }: { clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean; densidad: Densidad }) {
   const toggleGrupo = useStore((s) => s.toggleGrupo);
   return (
     <button
@@ -204,7 +221,7 @@ function GroupHeader({ clave, label, ruta, countLabel, colapsado }: { clave: str
       aria-expanded={!colapsado}
       title={colapsado ? `Desplegar «${label}»` : `Plegar «${label}»`}
       className="hb-s3"
-      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", height: ALTO_GRUPO, boxSizing: "border-box", padding: "0 12px", background: "var(--surface-2)", borderTop: "1px solid var(--border)", textAlign: "left", transition: "background .13s" }}
+      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", height: ALTOS[densidad].grupo, boxSizing: "border-box", padding: "0 12px", background: "var(--surface-2)", borderTop: "1px solid var(--border)", textAlign: "left", transition: "background .13s" }}
     >
       <ChevronRight
         size={13}
@@ -373,8 +390,9 @@ function Tabla() {
   // changed, so this only re-runs when the library really is different.
   const groups = useStore((s) => buildGroups(s, list));
   const query = useStore((s) => s.query);
+  const densidad = useStore((s) => s.densidad);
 
-  const plano = useMemo(() => aplanar(groups), [groups]);
+  const plano = useMemo(() => aplanar(groups, ALTOS[densidad]), [groups, densidad]);
   const ventanear = plano.filas.length >= DESDE;
 
   const hueco = useRef<HTMLDivElement>(null);
@@ -438,9 +456,9 @@ function Tabla() {
         <div style={recortado ? { transform: `translateY(${plano.offsets[rango.desde]}px)` } : undefined}>
           {visibles.map((f) =>
             f.tipo === "grupo" ? (
-              <GroupHeader key={`g:${f.clave}`} clave={f.clave} label={f.label} ruta={f.ruta} countLabel={f.countLabel} colapsado={f.colapsado} />
+              <GroupHeader key={`g:${f.clave}`} clave={f.clave} label={f.label} ruta={f.ruta} countLabel={f.countLabel} colapsado={f.colapsado} densidad={densidad} />
             ) : (
-              <TrackRow key={f.track.id} t={f.track} num={f.num} />
+              <TrackRow key={f.track.id} t={f.track} num={f.num} densidad={densidad} />
             ),
           )}
         </div>

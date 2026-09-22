@@ -1,8 +1,8 @@
-import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Search, Sun, Tag, X } from "lucide-react";
-import type { CSSProperties } from "react";
+import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Rows3, Rows4, Search, Sun, Tag, X } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import { applyFilters, etiquetas, ocasiones, useStore } from "../store";
-import { chipStyle, ocupadoStyle } from "../lib/styles";
-import type { GroupBy } from "../lib/types";
+import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
+import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
   colecciones: "Listas para cultos",
@@ -35,6 +35,8 @@ export default function TopBar() {
   const onOcasion = useStore((s) => s.onOcasion);
   const onTagFilter = useStore((s) => s.onTagFilter);
   const onGroupBy = useStore((s) => s.onGroupBy);
+  const densidad = useStore((s) => s.densidad);
+  const setDensidad = useStore((s) => s.setDensidad);
 
   const showSearch = view === "biblioteca";
   const isLista = view === "lista";
@@ -201,6 +203,23 @@ export default function TopBar() {
               </select>
               <ChevronDown size={13} style={{ position: "absolute", right: 9, color: "var(--text-3)", pointerEvents: "none" }} />
             </div>
+            {/* Dos densidades, no un deslizador: son dos situaciones distintas
+                —preparar el culto y sostener el atril el domingo—, no un
+                gradiente donde hay que encontrar el punto. */}
+            <div style={{ display: "flex", alignItems: "center", flex: "0 0 auto", height: 34, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, overflow: "hidden" }}>
+              {DENSIDADES.map((d, i) => (
+                <button
+                  key={d.valor}
+                  onClick={() => setDensidad(d.valor)}
+                  aria-pressed={densidad === d.valor}
+                  title={d.titulo}
+                  className={densidad === d.valor ? undefined : "hb-s2t"}
+                  style={segmento(densidad === d.valor, i === 0)}
+                >
+                  {d.icono}
+                </button>
+              ))}
+            </div>
             <div style={{ fontSize: "12.5px", color: "var(--text-3)", fontWeight: 500, whiteSpace: "nowrap", paddingLeft: 2 }}>
               {total + (total === 1 ? " canción" : " canciones")}
             </div>
@@ -210,6 +229,12 @@ export default function TopBar() {
     </header>
   );
 }
+
+/** Las dos densidades, con el icono que dice cuántas filas caben. */
+const DENSIDADES: { valor: Densidad; titulo: string; icono: ReactNode }[] = [
+  { valor: "comoda", titulo: "Cómoda — para preparar", icono: <Rows3 size={15} /> },
+  { valor: "compacta", titulo: "Compacta — para el domingo", icono: <Rows4 size={15} /> },
+];
 
 const selectStyle: CSSProperties = {
   appearance: "none",

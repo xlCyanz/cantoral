@@ -10,6 +10,14 @@ export type View = "biblioteca" | "colecciones" | "lista" | "config";
 export type LibState = "content" | "empty" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
 export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
+/**
+ * Cuánto respira la tabla de la biblioteca.
+ *
+ * «Cómoda» es para preparar: hay sitio para la carátula y el ojo descansa.
+ * «Compacta» es para el domingo, cuando lo que importa es cuántas filas caben
+ * en la pantalla del atril sin tener que desplazarse a media alabanza.
+ */
+export type Densidad = "comoda" | "compacta";
 export type SortKey = "titulo" | "album" | "ocasion" | "tono" | "bpm" | "dur";
 export type SortDir = "asc" | "desc";
 

@@ -7,7 +7,7 @@
 // field is checked on its own and whatever does not hold up is dropped, leaving
 // that preference at its default instead of poisoning the whole load.
 
-import type { GroupBy, SortDir, SortKey, View } from "./types";
+import type { Densidad, GroupBy, SortDir, SortKey, View } from "./types";
 
 /** What is remembered between sessions. */
 export interface UiPrefs {
@@ -22,6 +22,8 @@ export interface UiPrefs {
   curPlaylist: string;
   /** Whether the print preview includes the lyrics and chords. */
   printWithLyrics: boolean;
+  /** How tall the library rows are. */
+  densidad: Densidad;
 }
 
 /** The settings key it is stored under. */
@@ -31,6 +33,7 @@ const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "tono", "bpm", "dur"
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
 const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
+const DENSIDADES: Densidad[] = ["comoda", "compacta"];
 
 /** The fields worth writing back, in one place so a new one cannot be missed. */
 export const PREF_FIELDS = [
@@ -44,6 +47,7 @@ export const PREF_FIELDS = [
   "view",
   "curPlaylist",
   "printWithLyrics",
+  "densidad",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -58,6 +62,7 @@ export function serialisePrefs(s: UiPrefs): string {
     view: s.view,
     curPlaylist: s.curPlaylist,
     printWithLyrics: s.printWithLyrics,
+    densidad: s.densidad,
   };
   return JSON.stringify(limpio);
 }
@@ -100,6 +105,7 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (VIEWS.includes(o.view as View)) out.view = o.view as View;
   if (typeof o.curPlaylist === "string") out.curPlaylist = o.curPlaylist;
   if (esBooleano(o.printWithLyrics)) out.printWithLyrics = o.printWithLyrics;
+  if (DENSIDADES.includes(o.densidad as Densidad)) out.densidad = o.densidad as Densidad;
   return out;
 }
 

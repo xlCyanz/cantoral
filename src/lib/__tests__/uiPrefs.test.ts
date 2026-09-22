@@ -37,6 +37,7 @@ const GUARDADAS: UiPrefs = {
   view: "colecciones",
   curPlaylist: "p2",
   printWithLyrics: true,
+  densidad: "compacta",
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -68,6 +69,7 @@ describe("parsePrefs", () => {
       muted: "sí",
       volume: "alto",
       curPlaylist: 7,
+      densidad: "apretadísima",
       shuffle: true,
     });
 
@@ -173,6 +175,15 @@ describe("guardar los cambios", () => {
     expect(g.shuffle).toBe(true);
     expect(g.groupBy).toBe("album");
     expect(g.sortKey).toBe("tono");
+  });
+
+  it("recuerda la densidad: se elige una vez y vale para siempre", async () => {
+    // La densidad no es un filtro, es cómo alguien quiere ver la tabla. Que se
+    // olvide al cerrar la app significaría volver a elegirla cada domingo.
+    useStore.getState().setDensidad("compacta");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(ultimoGuardado().densidad).toBe("compacta");
   });
 
   it("no guarda los filtros de la biblioteca", async () => {
