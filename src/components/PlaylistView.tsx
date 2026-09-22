@@ -186,7 +186,7 @@ export default function PlaylistView() {
             <span>{order.length} pistas · {duracion}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
-            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
+            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
             </button>
             <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>

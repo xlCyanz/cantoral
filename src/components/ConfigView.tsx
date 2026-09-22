@@ -33,8 +33,8 @@ function formatScan(iso: string | undefined): string {
   return d.toLocaleDateString("es") + " " + hhmm;
 }
 
-const LIGHT_P = { bg: "#FAF7F2", side: "#F1EBE1", border: "#E8E0D4", primary: "#A9502E", muted: "#D9CEBE" };
-const DARK_P = { bg: "#13100e", side: "#221b16", border: "#3a3128", primary: "#db8155", muted: "#4c4033" };
+const LIGHT_P = { bg: "#f7f8fa", side: "#eef0f4", border: "#e1e5ea", primary: "#3a4d8f", muted: "#cbd1da" };
+const DARK_P = { bg: "#14171c", side: "#0f1216", border: "#2c313a", primary: "#8ba1e6", muted: "#3e4552" };
 
 function MiniPreview({ p, half }: { p: typeof LIGHT_P; half?: boolean }) {
   return (
@@ -193,7 +193,7 @@ export default function ConfigView() {
             </div>
           </div>
           <button onClick={restore} className="hb-s2" style={{ flex: "0 0 auto", height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>Restaurar…</button>
-          <button onClick={backup} className="hb-primary" style={{ flex: "0 0 auto", height: 36, display: "flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 9, background: "var(--primary)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}>
+          <button onClick={backup} className="hb-primary" style={{ flex: "0 0 auto", height: 36, display: "flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 9, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}>
             <Download size={14} />Crear copia
           </button>
         </div>
@@ -218,7 +218,7 @@ export default function ConfigView() {
         <div style={{ border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", overflow: "hidden" }}>
           {PEOPLE.map((p, i) => (
             <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, borderTop: i ? "1px solid var(--border)" : undefined }}>
-              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "linear-gradient(140deg,#C77A4E,#A9502E)", display: "grid", placeItems: "center", flex: "0 0 auto", color: "#fff", fontSize: 15, fontWeight: 700, boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)" }}>{p.initials}</div>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--brand-grad)", display: "grid", placeItems: "center", flex: "0 0 auto", color: "#fff", fontSize: 15, fontWeight: 700, boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)" }}>{p.initials}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "13.5px", fontWeight: 600 }}>{p.name}</div>
                 <div style={{ fontSize: 12, color: "var(--text-3)" }}>{p.role}</div>
@@ -312,7 +312,7 @@ function Actualizaciones() {
                 </p>
               </div>
             ) : (
-              <button onClick={installUpdate} className="hb-primary" style={{ height: 40, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>
+              <button onClick={installUpdate} className="hb-primary" style={{ height: 40, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>
                 <Download size={16} />Instalar y reiniciar
               </button>
             )}

@@ -138,7 +138,7 @@ export default function ImportListDialog() {
           onClick={confirmImport}
           disabled={nada}
           className="hb-primary"
-          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nada ? 0.55 : 1, cursor: nada ? "not-allowed" : "pointer" }}
+          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nada ? 0.55 : 1, cursor: nada ? "not-allowed" : "pointer" }}
         >
           {faltantes.length > 0 ? `Crear con ${encontradas.length}` : "Crear la lista"}
         </button>

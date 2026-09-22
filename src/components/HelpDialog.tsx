@@ -35,7 +35,7 @@ export default function HelpDialog() {
           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 13, padding: "12px" }}>
             <div style={{ position: "relative", width: 40, height: 40, flex: "0 0 auto", borderRadius: 11, background: "var(--surface-2)", display: "grid", placeItems: "center", color: "var(--primary)" }}>
               {s.icon}
-              <span style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "var(--primary)", color: "var(--on-primary)", fontSize: 11, fontWeight: 700, display: "grid", placeItems: "center", border: "2px solid var(--surface)" }}>{i + 1}</span>
+              <span style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 11, fontWeight: 700, display: "grid", placeItems: "center", border: "2px solid var(--surface)" }}>{i + 1}</span>
             </div>
             <div style={{ minWidth: 0, paddingTop: 1 }}>
               <div style={{ fontSize: "13.5px", fontWeight: 600 }}>{s.title}</div>
@@ -64,7 +64,7 @@ export default function HelpDialog() {
       </div>
 
       <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", background: "var(--surface-2)", flex: "0 0 auto" }}>
-        <button onClick={closeDialog} className="hb-primary" style={{ height: 40, padding: "0 20px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>Entendido</button>
+        <button onClick={closeDialog} className="hb-primary" style={{ height: 40, padding: "0 20px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>Entendido</button>
       </div>
     </Modal>
   );

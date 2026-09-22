@@ -139,7 +139,7 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 | Capa | Tecnología |
 |------|------------|
 | Interfaz | React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · lucide-react |
-| Tipografías | Hanken Grotesk · Instrument Serif (SIL OFL, incluidas en `src/assets/fonts/`) |
+| Tipografías | Public Sans (interfaz) · Bricolage Grotesque (títulos) — SIL OFL 1.1, incluidas en `src/assets/fonts/` |
 | Núcleo | Tauri v2 (Rust) · SQLite (`rusqlite`, bundled) · `walkdir` · `lofty` |
 | Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` · `updater` |
 | Pruebas | Vitest (frontend) · `cargo test` (backend) |

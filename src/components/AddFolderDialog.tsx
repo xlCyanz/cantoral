@@ -57,7 +57,7 @@ function AddFolderForm() {
         </div>
 
         <label onClick={() => setSubfolders((v) => !v)} style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: 12, border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface-2)", cursor: "pointer" }}>
-          <div style={{ width: 20, height: 20, borderRadius: 6, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(subfolders ? { background: "var(--primary)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
+          <div style={{ width: 20, height: 20, borderRadius: 6, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(subfolders ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
             {subfolders && <Check size={13} color="var(--on-primary)" strokeWidth={3} />}
           </div>
           <div>
@@ -69,7 +69,7 @@ function AddFolderForm() {
 
       <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
         <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>Cancelar</button>
-        <button onClick={() => indexFolder(path, subfolders)} disabled={!path} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, boxShadow: "var(--sh-sm)", opacity: path ? 1 : 0.55, cursor: path ? "pointer" : "not-allowed" }}>
+        <button onClick={() => indexFolder(path, subfolders)} disabled={!path} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, boxShadow: "var(--sh-sm)", opacity: path ? 1 : 0.55, cursor: path ? "pointer" : "not-allowed" }}>
           <Search size={16} strokeWidth={2.2} />Indexar carpeta
         </button>
       </div>

@@ -172,7 +172,7 @@ export default function PlayerBar() {
           <button onClick={irAnterior} title="Anterior" className="hb-s2" style={transportBtn}>
             <SkipBack size={17} fill="currentColor" />
           </button>
-          <button onClick={togglePlay} title="Reproducir/Pausar" className="hb-primary hb-active-scale" style={{ width: 46, height: 46, borderRadius: "50%", background: "var(--primary)", color: "var(--on-primary)", display: "grid", placeItems: "center", boxShadow: "var(--sh-sm)", transition: "transform .1s,background .14s" }}>
+          <button onClick={togglePlay} title="Reproducir/Pausar" className="hb-primary hb-active-scale" style={{ width: 46, height: 46, borderRadius: "50%", background: "var(--primary-fill)", color: "var(--on-primary)", display: "grid", placeItems: "center", boxShadow: "var(--sh-sm)", transition: "transform .1s,background .14s" }}>
             {playing ? <Pause size={19} fill="currentColor" stroke="none" /> : <Play size={20} fill="currentColor" stroke="none" style={{ marginLeft: 2 }} />}
           </button>
           <button onClick={irSiguiente} title="Siguiente" className="hb-s2" style={transportBtn}>

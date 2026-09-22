@@ -54,7 +54,7 @@ export default function ConfirmDialog() {
         <button
           onClick={accept}
           className="hb-danger-solid"
-          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--danger)", color: "var(--on-danger)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "filter .14s" }}
+          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--danger-fill)", color: "var(--on-danger)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "filter .14s" }}
         >
           {req.confirmLabel}
         </button>

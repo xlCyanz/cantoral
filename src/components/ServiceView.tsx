@@ -188,7 +188,7 @@ export default function ServiceView() {
               <button
                 onClick={() => openSheetEditor(pista.id)}
                 className="hb-primary"
-                style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600 }}
+                style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600 }}
               >
                 Escribirla ahora
               </button>

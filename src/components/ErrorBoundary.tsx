@@ -57,7 +57,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         <button
           onClick={() => window.location.reload()}
           className="hb-primary"
-          style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)" }}
+          style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)" }}
         >
           <RefreshCw size={17} strokeWidth={2.2} />Reiniciar Cantoral
         </button>
