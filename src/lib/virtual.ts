@@ -27,7 +27,7 @@ export const DESDE = 120;
 
 /** One row of the flattened table: a group header, or a track. */
 export type Fila =
-  | { tipo: "grupo"; label: string; countLabel: string }
+  | { tipo: "grupo"; clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean }
   | { tipo: "pista"; track: Track; num: number };
 
 /**
@@ -36,8 +36,11 @@ export type Fila =
  */
 interface Grupo {
   showHeader: boolean;
+  clave: string;
   label?: string;
+  ruta?: string;
   countLabel?: string;
+  colapsado: boolean;
   tracks: { track: Track; num: number }[];
 }
 
@@ -55,7 +58,14 @@ export function aplanar(grupos: Grupo[]): Plano {
   let y = 0;
   for (const g of grupos) {
     if (g.showHeader) {
-      filas.push({ tipo: "grupo", label: g.label ?? "", countLabel: g.countLabel ?? "" });
+      filas.push({
+        tipo: "grupo",
+        clave: g.clave,
+        label: g.label ?? "",
+        ruta: g.ruta ?? "",
+        countLabel: g.countLabel ?? "",
+        colapsado: g.colapsado,
+      });
       y += ALTO_GRUPO;
       offsets.push(y);
     }

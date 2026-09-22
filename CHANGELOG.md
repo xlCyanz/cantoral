@@ -11,6 +11,28 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **Agrupar por carpeta usa la carpeta del disco.** Hasta ahora usaba la
+  carpeta *indexada*, la raíz que alguien eligió en Configuración: las 128
+  pistas de `C:\Música\Iglesia\Himnos` caían todas en un montón, aunque en el
+  disco estuvieran repartidas en «Clásicos», «Coritos» y «Especiales». Ese
+  reparto es trabajo que alguien ya hizo, y la app lo estaba tirando. Ahora
+  cada grupo es una carpeta de verdad, con su ruta debajo del nombre para
+  saber de qué «Himnos» se trata cuando hay dos discos con uno.
+
+  No hubo que tocar el núcleo ni volver a escanear: el catálogo ya viaja con
+  la ruta de cada pista y la raíz de cada carpeta, así que la resta se hace en
+  la interfaz.
+
+### Añadido
+
+- **Los grupos se pliegan.** Un clic en el encabezado esconde su contenido y
+  deja el encabezado, que sigue diciendo cuántas pistas tiene. Es para el
+  minuto en que estás armando un culto con una carpeta y las otras tres
+  estorban, así que vive en la sesión: la próxima vez que abras Cantoral está
+  todo desplegado otra vez. Cambiar el eje de agrupación también lo olvida.
+
+### Cambiado
+
 - **Cantoral estrena piel.** Primera etapa del rediseño: las tipografías y los
   colores. La interfaz pasa a **Public Sans**, los títulos a **Bricolage
   Grotesque**, y la paleta cálida de papel deja paso a grises fríos con acento

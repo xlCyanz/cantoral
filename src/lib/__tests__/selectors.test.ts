@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyFilters, buildGroups, etiquetas, filasDeLista, ocasiones, plantillas, plDur, playQueue, proximoCulto, queueForView, repetibles } from "../../store";
 import type { CantoralState } from "../../store";
-import type { Playlist, Track } from "../types";
+import type { Folder, Playlist, Track } from "../types";
 
 function track(over: Partial<Track> & { id: string }): Track {
   return {
@@ -42,6 +42,20 @@ const SIN_ETIQUETAS: string[] = [];
 /** Same reasoning as `SIN_ETIQUETAS`, for the selectors keyed on `playlists`. */
 const SIN_LISTAS: Playlist[] = [];
 
+/** Idem, for the two arrays `buildGroups` keys on. */
+const SIN_CARPETAS: Folder[] = [];
+const NADA_PLEGADO: string[] = [];
+
+/** Una raíz indexada y tres pistas repartidas en dos subcarpetas suyas. */
+const CARPETAS: Folder[] = [
+  { id: "f1", nombre: "Himnos", ruta: "C:\\Música\\Iglesia\\Himnos", count: 3 },
+];
+const EN_SUBCARPETAS: Track[] = [
+  track({ id: "a", titulo: "Alfa", path: "C:\\Música\\Iglesia\\Himnos\\Clásicos\\a.mp3" }),
+  track({ id: "b", titulo: "Beta", path: "C:\\Música\\Iglesia\\Himnos\\Clásicos\\b.mp3" }),
+  track({ id: "c", titulo: "Gama", path: "C:\\Música\\Iglesia\\Himnos\\Coritos\\c.mp3" }),
+];
+
 /** Minimal state for the pure selectors; they only read these fields. */
 function state(over: Partial<CantoralState> = {}): CantoralState {
   return {
@@ -49,6 +63,8 @@ function state(over: Partial<CantoralState> = {}): CantoralState {
     queue: [],
     plOrder: {},
     playlists: SIN_LISTAS,
+    folders: SIN_CARPETAS,
+    gruposColapsados: NADA_PLEGADO,
     curPlaylist: "",
     view: "biblioteca",
     qf: null,
@@ -125,6 +141,66 @@ describe("buildGroups", () => {
     expect(groups[0].countLabel).toBe("2 pistas");
     expect(groups[1].countLabel).toBe("1 pista");
     expect(groups.flatMap((g) => g.tracks.map((t) => t.num))).toEqual([1, 2, 3]);
+  });
+
+  it("agrupa por la carpeta del disco, no por la raíz indexada", () => {
+    // Las tres pistas dicen pertenecer a «Himnos», pero en el disco están en
+    // dos subcarpetas distintas. Agrupar por la raíz las metía en un montón.
+    const s = state({
+      groupBy: "carpeta",
+      folders: CARPETAS,
+      tracks: EN_SUBCARPETAS,
+    });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups.map((g) => g.label)).toEqual(["Himnos / Clásicos", "Himnos / Coritos"]);
+    expect(groups[0].ruta).toBe("C:\\Música\\Iglesia\\Himnos\\Clásicos");
+    expect(groups.map((g) => g.count)).toEqual([2, 1]);
+  });
+
+  it("un grupo plegado no entrega pistas, pero sigue diciendo cuántas tiene", () => {
+    const s = state({
+      groupBy: "carpeta",
+      folders: CARPETAS,
+      tracks: EN_SUBCARPETAS,
+      gruposColapsados: ["f1/Clásicos"],
+    });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups[0].colapsado).toBe(true);
+    expect(groups[0].tracks).toEqual([]);
+    expect(groups[0].count).toBe(2);
+    expect(groups[0].countLabel).toBe("2 pistas");
+    // El encabezado sigue ahí: si desapareciera no habría dónde desplegarlo.
+    expect(groups[0].showHeader).toBe(true);
+  });
+
+  it("la numeración solo cuenta lo que se está viendo", () => {
+    // Con «Clásicos» plegado, la primera fila visible es la 1 y no la 3.
+    const s = state({
+      groupBy: "carpeta",
+      folders: CARPETAS,
+      tracks: EN_SUBCARPETAS,
+      gruposColapsados: ["f1/Clásicos"],
+    });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups.flatMap((g) => g.tracks.map((t) => t.num))).toEqual([1]);
+  });
+
+  it("cada grupo lleva su clave, que es con lo que se plega", () => {
+    const s = state({ groupBy: "ocasion" });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups.map((g) => g.clave)).toEqual(["Adoración", "Comunión"]);
+  });
+
+  it("sin agrupar no hay nada que plegar", () => {
+    const groups = buildGroups(state(), applyFilters(state()));
+
+    expect(groups[0].clave).toBe("");
+    expect(groups[0].colapsado).toBe(false);
+    expect(groups[0].count).toBe(3);
   });
 });
 
