@@ -24,7 +24,7 @@
         "center": true,
         "decorations": false,
         "dragDropEnabled": false,
-        "backgroundColor": "#FAF7F2"
+        "backgroundColor": "#f7f8fa"
       }
     ],
     "security": {

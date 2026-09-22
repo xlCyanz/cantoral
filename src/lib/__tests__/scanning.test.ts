@@ -239,6 +239,41 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
   });
 });
 
+describe("la tarjeta de la esquina se puede esconder", () => {
+  beforeEach(() => {
+    useStore.setState({ tracks: [track("vieja")], libState: "content" });
+  });
+
+  it("esconderla no para el escaneo", () => {
+    // Son dos cosas distintas: quitarse la tarjeta de delante y cancelar.
+    useStore.getState().indexFolder("/musica", true);
+
+    useStore.getState().ocultarTarjetaEscaneo();
+
+    expect(useStore.getState().tarjetaEscaneoOculta).toBe(true);
+    expect(useStore.getState().scanning).toBe(true);
+    expect(cancelScanCmd).not.toHaveBeenCalled();
+  });
+
+  it("y el siguiente escaneo la vuelve a mostrar", () => {
+    // Si no, esconderla una vez la escondería para siempre y el escaneo
+    // siguiente correría sin que nada lo dijera.
+    useStore.setState({ tarjetaEscaneoOculta: true });
+
+    useStore.getState().indexFolder("/musica", true);
+
+    expect(useStore.getState().tarjetaEscaneoOculta).toBe(false);
+  });
+
+  it("también al volver a escanear una carpeta desde Configuración", () => {
+    useStore.setState({ tarjetaEscaneoOculta: true });
+
+    useStore.getState().rescanFolder("f1");
+
+    expect(useStore.getState().tarjetaEscaneoOculta).toBe(false);
+  });
+});
+
 describe("un solo escaneo a la vez", () => {
   // El núcleo rechaza el segundo escaneo de plano; esto es lo que evita que el
   // usuario llegue siquiera a pedirlo, y que la negativa acabe pintada como

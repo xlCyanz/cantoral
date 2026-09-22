@@ -11,12 +11,14 @@ import { SCAN_FILES } from "../lib/seed";
 export default function ScanProgress() {
   const scanning = useStore((s) => s.scanning);
   const ocupaTodo = useStore(escaneoAPantallaCompleta);
+  const oculta = useStore((s) => s.tarjetaEscaneoOculta);
   const scanPct = useStore((s) => s.scanPct);
   const scanIdx = useStore((s) => s.scanIdx);
   const scanFile = useStore((s) => s.scanFile);
   const cancelScan = useStore((s) => s.cancelScan);
+  const ocultar = useStore((s) => s.ocultarTarjetaEscaneo);
 
-  if (!scanning || ocupaTodo) return null;
+  if (!scanning || ocupaTodo || oculta) return null;
 
   const pct = Math.round(scanPct);
   const archivo = scanFile || SCAN_FILES[scanIdx] || "";
@@ -28,12 +30,12 @@ export default function ScanProgress() {
         right: 20,
         bottom: 104,
         zIndex: 55,
-        width: 296,
+        width: 262,
         background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 13,
+        border: "1px solid var(--border-2)",
+        borderRadius: 10,
         boxShadow: "var(--sh-md)",
-        padding: "13px 14px 12px",
+        padding: "11px 12px",
         animation: "canToast .24s cubic-bezier(.22,1,.36,1)",
       }}
     >
@@ -48,11 +50,26 @@ export default function ScanProgress() {
         >
           <path d="M12 2a10 10 0 0 1 10 10" />
         </svg>
-        <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)" }}>Escaneando tu música…</span>
+        {/* «Añadiendo pistas nuevas» y no «Escaneando»: esta tarjeta solo
+            sale cuando ya hay una biblioteca detrás, así que lo que está
+            pasando es que se suma a lo que ya había. */}
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Añadiendo pistas nuevas</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>
           {pct}%
         </span>
+        {/* Esconder no es cancelar. Son dos cosas distintas y cada una tiene
+            su botón: seguir trabajando sin la tarjeta delante, o parar el
+            escaneo. Vuelve a salir en el siguiente. */}
+        <button
+          onClick={ocultar}
+          title="Esconder esta tarjeta (el escaneo sigue)"
+          aria-label="Esconder esta tarjeta; el escaneo sigue"
+          className="hb-text"
+          style={{ flex: "0 0 auto", width: 18, height: 18, display: "grid", placeItems: "center", borderRadius: 5, color: "var(--text-3)", fontSize: 11 }}
+        >
+          ✕
+        </button>
       </div>
 
       <div
@@ -61,53 +78,48 @@ export default function ScanProgress() {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
-        style={{ height: 6, borderRadius: 4, background: "var(--surface-3)", overflow: "hidden", marginBottom: 10 }}
+        style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden", marginBottom: 8 }}
       >
         <div
           style={{
             width: pct + "%",
             height: "100%",
-            borderRadius: 4,
-            background: "linear-gradient(90deg,var(--primary),var(--primary-hover))",
+            borderRadius: 3,
+            background: "var(--primary)",
             transition: "width .16s linear",
           }}
         />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span
-          title={archivo}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontSize: 11,
-            color: "var(--text-3)",
-            fontFamily: "ui-monospace,monospace",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {archivo}
-        </span>
+      <div
+        title={archivo}
+        style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 8 }}
+      >
+        {archivo}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button
           onClick={cancelScan}
           aria-label="Cancelar el escaneo"
           className="hb-s2"
           style={{
             flex: "0 0 auto",
-            height: 28,
-            padding: "0 11px",
-            borderRadius: 8,
+            height: 24,
+            padding: "0 9px",
+            borderRadius: 6,
             border: "1px solid var(--border-2)",
-            background: "var(--surface)",
+            background: "var(--surface-2)",
             color: "var(--text)",
-            fontSize: "12.5px",
+            fontSize: 11,
             fontWeight: 600,
           }}
         >
           Cancelar
         </button>
+        <span style={{ minWidth: 0, fontSize: "10.5px", color: "var(--text-3)", lineHeight: 1.35 }}>
+          Sigue usando la app: aparecen solas.
+        </span>
       </div>
     </div>
   );
