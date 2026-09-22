@@ -11,6 +11,15 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **La barra de selección entra en la fila de herramientas.** Flotaba sobre la
+  tabla, cerca del reproductor, encima justamente de las filas sobre las que
+  actúa: lo último que se veía antes de pulsar «Quitar» era una barra tapando
+  la prueba. Ahora ocupa la fila de herramientas mientras hay algo elegido —los
+  chips y los controles de agrupación se apartan, porque con tres pistas
+  elegidas lo que toca es actuar sobre ellas y no volver a filtrar—. Sus menús
+  se abren hacia abajo, y «Cancelar» dice que `Esc` hace lo mismo, que ya era
+  verdad y nadie tenía forma de saberlo.
+
 - **Agrupar por carpeta usa la carpeta del disco.** Hasta ahora usaba la
   carpeta *indexada*, la raíz que alguien eligió en Configuración: las 128
   pistas de `C:\Música\Iglesia\Himnos` caían todas en un montón, aunque en el

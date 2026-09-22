@@ -19,7 +19,6 @@ import PrintPreview from "./components/PrintPreview";
 import HelpDialog from "./components/HelpDialog";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
-import SelectionBar from "./components/SelectionBar";
 import RowMenu from "./components/RowMenu";
 import SheetDialog from "./components/SheetDialog";
 import ServiceView from "./components/ServiceView";
@@ -125,7 +124,6 @@ export default function App() {
       <ConfirmDialog />
       <ServiceView />
       <SheetDialog />
-      <SelectionBar />
       <RowMenu />
       <ScanProgress />
       <Toast />
