@@ -20,45 +20,65 @@ export function chipStyle(active: boolean): CSSProperties {
   };
 }
 
-export function navStyle(active: boolean): CSSProperties {
+/**
+ * A top-level sidebar entry: Biblioteca, Listas para cultos, Configuración.
+ *
+ * Ported from the design's `botonNav`. The label sits left and whatever it
+ * counts sits right, so the three rows line up as a column of numbers.
+ */
+export function navBtn(active: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
-    gap: "11px",
-    padding: "9px 11px",
-    borderRadius: "10px",
-    fontSize: "14px",
-    fontWeight: active ? 600 : 500,
-    transition: "background .13s,color .13s",
-    color: active ? "var(--primary)" : "var(--text-2)",
-    background: active ? "var(--primary-soft)" : "transparent",
-  };
-}
-
-export function navCountStyle(active: boolean): CSSProperties {
-  return {
-    fontSize: "11px",
+    justifyContent: "space-between",
+    gap: "8px",
+    width: "100%",
+    height: "30px",
+    padding: "0 9px 0 10px",
+    borderRadius: "7px",
+    fontSize: "12.5px",
     fontWeight: 600,
-    padding: "1px 8px",
-    borderRadius: "20px",
-    fontVariantNumeric: "tabular-nums",
-    background: active ? "var(--primary-soft-2)" : "var(--surface-3)",
-    color: active ? "var(--primary)" : "var(--text-3)",
+    textAlign: "left",
+    transition: "background .13s,color .13s",
+    background: active ? "var(--primary-soft)" : "transparent",
+    color: active ? "var(--primary)" : "var(--text)",
   };
 }
 
-export function qfStyle(active: boolean): CSSProperties {
+/**
+ * A sidebar entry that belongs to the one above it: a filter under Biblioteca,
+ * a list under Listas para cultos.
+ *
+ * Ported from the design's `botonSub`. The 32px left padding is what says
+ * «this belongs to that» — it is the indent, not decoration, so it holds even
+ * when the row has no icon.
+ */
+export function subBtn(active: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
-    gap: "11px",
-    padding: "8px 11px",
-    borderRadius: "10px",
-    fontSize: "13.5px",
-    fontWeight: active ? 600 : 500,
-    transition: "background .13s",
-    color: active ? "var(--primary)" : "var(--text-2)",
-    background: active ? "var(--primary-soft)" : "transparent",
+    justifyContent: "space-between",
+    gap: "8px",
+    width: "100%",
+    height: "25px",
+    padding: "0 9px 0 32px",
+    borderRadius: "6px",
+    fontSize: "12px",
+    fontWeight: active ? 600 : 400,
+    textAlign: "left",
+    transition: "background .13s,color .13s",
+    background: active ? "var(--surface-3)" : "transparent",
+    color: active ? "var(--text)" : "var(--text-2)",
+  };
+}
+
+/** The number on the right of a sidebar row. */
+export function navCount(small = false): CSSProperties {
+  return {
+    flex: "0 0 auto",
+    fontSize: small ? "10.5px" : "11px",
+    color: "var(--text-3)",
+    fontVariantNumeric: "tabular-nums",
   };
 }
 

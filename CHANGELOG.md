@@ -26,6 +26,23 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   dos familias nuevas son SIL OFL 1.1 y viajan dentro del paquete, como las
   anteriores: la CSP declara `font-src 'self'` y la app no habla con la red.
 
+- **La barra lateral, en tres zonas.** Segunda etapa del rediseño. Arriba, una
+  tarjeta «En vivo» con el culto que viene y el botón que lo abre: el domingo
+  por la mañana eso es lo único que hace falta, y estaba a dos clics. En medio,
+  a dónde se va, con los filtros sangrados bajo Biblioteca y las listas
+  sangradas bajo Listas para cultos —la sangría dice de quién es cada fila, que
+  es lo que una columna de botones iguales no podía decir—. Abajo, Configuración
+  y una línea con lo que Cantoral tiene indexado.
+
+  Las carpetas indexadas se van de la barra lateral: una carpeta se elige una
+  vez, no es un sitio al que se navega, y ya se administran en Configuración,
+  que es donde se agregan, se vuelven a escanear y se quitan.
+
+  Las listas dejan de aparecer solo mientras arrastras algo y están siempre:
+  un destino que aparece a mitad del arrastre es un destino al que no se puede
+  apuntar. Solo aceptan lo que salió de la biblioteca, así que arrastrar una
+  carpeta del escritorio hasta ahí ya no agrega lo que estuviera seleccionado.
+
 ## [0.2.1] - 2026-09-21
 
 **Sin cambios funcionales.** Publicada para ejercer el actualizador de punta a
