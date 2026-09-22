@@ -26,6 +26,7 @@ import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "./lib/
 import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
 import { ultimaPorOcasion } from "./lib/repetir";
+import { partirPorFecha } from "./lib/fechas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
@@ -2358,6 +2359,22 @@ export const repetibles = recordar(
   (s: CantoralState) => ultimaPorOcasion(s.playlists),
   // The day is a dependency: «anterior» means «before today», so an app left
   // open overnight would otherwise keep offering yesterday's answer.
+  (s: CantoralState) => [s.playlists, new Date().toDateString()],
+);
+
+/**
+ * El culto que viene, para la tarjeta de arriba de la barra lateral.
+ *
+ * Una plantilla nunca cuenta: no tiene fecha y no es un culto, es el punto de
+ * partida de uno. Entre las que sí tienen fecha, hoy va por delante —el
+ * domingo por la mañana el culto es lo que estás a punto de hacer, no algo ya
+ * archivado—, y de las que vienen se queda la más cercana.
+ */
+export const proximoCulto = recordar(
+  (s: CantoralState): Playlist | null =>
+    partirPorFecha(s.playlists.filter((p) => !p.plantilla)).proximos[0] ?? null,
+  // Igual que en `repetibles`: «lo que viene» se mide contra hoy, así que una
+  // app abierta toda la noche tiene que dejar de ofrecer el culto de ayer.
   (s: CantoralState) => [s.playlists, new Date().toDateString()],
 );
 
