@@ -11,6 +11,34 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **Las pantallas de estado dicen lo que hace falta.** La biblioteca vacía
+  dejaba la promesa —«sin mover ni copiar tus archivos»— al final de un párrafo
+  largo. Ahora es la frase, enumerada y en negrita: **no mueve, no renombra y
+  no borra ningún archivo**. Quien administra la música de una iglesia lleva
+  años ordenándola a mano, y eso es lo que necesita saber antes de dejar entrar
+  a un programa.
+
+  El escaneo a pantalla completa dice «Leyendo tus carpetas» y añade que se
+  puede seguir usando la app, que las pistas irán apareciendo solas. El error
+  de carpeta añade que las pistas y los cultos siguen donde estaban: quien ve
+  un error sobre su biblioteca asume lo peor. Y la búsqueda sin resultados dice
+  **dónde** buscó —título, artista, álbum, tono, ocasión y etiquetas—, que es
+  la respuesta a lo que uno se pregunta al verla.
+
+  Las marcas de arriba bajan de 96 px a 54 y pierden el relleno. Una
+  ilustración ocupando el centro de la primera pantalla es decoración; lo que
+  hay que leer es la frase de debajo.
+
+- **La tarjeta de escaneo de la esquina se puede esconder.** Esconderla no
+  cancela nada, y cancelar sigue teniendo su botón: son dos cosas distintas
+  —seguir trabajando sin la tarjeta delante, y parar el escaneo— y un solo
+  botón para las dos haría que quien quisiera lo primero perdiera el escaneo.
+  Vuelve a salir en el siguiente.
+
+- **El fondo de la ventana nativa deja la paleta vieja.** Era `#FAF7F2`, el
+  papel cálido: lo que se veía un instante en cada arranque, antes de que la
+  interfaz pintara. Ahora es el gris del tema claro.
+
 - **Repetir el culto anterior sube a lo primero que se ve.** Estaba debajo de
   la rejilla de tarjetas, que es donde nadie lo encontraba, y ahora va justo
   bajo la cabecera. Cada botón repite el verbo y dice qué copia —«Repetir

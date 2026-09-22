@@ -18,7 +18,7 @@ export default function Empty({
   return (
     <div style={compact ? wrapCompact : wrap}>
       <div style={circle}>{icon}</div>
-      <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>{title}</h2>
+      <h2 className="display" style={{ fontSize: 22, margin: "0 0 8px" }}>{title}</h2>
       <p style={{ fontSize: 14, color: "var(--text-2)", maxWidth: 420, lineHeight: 1.55, margin: "0 0 22px" }}>{desc}</p>
       {action}
     </div>
@@ -36,15 +36,22 @@ const base: CSSProperties = {
 };
 const wrap: CSSProperties = { ...base, height: "100%" };
 const wrapCompact: CSSProperties = { ...base, padding: "56px 40px" };
+/**
+ * La marca de arriba: un cuadrado de puntos, no un círculo lleno.
+ *
+ * El rediseño baja el tamaño y quita el relleno. Una ilustración de 96 px
+ * ocupando el centro de la primera pantalla es decoración: lo que hay que leer
+ * es la frase de debajo, y la marca solo tiene que decir que aquí no hay nada.
+ */
 const circle: CSSProperties = {
-  width: 96,
-  height: 96,
-  borderRadius: "50%",
-  background: "var(--primary-soft)",
+  width: 54,
+  height: 54,
+  borderRadius: 12,
+  border: "1px dashed var(--border-2)",
   display: "grid",
   placeItems: "center",
-  marginBottom: 22,
-  color: "var(--primary)",
+  marginBottom: 14,
+  color: "var(--text-3)",
 };
 
 /** Secondary (outline) action button used in empty states. */

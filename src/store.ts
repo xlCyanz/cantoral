@@ -202,6 +202,15 @@ export interface CantoralState {
    * decisión que valga la pena recordar hasta la semana que viene.
    */
   gruposColapsados: string[];
+  /**
+   * Si la tarjeta de escaneo de la esquina está escondida.
+   *
+   * Esconderla no cancela nada: son dos cosas distintas —quiero seguir
+   * trabajando sin la tarjeta delante, y quiero que el escaneo pare—, y un
+   * solo botón para las dos haría que quien quisiera lo primero perdiera el
+   * escaneo. Se vuelve a mostrar en el siguiente escaneo.
+   */
+  tarjetaEscaneoOculta: boolean;
   sortKey: SortKey;
   sortDir: "asc" | "desc";
 
@@ -337,6 +346,7 @@ export interface CantoralState {
   onGroupBy: (g: GroupBy) => void;
   setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
+  ocultarTarjetaEscaneo: () => void;
   onSortHeader: (k: SortKey) => void;
 
   onRowClick: (id: string, mods?: Modificadores) => void;
@@ -718,6 +728,7 @@ export const useStore = create<CantoralState>((set, get) => {
     groupBy: "none",
     densidad: "comoda",
     gruposColapsados: [],
+    tarjetaEscaneoOculta: false,
     sortKey: "titulo",
     sortDir: "asc",
 
@@ -811,6 +822,7 @@ export const useStore = create<CantoralState>((set, get) => {
     // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
     onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
     setDensidad: (d) => set({ densidad: d }),
+    ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
     toggleGrupo: (clave) =>
       set((st) => ({
         gruposColapsados: st.gruposColapsados.includes(clave)
@@ -1130,7 +1142,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // The view does move to the library here — the user just asked for a
         // folder from the add dialog, so that is where they expect to land.
         // What it no longer does is *replace* the library with the scan.
-        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "" });
+        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", tarjetaEscaneoOculta: false });
         startLiveRefresh();
         addAndScanFolder(path, recursive)
           .then((snap) => {
@@ -1154,7 +1166,7 @@ export const useStore = create<CantoralState>((set, get) => {
     // first of those has any business moving the user.
     startScan: () => {
       if (scanTimer) clearInterval(scanTimer);
-      set({ scanning: true, scanPct: 0, scanIdx: 0 });
+      set({ scanning: true, scanPct: 0, scanIdx: 0, tarjetaEscaneoOculta: false });
       scanTimer = setInterval(() => {
         const p = get().scanPct + Math.random() * 7 + 3;
         if (p >= 100) {
@@ -1796,7 +1808,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // No `view` here on purpose. A re-scan is started from Configuración,
         // and yanking the user out of the screen they are working on is the
         // whole complaint this change exists to fix.
-        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "" });
+        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", tarjetaEscaneoOculta: false });
         startLiveRefresh();
         rescanFolderCmd(id)
           .then((snap) => {

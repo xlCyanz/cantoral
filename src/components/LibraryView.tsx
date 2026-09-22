@@ -274,30 +274,72 @@ function ColumnHeader() {
   );
 }
 
+/** Botón principal de una pantalla de estado. */
+const btnEstado: CSSProperties = {
+  height: 34,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 16px",
+  borderRadius: 8,
+  background: "var(--primary-fill)",
+  color: "var(--on-primary)",
+  fontSize: "12.5px",
+  fontWeight: 600,
+};
+
+/** Y el secundario, al lado. */
+const btnEstadoSec: CSSProperties = {
+  height: 34,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 14px",
+  borderRadius: 8,
+  border: "1px solid var(--border-2)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: "12.5px",
+  fontWeight: 600,
+};
+
+const marcoEstado: CSSProperties = {
+  height: "100%",
+  display: "grid",
+  placeItems: "center",
+  padding: 24,
+  animation: "canFade .3s ease",
+};
+
 function EmptyState() {
   const openAddFolder = useStore((s) => s.openAddFolder);
   const openHelp = useStore((s) => s.openHelp);
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 40, animation: "canFade .3s ease" }}>
-      <div style={{ width: 104, height: 104, borderRadius: "50%", background: "var(--primary-soft)", display: "grid", placeItems: "center", marginBottom: 26, position: "relative" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ width: 46, height: 46 }}>
-          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-        </svg>
-        <div style={{ position: "absolute", bottom: -2, right: -2, width: 38, height: 38, borderRadius: "50%", background: "var(--primary-fill)", display: "grid", placeItems: "center", border: "3px solid var(--bg)", boxShadow: "var(--sh-sm)" }}>
-          <FolderPlus size={18} color="var(--on-primary)" strokeWidth={2.2} />
+    <div style={marcoEstado}>
+      <div style={{ maxWidth: 360, textAlign: "center" }}>
+        <div style={{ width: 54, height: 54, margin: "0 auto 14px", borderRadius: 12, border: "1px dashed var(--border-2)", display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}>
+            <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+          </svg>
         </div>
-      </div>
-      <h2 className="display" style={{ fontSize: 32, margin: "0 0 10px" }}>Tu biblioteca está vacía</h2>
-      <p style={{ fontSize: "14.5px", color: "var(--text-2)", maxWidth: 420, lineHeight: 1.55, margin: "0 0 26px" }}>
-        Agrega una carpeta con tus pistas y coros. Cantoral la revisará y organizará tu música automáticamente, sin mover ni copiar tus archivos.
-      </p>
-      <div style={{ display: "flex", gap: 12 }}>
-        <button onClick={openAddFolder} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
-          <FolderPlus size={18} strokeWidth={2.2} />Agregar carpeta de música
-        </button>
-        <button onClick={openHelp} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
-          ¿Cómo funciona?
-        </button>
+        <h2 className="display" style={{ fontSize: 24, margin: "0 0 6px" }}>Todavía no hay música</h2>
+        {/* Esta es la frase más importante de la app. Quien administra la
+            música de una iglesia lleva años ordenándola a mano y lo que
+            necesita saber, antes de dejar entrar a un programa, es que no se
+            la van a desordenar. Iba al final de un párrafo largo; ahora va
+            enumerada y en negrita. */}
+        <p style={{ margin: "0 0 16px", fontSize: "12.5px", lineHeight: 1.6, color: "var(--text-2)" }}>
+          Elige la carpeta donde guardas las pistas. Cantoral solo las lee para hacer una lista:{" "}
+          <strong style={{ color: "var(--text)" }}>no mueve, no renombra y no borra ningún archivo</strong>.
+        </p>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={openAddFolder} className="hb-primary" style={btnEstado}>
+            <FolderPlus size={15} strokeWidth={2.2} />Elegir carpeta…
+          </button>
+          <button onClick={openHelp} className="hb-s2" style={btnEstadoSec}>
+            ¿Cómo funciona?
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -308,34 +350,35 @@ function ScanningState() {
   const scanIdx = useStore((s) => s.scanIdx);
   const scanFile = useStore((s) => s.scanFile);
   const cancelScan = useStore((s) => s.cancelScan);
+  const pct = Math.round(scanPct);
+  const archivo = scanFile || SCAN_FILES[scanIdx] || "";
   return (
-    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 40, animation: "canFade .3s ease" }}>
-      <div style={{ width: "100%", maxWidth: 460, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "var(--sh-md)", padding: "30px 30px 26px", textAlign: "center" }}>
-        <div style={{ width: 66, height: 66, margin: "0 auto 20px", position: "relative", display: "grid", placeItems: "center" }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--border-2)" strokeWidth={2} style={{ width: 66, height: 66, position: "absolute" }}><circle cx="12" cy="12" r="10" /></svg>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round" style={{ width: 66, height: 66, position: "absolute", animation: "canSpin 1s linear infinite" }}><path d="M12 2a10 10 0 0 1 10 10" /></svg>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26 }}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>
-        </div>
-        <h2 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 6px" }}>Escaneando tu música…</h2>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 22px" }}>Indexando metadatos. Puedes seguir usando la app mientras tanto.</p>
+    <div style={marcoEstado}>
+      <div style={{ width: "100%", maxWidth: 330, textAlign: "center" }}>
+        <div style={{ width: 34, height: 34, margin: "0 auto 14px", border: "2px solid var(--border-2)", borderTopColor: "var(--primary)", borderRadius: "50%", animation: "canSpin 900ms linear infinite" }} />
+        <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>Leyendo tus carpetas</h2>
+        <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-2)", lineHeight: 1.55, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+          <span style={{ fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{pct}%</span>
+          <span title={archivo} style={{ minWidth: 0, color: "var(--text-3)", fontFamily: "ui-monospace,monospace", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {archivo}
+          </span>
+        </p>
         <div
           role="progressbar"
           aria-label="Progreso del escaneo"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={Math.round(scanPct)}
-          style={{ height: 9, borderRadius: 6, background: "var(--surface-3)", overflow: "hidden", marginBottom: 11 }}
+          aria-valuenow={pct}
+          style={{ height: 6, borderRadius: 4, background: "var(--surface-3)", overflow: "hidden", marginBottom: 12 }}
         >
-          <div style={{ width: scanPct + "%", height: "100%", borderRadius: 6, background: "linear-gradient(90deg,var(--primary),var(--primary-hover))", transition: "width .16s linear" }} />
+          <div style={{ width: pct + "%", height: "100%", borderRadius: 4, background: "var(--primary)", transition: "width .16s linear" }} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", flex: "0 0 auto", animation: "canScanPulse 1s ease-in-out infinite" }} />
-            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "ui-monospace,monospace", fontSize: 11 }}>{scanFile || SCAN_FILES[scanIdx] || ""}</span>
-          </span>
-          <span style={{ flex: "0 0 auto", fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums", paddingLeft: 12 }}>{Math.round(scanPct)}%</span>
+        <button onClick={cancelScan} className="hb-s2" style={{ ...btnEstadoSec, height: 28, fontSize: 12, margin: "0 auto" }}>
+          Cancelar el escaneo
+        </button>
+        <div style={{ marginTop: 12, fontSize: 11, color: "var(--text-3)", lineHeight: 1.5 }}>
+          Puedes seguir usando Cantoral mientras termina. Las pistas irán apareciendo solas.
         </div>
-        <button onClick={cancelScan} className="hb-s2" style={{ marginTop: 22, height: 36, padding: "0 16px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 13, fontWeight: 600 }}>Cancelar</button>
       </div>
     </div>
   );
@@ -346,24 +389,33 @@ function ErrorState() {
   const retryError = useStore((s) => s.retryError);
   const showConfig = useStore((s) => s.showConfig);
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 40, animation: "canFade .3s ease" }}>
-      <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--danger-soft)", display: "grid", placeItems: "center", marginBottom: 24 }}>
-        <TriangleAlert size={44} color="var(--danger)" strokeWidth={1.7} />
-      </div>
-      <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>No pudimos leer esta carpeta</h2>
-      <p style={{ fontSize: 14, color: "var(--text-2)", maxWidth: 430, lineHeight: 1.55, margin: "0 0 8px" }}>
-        La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
-      </p>
-      {scanError && (
-        <code style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "5px 11px", borderRadius: 8, maxWidth: 460, textAlign: "left", overflowWrap: "anywhere" }}>{scanError}</code>
-      )}
-      <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-        <button onClick={retryError} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
-          <RefreshCw size={17} strokeWidth={2.2} />Reintentar
-        </button>
-        <button onClick={showConfig} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
-          Administrar carpetas
-        </button>
+    <div style={marcoEstado}>
+      <div style={{ maxWidth: 380, textAlign: "center" }}>
+        <div style={{ width: 44, height: 44, margin: "0 auto 14px", borderRadius: "50%", background: "var(--danger-soft)", display: "grid", placeItems: "center", color: "var(--danger)" }}>
+          <TriangleAlert size={22} strokeWidth={2} />
+        </div>
+        <h2 className="display" style={{ fontSize: 22, margin: "0 0 6px" }}>No pudimos leer esta carpeta</h2>
+        <p style={{ margin: "0 0 6px", fontSize: "12.5px", lineHeight: 1.6, color: "var(--text-2)" }}>
+          La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
+        </p>
+        {/* Nada se ha perdido, y decirlo aquí importa: quien ve un error rojo
+            sobre su biblioteca asume lo peor. */}
+        <p style={{ margin: "0 0 16px", fontSize: "11.5px", lineHeight: 1.6, color: "var(--text-3)" }}>
+          Tus pistas y tus cultos siguen donde estaban: esto solo es la carpeta que no se pudo abrir.
+        </p>
+        {scanError && (
+          <code style={{ display: "block", fontSize: 11, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 7, marginBottom: 16, textAlign: "left", overflowWrap: "anywhere" }}>
+            {scanError}
+          </code>
+        )}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={retryError} className="hb-primary" style={btnEstado}>
+            <RefreshCw size={15} strokeWidth={2.2} />Volver a intentarlo
+          </button>
+          <button onClick={showConfig} className="hb-s2" style={btnEstadoSec}>
+            Administrar carpetas
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -390,6 +442,7 @@ function Tabla() {
   // changed, so this only re-runs when the library really is different.
   const groups = useStore((s) => buildGroups(s, list));
   const query = useStore((s) => s.query);
+  const total = useStore((s) => s.tracks.length);
   const densidad = useStore((s) => s.densidad);
 
   const plano = useMemo(() => aplanar(groups, ALTOS[densidad]), [groups, densidad]);
@@ -431,12 +484,15 @@ function Tabla() {
   if (list.length === 0) {
     return (
       <Empty
-        icon={<Search size={40} />}
-        title="Sin resultados"
-        desc={query ? `No encontramos nada para «${query}».` : "Ninguna canción coincide con este filtro."}
+        icon={<Search size={24} />}
+        title={query ? `Nada coincide con «${query}»` : "Ninguna pista pasa estos filtros"}
+        // Decir dónde se buscó es la respuesta a la pregunta que se hace
+        // cualquiera al ver esto: «¿lo estoy escribiendo mal, o de verdad no
+        // está?». La lista de campos es la que `applyFilters` recorre.
+        desc={`Se buscó en el título, el artista, el álbum, el tono, la ocasión y las etiquetas de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
         action={
-          <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null })} className="hb-s2" style={emptyBtnSecondary}>
-            Limpiar filtros
+          <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null, tagFilter: [] })} className="hb-s2" style={emptyBtnSecondary}>
+            Quitar la búsqueda y los filtros
           </button>
         }
       />
