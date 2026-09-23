@@ -2,7 +2,7 @@
 
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type View = "biblioteca" | "colecciones" | "lista" | "config";
+export type View = "biblioteca" | "colecciones" | "lista" | "config" | "proyeccion";
 /**
  * What the library view has to show. A scan in flight is *not* one of these:
  * it runs alongside whatever the library already holds (see `scanning`).

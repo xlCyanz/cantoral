@@ -505,3 +505,46 @@ export async function onUpdateProgress(cb: (p: UpdateProgress) => void): Promise
   if (!isTauri()) return () => {};
   return listen<UpdateProgress>("update-progress", (e) => cb(e.payload));
 }
+
+// ---------- proyección ----------
+
+/** Una pantalla del sistema, como se ofrece para elegir la salida. */
+export interface MonitorInfo {
+  indice: number;
+  nombre: string;
+  ancho: number;
+  alto: number;
+  principal: boolean;
+}
+
+/** Lo que la ventana de salida está mostrando. */
+export type SalidaProyeccion =
+  | { modo: "negro" }
+  | { modo: "titulo"; titulo: string; sub?: string };
+
+/**
+ * Las pantallas conectadas.
+ *
+ * En el navegador no hay ninguna: proyectar necesita una segunda ventana del
+ * sistema, y decir que hay cero es más honesto que inventar una que al pulsar
+ * no haría nada.
+ */
+export async function projectionMonitors(): Promise<MonitorInfo[]> {
+  if (!isTauri()) return [];
+  return inv<MonitorInfo[]>("projection_monitors");
+}
+
+export async function openProjectionCmd(monitor: number): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("open_projection", { monitor });
+}
+
+export async function closeProjectionCmd(): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("close_projection");
+}
+
+export async function setProjectionCmd(contenido: SalidaProyeccion): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("set_projection", { contenido });
+}

@@ -9,6 +9,32 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **La proyección sale por su propia ventana.** Primera parte de la etapa 7.
+  Una ventana aparte a pantalla completa en la pantalla que elijas: negra, sin
+  controles, sin barra de título y sin cursor. No muestra nada de la ventana
+  donde trabajas, que es justo lo que se le pide a una pantalla que cuelga
+  delante de una congregación.
+
+  Por defecto sale por la pantalla que **no** es la del operador. Si se
+  equivocara en eso, lo primero que vería la iglesia un domingo sería el
+  escritorio de quien opera.
+
+  Se llega desde «Proyectar», en la tarjeta «En vivo» de la barra lateral y en
+  la fila de acciones de un culto abierto. Hace falta en los dos sitios: esa
+  tarjeta solo aparece si hay un culto con fecha, y una iglesia que no les
+  ponga fecha no tendría por dónde entrar.
+
+  La ventana se crea desde el núcleo, no desde la interfaz: hacerlo desde el
+  webview obligaría a darle permiso de crear ventanas, y con él el de fabricar
+  cualquier otra. Y la de proyección tiene su propio archivo de permisos, con
+  mucho menos que la principal — solo escucha eventos: no abre diálogos, no
+  abre URLs, no toca ventanas y no habla con la base de datos.
+
+  Todavía no reproduce video: eso es lo siguiente. Esta parte es la ventana,
+  elegir pantalla y sacarla en negro o con un título.
+
 ### Cambiado
 
 - **Una sola forma de agregar a un culto.** Había tres, y cada una era un

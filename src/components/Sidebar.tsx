@@ -32,6 +32,7 @@ const recorta: CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textO
 /** La tarjeta de arriba: el culto que viene y la forma de entrar en él. */
 function EnVivo({ culto }: { culto: Playlist }) {
   const openPlaylist = useStore((s) => s.openPlaylist);
+  const showProyeccion = useStore((s) => s.showProyeccion);
   const tracks = useStore((s) => s.tracks);
   const guardado = useStore((s) => s.plOrder[culto.id]);
   const orden = guardado ?? culto.ids;
@@ -67,13 +68,22 @@ function EnVivo({ culto }: { culto: Playlist }) {
       <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 8, ...recorta }}>
         {[formatearFechaCorta(culto.fecha), resumen].filter(Boolean).join(" · ")}
       </div>
-      <button
-        onClick={() => openPlaylist(culto.id)}
-        className="hb-primary"
-        style={{ width: "100%", height: 27, borderRadius: 6, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "11.5px", fontWeight: 600 }}
-      >
-        Abrir el culto
-      </button>
+      <div style={{ display: "flex", gap: 5 }}>
+        <button
+          onClick={() => openPlaylist(culto.id)}
+          className="hb-primary"
+          style={{ flex: 1, height: 27, borderRadius: 6, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "11.5px", fontWeight: 600 }}
+        >
+          Abrir el culto
+        </button>
+        <button
+          onClick={showProyeccion}
+          className="hb-s3"
+          style={{ flex: 1, height: 27, borderRadius: 6, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "11.5px", fontWeight: 600 }}
+        >
+          Proyectar
+        </button>
+      </div>
     </div>
   );
 }
