@@ -85,7 +85,9 @@ button:focus:not(:focus-visible) { outline: none; }
 @keyframes canDialog { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
 @keyframes canSpin { to { transform: rotate(360deg); } }
 @keyframes canEq { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
-@keyframes canToast { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* El aviso ya no está centrado sino anclado a la derecha, así que entra
+   subiendo y no desplazándose: el -50% de antes lo movía medio ancho. */
+@keyframes canToast { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes canFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes canScanPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 

@@ -55,7 +55,7 @@ describe("buscar actualizaciones", () => {
   it("pero el botón siempre contesta", async () => {
     await useStore.getState().checkForUpdate(true);
 
-    expect(useStore.getState().toast?.message).toContain("al día");
+    expect(useStore.getState().toast?.titulo).toContain("al día");
   });
 
   it("una compilación sin clave lo dice en vez de fingir que está al día", async () => {
@@ -64,7 +64,7 @@ describe("buscar actualizaciones", () => {
     await useStore.getState().checkForUpdate(true);
 
     expect(useStore.getState().update).toEqual({ estado: "sinConfigurar" });
-    expect(useStore.getState().toast?.message).toContain("no trae actualizaciones");
+    expect(useStore.getState().toast?.titulo).toContain("no trae actualizaciones");
   });
 
   it("y callada tampoco molesta con eso", async () => {

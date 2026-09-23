@@ -151,7 +151,7 @@ describe("enviar una lista a otra instalación", () => {
 
     useStore.getState().shareCurrentList();
 
-    expect(useStore.getState().toast?.message).toContain("vacía");
+    expect(useStore.getState().toast?.titulo).toContain("vacía");
     expect(pickShareExportPath).not.toHaveBeenCalled();
   });
 
@@ -260,7 +260,10 @@ describe("importar: crear la lista", () => {
 
     useStore.getState().confirmImport();
 
-    await vi.waitFor(() => expect(useStore.getState().toast?.message).toContain("2 pistas no están"));
+    // El titular dice qué pasó y el detalle qué significa: lo que faltó es lo
+    // segundo, no el titular.
+    await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Lista importada"));
+    expect(useStore.getState().toast?.detalle).toContain("2 pistas no están");
   });
 
   it("no crea nada si no se encontró ninguna", async () => {

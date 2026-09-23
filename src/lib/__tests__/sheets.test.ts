@@ -191,7 +191,7 @@ describe("modo culto", () => {
     useStore.getState().openService();
 
     expect(useStore.getState().serviceOpen).toBe(false);
-    expect(useStore.getState().toast?.message).toMatch(/vacía/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/vacía/i);
   });
 
   it("no se pasa de los extremos de la lista", () => {

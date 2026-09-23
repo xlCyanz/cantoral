@@ -83,7 +83,7 @@ describe("abrir la vista previa", () => {
     useStore.getState().openPrintPreview();
 
     await vi.waitFor(() => expect(useStore.getState().toast?.type).toBe("error"));
-    expect(useStore.getState().toast?.message).toContain("No se pudieron leer las letras");
+    expect(useStore.getState().toast?.titulo).toContain("No se pudieron leer las letras");
     expect(useStore.getState().dialog).toBe("printPreview");
   });
 
@@ -93,7 +93,7 @@ describe("abrir la vista previa", () => {
     useStore.getState().openPrintPreview();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(useStore.getState().toast?.message).toContain("vacía");
+    expect(useStore.getState().toast?.titulo).toContain("vacía");
     expect(getSheets).not.toHaveBeenCalled();
   });
 
@@ -105,7 +105,7 @@ describe("abrir la vista previa", () => {
     useStore.getState().openPrintPreview();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(useStore.getState().toast?.message).toContain("vacía");
+    expect(useStore.getState().toast?.titulo).toContain("vacía");
   });
 
   it("sin lista abierta no hace nada", () => {

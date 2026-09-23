@@ -168,6 +168,23 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **El aviso de la esquina dice dos cosas.** Pasa de una píldora centrada con
+  una línea a una tarjeta abajo a la derecha con **titular y detalle**, y con
+  una ✕ para quitarla.
+
+  Antes, como solo cabía una línea, los avisos metían dos cosas dentro: «3
+  pistas agregadas a "Domingo de alabanza"». Ahora el titular dice **a dónde
+  fueron** y el detalle **cuántas**, y se lee de un vistazo.
+
+  Lo mismo con el escaneo, la importación de una lista, quitar pistas, fusionar
+  duplicadas, reapuntar una carpeta y localizar una pista perdida: el titular
+  es lo que pasó y debajo va lo que significa —«Los archivos siguen en el
+  disco», «Conserva sus etiquetas y su favorito»—. Los avisos que solo dicen
+  una cosa se quedan con el titular: no se les inventa un detalle.
+
+  Y la píldora se cruzaba por delante de la barra del reproductor; la tarjeta
+  se aparta y, si estorba, se cierra.
+
 - **El menú contextual dice sobre qué pista se abrió**, y ofrece tres cosas
   más: **Ver el detalle**, **Letra y acordes** y **Mostrar en el Finder**. Con
   el menú abierto encima de una tabla de veinte filas, lo primero que hay que
