@@ -1,4 +1,3 @@
-import { TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import Modal from "./Modal";
 
@@ -20,44 +19,52 @@ export default function ConfirmDialog() {
   if (!req) return null;
 
   return (
-    <Modal labelledBy="confirm-title" describedBy="confirm-body" role="alertdialog" onClose={close} maxWidth={460} overlayZ={50} overlayStyle={{ background: "rgba(25,18,12,.5)" }}>
-      <div style={{ padding: "22px 24px 18px", display: "flex", alignItems: "flex-start", gap: 13 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--danger-soft)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-          <TriangleAlert size={21} color="var(--danger)" strokeWidth={2} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <h2 id="confirm-title" style={{ fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>{req.title}</h2>
-          <p id="confirm-body" style={{ fontSize: "13.5px", color: "var(--text-2)", margin: 0, lineHeight: 1.5 }}>{req.message}</p>
-        </div>
-      </div>
+    <Modal labelledBy="confirm-title" describedBy="confirm-body" role="alertdialog" onClose={close} maxWidth={420} overlayZ={50} overlayStyle={{ background: "rgba(25,18,12,.5)" }}>
+      <div style={{ padding: "18px 18px 15px" }}>
+        {/* Sin icono de alarma al lado: el titular ya dice que esto quita algo,
+            y un triángulo rojo de 42 px empuja a pulsar «Cancelar» sin leer el
+            resto — que es donde está lo que de verdad hay que decidir. */}
+        <h2 id="confirm-title" className="display" style={{ fontSize: 21, lineHeight: 1.2, margin: "0 0 8px" }}>
+          {req.title}
+        </h2>
+        <p id="confirm-body" style={{ fontSize: "12.5px", color: "var(--text-2)", margin: "0 0 8px", lineHeight: 1.6 }}>
+          {req.message}
+        </p>
 
-      <div style={{ padding: "0 24px 4px", display: "flex", flexDirection: "column", gap: 10 }}>
         {req.detail && (
-          <div style={{ background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: 11, padding: "11px 13px", fontSize: "12.5px", fontWeight: 500, lineHeight: 1.45, whiteSpace: "pre-line" }}>
+          <div style={{ background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: 8, padding: "9px 11px", fontSize: "11.5px", fontWeight: 500, lineHeight: 1.55, whiteSpace: "pre-line", marginBottom: 8 }}>
             {req.detail}
           </div>
         )}
-        {req.safe && (
-          <p style={{ fontSize: 12, color: "var(--text-3)", margin: 0, lineHeight: 1.45 }}>{req.safe}</p>
-        )}
-      </div>
 
-      <div style={{ padding: "18px 24px 16px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <button
-          autoFocus
-          onClick={close}
-          className="hb-s3"
-          style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}
-        >
-          Cancelar
-        </button>
-        <button
-          onClick={accept}
-          className="hb-danger-solid"
-          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--danger-fill)", color: "var(--on-danger)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "filter .14s" }}
-        >
-          {req.confirmLabel}
-        </button>
+        {/* Lo que *no* pasa, en su propia caja y en el color normal. Es lo que
+            quien duda está buscando, y en gris pequeño al pie no se leía. */}
+        {req.safe && (
+          <div style={{ border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)", padding: "9px 11px", marginBottom: 14 }}>
+            <div style={{ fontSize: "11.5px", lineHeight: 1.55, color: "var(--text)" }}>{req.safe}</div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          {/* «Cancelar» con el foco puesto y el borde de dos píxeles del
+              rediseño: pulsar Enter nada más abrirse tiene que echarse atrás,
+              no confirmar. */}
+          <button
+            autoFocus
+            onClick={close}
+            className="hb-s3"
+            style={{ height: 32, padding: "0 15px", borderRadius: 8, border: "2px solid var(--primary)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={accept}
+            className="hb-danger-solid"
+            style={{ height: 32, padding: "0 15px", borderRadius: 8, background: "var(--danger-fill)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
+          >
+            {req.confirmLabel}
+          </button>
+        </div>
       </div>
     </Modal>
   );

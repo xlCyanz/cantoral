@@ -304,18 +304,46 @@ describe("quitar en bloque", () => {
     expect(useStore.getState().confirm?.title).toContain("2 pistas");
   });
 
-  it("avisa de cuántas están en alguna lista", () => {
-    useStore.setState({ selection: ["a", "b"], plOrder: { p1: ["a"] } });
+  it("nombra los cultos que pierden algo", () => {
+    // Un número suelto no deja decidir: quitar una pista del culto del domingo
+    // que viene no es lo mismo que quitarla de una plantilla de hace un año.
+    useStore.setState({
+      selection: ["a", "b"],
+      playlists: [
+        { id: "p1", nombre: "Domingo de alabanza", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Reunión de jóvenes", fecha: "", ocasion: "", ids: [], plantilla: false },
+      ],
+      plOrder: { p1: ["a"], p2: ["b"] },
+    });
 
     useStore.getState().bulkDelete();
 
-    expect(useStore.getState().confirm?.detail).toContain("1 está en alguna lista");
+    const msg = useStore.getState().confirm?.message ?? "";
+    expect(msg).toContain("2 cultos");
+    expect(msg).toContain("Domingo de alabanza");
+    expect(msg).toContain("Reunión de jóvenes");
   });
 
-  it("cuenta pistas, no apariciones", () => {
-    // Una pista en tres listas es una pista. Contando apariciones salía un
-    // número mayor que la propia selección — «3 pistas» y «6 están en alguna
-    // lista», que no significa nada.
+  it("y no nombra el que no pierde nada", () => {
+    useStore.setState({
+      selection: ["a"],
+      playlists: [
+        { id: "p1", nombre: "Con la pista", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Sin nada suyo", fecha: "", ocasion: "", ids: [], plantilla: false },
+      ],
+      plOrder: { p1: ["a"], p2: ["z"] },
+    });
+
+    useStore.getState().bulkDelete();
+
+    const msg = useStore.getState().confirm?.message ?? "";
+    expect(msg).toContain("1 culto (Con la pista)");
+    expect(msg).not.toContain("Sin nada suyo");
+  });
+
+  it("un culto se nombra una vez aunque se lleve varias de las pistas", () => {
+    // Contando apariciones salía un número mayor que la propia selección —
+    // «3 pistas» y «6 cultos», que no significa nada.
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
@@ -328,7 +356,7 @@ describe("quitar en bloque", () => {
 
     useStore.getState().bulkDelete();
 
-    expect(useStore.getState().confirm?.detail).toContain("2 están en alguna lista");
+    expect(useStore.getState().confirm?.message).toContain("3 cultos");
   });
 
   it("al aceptar manda la selección y la vacía", async () => {
