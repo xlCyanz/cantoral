@@ -1,7 +1,6 @@
-import { Calendar, FileInput, Layers, ListMusic, Plus, RotateCcw } from "lucide-react";
-import { plDur, repetibles, useStore } from "../store";
+import { FileInput, Layers, ListMusic, Plus } from "lucide-react";
+import { cultos as cultosPorUso, plantillas as plantillasDe, plDur, useStore } from "../store";
 import { gradientFor, inicialDe } from "../lib/covers";
-import { formatearFechaCorta, partirPorFecha } from "../lib/fechas";
 import Empty, { emptyBtnPrimary, emptyBtnSecondary } from "./Empty";
 
 export default function CollectionsView() {
@@ -10,20 +9,16 @@ export default function CollectionsView() {
   const openPlaylist = useStore((s) => s.openPlaylist);
   const newList = useStore((s) => s.newList);
   const tracks = useStore((s) => s.tracks);
-  const duplicateList = useStore((s) => s.duplicateList);
-  const repetir = useStore(repetibles);
   const importList = useStore((s) => s.importList);
 
-  // Templates are not services, so they are kept out of the date split: a
-  // template has no date and would otherwise pile up under «Sin fecha» next to
-  // lists that merely lost theirs.
-  const cultos = playlists.filter((p) => !p.plantilla);
-  const plantillas = playlists.filter((p) => p.plantilla);
-  const { proximos, pasados, sinFecha } = partirPorFecha(cultos);
+  // Un culto no tiene fecha: es una lista preparada para darle y que corra.
+  // Sale arriba el último que se abrió o se cambió, que es el que se está
+  // preparando. Las plantillas van aparte porque no son cultos: son el punto
+  // de partida de uno.
+  const cultos = useStore(cultosPorUso);
+  const plantillas = useStore(plantillasDe);
   const secciones = [
-    { titulo: "Próximos", listas: proximos },
-    { titulo: "Anteriores", listas: pasados },
-    { titulo: "Sin fecha", listas: sinFecha },
+    { titulo: "Cultos", listas: cultos },
     { titulo: "Plantillas", listas: plantillas },
   ].filter((s) => s.listas.length > 0);
   // With everything in one bucket a heading says nothing, so it is left out
@@ -68,41 +63,11 @@ export default function CollectionsView() {
         </div>
       </div>
 
-      {/* Repetir el culto anterior va arriba de todo, antes de la rejilla:
-          es lo primero que se hace un jueves, y estaba debajo de veinte
-          tarjetas. Cada botón repite el verbo y dice qué copia — leído en voz
-          alta, «Servicio dominical · 25 sept» no dice ni qué hace ni de dónde
-          sale. */}
-      {repetir.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "0 0 22px" }}>
-          {repetir.map(({ ocasion, lista }) => (
-            <button
-              key={ocasion}
-              onClick={() => duplicateList(lista.id)}
-              className="hb-s2"
-              title={`Copiar «${lista.nombre}» del ${formatearFechaCorta(lista.fecha)}`}
-              aria-label={`Repetir ${ocasion}: copiar «${lista.nombre}» del ${formatearFechaCorta(lista.fecha)}`}
-              style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 11px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", textAlign: "left", transition: "background .14s" }}
-            >
-              <span style={{ width: 22, height: 22, flex: "0 0 auto", borderRadius: 6, background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
-                <RotateCcw size={12} strokeWidth={2.2} />
-              </span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text)" }}>Repetir {ocasion}</span>
-                <span style={{ display: "block", fontSize: "10.5px", color: "var(--text-2)" }}>
-                  Copia «{lista.nombre}» del {formatearFechaCorta(lista.fecha)}
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {secciones.map(({ titulo, listas }) => (
         <div key={titulo} style={{ marginBottom: 26 }}>
           {mostrarTitulos && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 12px" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: titulo === "Próximos" ? "var(--primary)" : "var(--text-3)" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: "var(--text-3)" }}>
                 {titulo}
               </span>
               <span style={{ fontSize: "11.5px", color: "var(--text-3)" }}>{listas.length}</span>
@@ -132,12 +97,12 @@ export default function CollectionsView() {
               </div>
               <div style={{ padding: "9px 10px 10px" }}>
                 <div style={{ fontSize: "12.5px", fontWeight: 600, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "var(--text-2)" }}>
-                  {p.plantilla ? <Layers size={13} style={{ flex: "0 0 auto" }} /> : <Calendar size={13} style={{ flex: "0 0 auto" }} />}
-                  <span style={{ fontSize: "11.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {p.plantilla ? "Plantilla" : formatearFechaCorta(p.fecha) || "Sin fecha"}
-                  </span>
-                </div>
+                {p.plantilla && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "var(--text-2)" }}>
+                    <Layers size={13} style={{ flex: "0 0 auto" }} />
+                    <span style={{ fontSize: "11.5px" }}>Plantilla</span>
+                  </div>
+                )}
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: 3, fontWeight: 500 }}>
                   {ids.length} pistas · {plDur({ tracks }, ids)}
                 </div>

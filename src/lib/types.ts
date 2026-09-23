@@ -74,12 +74,17 @@ export interface Folder {
 export interface Playlist {
   id: string;
   nombre: string;
-  fecha: string;
   ocasion: string;
   /** Default ordered track ids (live order is kept in store.plOrder). */
   ids: string[];
   /** A list kept as a starting point rather than as a service of its own. */
   plantilla: boolean;
+  /**
+   * La última vez que se abrió o se cambió, en ISO. Es lo que ordena los
+   * cultos: no tienen fecha, y lo que se está preparando es lo último que se
+   * tocó.
+   */
+  tocada: string;
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */

@@ -1,10 +1,9 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, hasCover, inicialDe } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
-import { formatearFecha } from "../lib/fechas";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
@@ -186,8 +185,6 @@ export default function PlaylistView() {
           </span>
           <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{formatearFecha(pl?.fecha) || "Sin fecha"}</span>
-            <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-3)" }} />
             <span>{order.length} pistas · {duracion}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>

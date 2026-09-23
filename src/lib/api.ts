@@ -373,13 +373,8 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   await inv("set_playlist_order", { playlist, ids });
 }
 /** `desde` is the template to copy the order from, if the user picked one. */
-export async function createPlaylistCmd(
-  nombre: string,
-  fecha: string,
-  ocasion: string,
-  desde?: string,
-): Promise<string> {
-  return inv<string>("create_playlist", { nombre, fecha, ocasion, desde: desde ?? null });
+export async function createPlaylistCmd(nombre: string, ocasion: string, desde?: string): Promise<string> {
+  return inv<string>("create_playlist", { nombre, ocasion, desde: desde ?? null });
 }
 export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
   return inv<string>("duplicate_playlist", { playlist });
@@ -390,13 +385,13 @@ export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolea
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Snapshot> {
   return inv<Snapshot>("add_to_playlist", { playlist, track });
 }
-export async function updatePlaylistCmd(
-  playlist: string,
-  nombre: string,
-  fecha: string,
-  ocasion: string,
-): Promise<Snapshot> {
-  return inv<Snapshot>("update_playlist", { playlist, nombre, fecha, ocasion });
+export async function updatePlaylistCmd(playlist: string, nombre: string, ocasion: string): Promise<Snapshot> {
+  return inv<Snapshot>("update_playlist", { playlist, nombre, ocasion });
+}
+/** Apuntar que un culto se acaba de abrir o de cambiar. */
+export async function touchPlaylistCmd(playlist: string): Promise<void> {
+  if (!isTauri()) return;
+  await inv("touch_playlist", { playlist });
 }
 export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
   return inv<Snapshot>("delete_playlist", { playlist });

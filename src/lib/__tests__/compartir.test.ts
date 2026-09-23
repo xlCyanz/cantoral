@@ -37,7 +37,7 @@ function pista(over: Partial<Track> = {}): Track {
 const lista: Playlist = {
   id: "p1",
   nombre: "Culto 4 Ene",
-  fecha: "2026-01-04",
+  tocada: "",
   ocasion: "Servicio dominical",
   ids: ["1"],
   plantilla: false,
@@ -87,7 +87,6 @@ describe("armarArchivo", () => {
 
     expect(archivo.lista).toEqual({
       nombre: "Culto 4 Ene",
-      fecha: "2026-01-04",
       ocasion: "Servicio dominical",
       plantilla: true,
     });
@@ -273,7 +272,7 @@ describe("parsearArchivo", () => {
   it("los campos opcionales pueden faltar", () => {
     const leido = parsearArchivo(minimo);
 
-    expect(leido.lista.fecha).toBe("");
+    expect(leido.lista.ocasion).toBe("");
     expect(leido.lista.plantilla).toBe(false);
     expect(leido.pistas).toEqual([]);
   });

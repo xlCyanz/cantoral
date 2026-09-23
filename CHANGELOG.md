@@ -9,7 +9,37 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Los cultos ya no tienen fecha.** Un culto es una lista preparada: se arma
+  una vez, se le da a proyectar y corre entero. La fecha lo convertía en otra
+  cosa —un evento del calendario— y era lo que decidía el orden, las secciones
+  «Próximos», «Anteriores» y «Sin fecha», y qué culto era «el anterior».
+
+  Ahora sale arriba **el último que abriste o cambiaste**: abrirlo, agregarle
+  pistas, reordenarlo o cambiarle el nombre lo sube. Lo que se está preparando
+  queda arriba sin que nadie escriba nada para decirlo. El mismo orden en la
+  barra lateral, en la vista de listas y en «Agregar a un culto».
+
+  Fuera el campo de fecha del diálogo, la fecha de la cabecera del culto, la
+  de la hoja imprimible y la del formato compartido. Un `.cantoral.json`
+  exportado con fecha se sigue abriendo; la fecha se ignora.
+
+  **Lo escrito no se borra**: la columna `fecha` se queda en las bases que ya
+  la tengan. La primera vez que abras con esta versión, los cultos salen del
+  más nuevo al más viejo según se crearon.
+
+- **La proyección pasa sola al siguiente elemento.** Era un ajuste que venía
+  apagado; ahora es lo que hace la app si no se toca nada, porque un culto es
+  justo eso, una lista que se le da y corre. «Negro y esperar» sigue en
+  Proyección para quien lo prefiera, y se recuerda.
+
 ### Eliminado
+
+- **«Repetir el culto anterior».** Buscaba el último culto ya celebrado de cada
+  ocasión, y sin fechas no hay forma de saber cuál fue. Para partir de un culto
+  que ya existe quedan duplicarlo y las plantillas, que hacen lo mismo sin
+  adivinar.
 
 - **La tarjeta «En vivo» de la barra lateral.** Decidía sola cuál era «el
   culto»: el de fecha más cercana, y solo si tenía fecha. Una iglesia que

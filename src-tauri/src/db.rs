@@ -56,10 +56,11 @@ CREATE TABLE IF NOT EXISTS tracks (
 CREATE TABLE IF NOT EXISTS playlists (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre    TEXT NOT NULL,
-  fecha     TEXT NOT NULL DEFAULT '',
   ocasion   TEXT NOT NULL DEFAULT '',
   es_plantilla INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- La última vez que alguien abrió o cambió el culto: ver `touch_playlist`.
+  tocada_at TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS playlist_tracks (
@@ -100,15 +101,12 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
         .execute("ALTER TABLE playlists ADD COLUMN es_plantilla INTEGER NOT NULL DEFAULT 0", []);
     let _ =
         conn.execute("ALTER TABLE tracks ADD COLUMN artista_manual INTEGER NOT NULL DEFAULT 0", []);
-
-    // Dates used to be free text. Whatever can be read becomes ISO so it can be
-    // sorted; whatever cannot is left alone. Runs on every open and is a no-op
-    // once there is nothing left to convert.
-    match migrate_playlist_dates(&conn) {
-        Ok(0) => {}
-        Ok(n) => log::info!("{n} playlist dates rewritten as ISO"),
-        Err(err) => log::error!("could not migrate the playlist dates: {err}"),
-    }
+    let _ = conn.execute("ALTER TABLE playlists ADD COLUMN tocada_at TEXT NOT NULL DEFAULT ''", []);
+    // Un culto de antes de la columna nunca se ha «tocado». Se toma su fecha de
+    // creación para que la primera vez salgan del más nuevo al más viejo, y no
+    // todos empatados. Una fila nueva siempre llega con valor, así que esto
+    // solo encuentra algo la primera vez.
+    conn.execute("UPDATE playlists SET tocada_at=created_at WHERE tocada_at=''", [])?;
     Ok(conn)
 }
 
@@ -629,167 +627,28 @@ pub fn touch_folder_scan(conn: &Connection, id: i64) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------- dates
-
-/// Spanish month names, in order, as they are written and as they are typed.
-const MESES: [&str; 12] = [
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-];
-
-/// Fold a word for comparison: lowercase, no accents. «Miércoles» → «miercoles».
-fn plano(s: &str) -> String {
-    s.chars()
-        .flat_map(|c| c.to_lowercase())
-        .map(|c| match c {
-            'á' => 'a',
-            'é' => 'e',
-            'í' => 'i',
-            'ó' => 'o',
-            'ú' | 'ü' => 'u',
-            otro => otro,
-        })
-        .collect()
-}
-
-/// Whether a string is already an ISO date this app can sort.
-pub fn es_iso(s: &str) -> bool {
-    let b = s.as_bytes();
-    b.len() == 10
-        && b[4] == b'-'
-        && b[7] == b'-'
-        && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
-}
-
-/// Read a date a person typed, as `YYYY-MM-DD`, or `None` if it cannot be read.
-///
-/// Covers what this app itself suggested — «Domingo 13 de julio, 2025» was the
-/// placeholder — plus the numeric forms people reach for. Deliberately no
-/// guessing between `3/4` and `4/3`: day first, which is what Spanish writes.
-pub fn fecha_iso(raw: &str) -> Option<String> {
-    let t = raw.trim();
-    if t.is_empty() {
-        return None;
-    }
-    if es_iso(t) {
-        return Some(t.to_string());
-    }
-
-    // Numeric: 13/7/2025, 13-7-25, 13.07.2025
-    let partes: Vec<&str> = t.split(['/', '-', '.']).map(str::trim).collect();
-    if partes.len() == 3 && partes.iter().all(|p| p.chars().all(|c| c.is_ascii_digit())) {
-        let d: u32 = partes[0].parse().ok()?;
-        let m: u32 = partes[1].parse().ok()?;
-        let a: i32 = partes[2].parse().ok()?;
-        // Two digits mean this century: a church list is not from 1925.
-        let a = if partes[2].len() <= 2 { 2000 + a } else { a };
-        return armar(a, m, d);
-    }
-
-    // Words: [weekday] 13 de julio[ de| ,] 2025
-    let palabras: Vec<String> = t
-        .split(|c: char| c.is_whitespace() || c == ',')
-        .filter(|p| !p.is_empty())
-        .map(plano)
-        .collect();
-    let dia =
-        palabras.iter().find_map(|p| p.parse::<u32>().ok().filter(|d| (1..=31).contains(d)))?;
-    let mes =
-        palabras.iter().find_map(|p| MESES.iter().position(|m| *m == p).map(|i| i as u32 + 1))?;
-    let anio = palabras
-        .iter()
-        .find_map(|p| p.parse::<i32>().ok().filter(|a| (1900..=2999).contains(a)))?;
-    armar(anio, mes, dia)
-}
-
-/// Build the ISO string, refusing a day the month does not have.
-fn armar(anio: i32, mes: u32, dia: u32) -> Option<String> {
-    if !(1..=12).contains(&mes) || dia == 0 {
-        return None;
-    }
-    let bisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;
-    let largo = match mes {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        _ => {
-            if bisiesto {
-                29
-            } else {
-                28
-            }
-        }
-    };
-    if dia > largo {
-        return None;
-    }
-    Some(format!("{anio:04}-{mes:02}-{dia:02}"))
-}
-
-/// Rewrite every playlist date that can be read into ISO, once.
-///
-/// What cannot be read is **left exactly as it was**. The alternative — the one
-/// the issue proposed — was to blank it, and a date somebody typed is worth
-/// more than a tidy column: they can still read «el domingo después de Pascua»
-/// even if nothing can sort it.
-///
-/// Idempotent: a second run finds everything already ISO or already unreadable.
-pub fn migrate_playlist_dates(conn: &Connection) -> Result<usize> {
-    let mut stmt = conn.prepare("SELECT id, fecha FROM playlists WHERE TRIM(fecha) <> ''")?;
-    let filas: Vec<(i64, String)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-        .collect::<std::result::Result<_, _>>()?;
-    drop(stmt);
-
-    let mut cambiadas = 0usize;
-    for (id, fecha) in filas {
-        if es_iso(&fecha) {
-            continue;
-        }
-        match fecha_iso(&fecha) {
-            Some(iso) => {
-                conn.execute("UPDATE playlists SET fecha=?1 WHERE id=?2", params![iso, id])?;
-                cambiadas += 1;
-            }
-            None => log::info!("playlist {id}: «{fecha}» left as it is, no date could be read"),
-        }
-    }
-    Ok(cambiadas)
-}
-
 // ---------------------------------------------------------------- playlists
 
 pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
-    // ISO dates first and newest first; anything unreadable sinks to the end
-    // rather than sorting as if it were a date. `id` breaks ties so the order
-    // is stable between calls.
+    // El último que se tocó, arriba. `id` desempata para que el orden no
+    // cambie entre dos llamadas.
     let mut stmt = conn.prepare(
-        "SELECT id, nombre, fecha, ocasion, es_plantilla FROM playlists
-         ORDER BY CASE WHEN fecha GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' THEN 0 ELSE 1 END,
-                  fecha DESC, id DESC",
+        "SELECT id, nombre, ocasion, es_plantilla, tocada_at FROM playlists
+         ORDER BY tocada_at DESC, id DESC",
     )?;
-    let base: Vec<(i64, String, String, String, bool)> = stmt
+    let base: Vec<(i64, String, String, bool, String)> = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
         .collect::<std::result::Result<_, _>>()?;
 
     let mut out = Vec::new();
-    for (id, nombre, fecha, ocasion, plantilla) in base {
+    for (id, nombre, ocasion, plantilla, tocada) in base {
         let mut ts = conn.prepare(
             "SELECT track_id FROM playlist_tracks WHERE playlist_id=?1 ORDER BY position",
         )?;
         let ids: Vec<String> = ts
             .query_map(params![id], |r| r.get::<_, i64>(0).map(|v| v.to_string()))?
             .collect::<std::result::Result<_, _>>()?;
-        out.push(Playlist { id: id.to_string(), nombre, fecha, ocasion, ids, plantilla });
+        out.push(Playlist { id: id.to_string(), nombre, ocasion, ids, plantilla, tocada });
     }
     Ok(out)
 }
@@ -801,14 +660,14 @@ pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
 pub fn create_playlist(
     conn: &Connection,
     nombre: &str,
-    fecha: &str,
     ocasion: &str,
     origen: Option<i64>,
 ) -> Result<i64> {
     let tx = conn.unchecked_transaction()?;
+    let ahora = now();
     tx.execute(
-        "INSERT INTO playlists(nombre, fecha, ocasion, created_at) VALUES(?1,?2,?3,?4)",
-        params![nombre, fecha, ocasion, now()],
+        "INSERT INTO playlists(nombre, ocasion, created_at, tocada_at) VALUES(?1,?2,?3,?3)",
+        params![nombre, ocasion, ahora],
     )?;
     let id = tx.last_insert_rowid();
     if let Some(de) = origen {
@@ -896,7 +755,7 @@ pub fn duplicate_playlist(conn: &Connection, id: i64) -> Result<i64> {
         .query_map([], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
     tx.execute(
-        "INSERT INTO playlists(nombre, fecha, ocasion, created_at) VALUES(?1,'',?2,?3)",
+        "INSERT INTO playlists(nombre, ocasion, created_at, tocada_at) VALUES(?1,?2,?3,?3)",
         params![nombre_copia(&nombre, &usados), ocasion, now()],
     )?;
     let nuevo = tx.last_insert_rowid();
@@ -952,18 +811,23 @@ pub fn add_to_playlist(conn: &Connection, playlist_id: i64, track_id: i64) -> Re
     Ok(())
 }
 
-/// Rename a playlist / change its service date and occasion.
-pub fn update_playlist(
-    conn: &Connection,
-    id: i64,
-    nombre: &str,
-    fecha: &str,
-    ocasion: &str,
-) -> Result<()> {
+/// Rename a playlist / change its occasion.
+pub fn update_playlist(conn: &Connection, id: i64, nombre: &str, ocasion: &str) -> Result<()> {
     conn.execute(
-        "UPDATE playlists SET nombre=?1, fecha=?2, ocasion=?3 WHERE id=?4",
-        params![nombre, fecha, ocasion, id],
+        "UPDATE playlists SET nombre=?1, ocasion=?2 WHERE id=?3",
+        params![nombre, ocasion, id],
     )?;
+    Ok(())
+}
+
+/// Apuntar que alguien acaba de abrir o cambiar un culto.
+///
+/// Es lo que ordena la lista de cultos: el último que se tocó sale arriba. Un
+/// culto no tiene fecha —es una lista preparada para darle y que corra—, así
+/// que lo que se está preparando es lo que se abrió por última vez, sin que
+/// nadie tenga que escribir nada para decirlo.
+pub fn touch_playlist(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute("UPDATE playlists SET tocada_at=?1 WHERE id=?2", params![now(), id])?;
     Ok(())
 }
 
@@ -1458,7 +1322,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[c, a, b]).unwrap();
 
@@ -1472,7 +1336,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
         add_to_playlist(&conn, pl, a).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[a, b]).unwrap();
@@ -1488,7 +1352,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
         add_to_playlist(&conn, pl, b).unwrap();
 
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
@@ -1506,7 +1370,7 @@ mod tests {
     #[test]
     fn adding_nothing_is_not_an_error() {
         let conn = mem();
-        let pl = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
         assert_eq!(add_tracks_to_playlist(&conn, pl, &[]).unwrap(), 0);
     }
 
@@ -1534,7 +1398,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
 
         delete_tracks(&conn, &[a, c]).unwrap();
@@ -1544,106 +1408,71 @@ mod tests {
         assert_eq!(orden_de(&conn, pl), vec![b.to_string()]);
     }
 
-    // ---- dates ----
+    // ---- orden de los cultos ----
 
-    #[test]
-    fn an_iso_date_is_left_exactly_as_it_is() {
-        assert_eq!(fecha_iso("2025-07-13").as_deref(), Some("2025-07-13"));
-        assert!(es_iso("2025-07-13"));
-        assert!(!es_iso("13-07-2025"), "day first is not ISO, whatever the separators");
+    /// Un culto con su «tocada» puesta a mano, para no depender del reloj.
+    fn culto_tocado(conn: &Connection, nombre: &str, cuando: &str) -> i64 {
+        let id = create_playlist(conn, nombre, "", None).unwrap();
+        conn.execute("UPDATE playlists SET tocada_at=?1 WHERE id=?2", params![cuando, id]).unwrap();
+        id
+    }
+
+    fn nombres(conn: &Connection) -> Vec<String> {
+        list_playlists(conn).unwrap().into_iter().map(|p| p.nombre).collect()
     }
 
     #[test]
-    fn the_placeholder_this_app_suggested_is_readable() {
-        // «Domingo 13 de julio, 2025» was the hint in the dialog, so it is what
-        // most stored dates actually look like.
-        assert_eq!(fecha_iso("Domingo 13 de julio, 2025").as_deref(), Some("2025-07-13"));
-        assert_eq!(fecha_iso("Miércoles 9 de julio, 2025").as_deref(), Some("2025-07-09"));
-        assert_eq!(fecha_iso("3 de agosto de 2025").as_deref(), Some("2025-08-03"));
-    }
-
-    #[test]
-    fn accents_and_capitals_do_not_matter() {
-        assert_eq!(fecha_iso("13 DE JULIO DE 2025").as_deref(), Some("2025-07-13"));
-        assert_eq!(fecha_iso("13 de Diciembre de 2025").as_deref(), Some("2025-12-13"));
-    }
-
-    #[test]
-    fn the_numeric_forms_people_type_are_readable() {
-        assert_eq!(fecha_iso("13/7/2025").as_deref(), Some("2025-07-13"));
-        assert_eq!(fecha_iso("13/07/2025").as_deref(), Some("2025-07-13"));
-        assert_eq!(fecha_iso("13.07.2025").as_deref(), Some("2025-07-13"));
-        // Two digits mean this century: a church list is not from 1925.
-        assert_eq!(fecha_iso("13/7/25").as_deref(), Some("2025-07-13"));
-    }
-
-    #[test]
-    fn the_day_comes_first_because_that_is_what_spanish_writes() {
-        // Never guessed from the values: 3/4 is the 3rd of April, always.
-        assert_eq!(fecha_iso("3/4/2025").as_deref(), Some("2025-04-03"));
-    }
-
-    #[test]
-    fn a_day_the_month_does_not_have_is_not_a_date() {
-        assert_eq!(fecha_iso("31 de febrero de 2025"), None);
-        assert_eq!(fecha_iso("31/4/2025"), None);
-        assert_eq!(fecha_iso("29 de febrero de 2025"), None, "2025 is not a leap year");
-        assert_eq!(fecha_iso("29 de febrero de 2024").as_deref(), Some("2024-02-29"));
-    }
-
-    #[test]
-    fn what_is_not_a_date_reads_as_nothing() {
-        assert_eq!(fecha_iso(""), None);
-        assert_eq!(fecha_iso("   "), None);
-        assert_eq!(fecha_iso("el domingo después de Pascua"), None);
-        assert_eq!(fecha_iso("Ensayo semanal"), None);
-        assert_eq!(fecha_iso("13 de julio"), None, "a year is required to place it");
-    }
-
-    #[test]
-    fn the_migration_rewrites_what_it_can_and_keeps_the_rest() {
+    fn the_last_service_touched_comes_first() {
         let conn = mem();
-        let legible =
-            create_playlist(&conn, "Culto", "Domingo 13 de julio, 2025", "", None).unwrap();
-        let ilegible =
-            create_playlist(&conn, "Ensayo", "el domingo después de Pascua", "", None).unwrap();
-        let vacia = create_playlist(&conn, "Repertorio", "", "", None).unwrap();
+        culto_tocado(&conn, "Jóvenes", "2026-09-01T10:00:00+00:00");
+        culto_tocado(&conn, "Domingo", "2026-09-20T10:00:00+00:00");
+        culto_tocado(&conn, "Santa Cena", "2026-09-10T10:00:00+00:00");
 
-        let n = migrate_playlist_dates(&conn).unwrap();
-
-        assert_eq!(n, 1);
-        let fecha = |id: i64| -> String {
-            conn.query_row("SELECT fecha FROM playlists WHERE id=?1", params![id], |r| r.get(0))
-                .unwrap()
-        };
-        assert_eq!(fecha(legible), "2025-07-13");
-        // Blanking it was the other option. What somebody typed is worth more
-        // than a tidy column — they can still read it.
-        assert_eq!(fecha(ilegible), "el domingo después de Pascua");
-        assert_eq!(fecha(vacia), "");
+        assert_eq!(nombres(&conn), vec!["Domingo", "Santa Cena", "Jóvenes"]);
     }
 
     #[test]
-    fn the_migration_can_run_twice() {
+    fn touching_a_service_brings_it_to_the_top() {
         let conn = mem();
-        create_playlist(&conn, "Culto", "13/7/2025", "", None).unwrap();
+        let viejo = culto_tocado(&conn, "Jóvenes", "2020-01-01T00:00:00+00:00");
+        culto_tocado(&conn, "Domingo", "2020-06-01T00:00:00+00:00");
 
-        assert_eq!(migrate_playlist_dates(&conn).unwrap(), 1);
-        assert_eq!(migrate_playlist_dates(&conn).unwrap(), 0, "nothing left to convert");
+        touch_playlist(&conn, viejo).unwrap();
+
+        assert_eq!(nombres(&conn)[0], "Jóvenes");
     }
 
     #[test]
-    fn lists_come_back_newest_first_with_the_unreadable_ones_last() {
+    fn a_new_service_starts_at_the_top() {
+        // Lo que se acaba de crear es lo que se está preparando.
         let conn = mem();
-        create_playlist(&conn, "Julio", "2025-07-13", "", None).unwrap();
-        create_playlist(&conn, "Sin fecha", "cuando se pueda", "", None).unwrap();
-        create_playlist(&conn, "Agosto", "2025-08-03", "", None).unwrap();
-        create_playlist(&conn, "Junio", "2025-06-01", "", None).unwrap();
+        culto_tocado(&conn, "Viejo", "2020-01-01T00:00:00+00:00");
 
-        let nombres: Vec<String> =
-            list_playlists(&conn).unwrap().into_iter().map(|p| p.nombre).collect();
+        create_playlist(&conn, "Nuevo", "", None).unwrap();
 
-        assert_eq!(nombres, vec!["Agosto", "Julio", "Junio", "Sin fecha"]);
+        assert_eq!(nombres(&conn)[0], "Nuevo");
+    }
+
+    #[test]
+    fn a_copy_starts_at_the_top_too() {
+        let conn = mem();
+        let original = culto_tocado(&conn, "Domingo", "2020-01-01T00:00:00+00:00");
+        culto_tocado(&conn, "Otro", "2020-06-01T00:00:00+00:00");
+
+        duplicate_playlist(&conn, original).unwrap();
+
+        assert_eq!(nombres(&conn)[0], "Domingo (copia)");
+    }
+
+    #[test]
+    fn a_tie_keeps_a_stable_order() {
+        // Dos llamadas seguidas no pueden devolver la lista en otro orden.
+        let conn = mem();
+        culto_tocado(&conn, "A", "2026-01-01T00:00:00+00:00");
+        culto_tocado(&conn, "B", "2026-01-01T00:00:00+00:00");
+
+        assert_eq!(nombres(&conn), vec!["B", "A"], "el más nuevo gana el empate");
+        assert_eq!(nombres(&conn), nombres(&conn));
     }
 
     // ---- lyrics and chords ----
@@ -1728,6 +1557,41 @@ mod tests {
     fn writing_a_sheet_onto_a_track_that_is_gone_is_refused() {
         let conn = mem();
         assert!(set_track_sheet(&conn, 9_999, "letra", "").is_err());
+    }
+
+    #[test]
+    fn a_database_with_dated_services_opens_ordered_by_when_they_were_made() {
+        // Los cultos llevaban fecha. Al abrir con esta versión nadie ha
+        // «tocado» ninguno todavía: salen del más nuevo al más viejo según se
+        // crearon, en vez de empatados en un orden cualquiera. Y la fecha que
+        // alguien escribió se queda en la base, aunque ya no se lea.
+        let dir = Dir::new("sin-fecha");
+        let path = dir.path("vieja.db");
+        {
+            let vieja = Connection::open(&path).unwrap();
+            vieja
+                .execute_batch(
+                    "CREATE TABLE playlists (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nombre TEXT NOT NULL, fecha TEXT NOT NULL DEFAULT '',
+                        ocasion TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
+                     INSERT INTO playlists(nombre, fecha, created_at)
+                       VALUES('Nuevo', '2020-01-01', '2026-01-01T00:00:00+00:00'),
+                             ('Viejo', '2026-12-25', '2025-01-01T00:00:00+00:00');",
+                )
+                .unwrap();
+        }
+
+        let conn = open_and_migrate(&path).unwrap();
+
+        let nombres: Vec<String> =
+            list_playlists(&conn).unwrap().into_iter().map(|p| p.nombre).collect();
+        // Por la fecha, «Viejo» (Navidad) saldría primero, y por el id también
+        // —se insertó después—. Solo el momento de crearlo lo pone detrás.
+        assert_eq!(nombres, vec!["Nuevo", "Viejo"]);
+        let fecha: String = conn
+            .query_row("SELECT fecha FROM playlists WHERE nombre='Viejo'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(fecha, "2026-12-25", "lo escrito no se borra");
     }
 
     #[test]
@@ -1985,7 +1849,7 @@ mod tests {
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
         let otra = pista(&conn, fid, "/m/z.mp3", "Otra", "Coro", 100, "MP3", 1_000);
-        let pl = create_playlist(&conn, "Culto", "2026-01-04", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
         add_to_playlist(&conn, pl, otra).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2005,7 +1869,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        let pl = create_playlist(&conn, "Culto", "2026-01-04", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
         add_to_playlist(&conn, pl, queda).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2162,7 +2026,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", "hoy", "Adoración", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", "Adoración", None).unwrap();
 
         add_to_playlist(&conn, pid, a).unwrap();
         add_to_playlist(&conn, pid, b).unwrap();
@@ -2175,29 +2039,27 @@ mod tests {
     }
 
     #[test]
-    fn update_playlist_changes_name_date_and_occasion() {
+    fn update_playlist_changes_name_and_occasion() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Sin título", "", "", None).unwrap();
+        let pid = create_playlist(&conn, "Sin título", "", None).unwrap();
 
-        update_playlist(&conn, pid, "Culto 20 Jul", "Domingo 20", "Ensayo").unwrap();
+        update_playlist(&conn, pid, "Jóvenes", "Ensayo").unwrap();
 
         let pl = &list_playlists(&conn).unwrap()[0];
-        assert_eq!(pl.nombre, "Culto 20 Jul");
-        assert_eq!(pl.fecha, "Domingo 20");
+        assert_eq!(pl.nombre, "Jóvenes");
         assert_eq!(pl.ocasion, "Ensayo");
     }
 
     // ---- duplicating and templates ----
 
     #[test]
-    fn a_copy_keeps_the_order_and_the_occasion_but_not_the_date() {
+    fn a_copy_keeps_the_order_and_the_occasion() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid =
-            create_playlist(&conn, "Culto", "2026-01-04", "Servicio dominical", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", "Servicio dominical", None).unwrap();
         set_playlist_order(&conn, pid, &[c, a, b]).unwrap();
 
         let copia = duplicate_playlist(&conn, pid).unwrap();
@@ -2206,9 +2068,6 @@ mod tests {
         let nueva = listas.iter().find(|p| p.id == copia.to_string()).unwrap();
         assert_eq!(nueva.nombre, "Culto (copia)");
         assert_eq!(nueva.ocasion, "Servicio dominical");
-        // A carried-over date would file the copy under the service that
-        // already happened.
-        assert_eq!(nueva.fecha, "");
         assert_eq!(nueva.ids, vec![c.to_string(), a.to_string(), b.to_string()]);
     }
 
@@ -2218,7 +2077,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
         let copia = duplicate_playlist(&conn, pid).unwrap();
 
@@ -2232,7 +2091,7 @@ mod tests {
     #[test]
     fn copying_the_same_list_twice_gives_two_names_you_can_tell_apart() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
 
         duplicate_playlist(&conn, pid).unwrap();
         duplicate_playlist(&conn, pid).unwrap();
@@ -2279,19 +2138,12 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let plantilla =
-            create_playlist(&conn, "Dominical", "", "Servicio dominical", None).unwrap();
+        let plantilla = create_playlist(&conn, "Dominical", "Servicio dominical", None).unwrap();
         set_playlist_order(&conn, plantilla, &[b, a]).unwrap();
         set_playlist_template(&conn, plantilla, true).unwrap();
 
-        let nueva = create_playlist(
-            &conn,
-            "Culto 4 Ene",
-            "2026-01-04",
-            "Servicio dominical",
-            Some(plantilla),
-        )
-        .unwrap();
+        let nueva =
+            create_playlist(&conn, "Culto 4 Ene", "Servicio dominical", Some(plantilla)).unwrap();
 
         let listas = list_playlists(&conn).unwrap();
         let hecha = listas.iter().find(|p| p.id == nueva.to_string()).unwrap();
@@ -2305,14 +2157,14 @@ mod tests {
     fn starting_from_a_list_that_is_gone_leaves_no_list_behind() {
         let conn = mem();
 
-        assert!(create_playlist(&conn, "Culto", "", "", Some(9_999)).is_err());
+        assert!(create_playlist(&conn, "Culto", "", Some(9_999)).is_err());
         assert!(list_playlists(&conn).unwrap().is_empty());
     }
 
     #[test]
     fn a_template_can_stop_being_one() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Dominical", "", "", None).unwrap();
+        let pid = create_playlist(&conn, "Dominical", "", None).unwrap();
         set_playlist_template(&conn, pid, true).unwrap();
         assert!(list_playlists(&conn).unwrap()[0].plantilla);
 
@@ -2553,7 +2405,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
 
         delete_track(&conn, a).unwrap();
@@ -2607,7 +2459,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto", "", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b, c]).unwrap();
 
         // 9999 no existe: la clave foránea hace fallar el tercer INSERT.

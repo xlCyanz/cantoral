@@ -1,8 +1,7 @@
 import { ListMusic, Plus } from "lucide-react";
 import type { CSSProperties } from "react";
-import { pistasParaAgregar, plDur, useStore } from "../store";
+import { cultos, pistasParaAgregar, plantillas, plDur, useStore } from "../store";
 import { gradientFor, inicialDe } from "../lib/covers";
-import { formatearFechaCorta } from "../lib/fechas";
 import Modal from "./Modal";
 
 /**
@@ -28,7 +27,11 @@ const fila: CSSProperties = {
 export default function AddToListDialog() {
   const abierto = useStore((s) => s.dialog === "addToList");
   const ids = useStore(pistasParaAgregar);
-  const playlists = useStore((s) => s.playlists);
+  // En el mismo orden que la barra lateral: el culto que se está preparando
+  // es el último que se tocó, y es al que casi siempre se agrega.
+  const losCultos = useStore(cultos);
+  const lasPlantillas = useStore(plantillas);
+  const playlists = [...losCultos, ...lasPlantillas];
   const plOrder = useStore((s) => s.plOrder);
   const tracks = useStore((s) => s.tracks);
   const closeDialog = useStore((s) => s.closeDialog);
@@ -73,7 +76,7 @@ export default function AddToListDialog() {
                   </span>
                   <span style={{ display: "block", fontSize: "10.5px", color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {[
-                      p.plantilla ? "Plantilla" : formatearFechaCorta(p.fecha) || "Sin fecha",
+                      p.plantilla ? "Plantilla" : "",
                       `${orden.length} ${orden.length === 1 ? "pista" : "pistas"}`,
                       plDur({ tracks }, orden),
                       // Decirlo aquí evita el viaje de elegir, leer «ya estaban

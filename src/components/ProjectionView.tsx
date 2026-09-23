@@ -66,9 +66,11 @@ const OPCIONES_AUDIO = [
   { valor: "letra" as const, etiqueta: "Solo la letra", ayuda: "La letra sobre el negro." },
 ];
 
+// «Pasar al siguiente» va primero porque es lo que viene puesto: un culto es
+// una lista que se le da y corre entera.
 const OPCIONES_AVANCE = [
+  { valor: "siguiente" as const, etiqueta: "Pasar al siguiente", ayuda: "Al acabarse un elemento, arranca solo el de después. El culto corre entero sin nadie al ratón." },
   { valor: "negro" as const, etiqueta: "Negro y esperar", ayuda: "Al acabarse un elemento, el proyector se queda en negro hasta que pulses «Siguiente»." },
-  { valor: "siguiente" as const, etiqueta: "Pasar al siguiente", ayuda: "Al acabarse un elemento, arranca solo el de después. Para proyectar un culto entero sin nadie al ratón." },
 ];
 
 const OPCIONES_TRANSICION = [

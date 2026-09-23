@@ -96,6 +96,7 @@ pub fn run() {
             commands::set_playlist_order,
             commands::add_to_playlist,
             commands::update_playlist,
+            commands::touch_playlist,
             commands::delete_playlist,
             commands::export_playlist,
             commands::export_playlist_json,

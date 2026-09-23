@@ -208,11 +208,12 @@ describe("guardar los cambios", () => {
     // A solas: si no estuviera en la lista de campos vigilados, cambiarlo no
     // dispararía ninguna escritura y solo se guardaría de rebote, cuando se
     // tocara otra cosa.
-    useStore.getState().setAvanceProyeccion("siguiente");
+    // «Siguiente» es el de fábrica, así que se prueba volviendo al negro.
+    useStore.getState().setAvanceProyeccion("negro");
     await vi.advanceTimersByTimeAsync(400);
 
     expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(1);
-    expect(ultimoGuardado().avanceProyeccion).toBe("siguiente");
+    expect(ultimoGuardado().avanceProyeccion).toBe("negro");
   });
 
   it("recoge el cambio venga de donde venga", async () => {
@@ -277,8 +278,8 @@ describe("restaurar al arrancar", () => {
       tracks: [],
       folders: [],
       playlists: [
-        { id: "p1", nombre: "Uno", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Uno", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ocasion: "", ids: [], plantilla: false },
       ],
     });
     reconcileLibraryCmd.mockReset();
