@@ -3,7 +3,6 @@
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
 import { parseHoja } from "./chords";
-import { formatearFecha } from "./fechas";
 import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 
@@ -42,10 +41,9 @@ function lyricsHtml(tracks: Track[], sheets: Record<string, Sheet>): string {
       const letra = hoja?.letra?.trim() ?? "";
       if (!escrita(hoja)) return "";
       const cuerpo = acordes ? lineasHtml(acordes) : `<pre class="letra">${esc(letra)}</pre>`;
-      const tono = t.tono ? ` · Tono ${esc(t.tono)}` : "";
       return `  <section class="hoja">
     <h2>${esc(t.titulo)}</h2>
-    <p class="meta">${esc(t.artista)}${tono}</p>
+    <p class="meta">${esc(t.artista)}</p>
 ${cuerpo}
   </section>`;
     })
@@ -103,7 +101,6 @@ export function playlistSheetHtml(
         esc(t.titulo),
         esc(t.artista),
         esc(t.ocasion),
-        esc(t.tono),
         t.bpm ? String(t.bpm) : "",
         esc(t.dur),
       ];
@@ -112,17 +109,14 @@ export function playlistSheetHtml(
         <td class="titulo">${cells[1]}</td>
         <td>${cells[2]}</td>
         <td>${cells[3]}</td>
-        <td class="tono">${cells[4]}</td>
+        <td class="num">${cells[4]}</td>
         <td class="num">${cells[5]}</td>
-        <td class="num">${cells[6]}</td>
       </tr>`;
     })
     .join("\n");
 
   const lyrics = lyricsHtml(tracks, sheets);
-  // Since the date became ISO it is what SQLite can sort, not what a person
-  // reads: printed raw, the sheet handed round at the service said «2026-09-25».
-  const meta = [formatearFecha(pl.fecha), pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
+  const meta = [pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
     .filter(Boolean)
     .map(esc)
     .join(" · ");
@@ -138,35 +132,34 @@ export function playlistSheetHtml(
   body {
     margin: 0; padding: 28px 32px;
     font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    color: #1c1613; background: #fff;
+    color: #191c21; background: #fff;
   }
-  header { border-bottom: 2px solid #a9502e; padding-bottom: 14px; margin-bottom: 22px; }
+  header { border-bottom: 2px solid #3a4d8f; padding-bottom: 14px; margin-bottom: 22px; }
   .eyebrow {
     font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
-    color: #a9502e; margin: 0 0 6px;
+    color: #3a4d8f; margin: 0 0 6px;
   }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -.4px; margin: 0 0 8px; }
-  .meta { font-size: 12px; color: #6b5d52; margin: 0; }
+  .meta { font-size: 12px; color: #5a626d; margin: 0; }
   table { width: 100%; border-collapse: collapse; }
   th {
     text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .5px;
-    text-transform: uppercase; color: #6b5d52;
-    border-bottom: 1px solid #d9cebe; padding: 0 8px 7px;
+    text-transform: uppercase; color: #5a626d;
+    border-bottom: 1px solid #cbd1da; padding: 0 8px 7px;
   }
-  td { padding: 9px 8px; border-bottom: 1px solid #ece5db; vertical-align: top; }
+  td { padding: 9px 8px; border-bottom: 1px solid #e1e5ea; vertical-align: top; }
   tr { page-break-inside: avoid; }
   .titulo { font-weight: 600; }
-  .tono { font-weight: 600; white-space: nowrap; }
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th.num { text-align: right; }
-  footer { margin-top: 26px; font-size: 10.5px; color: #9a8b7d; }
+  footer { margin-top: 26px; font-size: 10.5px; color: #8d95a1; }
   .hoja { page-break-before: always; margin-top: 34px; }
   .hoja h2 { font-size: 19px; margin: 0 0 2px; }
-  .hoja .meta { font-size: 11px; color: #9a8b7d; margin: 0 0 14px; }
-  .hoja h3 { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #a6612f; margin: 16px 0 4px; }
+  .hoja .meta { font-size: 11px; color: #8d95a1; margin: 0 0 14px; }
+  .hoja h3 { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #3a4d8f; margin: 16px 0 4px; }
   .linea { display: flex; flex-wrap: wrap; margin-bottom: 3px; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 13px; line-height: 1.25; }
   .linea .t { display: inline-block; white-space: pre; }
-  .linea .a { display: block; font-weight: 700; color: #a6612f; min-height: 1.2em; }
+  .linea .a { display: block; font-weight: 700; color: #3a4d8f; min-height: 1.2em; }
   .linea .w { display: block; }
   .blanco { height: 12px; }
   pre.letra { font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 0; }
@@ -186,7 +179,6 @@ export function playlistSheetHtml(
         <th>Título</th>
         <th>Artista</th>
         <th>Ocasión</th>
-        <th>Tono</th>
         <th class="num">BPM</th>
         <th class="num">Dur.</th>
       </tr>

@@ -18,8 +18,8 @@ export function motivoEnPalabras(motivo: string): string {
   return motivo === "archivo" ? "Mismo archivo" : "Mismo título";
 }
 
-const h2Style: CSSProperties = { fontSize: "15.5px", fontWeight: 700, margin: "0 0 3px" };
-const pStyle: CSSProperties = { fontSize: "12.5px", color: "var(--text-2)", margin: 0, lineHeight: 1.5 };
+const h2Style: CSSProperties = { fontSize: "12.5px", fontWeight: 600, margin: "0 0 2px" };
+const pStyle: CSSProperties = { fontSize: 11, color: "var(--text-2)", margin: 0, lineHeight: 1.55 };
 const badge: CSSProperties = {
   flex: "0 0 auto",
   fontSize: 10,
@@ -46,7 +46,7 @@ function Grupo({ grupo }: { grupo: DuplicateGroup }) {
   const dismissDuplicates = useStore((s) => s.dismissDuplicates);
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", padding: "13px 14px", marginBottom: 10 }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)", padding: "10px 11px", marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
         <Copy size={15} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
         <span style={{ fontSize: "13.5px", fontWeight: 600, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -110,7 +110,7 @@ function Grupo({ grupo }: { grupo: DuplicateGroup }) {
         <button
           onClick={() => mergeDuplicates(grupo.signature, queda)}
           className="hb-primary"
-          style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "var(--primary)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}
+          style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}
         >
           Conservar esta y fusionar el resto
         </button>
@@ -135,13 +135,13 @@ export default function DuplicateGroups() {
   const restoreDismissed = useStore((s) => s.restoreDismissedDuplicates);
 
   return (
-    <div style={{ marginBottom: 30 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 12 }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface)", padding: "13px 14px", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
         <div>
           <h2 style={h2Style}>Pistas duplicadas</h2>
           <p style={pStyle}>
             La misma canción suele acabar dos veces en la biblioteca: el MP3 y el WAV, la que bajó cada
-            quien en su carpeta. Al fusionarlas, la que se queda hereda las etiquetas, el favorito y el
+            quien en su carpeta. Al fusionarlas, la que se queda hereda el favorito y el
             sitio en las listas para culto de las demás. Tus archivos no se borran del disco.
           </p>
         </div>
@@ -149,19 +149,19 @@ export default function DuplicateGroups() {
           onClick={findDuplicates}
           disabled={estado === "buscando"}
           className="hb-s2"
-          style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600, opacity: estado === "buscando" ? 0.55 : 1 }}
+          style={{ flex: "0 0 auto", height: 26, display: "flex", alignItems: "center", gap: 6, padding: "0 10px", borderRadius: 6, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "11.5px", fontWeight: 600, opacity: estado === "buscando" ? 0.55 : 1 }}
         >
-          <Search size={14} strokeWidth={2.2} />
+          <Search size={13} strokeWidth={2.2} />
           {estado === "listo" ? "Buscar otra vez" : "Buscar duplicadas"}
         </button>
       </div>
 
       {estado === "buscando" && (
-        <p style={{ ...pStyle, padding: "14px 0" }}>Comparando tamaños, duraciones y títulos…</p>
+        <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>Comparando tamaños, duraciones y títulos…</p>
       )}
 
       {estado === "listo" && duplicates.length === 0 && (
-        <p style={{ ...pStyle, padding: "14px 15px", border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)" }}>
+        <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
           No encontramos pistas duplicadas.
         </p>
       )}

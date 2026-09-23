@@ -1,17 +1,39 @@
 import type { CSSProperties } from "react";
 import type { Track } from "./types";
 
-// Warm gradient palette used for generated cover art — verbatim from the design.
+// Paleta de las carátulas generadas — verbatim del rediseño.
+//
+// Antes eran ocho gradientes de colores distintos; ahora son seis tonos de la
+// misma familia azul sobre un fondo oscuro. Una pista sin carátula deja de
+// competir por la atención con las que sí la tienen, que es lo que se ve en
+// una biblioteca de iglesia: casi ninguna trae arte incrustado.
 export const COVERS: [string, string][] = [
-  ["#C77A4E", "#A9502E"],
-  ["#8F9668", "#6E7549"],
-  ["#6E8E8A", "#4F6E6A"],
-  ["#A9787F", "#87565E"],
-  ["#C4A46A", "#A5834A"],
-  ["#7C8AA6", "#5C6A86"],
-  ["#B08157", "#8E6039"],
-  ["#9C7BA0", "#7B5A80"],
+  ["#3a4d8f", "rgba(0,0,0,.45)"],
+  ["#465584", "rgba(0,0,0,.45)"],
+  ["#2b3a6e", "rgba(0,0,0,.45)"],
+  ["#546496", "rgba(0,0,0,.45)"],
+  ["#3c4560", "rgba(0,0,0,.45)"],
+  ["#6c7bb5", "rgba(0,0,0,.45)"],
 ];
+
+/**
+ * La letra con la que se dibuja la portada de una lista.
+ *
+ * El rediseño pone la inicial del nombre en la carátula en vez de un icono
+ * igual en todas: veinte listas con el mismo dibujo no se distinguen de un
+ * vistazo, y la inicial sí. Se salta lo que no es letra ni número, porque una
+ * lista llamada «— Domingo» empezaría con una raya.
+ */
+export function inicialDe(nombre: string): string {
+  for (const c of (nombre ?? "").trim()) {
+    // `toLocaleUpperCase` y no `toUpperCase`: en turco la i minúscula sube a
+    // «İ», y quien tenga esa configuración regional espera ver la suya.
+    if (/[\p{L}\p{N}]/u.test(c)) return c.toLocaleUpperCase();
+  }
+  // Un nombre sin una sola letra deja la portada con su degradado y nada más,
+  // que es mejor que inventarle un signo.
+  return "";
+}
 
 /** Deterministic string hash (djb-ish, matches the design's hash()). */
 export function hash(s: string): number {
@@ -46,7 +68,7 @@ export function coverStyle(
   if (t && t.missing) {
     return {
       ...base,
-      background: "linear-gradient(140deg,#8a8178,#5f574e)",
+      background: "linear-gradient(140deg,#7b828d,#4e545e)",
       filter: "saturate(.5)",
     };
   }

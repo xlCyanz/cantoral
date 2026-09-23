@@ -12,13 +12,11 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub tono: String,
     pub bpm: i64,
     pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
     pub carpeta: String,
-    pub tags: Vec<String>,
     pub fav: bool,
     pub missing: bool,
     /// Recency ordinal (row id) — higher means added more recently.
@@ -63,11 +61,12 @@ pub struct Folder {
 pub struct Playlist {
     pub id: String,
     pub nombre: String,
-    pub fecha: String,
     pub ocasion: String,
     pub ids: Vec<String>,
     /// A list kept as a starting point rather than as a service of its own.
     pub plantilla: bool,
+    /// RFC3339, UTC: la última vez que se abrió o se cambió. Lo que ordena.
+    pub tocada: String,
 }
 
 /// One track inside a group of suspected duplicates.
@@ -91,7 +90,6 @@ pub struct DuplicateTrack {
     pub fsize: i64,
     pub fav: bool,
     pub missing: bool,
-    pub tags: Vec<String>,
 }
 
 /// A set of tracks that look like the same song.
@@ -117,6 +115,9 @@ pub struct ScanProgress {
     pub file: String,
     pub done: bool,
     pub added: i64,
+    /// Archivos de medios que se reconocieron y no se indexaron porque ningún
+    /// motor de webview los decodifica.
+    pub omitidos: i64,
 }
 
 /// Format seconds as m:ss.

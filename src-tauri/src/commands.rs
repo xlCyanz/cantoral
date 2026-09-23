@@ -226,36 +226,36 @@ fn permitir_asset(app: &AppHandle, ruta: &str) {
     }
 }
 
-/// Hand a file to the system's default application.
+/// Hand the sheet the app just exported to the system's default application.
 ///
 /// The webview no longer holds `opener:allow-open-path`, so this is the only
-/// way to the OS opener — and it only lets through what the app itself put in
-/// the library, plus the sheet it just exported. With the permission granted
-/// straight to the webview, `open_path` was a request to run anything: the
-/// scope was `**`, and the system opener does not care whether the file is a
-/// song or an executable.
+/// way to the OS opener. With the permission granted straight to the webview,
+/// `open_path` was a request to run anything: the scope was `**`, and the
+/// system opener does not care whether the file is a song or an executable.
+///
+/// It used to let media through as well, for the «open in the system player»
+/// escape hatch. That hatch is gone (#81) — everything plays inside the app
+/// now — so the only file left to open is the printable sheet, and the rule
+/// narrowed with it. A command that can open less is a command worth less to
+/// anything that manages to call it.
 #[tauri::command]
-pub fn open_media_path(path: String) -> CmdResult<()> {
+pub fn open_exported_sheet(path: String) -> CmdResult<()> {
     if !abrible(std::path::Path::new(&path)) {
-        return Err(format!(
-            "Cantoral solo abre pistas de su biblioteca y hojas exportadas, no «{path}»."
-        ));
+        return Err(format!("Cantoral solo abre las hojas que exporta, no «{path}»."));
     }
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(e)
 }
 
 /// Whether this is a file Cantoral is willing to hand to the system opener.
 ///
-/// What the scanner indexes, plus the printable sheet the app itself just
-/// wrote. Separate from the command so the rule can be read and tested without
-/// anything actually opening.
+/// The printable sheet the app itself just wrote, and nothing else. Separate
+/// from the command so the rule can be read and tested without anything
+/// actually opening.
 fn abrible(path: &std::path::Path) -> bool {
-    let hoja = path
-        .extension()
+    path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
-        .unwrap_or(false);
-    scanner::is_media_path(path) || hoja
+        .unwrap_or(false)
 }
 
 /// Parse a list of ids coming from the frontend.
@@ -286,14 +286,6 @@ pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<S
     snapshot(&conn).map_err(e)
 }
 
-/// Put a tag on a whole selection, or take it off it.
-#[tauri::command]
-pub fn tag_tracks(db: State<Db>, ids: Vec<String>, tag: String, add: bool) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    db::tag_tracks(&conn, &ids_de(&ids)?, &tag, add).map_err(e)?;
-    snapshot(&conn).map_err(e)
-}
-
 /// Drop a whole selection from the catalogue. The audio files are untouched.
 #[tauri::command]
 pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
@@ -301,24 +293,6 @@ pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
     let parsed = ids_de(&ids)?;
     db::delete_tracks(&conn, &parsed).map_err(e)?;
     log::info!("{} tracks removed from the catalogue", parsed.len());
-    snapshot(&conn).map_err(e)
-}
-
-/// Rename a tag everywhere, folding it into an existing one if the name is taken.
-#[tauri::command]
-pub fn rename_tag(db: State<Db>, from: String, to: String) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    let total = db::rename_tag(&conn, &from, &to).map_err(e)?;
-    log::info!("tag «{from}» renamed to «{to}» ({total} tracks)");
-    snapshot(&conn).map_err(e)
-}
-
-/// Remove a tag from every track that carried it.
-#[tauri::command]
-pub fn delete_tag(db: State<Db>, name: String) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    db::delete_tag(&conn, &name).map_err(e)?;
-    log::info!("tag «{name}» deleted");
     snapshot(&conn).map_err(e)
 }
 
@@ -369,7 +343,7 @@ pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
-/// Point a track at the file's new location, keeping its tags and favourite.
+/// Point a track at the file's new location, keeping what it carries.
 #[tauri::command]
 pub fn relocate_track(
     app: AppHandle,
@@ -424,15 +398,13 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 pub fn update_track(
     db: State<Db>,
     id: String,
-    tono: String,
+    artista: String,
     bpm: i64,
     ocasion: String,
-    tags: Vec<String>,
 ) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &tono, bpm, &ocasion).map_err(e)?;
-    db::set_track_tags(&conn, tid, &tags).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista, bpm, &ocasion).map_err(e)?;
     Ok(())
 }
 
@@ -441,7 +413,6 @@ pub fn update_track(
 pub fn create_playlist(
     db: State<Db>,
     nombre: String,
-    fecha: String,
     ocasion: String,
     desde: Option<String>,
 ) -> CmdResult<String> {
@@ -449,7 +420,7 @@ pub fn create_playlist(
     // An unparseable id means «no template», not an error: the list is what the
     // user asked for, and creating it empty beats refusing to create it.
     let origen = desde.and_then(|d| d.parse::<i64>().ok());
-    let id = db::create_playlist(&conn, &nombre, &fecha, &ocasion, origen).map_err(e)?;
+    let id = db::create_playlist(&conn, &nombre, &ocasion, origen).map_err(e)?;
     Ok(id.to_string())
 }
 
@@ -497,13 +468,19 @@ pub fn update_playlist(
     db: State<Db>,
     playlist: String,
     nombre: String,
-    fecha: String,
     ocasion: String,
 ) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
-    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &fecha, &ocasion)
+    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &ocasion)
         .map_err(e)?;
     snapshot(&conn).map_err(e)
+}
+
+/// Apuntar que un culto se acaba de abrir o de cambiar. Ver `db::touch_playlist`.
+#[tauri::command]
+pub fn touch_playlist(db: State<Db>, playlist: String) -> CmdResult<()> {
+    let conn = db.0.lock().map_err(e)?;
+    db::touch_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)
 }
 
 /// Write a printable playlist sheet. The frontend renders the HTML; this only
@@ -520,6 +497,30 @@ pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
         return Err("El archivo exportado debe terminar en .html".into());
     }
     std::fs::write(&dest, html.as_bytes()).map_err(e)
+}
+
+/// Las pantallas conectadas, para elegir por cuál sale la proyección.
+#[tauri::command]
+pub fn projection_monitors(app: AppHandle) -> CmdResult<Vec<crate::proyeccion::Monitor>> {
+    crate::proyeccion::monitores(&app)
+}
+
+/// Abre la salida a pantalla completa en la pantalla pedida, o la mueve allí.
+#[tauri::command]
+pub fn open_projection(app: AppHandle, monitor: usize) -> CmdResult<()> {
+    crate::proyeccion::abrir(&app, monitor)
+}
+
+/// Cierra la salida.
+#[tauri::command]
+pub fn close_projection(app: AppHandle) -> CmdResult<()> {
+    crate::proyeccion::cerrar(&app)
+}
+
+/// Manda a la salida lo que tiene que mostrar.
+#[tauri::command]
+pub fn set_projection(app: AppHandle, contenido: serde_json::Value) -> CmdResult<()> {
+    crate::proyeccion::emitir(&app, contenido)
 }
 
 /// Is there a newer Cantoral published?
@@ -682,25 +683,29 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn what_the_library_indexes_can_be_opened() {
-        for bueno in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
-            assert!(abrible(Path::new(bueno)), "{bueno} should be openable");
-        }
-    }
-
-    #[test]
-    fn the_exported_sheet_can_be_opened_too() {
-        // It is what «Exportar» hands to the browser to be printed.
+    fn the_exported_sheet_can_be_opened() {
+        // It is what «Exportar» hands to the browser to be printed, and now
+        // the only thing this command opens at all.
         assert!(abrible(Path::new("/tmp/Culto.html")));
         assert!(abrible(Path::new("/tmp/Culto.htm")));
     }
 
     #[test]
+    fn media_is_no_longer_openable() {
+        // The escape hatch to the system player is gone (#81): everything
+        // plays inside the app, so handing a track to the OS is no longer
+        // something the app does — or something this command allows.
+        for media in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
+            assert!(!abrible(Path::new(media)), "{media} must no longer be openable");
+        }
+    }
+
+    #[test]
     fn an_extension_in_capitals_is_the_same_extension() {
-        // Windows is full of «.MP3»; a case-sensitive check would refuse to
-        // play half a library.
-        assert!(abrible(Path::new("/m/CORO.MP3")));
+        // Windows is full of «.HTML»; a case-sensitive check would refuse the
+        // sheet the app itself just wrote.
         assert!(abrible(Path::new("/tmp/Culto.HTML")));
+        assert!(abrible(Path::new("/tmp/Culto.Htm")));
     }
 
     #[test]

@@ -1,35 +1,36 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Clock, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
+import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
 import { SCAN_FILES } from "../lib/seed";
 import { coverStyle, hasCover } from "../lib/covers";
 import Empty, { emptyBtnSecondary } from "./Empty";
 import { favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
-import { ALTO_FILA, ALTO_GRUPO, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
-import type { SortKey, Track } from "../lib/types";
+import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
+import type { Densidad, SortKey, Track } from "../lib/types";
 
-const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 48px 62px 72px";
+const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 62px 72px";
 
 /** White glyph shown inside a cover swatch, keyed by track state. */
-function CoverInner({ t }: { t: Track }) {
+function CoverInner({ t, chico }: { t: Track; chico?: boolean }) {
   if (hasCover(t)) return null;
+  const g = (n: number) => (chico ? Math.round(n * 0.62) : n);
   if (t.missing)
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(16), height: g(16) }}>
         <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
         <path d="M12 9v4" /><path d="M12 17h.01" />
       </svg>
     );
   if (t.video)
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: 17, height: 17 }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(17), height: g(17) }}>
         <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
         <rect x="2" y="6" width="14" height="12" rx="2" />
       </svg>
     );
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(15), height: g(15) }}>
       <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
     </svg>
   );
@@ -55,18 +56,23 @@ function Equalizer() {
  * the entire table along with it. Actions are read through the store too, but
  * they are created once and never replaced, so they never cause a render.
  */
-const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
+const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: number; densidad: Densidad }) {
   const playing = useStore((s) => s.playerId === t.id && s.playing);
   const sel = useStore((s) => s.selId === t.id && s.detailOpen);
   const elegida = useStore((s) => s.selection.includes(t.id));
   const onRowClick = useStore((s) => s.onRowClick);
   const play = useStore((s) => s.play);
   const onFav = useStore((s) => s.onFav);
-  const onOpenExternal = useStore((s) => s.onOpenExternal);
   const openRowMenu = useStore((s) => s.openRowMenu);
   const startLibraryDrag = useStore((s) => s.startLibraryDrag);
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
 
+  const compacta = densidad === "compacta";
+  // Una fila compacta no tiene sitio para el artista *y* el aviso: si hay
+  // aviso, gana el aviso y el artista se va. Y entonces nada le pone tope al
+  // hueco, porque recortar «Sin archiv…» sería peor que no decirlo.
+  const conAviso = t.missing || t.video;
+  const muestraArtista = !compacta || !conAviso;
   const rowStyle: CSSProperties = {
     display: "grid",
     gridTemplateColumns: GRID,
@@ -74,9 +80,9 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
     gap: 8,
     // Pinned rather than left to the content, so the windowing math above can
     // predict where every row lands without measuring the DOM.
-    height: ALTO_FILA,
+    height: ALTOS[densidad].fila,
     boxSizing: "border-box",
-    padding: "8px 10px",
+    padding: compacta ? "0 10px" : "8px 10px",
     borderRadius: 11,
     cursor: "default",
     transition: "background .13s",
@@ -92,7 +98,7 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
     <div
       className="lib-row"
       tabIndex={0}
-      aria-label={`${t.titulo}, ${t.artista}${t.tono ? `, tono ${t.tono}` : ""}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
+      aria-label={`${t.titulo}, ${t.artista}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
       aria-selected={elegida}
       draggable
       onDragStart={(e) => {
@@ -129,11 +135,11 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
             <span style={{ fontSize: "12.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{num}</span>
             <button
               onClick={(e) => { e.stopPropagation(); play(t.id); }}
-              title={t.video ? "Abrir en el reproductor del sistema" : "Reproducir"}
+              title="Reproducir"
               className="row-play"
               style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "var(--text)", borderRadius: 7 }}
             >
-              {t.video ? <SquareArrowOutUpRight size={13} /> : <Play size={14} fill="currentColor" stroke="none" />}
+              <Play size={14} fill="currentColor" stroke="none" />
             </button>
           </>
         )}
@@ -141,13 +147,23 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
 
       {/* title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <div style={coverStyle(t, 40)}><CoverInner t={t} /></div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(sel ? { color: "var(--primary)" } : {}) }}>
+        <div style={coverStyle(t, compacta ? 24 : 40)}><CoverInner t={t} chico={compacta} /></div>
+        {/* Cómoda pone el artista debajo del título; compacta lo pone al lado,
+            porque en 34 px no caben dos líneas y perder el artista para ganar
+            filas no es un intercambio que valga la pena. */}
+        <div style={{ minWidth: 0, ...(compacta ? { display: "flex", alignItems: "center", gap: 7 } : {}) }}>
+          <div style={{ fontSize: compacta ? "12.5px" : 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(compacta ? { flex: "1 1 auto", minWidth: 0 } : {}), ...(sel ? { color: "var(--primary)" } : {}) }}>
             {t.titulo}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1 }}>
-            <span style={{ fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artista}</span>
+          {/* En una línea el título manda: el artista cede espacio primero y
+              no se queda con más de un tercio de la celda. Recortar «Cristo Ya
+              Resucit…» para que quepa entero «Voces de Gracia» es al revés.
+              Y si la fila lleva aviso, el artista se va del todo: que falte el
+              archivo importa más que quién la canta. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, marginTop: compacta ? 0 : 1, ...(compacta ? { flex: "0 0 auto", ...(muestraArtista ? { maxWidth: "34%", overflow: "hidden" } : {}) } : {}) }}>
+            {muestraArtista && (
+              <span style={{ fontSize: compacta ? "11.5px" : 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artista}</span>
+            )}
             {t.missing && (
               <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: "10.5px", fontWeight: 600, color: "var(--danger)", background: "var(--danger-soft)", padding: "1px 6px", borderRadius: 5 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" style={{ width: 10, height: 10 }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
@@ -167,8 +183,6 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.album}</div>
       {/* ocasion */}
       <div><span style={ocasionBadge}>{t.ocasion}</span></div>
-      {/* tono */}
-      <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{t.tono}</div>
       {/* dur */}
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       {/* actions */}
@@ -176,22 +190,47 @@ const TrackRow = memo(function TrackRow({ t, num }: { t: Track; num: number }) {
         <button onClick={(e) => { e.stopPropagation(); onFav(t.id); }} title="Favorita" aria-label={t.fav ? `Quitar «${t.titulo}» de favoritas` : `Marcar «${t.titulo}» como favorita`} aria-pressed={t.fav} className="hb-s3" style={favBtnStyle(t.fav)}>
           <Heart size={15} fill={t.fav ? "currentColor" : "none"} />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); onOpenExternal(t.id); }} title="Abrir en el reproductor del sistema" aria-label={`Abrir «${t.titulo}» en el reproductor del sistema`} className="hb-s3t" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
-          <SquareArrowOutUpRight size={14} />
-        </button>
       </div>
     </div>
   );
 });
 
 /** Heading that opens a group when the table is grouped. */
-function GroupHeader({ label, countLabel }: { label: string; countLabel: string }) {
+/**
+ * The bar that heads a group.
+ *
+ * Clicking it folds the group away. That is for the minute you are building a
+ * service out of one folder and the other three are in the way — so it lives
+ * in the session and is forgotten on the next launch.
+ *
+ * The path under the name only shows when grouping by folder, and it is the
+ * folder on disk: the name reads «Himnos / Clásicos», the path says which
+ * «Himnos» that is when two drives have one.
+ */
+function GroupHeader({ clave, label, ruta, countLabel, colapsado, densidad }: { clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean; densidad: Densidad }) {
+  const toggleGrupo = useStore((s) => s.toggleGrupo);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, height: ALTO_GRUPO, boxSizing: "border-box", padding: "16px 12px 7px" }}>
-      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".2px" }}>{label}</span>
-      <span style={{ fontSize: "11.5px", color: "var(--text-3)", fontWeight: 500 }}>{countLabel}</span>
-      <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-    </div>
+    <button
+      onClick={() => toggleGrupo(clave)}
+      aria-expanded={!colapsado}
+      title={colapsado ? `Desplegar «${label}»` : `Plegar «${label}»`}
+      className="hb-s3"
+      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", height: ALTOS[densidad].grupo, boxSizing: "border-box", padding: "0 12px", background: "var(--surface-2)", borderTop: "1px solid var(--border)", textAlign: "left", transition: "background .13s" }}
+    >
+      <ChevronRight
+        size={13}
+        style={{ flex: "0 0 auto", color: "var(--text-3)", transform: colapsado ? "none" : "rotate(90deg)", transition: "transform .14s" }}
+      />
+      <Folder size={13} style={{ flex: "0 0 auto", color: "var(--text-3)", opacity: ruta ? 1 : 0 }} />
+      <span style={{ flex: "0 0 auto", fontSize: "12.5px", fontWeight: 600 }}>{label}</span>
+      {ruta && (
+        <span title={ruta} style={{ minWidth: 0, fontSize: "10.5px", color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {ruta}
+        </span>
+      )}
+      <span style={{ flex: 1 }} />
+      <span style={{ flex: "0 0 auto", fontSize: "10.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{countLabel}</span>
+    </button>
   );
 }
 
@@ -203,7 +242,6 @@ function ColumnHeader() {
     { key: "titulo", label: "Título" },
     { key: "album", label: "Álbum" },
     { key: "ocasion", label: "Ocasión" },
-    { key: "tono", label: "Tono" },
     { key: "dur", label: "", icon: true },
   ];
   return (
@@ -229,30 +267,72 @@ function ColumnHeader() {
   );
 }
 
+/** Botón principal de una pantalla de estado. */
+const btnEstado: CSSProperties = {
+  height: 34,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 16px",
+  borderRadius: 8,
+  background: "var(--primary-fill)",
+  color: "var(--on-primary)",
+  fontSize: "12.5px",
+  fontWeight: 600,
+};
+
+/** Y el secundario, al lado. */
+const btnEstadoSec: CSSProperties = {
+  height: 34,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 14px",
+  borderRadius: 8,
+  border: "1px solid var(--border-2)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: "12.5px",
+  fontWeight: 600,
+};
+
+const marcoEstado: CSSProperties = {
+  height: "100%",
+  display: "grid",
+  placeItems: "center",
+  padding: 24,
+  animation: "canFade .3s ease",
+};
+
 function EmptyState() {
   const openAddFolder = useStore((s) => s.openAddFolder);
   const openHelp = useStore((s) => s.openHelp);
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 40, animation: "canFade .3s ease" }}>
-      <div style={{ width: 104, height: 104, borderRadius: "50%", background: "var(--primary-soft)", display: "grid", placeItems: "center", marginBottom: 26, position: "relative" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ width: 46, height: 46 }}>
-          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-        </svg>
-        <div style={{ position: "absolute", bottom: -2, right: -2, width: 38, height: 38, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center", border: "3px solid var(--bg)", boxShadow: "var(--sh-sm)" }}>
-          <FolderPlus size={18} color="var(--on-primary)" strokeWidth={2.2} />
+    <div style={marcoEstado}>
+      <div style={{ maxWidth: 360, textAlign: "center" }}>
+        <div style={{ width: 54, height: 54, margin: "0 auto 14px", borderRadius: 12, border: "1px dashed var(--border-2)", display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}>
+            <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+          </svg>
         </div>
-      </div>
-      <h2 className="serif" style={{ fontSize: 32, margin: "0 0 10px" }}>Tu biblioteca está vacía</h2>
-      <p style={{ fontSize: "14.5px", color: "var(--text-2)", maxWidth: 420, lineHeight: 1.55, margin: "0 0 26px" }}>
-        Agrega una carpeta con tus pistas y coros. Cantoral la revisará y organizará tu música automáticamente, sin mover ni copiar tus archivos.
-      </p>
-      <div style={{ display: "flex", gap: 12 }}>
-        <button onClick={openAddFolder} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
-          <FolderPlus size={18} strokeWidth={2.2} />Agregar carpeta de música
-        </button>
-        <button onClick={openHelp} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
-          ¿Cómo funciona?
-        </button>
+        <h2 className="display" style={{ fontSize: 24, margin: "0 0 6px" }}>Todavía no hay música</h2>
+        {/* Esta es la frase más importante de la app. Quien administra la
+            música de una iglesia lleva años ordenándola a mano y lo que
+            necesita saber, antes de dejar entrar a un programa, es que no se
+            la van a desordenar. Iba al final de un párrafo largo; ahora va
+            enumerada y en negrita. */}
+        <p style={{ margin: "0 0 16px", fontSize: "12.5px", lineHeight: 1.6, color: "var(--text-2)" }}>
+          Elige la carpeta donde guardas las pistas. Cantoral solo las lee para hacer una lista:{" "}
+          <strong style={{ color: "var(--text)" }}>no mueve, no renombra y no borra ningún archivo</strong>.
+        </p>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={openAddFolder} className="hb-primary" style={btnEstado}>
+            <FolderPlus size={15} strokeWidth={2.2} />Elegir carpeta…
+          </button>
+          <button onClick={openHelp} className="hb-s2" style={btnEstadoSec}>
+            ¿Cómo funciona?
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -263,34 +343,35 @@ function ScanningState() {
   const scanIdx = useStore((s) => s.scanIdx);
   const scanFile = useStore((s) => s.scanFile);
   const cancelScan = useStore((s) => s.cancelScan);
+  const pct = Math.round(scanPct);
+  const archivo = scanFile || SCAN_FILES[scanIdx] || "";
   return (
-    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 40, animation: "canFade .3s ease" }}>
-      <div style={{ width: "100%", maxWidth: 460, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "var(--sh-md)", padding: "30px 30px 26px", textAlign: "center" }}>
-        <div style={{ width: 66, height: 66, margin: "0 auto 20px", position: "relative", display: "grid", placeItems: "center" }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--border-2)" strokeWidth={2} style={{ width: 66, height: 66, position: "absolute" }}><circle cx="12" cy="12" r="10" /></svg>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round" style={{ width: 66, height: 66, position: "absolute", animation: "canSpin 1s linear infinite" }}><path d="M12 2a10 10 0 0 1 10 10" /></svg>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26 }}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>
-        </div>
-        <h2 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 6px" }}>Escaneando tu música…</h2>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 22px" }}>Indexando metadatos. Puedes seguir usando la app mientras tanto.</p>
+    <div style={marcoEstado}>
+      <div style={{ width: "100%", maxWidth: 330, textAlign: "center" }}>
+        <div style={{ width: 34, height: 34, margin: "0 auto 14px", border: "2px solid var(--border-2)", borderTopColor: "var(--primary)", borderRadius: "50%", animation: "canSpin 900ms linear infinite" }} />
+        <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>Leyendo tus carpetas</h2>
+        <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-2)", lineHeight: 1.55, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+          <span style={{ fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{pct}%</span>
+          <span title={archivo} style={{ minWidth: 0, color: "var(--text-3)", fontFamily: "ui-monospace,monospace", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {archivo}
+          </span>
+        </p>
         <div
           role="progressbar"
           aria-label="Progreso del escaneo"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={Math.round(scanPct)}
-          style={{ height: 9, borderRadius: 6, background: "var(--surface-3)", overflow: "hidden", marginBottom: 11 }}
+          aria-valuenow={pct}
+          style={{ height: 6, borderRadius: 4, background: "var(--surface-3)", overflow: "hidden", marginBottom: 12 }}
         >
-          <div style={{ width: scanPct + "%", height: "100%", borderRadius: 6, background: "linear-gradient(90deg,var(--primary),var(--primary-hover))", transition: "width .16s linear" }} />
+          <div style={{ width: pct + "%", height: "100%", borderRadius: 4, background: "var(--primary)", transition: "width .16s linear" }} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", flex: "0 0 auto", animation: "canScanPulse 1s ease-in-out infinite" }} />
-            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "ui-monospace,monospace", fontSize: 11 }}>{scanFile || SCAN_FILES[scanIdx] || ""}</span>
-          </span>
-          <span style={{ flex: "0 0 auto", fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums", paddingLeft: 12 }}>{Math.round(scanPct)}%</span>
+        <button onClick={cancelScan} className="hb-s2" style={{ ...btnEstadoSec, height: 28, fontSize: 12, margin: "0 auto" }}>
+          Cancelar el escaneo
+        </button>
+        <div style={{ marginTop: 12, fontSize: 11, color: "var(--text-3)", lineHeight: 1.5 }}>
+          Puedes seguir usando Cantoral mientras termina. Las pistas irán apareciendo solas.
         </div>
-        <button onClick={cancelScan} className="hb-s2" style={{ marginTop: 22, height: 36, padding: "0 16px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 13, fontWeight: 600 }}>Cancelar</button>
       </div>
     </div>
   );
@@ -301,24 +382,33 @@ function ErrorState() {
   const retryError = useStore((s) => s.retryError);
   const showConfig = useStore((s) => s.showConfig);
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 40, animation: "canFade .3s ease" }}>
-      <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--danger-soft)", display: "grid", placeItems: "center", marginBottom: 24 }}>
-        <TriangleAlert size={44} color="var(--danger)" strokeWidth={1.7} />
-      </div>
-      <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>No pudimos leer esta carpeta</h2>
-      <p style={{ fontSize: 14, color: "var(--text-2)", maxWidth: 430, lineHeight: 1.55, margin: "0 0 8px" }}>
-        La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
-      </p>
-      {scanError && (
-        <code style={{ fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "5px 11px", borderRadius: 8, maxWidth: 460, textAlign: "left", overflowWrap: "anywhere" }}>{scanError}</code>
-      )}
-      <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-        <button onClick={retryError} className="hb-primary" style={{ height: 44, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
-          <RefreshCw size={17} strokeWidth={2.2} />Reintentar
-        </button>
-        <button onClick={showConfig} className="hb-s2" style={{ height: 44, display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, transition: "background .14s" }}>
-          Administrar carpetas
-        </button>
+    <div style={marcoEstado}>
+      <div style={{ maxWidth: 380, textAlign: "center" }}>
+        <div style={{ width: 44, height: 44, margin: "0 auto 14px", borderRadius: "50%", background: "var(--danger-soft)", display: "grid", placeItems: "center", color: "var(--danger)" }}>
+          <TriangleAlert size={22} strokeWidth={2} />
+        </div>
+        <h2 className="display" style={{ fontSize: 22, margin: "0 0 6px" }}>No pudimos leer esta carpeta</h2>
+        <p style={{ margin: "0 0 6px", fontSize: "12.5px", lineHeight: 1.6, color: "var(--text-2)" }}>
+          La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
+        </p>
+        {/* Nada se ha perdido, y decirlo aquí importa: quien ve un error rojo
+            sobre su biblioteca asume lo peor. */}
+        <p style={{ margin: "0 0 16px", fontSize: "11.5px", lineHeight: 1.6, color: "var(--text-3)" }}>
+          Tus pistas y tus cultos siguen donde estaban: esto solo es la carpeta que no se pudo abrir.
+        </p>
+        {scanError && (
+          <code style={{ display: "block", fontSize: 11, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 7, marginBottom: 16, textAlign: "left", overflowWrap: "anywhere" }}>
+            {scanError}
+          </code>
+        )}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={retryError} className="hb-primary" style={btnEstado}>
+            <RefreshCw size={15} strokeWidth={2.2} />Volver a intentarlo
+          </button>
+          <button onClick={showConfig} className="hb-s2" style={btnEstadoSec}>
+            Administrar carpetas
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -345,8 +435,10 @@ function Tabla() {
   // changed, so this only re-runs when the library really is different.
   const groups = useStore((s) => buildGroups(s, list));
   const query = useStore((s) => s.query);
+  const total = useStore((s) => s.tracks.length);
+  const densidad = useStore((s) => s.densidad);
 
-  const plano = useMemo(() => aplanar(groups), [groups]);
+  const plano = useMemo(() => aplanar(groups, ALTOS[densidad]), [groups, densidad]);
   const ventanear = plano.filas.length >= DESDE;
 
   const hueco = useRef<HTMLDivElement>(null);
@@ -385,12 +477,15 @@ function Tabla() {
   if (list.length === 0) {
     return (
       <Empty
-        icon={<Search size={40} />}
-        title="Sin resultados"
-        desc={query ? `No encontramos nada para «${query}».` : "Ninguna canción coincide con este filtro."}
+        icon={<Search size={24} />}
+        title={query ? `Nada coincide con «${query}»` : "Ninguna pista pasa estos filtros"}
+        // Decir dónde se buscó es la respuesta a la pregunta que se hace
+        // cualquiera al ver esto: «¿lo estoy escribiendo mal, o de verdad no
+        // está?». La lista de campos es la que `applyFilters` recorre.
+        desc={`Se buscó en el título, el artista, el álbum y la ocasión de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
         action={
           <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null })} className="hb-s2" style={emptyBtnSecondary}>
-            Limpiar filtros
+            Quitar la búsqueda y los filtros
           </button>
         }
       />
@@ -410,9 +505,9 @@ function Tabla() {
         <div style={recortado ? { transform: `translateY(${plano.offsets[rango.desde]}px)` } : undefined}>
           {visibles.map((f) =>
             f.tipo === "grupo" ? (
-              <GroupHeader key={`g:${f.label}`} label={f.label} countLabel={f.countLabel} />
+              <GroupHeader key={`g:${f.clave}`} clave={f.clave} label={f.label} ruta={f.ruta} countLabel={f.countLabel} colapsado={f.colapsado} densidad={densidad} />
             ) : (
-              <TrackRow key={f.track.id} t={f.track} num={f.num} />
+              <TrackRow key={f.track.id} t={f.track} num={f.num} densidad={densidad} />
             ),
           )}
         </div>

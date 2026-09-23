@@ -51,7 +51,7 @@ cargo audit --file src-tauri/Cargo.lock
 
 - [ ] La migración es **aditiva** (`ALTER TABLE … ADD COLUMN`), sin borrar ni cambiar columnas existentes
 - [ ] Una base creada con la versión anterior sigue abriendo sin perder datos
-- [ ] Los campos que edita el usuario (`tono`, `bpm`, `ocasion`, `fav`, etiquetas) siguen sobreviviendo a un re-escaneo
+- [ ] Los campos que edita el usuario (`artista`, `bpm`, `ocasion`, `fav`) siguen sobreviviendo a un re-escaneo
 
 ## Si tocaste la interfaz
 

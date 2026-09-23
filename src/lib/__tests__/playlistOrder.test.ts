@@ -41,7 +41,7 @@ describe("quitar una pista de la lista", () => {
     await vi.waitFor(() => expect(useStore.getState().toast?.type).toBe("error"));
 
     expect(orden()).toEqual(antes);
-    expect(useStore.getState().toast?.message).toContain("No se pudo guardar el orden");
+    expect(useStore.getState().toast?.titulo).toContain("No se pudo guardar el orden");
   });
 });
 

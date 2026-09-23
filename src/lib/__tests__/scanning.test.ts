@@ -37,12 +37,10 @@ function track(id: string): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Do",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -226,16 +224,51 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
     // Casi a punto de consultar, el usuario teclea en el panel de detalle.
     await vi.advanceTimersByTimeAsync(1800);
     useStore.getState().onRowClick("a");
-    useStore.getState().setEdit("tono", "Solm");
+    useStore.getState().setEdit("ocasion", "Comunión");
 
     // La consulta tocaba ahora; la edición sigue esperando su debounce.
     await vi.advanceTimersByTimeAsync(200);
 
     expect(getLibrary).not.toHaveBeenCalled();
-    expect(useStore.getState().tracks[0].tono).toBe("Solm");
+    expect(useStore.getState().tracks[0].ocasion).toBe("Comunión");
 
     final.resolver(snapshot(["a"]));
     await vi.runOnlyPendingTimersAsync();
+  });
+});
+
+describe("la tarjeta de la esquina se puede esconder", () => {
+  beforeEach(() => {
+    useStore.setState({ tracks: [track("vieja")], libState: "content" });
+  });
+
+  it("esconderla no para el escaneo", () => {
+    // Son dos cosas distintas: quitarse la tarjeta de delante y cancelar.
+    useStore.getState().indexFolder("/musica", true);
+
+    useStore.getState().ocultarTarjetaEscaneo();
+
+    expect(useStore.getState().tarjetaEscaneoOculta).toBe(true);
+    expect(useStore.getState().scanning).toBe(true);
+    expect(cancelScanCmd).not.toHaveBeenCalled();
+  });
+
+  it("y el siguiente escaneo la vuelve a mostrar", () => {
+    // Si no, esconderla una vez la escondería para siempre y el escaneo
+    // siguiente correría sin que nada lo dijera.
+    useStore.setState({ tarjetaEscaneoOculta: true });
+
+    useStore.getState().indexFolder("/musica", true);
+
+    expect(useStore.getState().tarjetaEscaneoOculta).toBe(false);
+  });
+
+  it("también al volver a escanear una carpeta desde Configuración", () => {
+    useStore.setState({ tarjetaEscaneoOculta: true });
+
+    useStore.getState().rescanFolder("f1");
+
+    expect(useStore.getState().tarjetaEscaneoOculta).toBe(false);
   });
 });
 
@@ -257,7 +290,7 @@ describe("un solo escaneo a la vez", () => {
     useStore.getState().indexFolder("/otra", true);
 
     expect(addAndScanFolder).toHaveBeenCalledOnce();
-    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
   });
 
   it("no lanza un segundo escaneo desde Configuración", () => {
@@ -266,7 +299,7 @@ describe("un solo escaneo a la vez", () => {
     useStore.getState().rescanFolder("f1");
 
     expect(rescanFolderCmd).not.toHaveBeenCalled();
-    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
   });
 
   it("ni siquiera abre el diálogo de agregar carpeta mientras escanea", () => {
@@ -275,7 +308,7 @@ describe("un solo escaneo a la vez", () => {
     useStore.getState().openAddFolder();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
   });
 
   it("vuelve a dejar escanear en cuanto el anterior termina", async () => {

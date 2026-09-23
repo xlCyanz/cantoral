@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Layers, ListMusic, Pencil } from "lucide-react";
 import { plantillas as plantillasSel, useStore } from "../store";
-import { esIso } from "../lib/fechas";
 import Modal from "./Modal";
 
 const label = { display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 7 } as const;
@@ -39,7 +38,6 @@ export default function NewListDialog() {
       key={editing ? `edit:${current?.id ?? ""}` : "new"}
       editing={editing}
       initialNombre={editing ? current?.nombre ?? "" : ""}
-      initialFecha={editing ? current?.fecha ?? "" : ""}
       initialOcasion={editing ? current?.ocasion ?? "" : ""}
     />
   );
@@ -48,12 +46,10 @@ export default function NewListDialog() {
 function ListForm({
   editing,
   initialNombre,
-  initialFecha,
   initialOcasion,
 }: {
   editing: boolean;
   initialNombre: string;
-  initialFecha: string;
   initialOcasion: string;
 }) {
   const closeDialog = useStore((s) => s.closeDialog);
@@ -62,14 +58,13 @@ function ListForm({
   const plantillas = useStore(plantillasSel);
 
   const [nombre, setNombre] = useState(initialNombre);
-  const [fecha, setFecha] = useState(initialFecha);
   const [ocasion, setOcasion] = useState(initialOcasion);
   const [desde, setDesde] = useState("");
 
   const submit = () => {
     if (!nombre.trim()) return;
-    if (editing) updateList(nombre, fecha, ocasion);
-    else createList(nombre, fecha, ocasion, desde || undefined);
+    if (editing) updateList(nombre, ocasion);
+    else createList(nombre, ocasion, desde || undefined);
   };
 
   /**
@@ -94,7 +89,7 @@ function ListForm({
             {editing ? "Editar lista" : "Nueva lista para culto"}
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
-            {editing ? "Cambia el nombre, la fecha o la ocasión." : "Dale un nombre y arma el repertorio."}
+            {editing ? "Cambia el nombre o la ocasión." : "Dale un nombre y arma el repertorio."}
           </p>
         </div>
       </div>
@@ -150,24 +145,6 @@ function ListForm({
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
         </div>
         <div>
-          <label style={label}>Fecha <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-          <input
-            type="date"
-            value={esIso(fecha) ? fecha : ""}
-            onChange={(e) => setFecha(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="in-focus"
-            style={field}
-          />
-          {/* A date written before there was a date picker cannot go in the
-              field, so it is shown rather than vanishing without a word. */}
-          {fecha && !esIso(fecha) && (
-            <p style={{ fontSize: 11, color: "var(--text-3)", margin: "5px 0 0" }}>
-              Antes decía «{fecha}». Elige una fecha para reemplazarla, o déjalo en blanco para quitarla.
-            </p>
-          )}
-        </div>
-        <div>
           <label style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
           <input value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
           <datalist id="ocasiones-lista">
@@ -182,7 +159,7 @@ function ListForm({
 
       <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
         <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>Cancelar</button>
-        <button onClick={submit} disabled={!nombre.trim()} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nombre.trim() ? 1 : 0.55, cursor: nombre.trim() ? "pointer" : "not-allowed" }}>
+        <button onClick={submit} disabled={!nombre.trim()} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nombre.trim() ? 1 : 0.55, cursor: nombre.trim() ? "pointer" : "not-allowed" }}>
           {editing ? "Guardar cambios" : "Crear lista"}
         </button>
       </div>

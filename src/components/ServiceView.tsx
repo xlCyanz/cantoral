@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus, Type, X } from "lucide-react";
 import { useStore } from "../store";
-import { transponerTono, usaBemoles } from "../lib/chords";
 import { parseHoja } from "../lib/chords";
 
 const boton: CSSProperties = {
@@ -32,12 +31,10 @@ const etiqueta: CSSProperties = {
  * The sheet as it is read from the stand: chords over the syllable they fall
  * on, sections marked, everything sized by one multiplier the user controls.
  */
-function Hoja({ acordes, letra, escala, semitonos, bemoles }: {
+function Hoja({ acordes, letra, escala }: {
   acordes: string;
   letra: string;
   escala: number;
-  semitonos: number;
-  bemoles: boolean;
 }) {
   if (!acordes.trim()) {
     if (!letra.trim()) return null;
@@ -46,7 +43,7 @@ function Hoja({ acordes, letra, escala, semitonos, bemoles }: {
       <div style={{ fontSize: 20 * escala, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{letra}</div>
     );
   }
-  const lineas = parseHoja(acordes, semitonos, bemoles);
+  const lineas = parseHoja(acordes);
   return (
     <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 19 * escala, lineHeight: 1.3 }}>
       {lineas.map((linea, i) => {
@@ -91,13 +88,12 @@ function Hoja({ acordes, letra, escala, semitonos, bemoles }: {
  *
  * It is the same journey the playlist already describes — the songs in the
  * order they will be sung — with the one thing the app could not show until
- * now on screen, and in the key the group is singing it in this week.
+ * now on screen: the sheet itself, big enough to read from the stand.
  */
 export default function ServiceView() {
   const abierto = useStore((s) => s.serviceOpen);
   const orden = useStore((s) => s.plOrder[s.curPlaylist]);
   const idx = useStore((s) => s.serviceIdx);
-  const semitonos = useStore((s) => s.serviceSemitones);
   const escala = useStore((s) => s.serviceScale);
   const lista = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
   const pista = useStore((s) => {
@@ -112,17 +108,11 @@ export default function ServiceView() {
   });
   const closeService = useStore((s) => s.closeService);
   const serviceGo = useStore((s) => s.serviceGo);
-  const transposeService = useStore((s) => s.transposeService);
   const scaleService = useStore((s) => s.scaleService);
   const openSheetEditor = useStore((s) => s.openSheetEditor);
 
   if (!abierto || !pista) return null;
   const total = orden?.length ?? 0;
-  const tonoOriginal = pista.tono?.trim() ?? "";
-  const tonoActual = semitonos ? transponerTono(tonoOriginal, semitonos) : tonoOriginal;
-  // The sheet is spelled for the key it is being read in, not the one it was
-  // written in: «Sol#» in a flat key is a translation the player has to do.
-  const bemoles = usaBemoles(tonoActual || tonoOriginal);
   const letra = hoja?.letra ?? "";
   const acordes = hoja?.acordes ?? "";
   const vacia = !letra.trim() && !acordes.trim();
@@ -142,22 +132,6 @@ export default function ServiceView() {
 
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, paddingRight: 8, borderRight: "1px solid var(--border)" }}>
-            <span style={etiqueta}>Tono</span>
-            <button onClick={() => transposeService(-1)} title="Bajar medio tono" aria-label="Bajar medio tono" className="hb-s2" style={boton}>
-              <Minus size={15} />
-            </button>
-            <span
-              aria-live="polite"
-              style={{ minWidth: 58, textAlign: "center", fontSize: 15, fontWeight: 700, color: semitonos ? "var(--primary)" : "var(--text)" }}
-            >
-              {tonoActual || "—"}
-            </span>
-            <button onClick={() => transposeService(1)} title="Subir medio tono" aria-label="Subir medio tono" className="hb-s2" style={boton}>
-              <Plus size={15} />
-            </button>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 6, paddingRight: 8, borderRight: "1px solid var(--border)" }}>
             <Type size={15} color="var(--text-3)" />
             <button onClick={() => scaleService(-0.1)} title="Achicar la letra" aria-label="Achicar la letra" className="hb-s2" style={boton}>
               <Minus size={15} />
@@ -175,11 +149,6 @@ export default function ServiceView() {
 
       <main style={{ flex: 1, overflowY: "auto", padding: "26px 32px 40px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          {semitonos !== 0 && tonoOriginal && (
-            <div style={{ ...etiqueta, marginBottom: 14, color: "var(--primary)" }}>
-              Transpuesto desde {tonoOriginal} · {semitonos > 0 ? `+${semitonos}` : semitonos} semitonos
-            </div>
-          )}
           {vacia ? (
             <div style={{ padding: "60px 0", textAlign: "center" }}>
               <p style={{ fontSize: 17, color: "var(--text-2)", margin: "0 0 18px" }}>
@@ -188,13 +157,13 @@ export default function ServiceView() {
               <button
                 onClick={() => openSheetEditor(pista.id)}
                 className="hb-primary"
-                style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600 }}
+                style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 600 }}
               >
                 Escribirla ahora
               </button>
             </div>
           ) : (
-            <Hoja acordes={acordes} letra={letra} escala={escala} semitonos={semitonos} bemoles={bemoles} />
+            <Hoja acordes={acordes} letra={letra} escala={escala} />
           )}
         </div>
       </main>
@@ -204,7 +173,7 @@ export default function ServiceView() {
           <ChevronLeft size={17} />Anterior
         </button>
         <div style={{ flex: 1, textAlign: "center", ...etiqueta }}>
-          Usa ← → para cambiar de canción y + − para el tono
+          Usa ← → para cambiar de canción
         </div>
         <button onClick={() => serviceGo(1)} disabled={idx >= total - 1} className="hb-s2" style={{ ...boton, height: 40, padding: "0 16px", opacity: idx >= total - 1 ? 0.45 : 1 }}>
           Siguiente<ChevronRight size={17} />

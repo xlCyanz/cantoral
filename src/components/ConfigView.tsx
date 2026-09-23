@@ -1,15 +1,38 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpCircle, CircleCheck, Database, Download, Folder, FolderInput, HelpCircle, Plus, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { ArrowUpCircle, CircleCheck, Download, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
-import TagManager from "./TagManager";
 import { getDbInfo, isMacOS, type DbInfo } from "../lib/api";
+import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { ThemeMode } from "../lib/types";
+import { Logotipo } from "./Logo";
 
-const h2Style: CSSProperties = { fontSize: 15, fontWeight: 700, margin: "0 0 3px" };
-const pStyle: CSSProperties = { fontSize: 13, color: "var(--text-2)", margin: 0 };
+// El rediseño pone cada cosa en su tarjeta en vez de encadenar secciones con
+// títulos sueltos y 30 px de aire entre ellas. Configuración se mira entera de
+// una sentada —qué carpetas hay, si hay duplicadas, cuándo fue la última
+// copia—, y así entra sin tener que recorrerla.
+const tarjeta: CSSProperties = {
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  background: "var(--surface)",
+  padding: "13px 14px",
+  marginBottom: 12,
+};
+const h2Style: CSSProperties = { fontSize: "12.5px", fontWeight: 600, margin: "0 0 2px" };
+const pStyle: CSSProperties = { fontSize: 11, color: "var(--text-2)", margin: 0, lineHeight: 1.55 };
+/** Un botón de acción de los pequeños, los de las filas de carpeta. */
+const botonFila: CSSProperties = {
+  height: 25,
+  padding: "0 9px",
+  borderRadius: 6,
+  border: "1px solid var(--border-2)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  fontSize: 11,
+  flex: "0 0 auto",
+};
 
 /** Bytes → human-readable size. */
 function formatSize(bytes: number): string {
@@ -33,8 +56,8 @@ function formatScan(iso: string | undefined): string {
   return d.toLocaleDateString("es") + " " + hhmm;
 }
 
-const LIGHT_P = { bg: "#FAF7F2", side: "#F1EBE1", border: "#E8E0D4", primary: "#A9502E", muted: "#D9CEBE" };
-const DARK_P = { bg: "#13100e", side: "#221b16", border: "#3a3128", primary: "#db8155", muted: "#4c4033" };
+const LIGHT_P = { bg: "#f7f8fa", side: "#eef0f4", border: "#e1e5ea", primary: "#3a4d8f", muted: "#cbd1da" };
+const DARK_P = { bg: "#14171c", side: "#0f1216", border: "#2c313a", primary: "#8ba1e6", muted: "#3e4552" };
 
 function MiniPreview({ p, half }: { p: typeof LIGHT_P; half?: boolean }) {
   return (
@@ -55,9 +78,9 @@ function ThemeCard({ value, label }: { value: ThemeMode; label: string }) {
   return (
     <button
       onClick={() => setThemeMode(value)}
-      style={{ flex: 1, padding: "14px 12px", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, transition: "all .14s", cursor: "pointer", border: `1.5px solid ${active ? "var(--primary)" : "var(--border-2)"}`, background: active ? "var(--primary-soft)" : "var(--surface)", color: "var(--text)" }}
+      style={{ flex: 1, padding: 0, borderRadius: 9, overflow: "hidden", textAlign: "left", transition: "all .14s", cursor: "pointer", border: `1px solid ${active ? "var(--primary)" : "var(--border-2)"}`, background: active ? "var(--primary-soft)" : "var(--surface-2)", color: "var(--text)" }}
     >
-      <div style={{ width: "100%", height: 52, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-2)", display: "flex" }}>
+      <div style={{ width: "100%", height: 52, borderBottom: "1px solid var(--border)", overflow: "hidden", display: "flex" }}>
         {value === "light" && <MiniPreview p={LIGHT_P} />}
         {value === "dark" && <MiniPreview p={DARK_P} />}
         {value === "system" && (
@@ -67,7 +90,7 @@ function ThemeCard({ value, label }: { value: ThemeMode; label: string }) {
           </>
         )}
       </div>
-      <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+      <span style={{ display: "block", padding: "6px 8px", fontSize: "11.5px", fontWeight: 600 }}>{label}</span>
     </button>
   );
 }
@@ -80,13 +103,12 @@ const PEOPLE = [
 export default function ConfigView() {
   const folders = useStore((s) => s.folders);
   const totalTracks = useStore((s) => s.tracks.length);
-  const openExt = useStore((s) => s.openExt);
+  const tracks = useStore((s) => s.tracks);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const scanning = useStore((s) => s.scanning);
   const rescanFolder = useStore((s) => s.rescanFolder);
   const relocateFolder = useStore((s) => s.relocateFolder);
   const removeFolder = useStore((s) => s.removeFolder);
-  const toggleOpenExt = useStore((s) => s.toggleOpenExt);
   const restore = useStore((s) => s.restore);
   const backup = useStore((s) => s.backup);
   const openHelp = useStore((s) => s.openHelp);
@@ -96,6 +118,8 @@ export default function ConfigView() {
     void getDbInfo().then(setDbInfo);
   }, [folders.length, totalTracks]);
 
+  const faltantesPorCarpeta = faltantesPorCarpetaDe(tracks, folders);
+
   const lastScan = folders
     .map((f) => f.lastScan)
     .filter((x): x is string => !!x)
@@ -103,133 +127,112 @@ export default function ConfigView() {
     .pop();
 
   return (
-    <div style={{ maxWidth: 680, margin: "0 auto", padding: "28px 24px 44px" }}>
-      {/* apariencia */}
-      <div style={{ marginBottom: 30 }}>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 18px 24px" }}>
+      <div style={tarjeta}>
         <h2 style={h2Style}>Apariencia</h2>
-        <p style={{ ...pStyle, marginBottom: 14 }}>Elige cómo se ve Cantoral.</p>
-        <div style={{ display: "flex", gap: 12 }}>
+        <p style={{ ...pStyle, marginBottom: 10 }}>El oscuro está pensado para un templo con las luces bajas.</p>
+        <div style={{ display: "flex", gap: 9 }}>
           <ThemeCard value="light" label="Claro" />
           <ThemeCard value="dark" label="Oscuro" />
-          <ThemeCard value="system" label="Sistema" />
+          <ThemeCard value="system" label="Seguir al sistema" />
         </div>
       </div>
 
-      {/* carpetas */}
-      <div style={{ marginBottom: 30 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div>
-            <h2 style={h2Style}>Carpetas indexadas</h2>
-            <p style={pStyle}>Cantoral revisa estas ubicaciones. Tus archivos nunca se mueven ni se copian. Si una carpeta cambió de sitio, muévela en vez de quitarla: así conserva etiquetas y favoritos.</p>
-          </div>
-          <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ flex: "0 0 auto", height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 13px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600, ...ocupadoStyle(scanning) }}>
-            <Plus size={14} strokeWidth={2.2} />Agregar
+      <div style={tarjeta}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+          <h2 style={{ ...h2Style, margin: 0, flex: "0 0 auto" }}>Carpetas indexadas</h2>
+          <p style={{ ...pStyle, minWidth: 0 }}>Cantoral las lee; los archivos no se tocan.</p>
+          <div style={{ flex: 1 }} />
+          <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 26, display: "flex", alignItems: "center", gap: 6, fontSize: "11.5px", fontWeight: 600, ...ocupadoStyle(scanning) }}>
+            <Plus size={13} strokeWidth={2.2} />Añadir carpeta…
           </button>
         </div>
-        <div style={{ border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", background: "var(--surface)" }}>
-          {folders.map((f) => (
-            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 14px", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--surface-2)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-                <Folder size={18} color="var(--text-2)" />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: "13.5px", fontWeight: 600 }}>{f.nombre}</div>
-                <div style={{ fontSize: "11.5px", color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.ruta}</div>
-              </div>
-              <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500, flex: "0 0 auto" }}>{f.count} pistas</span>
-              <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "Volver a escanear"} className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto", ...ocupadoStyle(scanning) }}>
-                <RefreshCw size={15} />
-              </button>
-              <button
-                onClick={() => relocateFolder(f.id)}
-                title="La carpeta cambió de ubicación: apuntarla al sitio nuevo sin perder etiquetas"
-                aria-label={`Mover «${f.nombre}» a otra ubicación`}
-                className="hb-s2t"
-                style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}
-              >
-                <FolderInput size={15} />
-              </button>
-              <button onClick={() => removeFolder(f.id)} title="Quitar carpeta" className="hb-danger" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-3)", flex: "0 0 auto" }}>
-                <X size={15} />
-              </button>
+        {folders.length === 0 && (
+          <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
+            Todavía no hay ninguna. Señala la carpeta donde está la música y Cantoral la lee de ahí.
+          </p>
+        )}
+        {folders.map((f) => (
+          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid var(--border)" }}>
+            <Folder size={15} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div title={f.ruta} style={{ fontSize: 12, fontFamily: "ui-monospace,Menlo,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.ruta}</div>
+              <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{metaDeCarpeta(f, faltantesPorCarpeta[f.id] ?? 0, formatScan(f.lastScan))}</div>
             </div>
-          ))}
-          <div style={{ padding: "11px 14px", fontSize: 12, color: "var(--text-3)", background: "var(--surface-2)" }}>
+            {/* Con su nombre y no un icono: «reapuntar» no tiene dibujo que se
+                entienda solo, y equivocarse de botón aquí quita una carpeta. */}
+            <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
+              Reescanear
+            </button>
+            <button onClick={() => relocateFolder(f.id)} title="La carpeta cambió de sitio: apuntarla al nuevo sin perder lo que lleven sus pistas" className="hb-s2" style={botonFila}>
+              Reapuntar…
+            </button>
+            <button onClick={() => removeFolder(f.id)} className="hb-danger" style={{ ...botonFila, color: "var(--danger)" }}>
+              Quitar…
+            </button>
+          </div>
+        ))}
+        {folders.length > 0 && (
+          <div style={{ paddingTop: 9, borderTop: "1px solid var(--border)", fontSize: "10.5px", color: "var(--text-3)" }}>
             Última actualización: {formatScan(lastScan)} · {totalTracks} pistas en total
           </div>
-        </div>
+        )}
       </div>
-
-      <TagManager />
 
       <DuplicateGroups />
 
-      {/* reproduccion */}
-      <div style={{ marginBottom: 30 }}>
-        <h2 style={{ ...h2Style, marginBottom: 12 }}>Reproducción</h2>
-        <label onClick={toggleOpenExt} style={{ display: "flex", alignItems: "center", gap: 14, padding: 15, border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", cursor: "pointer" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "13.5px", fontWeight: 600 }}>Abrir siempre en el reproductor del sistema</div>
-            <div style={{ fontSize: "12.5px", color: "var(--text-2)", marginTop: 2 }}>Al pulsar reproducir, usa la app predeterminada del sistema en vez del reproductor integrado.</div>
-          </div>
-          <div style={{ width: 42, height: 24, borderRadius: 20, padding: 2, transition: "background .16s", flex: "0 0 auto", cursor: "pointer", background: openExt ? "var(--primary)" : "var(--border-2)" }}>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.3)", transition: "transform .16s", transform: `translateX(${openExt ? "18px" : "0px"})` }} />
-          </div>
-        </label>
-      </div>
-
-      {/* base de datos */}
-      <div style={{ marginBottom: 30 }}>
+      <div style={tarjeta}>
         <h2 style={h2Style}>Base de datos</h2>
-        <p style={{ ...pStyle, marginBottom: 12 }}>Tu catálogo, listas y etiquetas se guardan en una base local. Haz copias periódicas.</p>
-        <div style={{ border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 11, background: "var(--success-soft)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-            <Database size={20} color="var(--success)" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "13.5px", fontWeight: 600 }}>cantoral.db</div>
-            <div title={dbInfo?.path} style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {dbInfo ? `${dbInfo.path} · ${formatSize(dbInfo.size)}` : "Base de datos local"}
-            </div>
-          </div>
-          <button onClick={restore} className="hb-s2" style={{ flex: "0 0 auto", height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600 }}>Restaurar…</button>
-          <button onClick={backup} className="hb-primary" style={{ flex: "0 0 auto", height: 36, display: "flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 9, background: "var(--primary)", color: "var(--on-primary)", fontSize: "12.5px", fontWeight: 600 }}>
-            <Download size={14} />Crear copia
+        <p style={{ ...pStyle, marginBottom: 10 }}>
+          Tu catálogo, tus listas y las letras que escribas viven en un solo archivo.{" "}
+          {dbInfo ? (
+            <span title={dbInfo.path} style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: "10.5px", color: "var(--text-3)" }}>
+              {dbInfo.path} · {formatSize(dbInfo.size)}
+            </span>
+          ) : (
+            "Haz copias periódicas."
+          )}
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={backup} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+            <Download size={13} />Crear copia de seguridad
+          </button>
+          <button onClick={restore} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12 }}>
+            Restaurar una copia…
           </button>
         </div>
       </div>
 
-      {/* ayuda */}
-      <div style={{ marginBottom: 30 }}>
+      <div style={tarjeta}>
         <h2 style={h2Style}>Ayuda</h2>
-        <p style={{ ...pStyle, marginBottom: 12 }}>¿Primera vez con Cantoral? Repasa cómo funciona en un minuto.</p>
-        <button onClick={openHelp} className="hb-s2" style={{ height: 40, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>
-          <HelpCircle size={16} />¿Cómo funciona?
+        <p style={{ ...pStyle, marginBottom: 10 }}>¿Primera vez con Cantoral? Repasa cómo funciona en un minuto.</p>
+        <button onClick={openHelp} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+          <HelpCircle size={13} />¿Cómo funciona?
         </button>
       </div>
 
       {/* actualizaciones */}
       <Actualizaciones />
 
-      {/* créditos / autores */}
-      <div style={{ marginBottom: 30 }}>
+      <div style={tarjeta}>
         <h2 style={h2Style}>Créditos</h2>
-        <p style={{ ...pStyle, marginBottom: 12 }}>Quienes hacen posible Cantoral.</p>
-        <div style={{ border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", overflow: "hidden" }}>
-          {PEOPLE.map((p, i) => (
-            <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, borderTop: i ? "1px solid var(--border)" : undefined }}>
-              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "linear-gradient(140deg,#C77A4E,#A9502E)", display: "grid", placeItems: "center", flex: "0 0 auto", color: "#fff", fontSize: 15, fontWeight: 700, boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)" }}>{p.initials}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "13.5px", fontWeight: 600 }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: "var(--text-3)" }}>{p.role}</div>
-              </div>
+        <p style={{ ...pStyle, marginBottom: 10 }}>Quienes hacen posible Cantoral.</p>
+        {PEOPLE.map((p, i) => (
+          <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--border)" : undefined }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--brand-grad)", display: "grid", placeItems: "center", flex: "0 0 auto", color: "#fff", fontSize: 11, fontWeight: 700 }}>{p.initials}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{p.name}</div>
+              <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{p.role}</div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
-      <div style={{ textAlign: "center", color: "var(--text-3)", fontSize: 12, paddingTop: 8 }}>
-        Cantoral {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza
+      {/* Lo más parecido a un «Acerca de» que tiene la app: el manual pone aquí
+          el logotipo con el símbolo a 64 px. */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: "var(--text-3)", fontSize: 11, padding: "14px 0 4px" }}>
+        <Logotipo cuerpo={64 / (1.14 * (244 / 200))} />
+        <span>Versión {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza</span>
       </div>
     </div>
   );
@@ -265,24 +268,40 @@ function Actualizaciones() {
       : null;
 
   return (
-    <div style={{ marginBottom: 30 }}>
-      <h2 style={h2Style}>Actualizaciones</h2>
-      <p style={{ ...pStyle, marginBottom: 12 }}>
-        Tienes la versión {__APP_VERSION__}.{" "}
-        {update?.estado === "sinConfigurar"
-          ? "Esta compilación no trae actualizaciones automáticas: descárgalas desde GitHub."
-          : "Cantoral mira si hay una versión nueva al abrirse, sin interrumpir."}
-      </p>
+    <div style={tarjeta}>
+      {/* El título, la versión y el botón de comprobar en una fila, como el
+          resto de las tarjetas: lo que hay debajo solo aparece cuando hay algo
+          que decir. */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: hay || estado !== "idle" ? 10 : 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={h2Style}>Actualizaciones</h2>
+          <p style={pStyle}>
+            Versión {__APP_VERSION__} ·{" "}
+            {update?.estado === "sinConfigurar"
+              ? "esta compilación no trae actualizaciones automáticas: descárgalas desde GitHub."
+              : "Cantoral mira si hay una versión nueva al abrirse, sin interrumpir."}
+          </p>
+        </div>
+        <button
+          onClick={() => void checkForUpdate(true)}
+          disabled={buscando}
+          className="hb-s2"
+          style={{ ...botonFila, height: 26, display: "flex", alignItems: "center", gap: 6, fontSize: "11.5px", fontWeight: 600, ...ocupadoStyle(buscando) }}
+        >
+          <RefreshCw size={13} style={buscando ? { animation: "canSpin 1s linear infinite" } : undefined} />
+          Buscar ahora
+        </button>
+      </div>
 
-      <div style={{ border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", padding: 16 }}>
+      <div style={{ display: hay || estado !== "idle" ? "block" : "none", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)", padding: "10px 11px" }}>
         {hay && update.estado === "disponible" ? (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
-              <ArrowUpCircle size={18} color="var(--primary)" style={{ flex: "0 0 auto" }} />
-              <span style={{ fontSize: "13.5px", fontWeight: 700 }}>Cantoral {update.version} está disponible</span>
+              <ArrowUpCircle size={15} color="var(--primary)" style={{ flex: "0 0 auto" }} />
+              <span style={{ fontSize: 12, fontWeight: 600 }}>Cantoral {update.version} está disponible</span>
             </div>
             {update.notas.trim() && (
-              <pre style={{ fontSize: "12.5px", color: "var(--text-2)", margin: "0 0 12px", whiteSpace: "pre-wrap", fontFamily: "inherit", lineHeight: 1.5, maxHeight: 180, overflowY: "auto" }}>
+              <pre style={{ fontSize: 11, color: "var(--text-2)", margin: "0 0 9px", whiteSpace: "pre-wrap", fontFamily: "inherit", lineHeight: 1.6, maxHeight: 150, overflowY: "auto" }}>
                 {update.notas.trim()}
               </pre>
             )}
@@ -290,7 +309,7 @@ function Actualizaciones() {
                 vuelve a quedar en cuarentena y macOS dirá que está dañada.
                 Decirlo antes evita el susto. */}
             {isMacOS() && (
-              <p style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "12px", color: "var(--text-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+              <p style={{ display: "flex", gap: 7, alignItems: "flex-start", fontSize: "10.5px", color: "var(--text-3)", margin: "0 0 9px", lineHeight: 1.55 }}>
                 <TriangleAlert size={14} style={{ flex: "0 0 auto", marginTop: 1 }} />
                 <span>
                   En macOS, al abrirla de nuevo el sistema puede decir que la app está dañada, porque
@@ -312,38 +331,27 @@ function Actualizaciones() {
                 </p>
               </div>
             ) : (
-              <button onClick={installUpdate} className="hb-primary" style={{ height: 40, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>
-                <Download size={16} />Instalar y reiniciar
+              <button onClick={installUpdate} className="hb-primary" style={{ height: 27, display: "flex", alignItems: "center", gap: 7, padding: "0 12px", borderRadius: 7, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "11.5px", fontWeight: 600 }}>
+                <Download size={13} />Reiniciar e instalar
               </button>
             )}
           </>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "13px", color: "var(--text-2)", flex: 1, minWidth: 0 }}>
-              {estado === "error" ? (
-                <>
-                  <TriangleAlert size={16} color="var(--danger)" style={{ flex: "0 0 auto" }} />
-                  <span style={{ minWidth: 0 }}>No se pudo comprobar{error ? `: ${error}` : "."}</span>
-                </>
-              ) : update?.estado === "alDia" ? (
-                <>
-                  <CircleCheck size={16} color="var(--primary)" style={{ flex: "0 0 auto" }} />
-                  Estás en la última versión.
-                </>
-              ) : (
-                <span>{buscando ? "Comprobando…" : "Comprueba cuando quieras."}</span>
-              )}
-            </span>
-            <button
-              onClick={() => void checkForUpdate(true)}
-              disabled={buscando}
-              className="hb-s2"
-              style={{ flex: "0 0 auto", height: 36, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "12.5px", fontWeight: 600, ...ocupadoStyle(buscando) }}
-            >
-              <RefreshCw size={14} style={buscando ? { animation: "canSpin 1s linear infinite" } : undefined} />
-              Buscar actualizaciones
-            </button>
-          </div>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--text-2)" }}>
+            {estado === "error" ? (
+              <>
+                <TriangleAlert size={14} color="var(--danger)" style={{ flex: "0 0 auto" }} />
+                <span style={{ minWidth: 0 }}>No se pudo comprobar{error ? `: ${error}` : "."}</span>
+              </>
+            ) : update?.estado === "alDia" ? (
+              <>
+                <CircleCheck size={14} color="var(--primary)" style={{ flex: "0 0 auto" }} />
+                Estás en la última versión.
+              </>
+            ) : (
+              <span>Comprobando…</span>
+            )}
+          </span>
         )}
       </div>
     </div>

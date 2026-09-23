@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Music2 } from "lucide-react";
+import { Logotipo } from "./Logo";
 import { isMacOS, isTauri, watchMaximized, winClose, winMinimize, winToggleMaximize } from "../lib/api";
 
 const ctrlBtn = { width: 46, height: 34, display: "grid", placeItems: "center", color: "var(--text-2)" } as const;
@@ -35,24 +35,10 @@ export default function TitleBar() {
         userSelect: "none",
       }}
     >
-      <div data-tauri-drag-region style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div
-          style={{
-            width: 16,
-            height: 16,
-            borderRadius: 5,
-            background: "linear-gradient(140deg,#C77A4E,#A9502E)",
-            display: "grid",
-            placeItems: "center",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)",
-            pointerEvents: "none",
-          }}
-        >
-          <Music2 size={10} color="#fff" strokeWidth={2.4} />
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".2px", color: "var(--text-2)", pointerEvents: "none" }}>
-          Cantoral
-        </span>
+      {/* El manual pone aquí el símbolo chico a 20 px y el nombre en 600 a
+          15 px. Sin eventos: la barra entera se arrastra, logo incluido. */}
+      <div data-tauri-drag-region style={{ display: "flex", alignItems: "center", pointerEvents: "none" }}>
+        <Logotipo cuerpo={15} peso={600} />
       </div>
 
       {!nativeMac && (

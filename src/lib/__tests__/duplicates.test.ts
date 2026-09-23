@@ -43,7 +43,6 @@ function copia(id: string, formato: string, fsize: number): DuplicateGroup["trac
     fsize,
     fav: false,
     missing: false,
-    tags: [],
   };
 }
 

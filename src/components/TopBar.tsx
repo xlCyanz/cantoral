@@ -1,12 +1,17 @@
-import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Search, Sun, Tag, X } from "lucide-react";
-import type { CSSProperties } from "react";
-import { applyFilters, etiquetas, ocasiones, useStore } from "../store";
-import { chipStyle, ocupadoStyle } from "../lib/styles";
-import type { GroupBy } from "../lib/types";
+import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search, X } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
+import { useRef } from "react";
+import { applyFilters, ocasiones, seleccionVigente, useStore } from "../store";
+import SelectionBar from "./SelectionBar";
+import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
+import { encabezadoBiblioteca } from "../lib/encabezado";
+import { useArrastrarFila } from "../lib/arrastrarFila";
+import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
   colecciones: "Listas para cultos",
   config: "Configuración",
+  proyeccion: "Proyección",
 };
 
 export default function TopBar() {
@@ -18,25 +23,31 @@ export default function TopBar() {
   const groupBy = useStore((s) => s.groupBy);
   const libState = useStore((s) => s.libState);
   const scanning = useStore((s) => s.scanning);
-  const theme = useStore((s) => s.theme);
   const listaTitulo = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist)?.nombre ?? "");
   // `applyFilters` and `ocasiones` remember their last result, so calling them
   // here costs nothing beyond what the library view already paid.
   const total = useStore((s) => applyFilters(s).length);
+  const indexadas = useStore((s) => s.tracks.length);
+  const qf = useStore((s) => s.qf);
   const ocs = useStore(ocasiones);
-  const tags = useStore(etiquetas);
-  const tagFilter = useStore((s) => s.tagFilter);
+  const haySeleccion = useStore((s) => seleccionVigente(s).length > 0);
 
   const onQuery = useStore((s) => s.onQuery);
   const clearQuery = useStore((s) => s.clearQuery);
   const showColecciones = useStore((s) => s.showColecciones);
-  const toggleTheme = useStore((s) => s.toggleTheme);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const onOcasion = useStore((s) => s.onOcasion);
-  const onTagFilter = useStore((s) => s.onTagFilter);
   const onGroupBy = useStore((s) => s.onGroupBy);
+  const densidad = useStore((s) => s.densidad);
+  const setDensidad = useStore((s) => s.setDensidad);
+
+  const filaFiltros = useRef<HTMLDivElement>(null);
+  useArrastrarFila(filaFiltros);
 
   const showSearch = view === "biblioteca";
+  // La biblioteca es la única vista cuyo nombre no cabía en la barra: ese
+  // hueco lo ocupa el buscador. Va en su propia fila, con el recuento debajo.
+  const encabezado = encabezadoBiblioteca(qf, total, indexadas, groupBy, !!query.trim());
   const isLista = view === "lista";
   const pageTitle = isLista ? listaTitulo : titleMap[view] || "";
   const showFilterBar = view === "biblioteca" && libState === "content";
@@ -55,6 +66,15 @@ export default function TopBar() {
         zIndex: 5,
       }}
     >
+      {showSearch && (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 12, padding: "16px 20px 0" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 className="display" style={{ fontSize: 26, lineHeight: 1.1, margin: "0 0 2px" }}>{encabezado.titulo}</h1>
+            <div style={{ fontSize: "11.5px", color: "var(--text-2)" }}>{encabezado.subtitulo}</div>
+          </div>
+        </div>
+      )}
+
       <div style={{ height: 60, display: "flex", alignItems: "center", gap: 14, padding: "0 20px" }}>
         {showSearch ? (
           <div style={{ flex: "1 1 0", minWidth: 0, maxWidth: 440, position: "relative", display: "flex", alignItems: "center" }}>
@@ -63,7 +83,7 @@ export default function TopBar() {
               data-search-input
               value={query}
               onChange={(e) => onQuery(e.target.value)}
-              placeholder="Buscar por título, artista, tono o etiqueta…"
+              placeholder="Buscar por título, artista, álbum u ocasión…"
               className="in-focus"
               style={{
                 width: "100%",
@@ -99,23 +119,13 @@ export default function TopBar() {
                 <ChevronLeft size={16} />
               </button>
             )}
-            <h1 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.2px", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <h1 className="display" style={{ fontSize: 21, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {pageTitle}
             </h1>
           </div>
         )}
 
         <div style={{ flex: 1 }} />
-
-        {/* theme toggle */}
-        <button
-          onClick={toggleTheme}
-          title="Cambiar tema"
-          className="hb-s2t"
-          style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", display: "grid", placeItems: "center", color: "var(--text-2)", transition: "background .14s,color .14s" }}
-        >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
 
         {/* add folder */}
         <button
@@ -133,7 +143,7 @@ export default function TopBar() {
             gap: 8,
             padding: "0 15px",
             borderRadius: 10,
-            background: "var(--primary)",
+            background: "var(--primary-fill)",
             color: "var(--on-primary)",
             fontSize: "13.5px",
             fontWeight: 600,
@@ -146,10 +156,14 @@ export default function TopBar() {
         </button>
       </div>
 
-      {/* filter bar */}
+      {/* filter bar — o la barra de selección, que se queda con la fila
+          entera: mientras hay algo elegido, lo que toca es actuar sobre eso y
+          no volver a filtrar. */}
       {showFilterBar && (
         <div style={{ height: 52, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderTop: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
+          {haySeleccion && <SelectionBar />}
+          {!haySeleccion && (
+          <div ref={filaFiltros} className="fila-arrastrable" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
             {chips.map((c) => {
               const active = c.value ? ocasion === c.value : !ocasion;
               return (
@@ -158,34 +172,9 @@ export default function TopBar() {
                 </button>
               );
             })}
-
-            {/* Tags share the row with the occasions, behind a divider: they
-                are a different axis — several can be on at once, and they
-                narrow together. */}
-            {showFilterBar && tags.length > 0 && (
-              <>
-                {chips.length > 0 && (
-                  <span style={{ flex: "0 0 auto", width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
-                )}
-                {tags.map((t) => {
-                  const activa = tagFilter.includes(t.nombre);
-                  return (
-                    <button
-                      key={t.nombre}
-                      onClick={() => onTagFilter(t.nombre)}
-                      aria-pressed={activa}
-                      title={activa ? `Quitar el filtro «${t.nombre}»` : `Filtrar por «${t.nombre}»`}
-                      style={{ ...chipStyle(activa), display: "inline-flex", alignItems: "center", gap: 6, paddingLeft: 10 }}
-                    >
-                      <Tag size={12} strokeWidth={2.2} />
-                      {t.nombre}
-                      <span style={{ fontSize: 11, opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>{t.cuenta}</span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
           </div>
+          )}
+          {!haySeleccion && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
               <ListFilter size={14} style={{ position: "absolute", left: 10, color: "var(--text-3)", pointerEvents: "none" }} />
@@ -201,15 +190,36 @@ export default function TopBar() {
               </select>
               <ChevronDown size={13} style={{ position: "absolute", right: 9, color: "var(--text-3)", pointerEvents: "none" }} />
             </div>
-            <div style={{ fontSize: "12.5px", color: "var(--text-3)", fontWeight: 500, whiteSpace: "nowrap", paddingLeft: 2 }}>
-              {total + (total === 1 ? " canción" : " canciones")}
+            {/* Dos densidades, no un deslizador: son dos situaciones distintas
+                —preparar el culto y sostener el atril el domingo—, no un
+                gradiente donde hay que encontrar el punto. */}
+            <div style={{ display: "flex", alignItems: "center", flex: "0 0 auto", height: 34, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, overflow: "hidden" }}>
+              {DENSIDADES.map((d, i) => (
+                <button
+                  key={d.valor}
+                  onClick={() => setDensidad(d.valor)}
+                  aria-pressed={densidad === d.valor}
+                  title={d.titulo}
+                  className={densidad === d.valor ? undefined : "hb-s2t"}
+                  style={segmento(densidad === d.valor, i === 0)}
+                >
+                  {d.icono}
+                </button>
+              ))}
             </div>
           </div>
+          )}
         </div>
       )}
     </header>
   );
 }
+
+/** Las dos densidades, con el icono que dice cuántas filas caben. */
+const DENSIDADES: { valor: Densidad; titulo: string; icono: ReactNode }[] = [
+  { valor: "comoda", titulo: "Cómoda — para preparar", icono: <Rows3 size={15} /> },
+  { valor: "compacta", titulo: "Compacta — para el domingo", icono: <Rows4 size={15} /> },
+];
 
 const selectStyle: CSSProperties = {
   appearance: "none",

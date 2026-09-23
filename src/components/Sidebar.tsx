@@ -1,171 +1,208 @@
-import { Clock, Folder, Heart, Library, ListMusic, Plus, Settings, TriangleAlert } from "lucide-react";
+import { CalendarDays, Clock, Heart, Library, Plus, Settings } from "lucide-react";
 import { useState } from "react";
-import { useStore } from "../store";
-import { navCountStyle, navStyle, ocupadoStyle, qfStyle } from "../lib/styles";
+import { cultos as cultosPorUso, useStore } from "../store";
+import { navBtn, navCount, subBtn } from "../lib/styles";
 import type { CSSProperties } from "react";
 
-const sectionLabel: CSSProperties = {
-  fontSize: "10.5px",
-  fontWeight: 700,
-  letterSpacing: ".7px",
-  textTransform: "uppercase",
-  color: "var(--text-3)",
-};
+/**
+ * La barra lateral, en dos zonas.
+ *
+ * Arriba, a dónde se va, con los filtros y las listas sangrados bajo la
+ * sección a la que pertenecen —la sangría es la que lleva la jerarquía que una
+ * fila de botones iguales no podía llevar—. Abajo, la máquina: la
+ * configuración y una línea que dice de qué se ha enterado Cantoral.
+ *
+ * Las carpetas indexadas vivían aquí. Se fueron a Configuración: una carpeta
+ * se elige una vez, no es un sitio al que se navega, y tenerlas aquí hacía que
+ * la barra pareciera un árbol de archivos que responde a clics que no responde.
+ */
+
+/** El punto de un filtro que pide atención. */
+function punto(color: string, size = 6): CSSProperties {
+  return { width: size, height: size, borderRadius: "50%", background: color, flex: "0 0 auto" };
+}
+
+const seccion: CSSProperties = { display: "flex", flexDirection: "column", gap: 2 };
+const etiquetaFila: CSSProperties = { display: "flex", alignItems: "center", gap: 6, minWidth: 0 };
+const recorta: CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 
 export default function Sidebar() {
   const view = useStore((s) => s.view);
   const qf = useStore((s) => s.qf);
-  const total = useStore((s) => s.tracks.length);
-  const missingCount = useStore((s) => s.tracks.filter((t) => t.missing).length);
-  const plCount = useStore((s) => s.playlists.length);
+  const ocasion = useStore((s) => s.ocasion);
+  const tracks = useStore((s) => s.tracks);
+  const plOrder = useStore((s) => s.plOrder);
   const folders = useStore((s) => s.folders);
+  const curPlaylist = useStore((s) => s.curPlaylist);
 
-  const showBiblioteca = useStore((s) => s.showBiblioteca);
+  const verTodaLaBiblioteca = useStore((s) => s.verTodaLaBiblioteca);
+  const query = useStore((s) => s.query);
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
   const onQuickFilter = useStore((s) => s.onQuickFilter);
-  const onFolderClick = useStore((s) => s.onFolderClick);
-  const openAddFolder = useStore((s) => s.openAddFolder);
-  const scanning = useStore((s) => s.scanning);
+  const openPlaylist = useStore((s) => s.openPlaylist);
+  const newList = useStore((s) => s.newList);
+
   const arrastrando = useStore((s) => s.dragFromLibrary.length);
-  const playlists = useStore((s) => s.playlists);
   const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
   const [sobre, setSobre] = useState<string | null>(null);
 
+  const favCount = tracks.filter((t) => t.fav).length;
+  const missingCount = tracks.filter((t) => t.missing).length;
+
   const libActive = view === "biblioteca";
   const colActive = view === "colecciones" || view === "lista";
   const cfgActive = view === "config";
+  // «Todas» está encendida cuando de verdad se están viendo todas: sin filtro
+  // rápido, sin ocasión, sin etiquetas y sin búsqueda. Contaba solo las dos
+  // primeras, así que con una etiqueta puesta decía que estaban todas.
+  const todasActive = libActive && !qf && !ocasion && !query.trim();
+
+  // El mismo orden que la vista de listas: el último que se abrió o se cambió,
+  // arriba. Una plantilla no es un culto y se queda fuera.
+  const cultos = useStore(cultosPorUso);
+
+  const resumen = [
+    folders.length
+      ? `${folders.length} ${folders.length === 1 ? "carpeta indexada" : "carpetas indexadas"}`
+      : "Sin carpetas indexadas",
+    tracks.length ? `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <aside
       style={{
-        width: 260,
+        width: 226,
         flex: "0 0 auto",
         background: "var(--bg-2)",
         borderRight: "1px solid var(--border)",
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
+        padding: "10px 8px 8px",
+        gap: 4,
       }}
     >
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px 8px" }}>
-        {/* brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "6px 8px 16px" }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 11,
-              background: "linear-gradient(140deg,#C77A4E,#A9502E)",
-              display: "grid",
-              placeItems: "center",
-              boxShadow: "0 4px 12px rgba(169,80,46,.32),inset 0 1px 0 rgba(255,255,255,.3)",
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 19, height: 19 }}>
-              <path d="M9 18V5l12-2v13" />
-              <circle cx="6" cy="18" r="3" />
-              <circle cx="18" cy="16" r="3" />
-            </svg>
-          </div>
-          <div style={{ lineHeight: 1.05 }}>
-            <div className="serif" style={{ fontSize: 23, letterSpacing: ".2px" }}>Cantoral</div>
-            <div style={{ fontSize: "10.5px", color: "var(--text-3)", fontWeight: 500, letterSpacing: ".3px", marginTop: 1 }}>
-              Música de la iglesia
-            </div>
-          </div>
+      {/* La zona de en medio se desplaza sola, para que una iglesia con
+          cuarenta cultos deje Configuración donde siempre está. */}
+      <nav
+        aria-label="Secciones"
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}
+      >
+        <button onClick={verTodaLaBiblioteca} aria-current={libActive ? "page" : undefined} className={libActive ? undefined : "hb-s2"} style={navBtn(libActive)}>
+          <span style={etiquetaFila}>
+            <Library size={14} style={{ flex: "0 0 auto" }} />
+            Biblioteca
+          </span>
+          <span style={navCount()}>{tracks.length}</span>
+        </button>
+
+        <div style={seccion}>
+          <button onClick={verTodaLaBiblioteca} aria-pressed={todasActive} className={todasActive ? undefined : "hb-s2"} style={subBtn(todasActive)}>
+            <span style={{ ...etiquetaFila, ...recorta }}>Todas</span>
+            <span style={navCount(true)}>{tracks.length}</span>
+          </button>
+          <button onClick={() => onQuickFilter("fav")} aria-pressed={qf === "fav"} className={qf === "fav" ? undefined : "hb-s2"} style={subBtn(qf === "fav")}>
+            <span style={etiquetaFila}>
+              <Heart size={12} style={{ flex: "0 0 auto" }} />
+              Favoritas
+            </span>
+            <span style={navCount(true)}>{favCount}</span>
+          </button>
+          <button onClick={() => onQuickFilter("recent")} aria-pressed={qf === "recent"} className={qf === "recent" ? undefined : "hb-s2"} style={subBtn(qf === "recent")}>
+            <span style={etiquetaFila}>
+              <Clock size={12} style={{ flex: "0 0 auto" }} />
+              Recién agregadas
+            </span>
+          </button>
+          <button onClick={() => onQuickFilter("missing")} aria-pressed={qf === "missing"} className={qf === "missing" ? undefined : "hb-s2"} style={subBtn(qf === "missing")}>
+            <span style={etiquetaFila}>
+              Archivos faltantes
+              {missingCount > 0 && <span style={punto("var(--danger)", 5)} />}
+            </span>
+            <span style={navCount(true)}>{missingCount}</span>
+          </button>
         </div>
 
-        {/* primary nav */}
-        <nav aria-label="Secciones" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <button onClick={showBiblioteca} aria-current={libActive ? "page" : undefined} className={libActive ? undefined : "hb-s2"} style={navStyle(libActive)}>
-            <Library size={18} style={{ flex: "0 0 auto" }} />
-            <span style={{ flex: 1, textAlign: "left" }}>Biblioteca</span>
-            <span style={navCountStyle(libActive)}>{total}</span>
-          </button>
-          <button onClick={showColecciones} aria-current={colActive ? "page" : undefined} className={colActive ? undefined : "hb-s2"} style={navStyle(colActive)}>
-            <ListMusic size={18} style={{ flex: "0 0 auto" }} />
-            <span style={{ flex: 1, textAlign: "left" }}>Listas para cultos</span>
-            <span style={navCountStyle(colActive)}>{plCount}</span>
-          </button>
+        <div style={{ height: 6, flex: "0 0 auto" }} />
 
-          {/* Only while something is being dragged out of the library: a place
-              to drop it without leaving the library to find one. */}
-          {arrastrando > 0 && playlists.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "4px 0 2px 10px", borderLeft: "2px solid var(--primary-soft-2)", marginLeft: 8 }}>
-              <span style={{ ...sectionLabel, padding: "2px 8px 4px" }}>Soltar en…</span>
-              {playlists.map((p) => (
-                <div
-                  key={p.id}
-                  onDragOver={(e) => { e.preventDefault(); setSobre(p.id); }}
-                  onDragLeave={() => setSobre((v) => (v === p.id ? null : v))}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setSobre(null);
-                    bulkAddToPlaylist(p.id);
-                    endLibraryDrag();
-                  }}
-                  style={{ padding: "8px 10px", borderRadius: 9, fontSize: "12.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: sobre === p.id ? "var(--primary)" : "var(--surface-2)", color: sobre === p.id ? "var(--on-primary)" : "var(--text-2)", border: "1px dashed " + (sobre === p.id ? "transparent" : "var(--border-2)") }}
-                >
-                  {p.nombre}
-                </div>
-              ))}
-            </div>
-          )}
-        </nav>
+        <button onClick={showColecciones} aria-current={colActive ? "page" : undefined} className={colActive ? undefined : "hb-s2"} style={navBtn(colActive)}>
+          <span style={etiquetaFila}>
+            <CalendarDays size={14} style={{ flex: "0 0 auto" }} />
+            Listas para cultos
+          </span>
+          {/* Cuenta lo que está justo debajo, no todo lo que hay: un 6 sobre
+              cinco filas se lee como que falta una. Las plantillas se cuentan
+              en su propia sección, dentro de la vista. */}
+          <span style={navCount()}>{cultos.length}</span>
+        </button>
 
-        {/* quick filters */}
-        <div style={{ ...sectionLabel, padding: "18px 8px 7px" }}>Filtros rápidos</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <button onClick={() => onQuickFilter("fav")} aria-pressed={qf === "fav"} className={qf === "fav" ? undefined : "hb-s2"} style={qfStyle(qf === "fav")}>
-            <Heart size={17} style={{ flex: "0 0 auto" }} />
-            <span style={{ flex: 1, textAlign: "left" }}>Favoritas</span>
-          </button>
-          <button onClick={() => onQuickFilter("recent")} aria-pressed={qf === "recent"} className={qf === "recent" ? undefined : "hb-s2"} style={qfStyle(qf === "recent")}>
-            <Clock size={17} style={{ flex: "0 0 auto" }} />
-            <span style={{ flex: 1, textAlign: "left" }}>Recién agregadas</span>
-          </button>
-          <button onClick={() => onQuickFilter("missing")} aria-pressed={qf === "missing"} className={qf === "missing" ? undefined : "hb-s2"} style={qfStyle(qf === "missing")}>
-            <TriangleAlert size={17} style={{ flex: "0 0 auto" }} />
-            <span style={{ flex: 1, textAlign: "left" }}>Archivos faltantes</span>
-            <span style={{ fontSize: "11px", fontWeight: 700, padding: "1px 7px", borderRadius: 20, background: "var(--danger-soft)", color: "var(--danger)" }}>
-              {missingCount}
+        <div style={seccion}>
+          {cultos.map((p) => {
+            const activo = view === "lista" && curPlaylist === p.id;
+            const encima = sobre === p.id && arrastrando > 0;
+            return (
+              <button
+                key={p.id}
+                onClick={() => openPlaylist(p.id)}
+                title={p.nombre}
+                aria-current={activo ? "page" : undefined}
+                className={activo || encima ? undefined : "hb-s2"}
+                // Siempre es un sitio donde soltar, no solo cuando ya hay algo
+                // en el aire: un destino que aparece a mitad del arrastre es un
+                // destino al que no se puede apuntar, porque no se sabía que
+                // estaba ahí.
+                //
+                // Pero solo acepta lo que salió de la biblioteca. Sin este
+                // guardia, arrastrar una carpeta del escritorio hasta aquí
+                // agregaría las pistas que estuvieran seleccionadas, que no es
+                // ni de lejos lo que esa persona pidió. Sin `preventDefault` el
+                // navegador se queda el arrastre y `onDrop` ni se dispara.
+                onDragOver={(e) => {
+                  if (arrastrando === 0) return;
+                  e.preventDefault();
+                  setSobre(p.id);
+                }}
+                onDragLeave={() => setSobre((v) => (v === p.id ? null : v))}
+                onDrop={(e) => {
+                  if (arrastrando === 0) return;
+                  e.preventDefault();
+                  setSobre(null);
+                  bulkAddToPlaylist(p.id);
+                  endLibraryDrag();
+                }}
+                style={{
+                  ...subBtn(activo),
+                  ...(encima ? { background: "var(--primary-soft)", color: "var(--primary)", fontWeight: 600 } : {}),
+                }}
+              >
+                <span style={{ ...recorta, minWidth: 0 }}>{p.nombre}</span>
+                <span style={navCount(true)}>{(plOrder[p.id] ?? p.ids).length}</span>
+              </button>
+            );
+          })}
+          <button onClick={newList} className="hb-s2" style={{ ...subBtn(false), color: "var(--text-3)" }}>
+            <span style={etiquetaFila}>
+              <Plus size={12} style={{ flex: "0 0 auto" }} />
+              Nueva lista
             </span>
           </button>
         </div>
+      </nav>
 
-        {/* folders */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 8px 7px" }}>
-          <span style={sectionLabel}>Carpetas indexadas</span>
-          <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "Agregar carpeta"} className="hb-s2t" style={{ width: 22, height: 22, borderRadius: 6, display: "grid", placeItems: "center", color: "var(--text-2)", ...ocupadoStyle(scanning) }}>
-            <Plus size={15} />
-          </button>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {folders.map((f) => (
-            <button
-              key={f.id}
-              onClick={onFolderClick}
-              className="hb-s2"
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 8px", borderRadius: 9, color: "var(--text-2)", transition: "background .14s" }}
-            >
-              <Folder size={16} style={{ flex: "0 0 auto", color: "var(--text-3)" }} />
-              <span style={{ flex: 1, textAlign: "left", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {f.nombre}
-              </span>
-              <span style={{ fontSize: 11, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{f.count}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* sidebar footer */}
-      <div style={{ flex: "0 0 auto", borderTop: "1px solid var(--border)", padding: "8px 12px" }}>
-        <button onClick={showConfig} className={cfgActive ? undefined : "hb-s2"} style={{ ...navStyle(cfgActive), width: "100%" }}>
-          <Settings size={18} style={{ flex: "0 0 auto" }} />
-          <span style={{ flex: 1, textAlign: "left" }}>Configuración</span>
+      <div style={{ flex: "0 0 auto" }}>
+        <button onClick={showConfig} aria-current={cfgActive ? "page" : undefined} className={cfgActive ? undefined : "hb-s2"} style={navBtn(cfgActive)}>
+          <span style={etiquetaFila}>
+            <Settings size={14} style={{ flex: "0 0 auto" }} />
+            Configuración
+          </span>
         </button>
+        <div style={{ padding: "4px 10px 2px", fontSize: "10.5px", color: "var(--text-3)", lineHeight: 1.5 }}>
+          {resumen}
+        </div>
       </div>
     </aside>
   );

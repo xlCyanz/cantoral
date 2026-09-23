@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, etiquetas, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView, repetibles } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView } from "../../store";
 import type { CantoralState } from "../../store";
-import type { Track } from "../types";
+import type { Folder, Playlist, Track } from "../types";
 
 function track(over: Partial<Track> & { id: string }): Track {
   return {
@@ -10,12 +10,10 @@ function track(over: Partial<Track> & { id: string }): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Do",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -39,12 +37,32 @@ const TRACKS: Track[] = [
  */
 const SIN_ETIQUETAS: string[] = [];
 
+/** Same reasoning as `SIN_ETIQUETAS`, for the selectors keyed on `playlists`. */
+const SIN_LISTAS: Playlist[] = [];
+
+/** Idem, for the two arrays `buildGroups` keys on. */
+const SIN_CARPETAS: Folder[] = [];
+const NADA_PLEGADO: string[] = [];
+
+/** Una raíz indexada y tres pistas repartidas en dos subcarpetas suyas. */
+const CARPETAS: Folder[] = [
+  { id: "f1", nombre: "Himnos", ruta: "C:\\Música\\Iglesia\\Himnos", count: 3 },
+];
+const EN_SUBCARPETAS: Track[] = [
+  track({ id: "a", titulo: "Alfa", path: "C:\\Música\\Iglesia\\Himnos\\Clásicos\\a.mp3" }),
+  track({ id: "b", titulo: "Beta", path: "C:\\Música\\Iglesia\\Himnos\\Clásicos\\b.mp3" }),
+  track({ id: "c", titulo: "Gama", path: "C:\\Música\\Iglesia\\Himnos\\Coritos\\c.mp3" }),
+];
+
 /** Minimal state for the pure selectors; they only read these fields. */
 function state(over: Partial<CantoralState> = {}): CantoralState {
   return {
     tracks: TRACKS,
     queue: [],
     plOrder: {},
+    playlists: SIN_LISTAS,
+    folders: SIN_CARPETAS,
+    gruposColapsados: NADA_PLEGADO,
     curPlaylist: "",
     view: "biblioteca",
     qf: null,
@@ -86,8 +104,8 @@ describe("applyFilters", () => {
     expect(applyFilters(state({ ocasion: "Adoración" })).map((t) => t.id)).toEqual(["2", "3"]);
   });
 
-  it("searches across title, artist, album, key, occasion and tags", () => {
-    const s = state({ tracks: [...TRACKS, track({ id: "4", titulo: "Otra", tags: ["ensayo"] })] });
+  it("searches across title, artist, album and occasion", () => {
+    const s = state({ tracks: [...TRACKS, track({ id: "4", titulo: "Otra", album: "Ensayo" })] });
     expect(applyFilters({ ...s, query: "ensayo" }).map((t) => t.id)).toEqual(["4"]);
     expect(applyFilters({ ...s, query: "comunión" }).map((t) => t.id)).toEqual(["1"]);
   });
@@ -121,6 +139,66 @@ describe("buildGroups", () => {
     expect(groups[0].countLabel).toBe("2 pistas");
     expect(groups[1].countLabel).toBe("1 pista");
     expect(groups.flatMap((g) => g.tracks.map((t) => t.num))).toEqual([1, 2, 3]);
+  });
+
+  it("agrupa por la carpeta del disco, no por la raíz indexada", () => {
+    // Las tres pistas dicen pertenecer a «Himnos», pero en el disco están en
+    // dos subcarpetas distintas. Agrupar por la raíz las metía en un montón.
+    const s = state({
+      groupBy: "carpeta",
+      folders: CARPETAS,
+      tracks: EN_SUBCARPETAS,
+    });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups.map((g) => g.label)).toEqual(["Himnos / Clásicos", "Himnos / Coritos"]);
+    expect(groups[0].ruta).toBe("C:\\Música\\Iglesia\\Himnos\\Clásicos");
+    expect(groups.map((g) => g.count)).toEqual([2, 1]);
+  });
+
+  it("un grupo plegado no entrega pistas, pero sigue diciendo cuántas tiene", () => {
+    const s = state({
+      groupBy: "carpeta",
+      folders: CARPETAS,
+      tracks: EN_SUBCARPETAS,
+      gruposColapsados: ["f1/Clásicos"],
+    });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups[0].colapsado).toBe(true);
+    expect(groups[0].tracks).toEqual([]);
+    expect(groups[0].count).toBe(2);
+    expect(groups[0].countLabel).toBe("2 pistas");
+    // El encabezado sigue ahí: si desapareciera no habría dónde desplegarlo.
+    expect(groups[0].showHeader).toBe(true);
+  });
+
+  it("la numeración solo cuenta lo que se está viendo", () => {
+    // Con «Clásicos» plegado, la primera fila visible es la 1 y no la 3.
+    const s = state({
+      groupBy: "carpeta",
+      folders: CARPETAS,
+      tracks: EN_SUBCARPETAS,
+      gruposColapsados: ["f1/Clásicos"],
+    });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups.flatMap((g) => g.tracks.map((t) => t.num))).toEqual([1]);
+  });
+
+  it("cada grupo lleva su clave, que es con lo que se plega", () => {
+    const s = state({ groupBy: "ocasion" });
+    const groups = buildGroups(s, applyFilters(s));
+
+    expect(groups.map((g) => g.clave)).toEqual(["Adoración", "Comunión"]);
+  });
+
+  it("sin agrupar no hay nada que plegar", () => {
+    const groups = buildGroups(state(), applyFilters(state()));
+
+    expect(groups[0].clave).toBe("");
+    expect(groups[0].colapsado).toBe(false);
+    expect(groups[0].count).toBe(3);
   });
 });
 
@@ -249,19 +327,17 @@ describe("lo que los selectores recuerdan", () => {
     expect(filasDeLista(s)).toBe(filasDeLista(s));
   });
 
-  it("remembers the templates and the services worth repeating", () => {
-    // Both feed views the player is sitting under, so a fresh array each read
+  it("remembers the templates", () => {
+    // It feeds views the player is sitting under, so a fresh array each read
     // would re-render them once a second for nothing.
     const listas = [
-      { id: "p1", nombre: "Culto", fecha: "2020-01-05", ocasion: "Servicio dominical", ids: [], plantilla: false },
-      { id: "p2", nombre: "Dominical", fecha: "", ocasion: "Servicio dominical", ids: [], plantilla: true },
+      { id: "p1", nombre: "Culto", tocada: "", ocasion: "Servicio dominical", ids: [], plantilla: false },
+      { id: "p2", nombre: "Dominical", tocada: "", ocasion: "Servicio dominical", ids: [], plantilla: true },
     ];
     const s = state({ playlists: listas });
 
     expect(plantillas(s)).toBe(plantillas(s));
     expect(plantillas(s).map((p) => p.id)).toEqual(["p2"]);
-    expect(repetibles(s)).toBe(repetibles(s));
-    expect(repetibles(s).map((r) => r.lista.id)).toEqual(["p1"]);
     expect(plantillas(state({ playlists: [...listas] }))).not.toBe(plantillas(s));
   });
 
@@ -290,93 +366,5 @@ describe("filasDeLista", () => {
 
   it("is empty for a list that has no order yet", () => {
     expect(filasDeLista(state({ curPlaylist: "p9" }))).toEqual([]);
-  });
-});
-
-describe("filtrar por etiqueta", () => {
-  const CON_ETIQUETAS: Track[] = [
-    track({ id: "1", titulo: "Uno", tags: ["lento", "clásico"] }),
-    track({ id: "2", titulo: "Dos", tags: ["lento"] }),
-    track({ id: "3", titulo: "Tres", tags: ["júbilo"] }),
-  ];
-
-  it("deja solo las pistas que llevan la etiqueta", () => {
-    const s = state({ tracks: CON_ETIQUETAS, tagFilter: ["lento"] });
-
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["2", "1"]);
-  });
-
-  it("varias etiquetas se suman: tienen que estar todas", () => {
-    // Elegir una segunda etiqueta solo sirve para algo si acota.
-    const s = state({ tracks: CON_ETIQUETAS, tagFilter: ["lento", "clásico"] });
-
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["1"]);
-  });
-
-  it("una combinación que nadie lleva no devuelve nada", () => {
-    const s = state({ tracks: CON_ETIQUETAS, tagFilter: ["lento", "júbilo"] });
-
-    expect(applyFilters(s)).toEqual([]);
-  });
-
-  it("sin etiquetas elegidas no filtra nada", () => {
-    const s = state({ tracks: CON_ETIQUETAS });
-
-    expect(applyFilters(s)).toHaveLength(3);
-  });
-
-  it("no se mezcla con la búsqueda de texto", () => {
-    // Era el problema de fondo: buscar «lento» también encontraba el álbum
-    // llamado «Lento». La etiqueta es un campo aparte.
-    const s = state({
-      tracks: [
-        track({ id: "1", titulo: "Uno", album: "Lento", tags: [] }),
-        track({ id: "2", titulo: "Dos", album: "Otro", tags: ["lento"] }),
-      ],
-      tagFilter: ["lento"],
-    });
-
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["2"]);
-  });
-});
-
-describe("etiquetas", () => {
-  it("lista cada etiqueta una vez, con cuántas pistas la llevan", () => {
-    const s = state({
-      tracks: [
-        track({ id: "1", tags: ["lento", "clásico"] }),
-        track({ id: "2", tags: ["lento"] }),
-      ],
-    });
-
-    expect(etiquetas(s)).toEqual([
-      { nombre: "clásico", cuenta: 1 },
-      { nombre: "lento", cuenta: 2 },
-    ]);
-  });
-
-  it("ordena con la collation española", () => {
-    const s = state({ tracks: [track({ id: "1", tags: ["zamba", "ñandú", "adviento"] })] });
-
-    expect(etiquetas(s).map((e) => e.nombre)).toEqual(["adviento", "ñandú", "zamba"]);
-  });
-
-  it("ignora los espacios de sobra", () => {
-    const s = state({ tracks: [track({ id: "1", tags: ["  ", "lento"] })] });
-
-    expect(etiquetas(s).map((e) => e.nombre)).toEqual(["lento"]);
-  });
-
-  it("mantiene listada la etiqueta filtrada aunque ya no la lleve nadie", () => {
-    // Si no, su chip desaparece y el filtro no se puede quitar.
-    const s = state({ tracks: [track({ id: "1", tags: [] })], tagFilter: ["lento"] });
-
-    expect(etiquetas(s)).toEqual([{ nombre: "lento", cuenta: 0 }]);
-  });
-
-  it("distingue mayúsculas, que es justo el problema que hay que poder ver", () => {
-    const s = state({ tracks: [track({ id: "1", tags: ["Lento"] }), track({ id: "2", tags: ["lento"] })] });
-
-    expect(etiquetas(s).map((e) => e.nombre)).toHaveLength(2);
   });
 });

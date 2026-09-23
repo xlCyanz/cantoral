@@ -1,6 +1,5 @@
 import { Check, FileInput, Search, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
-import { formatearFecha } from "../lib/fechas";
 import type { PistaCompartida } from "../lib/compartir";
 import Modal from "./Modal";
 
@@ -61,7 +60,6 @@ export default function ImportListDialog() {
   const { encontradas, faltantes } = resultado;
   const total = archivo.pistas.length;
   const nada = encontradas.length === 0;
-  const fecha = formatearFecha(archivo.lista.fecha);
 
   return (
     <Modal labelledBy="import-dialog-title" onClose={closeDialog} maxWidth={540}>
@@ -76,7 +74,6 @@ export default function ImportListDialog() {
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
             {encontradas.length} de {total} {total === 1 ? "pista está" : "pistas están"} en esta biblioteca
             {archivo.lista.ocasion && ` · ${archivo.lista.ocasion}`}
-            {fecha && ` · ${fecha}`}
           </p>
         </div>
       </div>
@@ -138,7 +135,7 @@ export default function ImportListDialog() {
           onClick={confirmImport}
           disabled={nada}
           className="hb-primary"
-          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nada ? 0.55 : 1, cursor: nada ? "not-allowed" : "pointer" }}
+          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nada ? 0.55 : 1, cursor: nada ? "not-allowed" : "pointer" }}
         >
           {faltantes.length > 0 ? `Crear con ${encontradas.length}` : "Crear la lista"}
         </button>

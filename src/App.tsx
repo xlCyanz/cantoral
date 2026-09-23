@@ -10,16 +10,17 @@ import LibraryView from "./components/LibraryView";
 import CollectionsView from "./components/CollectionsView";
 import PlaylistView from "./components/PlaylistView";
 import ConfigView from "./components/ConfigView";
+import ProjectionView from "./components/ProjectionView";
 import DetailPanel from "./components/DetailPanel";
 import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
 import NewListDialog from "./components/NewListDialog";
+import AddToListDialog from "./components/AddToListDialog";
 import ImportListDialog from "./components/ImportListDialog";
 import PrintPreview from "./components/PrintPreview";
 import HelpDialog from "./components/HelpDialog";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
-import SelectionBar from "./components/SelectionBar";
 import RowMenu from "./components/RowMenu";
 import SheetDialog from "./components/SheetDialog";
 import ServiceView from "./components/ServiceView";
@@ -51,18 +52,34 @@ export default function App() {
   useEffect(() => {
     let un: (() => void) | undefined;
     void onScanProgress((p) => {
-      useStore.setState({ scanPct: p.pct, scanFile: p.file });
+      useStore.setState({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos });
     }).then((u) => (un = u));
     return () => un?.();
   }, []);
 
-  // Follow the OS appearance while the theme mode is "Sistema".
+  // Escuchar por dónde va lo que está proyectando la ventana de salida.
   useEffect(() => {
-    if (!window.matchMedia) return;
+    let un: (() => void) | undefined;
+    void useStore.getState().escucharProyeccion().then((u) => (un = u));
+    return () => un?.();
+  }, []);
+
+  // Seguir al sistema mientras el modo sea «Sistema».
+  //
+  // Por dos canales a la vez, y no por capricho: el de la ventana nativa es el
+  // que acierta —en Windows el webview contesta «claro» aunque el sistema esté
+  // en oscuro—, y `matchMedia` es el único que hay en el modo navegador.
+  useEffect(() => {
+    let soltar: (() => void) | undefined;
+    void useStore.getState().seguirAlSistema().then((f) => (soltar = f));
+    if (!window.matchMedia) return () => soltar?.();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => useStore.getState().applySystemTheme();
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    return () => {
+      soltar?.();
+      mq.removeEventListener("change", handler);
+    };
   }, []);
 
   // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).
@@ -110,6 +127,7 @@ export default function App() {
             {view === "colecciones" && <CollectionsView />}
             {view === "lista" && <PlaylistView />}
             {view === "config" && <ConfigView />}
+            {view === "proyeccion" && <ProjectionView />}
           </main>
         </div>
 
@@ -119,13 +137,13 @@ export default function App() {
       <PlayerBar />
       <AddFolderDialog />
       <NewListDialog />
+      <AddToListDialog />
       <ImportListDialog />
       <PrintPreview />
       <HelpDialog />
       <ConfirmDialog />
       <ServiceView />
       <SheetDialog />
-      <SelectionBar />
       <RowMenu />
       <ScanProgress />
       <Toast />

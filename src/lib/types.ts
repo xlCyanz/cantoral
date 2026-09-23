@@ -2,7 +2,7 @@
 
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type View = "biblioteca" | "colecciones" | "lista" | "config";
+export type View = "biblioteca" | "colecciones" | "lista" | "config" | "proyeccion";
 /**
  * What the library view has to show. A scan in flight is *not* one of these:
  * it runs alongside whatever the library already holds (see `scanning`).
@@ -10,7 +10,21 @@ export type View = "biblioteca" | "colecciones" | "lista" | "config";
 export type LibState = "content" | "empty" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
 export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
-export type SortKey = "titulo" | "album" | "ocasion" | "tono" | "bpm" | "dur";
+/**
+ * Cuánto respira la tabla de la biblioteca.
+ *
+ * «Cómoda» es para preparar: hay sitio para la carátula y el ojo descansa.
+ * «Compacta» es para el domingo, cuando lo que importa es cuántas filas caben
+ * en la pantalla del atril sin tener que desplazarse a media alabanza.
+ */
+export type Densidad = "comoda" | "compacta";
+/** Qué sale por el proyector cuando la pista es solo audio. */
+export type SalidaDeAudio = "negro" | "portada" | "letra";
+/** Qué pasa por el proyector entre un elemento del culto y el siguiente. */
+export type TransicionProyeccion = "negro" | "cuenta";
+/** Qué hace la proyección cuando un elemento del culto se termina. */
+export type AvanceProyeccion = "negro" | "siguiente";
+export type SortKey = "titulo" | "album" | "ocasion" | "bpm" | "dur";
 export type SortDir = "asc" | "desc";
 
 export interface Track {
@@ -21,15 +35,12 @@ export interface Track {
   /** Human-readable duration, e.g. "4:12". */
   dur: string;
   durSec: number;
-  /** Musical key (tono), e.g. "Sol", "Lam". */
-  tono: string;
   bpm: number;
   ocasion: string;
   /** File format label, e.g. "MP3", "WAV", "MP4". */
   formato: string;
   /** Folder friendly name this track belongs to. */
   carpeta: string;
-  tags: string[];
   fav: boolean;
   missing: boolean;
   /** Recency rank (mock) / added timestamp ordinal (backend). Higher = newer. */
@@ -63,13 +74,18 @@ export interface Folder {
 export interface Playlist {
   id: string;
   nombre: string;
-  fecha: string;
   ocasion: string;
   /** Default ordered track ids (live order is kept in store.plOrder). */
   ids: string[];
   /** A list kept as a starting point rather than as a service of its own. */
   plantilla: boolean;
+  /**
+   * La última vez que se abrió o se cambió, en ISO. Es lo que ordena los
+   * cultos: no tienen fecha, y lo que se está preparando es lo último que se
+   * tocó.
+   */
+  tocada: string;
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */
-export type TrackEdit = Partial<Pick<Track, "tono" | "bpm" | "ocasion" | "tags">>;
+export type TrackEdit = Partial<Pick<Track, "artista" | "bpm" | "ocasion">>;

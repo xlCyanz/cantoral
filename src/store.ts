@@ -1,44 +1,202 @@
 import { create } from "zustand";
 import type {
+  Densidad,
   Folder,
   GroupBy,
   LibState,
   Playlist,
   QuickFilter,
+  AvanceProyeccion,
+  SalidaDeAudio,
   SortKey,
   Theme,
   ThemeMode,
   Track,
   TrackEdit,
+  TransicionProyeccion,
   View,
 } from "./lib/types";
 
+/**
+ * La URL `asset://` de una pista, o cadena vacía si no hay nada que proyectar.
+ *
+ * Una sola función para las dos cosas que necesitan coincidir: lo que se manda
+ * a la salida y lo que se compara cuando la salida contesta. Si fueran dos,
+ * cualquier diferencia entre ellas tiraría los informes de progreso a la
+ * basura sin que se notara.
+ */
+function rutaProyectable(t: Track | undefined): string {
+  if (!t || motivoNoProyectable(t)) return "";
+  return assetUrl(t.path!);
+}
+
+/**
+ * Las pistas que se están proyectando, en su orden.
+ *
+ * `filasDeLista` mira la lista *abierta*; esta mira la que está en el aire, que
+ * no tienen por qué ser la misma.
+ */
+export const filasProyectadas = recordar(
+  (s: CantoralState): Track[] =>
+    (s.plOrder[s.proyeccionLista] || [])
+      .map((id) => s.tracks.find((t) => t.id === id))
+      .filter((t): t is Track => !!t),
+  (s: CantoralState) => [s.proyeccionLista, s.plOrder[s.proyeccionLista], s.tracks],
+);
+
+/** Lo que hay que ir cargando en silencio estando en `idx`: el siguiente. */
+function precargaDe(s: CantoralState, idx: number): string | undefined {
+  return rutaProyectable(filasProyectadas(s)[idx + 1]) || undefined;
+}
+
+/**
+ * El mensaje para la salida con el elemento `idx` del culto abierto.
+ *
+ * Una pista sin archivo reproducible sale como su título sobre el negro, no
+ * como un negro a secas: por el proyector se canta esa canción igual, y una
+ * pantalla vacía no dice nada. El motivo se queda en la ventana de mandos —a
+ * la congregación no le importa que falte un archivo.
+ */
+function salidaDelCulto(s: CantoralState, idx: number, reproduciendo: boolean): SalidaProyeccion {
+  const t = filasProyectadas(s)[idx];
+  const precarga = precargaDe(s, idx);
+  if (!t) return { vista: { modo: "negro" }, precarga };
+  const src = rutaProyectable(t);
+  if (!src) return { vista: { modo: "titulo", titulo: t.titulo, sub: t.artista || undefined }, precarga };
+  return {
+    vista: {
+      modo: "media",
+      src,
+      video: !!t.video,
+      titulo: t.titulo,
+      sub: t.artista || undefined,
+      reproduciendo,
+      // Un video ya llena la pantalla; lo de abajo es para el audio, que por
+      // sí solo no pone nada delante de la congregación.
+      ...(t.video ? {} : { audio: fondoDeAudio(s, t) }),
+    },
+    precarga,
+  };
+}
+
+/** Lo que se dibuja mientras suena una pista sin imagen. */
+function fondoDeAudio(s: CantoralState, t: Track): NonNullable<Extract<VistaProyeccion, { modo: "media" }>["audio"]> {
+  const tipo = s.salidaDeAudio;
+  if (tipo === "negro") return { tipo };
+  const trozos = estrofasDeLaPista(s, t.id);
+  const actual = trozos[Math.min(s.proyeccionEstrofa, Math.max(0, trozos.length - 1))];
+  return {
+    tipo,
+    etiqueta: actual?.etiqueta || undefined,
+    lineas: actual?.lineas,
+    // La carátula ya viene como `asset://` del catálogo.
+    portada: tipo === "portada" ? t.cover : undefined,
+  };
+}
+
+/**
+ * La letra de una pista, partida en estrofas.
+ *
+ * Recordada porque la mira cada mensaje que sale a la salida —y sale uno por
+ * cada cambio de ajuste, de estrofa y de elemento—, y volver a leer la hoja
+ * entera cada vez no hace falta.
+ */
+const estrofasDeLaPista = recordar(
+  (s: CantoralState, id: string): Estrofa[] => {
+    const hoja = s.sheets[id];
+    return estrofasDe(hoja?.letra, hoja?.acordes);
+  },
+  (s: CantoralState, id: string) => [s.sheets[id], id],
+);
+
+/** Cuántas estrofas tiene lo que está en pantalla, o 0 si no se proyecta letra. */
+export function estrofasEnPantalla(s: CantoralState): Estrofa[] {
+  if (s.salidaDeAudio === "negro" || s.proyeccionIdx < 0) return VACIO_ESTROFAS;
+  const t = filasProyectadas(s)[s.proyeccionIdx];
+  if (!t || t.video) return VACIO_ESTROFAS;
+  return estrofasDeLaPista(s, t.id);
+}
+
+const VACIO_ESTROFAS: Estrofa[] = [];
+
+/**
+ * El detalle del aviso de escaneo, o nada.
+ *
+ * Debajo del «Biblioteca actualizada» y no pegado a él: son la misma noticia
+ * —esto entró, esto no— pero el titular es que la biblioteca ya está, y lo
+ * que se quedó fuera es la letra pequeña.
+ */
+export function detalleDeOmitidos(n: number): string | undefined {
+  if (n <= 0) return undefined;
+  return n === 1
+    ? "1 archivo se quedó fuera: Cantoral no reproduce su formato."
+    : `${n} archivos se quedaron fuera: Cantoral no reproduce su formato.`;
+}
+
+/**
+ * En qué estado dejar la biblioteca al volver a ella desde un filtro.
+ *
+ * Sirve para salir de la pantalla de error sin tener que volver a escanear.
+ * Se mira el catálogo en vez de poner «content» a secas: sobre una biblioteca
+ * sin nada indexado, «content» enseñaría una tabla vacía en lugar de la
+ * pantalla que explica cómo empezar.
+ */
+function estadoDeLaBiblioteca(s: CantoralState): LibState {
+  return s.tracks.length ? "content" : "empty";
+}
+
+/**
+ * El tema del sistema según el webview, que no siempre acierta.
+ *
+ * Se usa para pintar algo en el primer fotograma, antes de que conteste la
+ * ventana nativa. En macOS suele ser correcto; en Windows, WebView2 resuelve
+ * `prefers-color-scheme` contra el tema de la ventana y devuelve claro hasta
+ * que alguien le dice otra cosa — por eso `seguirAlSistema` pregunta después
+ * a la ventana y corrige.
+ */
 function osPrefersDark(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
-/** Effective theme for a preference mode. */
-function resolveTheme(mode: ThemeMode): Theme {
-  return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
+
+/**
+ * El tema efectivo de un modo, con lo que se sepa del sistema.
+ *
+ * `delSistema` es lo que contestó la ventana nativa, que manda sobre el
+ * webview; `null` mientras no haya contestado o en el modo navegador.
+ */
+function resolveTheme(mode: ThemeMode, delSistema: Theme | null = null): Theme {
+  if (mode !== "system") return mode;
+  return delSistema ?? (osPrefersDark() ? "dark" : "light");
 }
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { nombreDeCopia } from "./lib/copias";
 import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "./lib/compartir";
 import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
-import { ultimaPorOcasion } from "./lib/repetir";
+import type { MonitorInfo, SalidaProyeccion, VistaProyeccion } from "./lib/api";
+import { motivoDeError, motivoNoProyectable } from "./lib/formatos";
+import { carpetaReal } from "./lib/carpetas";
+import { cultosAfectados } from "./lib/afectados";
+import { estrofasDe } from "./lib/estrofas";
+import type { Estrofa } from "./lib/estrofas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
-import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
 import { alHacerClic, enOrden, vigentes } from "./lib/selection";
 import type { Modificadores } from "./lib/selection";
 import {
   addAndScanFolder,
-  addToPlaylistCmd,
   addTracksToPlaylistCmd,
   assetUrl,
   cancelScanCmd,
   backupDatabase,
   checkForUpdateCmd,
+  closeProjectionCmd,
+  onTemaDelSistema,
+  onProjectionReady,
+  onProjectionState,
+  openProjectionCmd,
+  projectionMonitors,
+  setProjectionCmd,
   createPlaylistCmd,
   deletePlaylistCmd,
   duplicatePlaylistCmd,
@@ -60,7 +218,7 @@ import {
   isTauri,
   mergeDuplicatesCmd,
   restoreDismissedDuplicatesCmd,
-  openExternalPath,
+  openExportedSheet,
   onUpdateProgress,
   pickDbFile,
   pickExportPath,
@@ -68,8 +226,6 @@ import {
   pickMediaFile,
   pickSavePath,
   reconcileLibraryCmd,
-  renameTagCmd,
-  deleteTagCmd,
   revealFile,
   relocateFolderCmd,
   relocateTrackCmd,
@@ -79,11 +235,12 @@ import {
   setPlaylistOrderCmd,
   setPlaylistTemplateCmd,
   setSetting,
+  temaDelSistema,
   setTrackFav,
   setTracksFavCmd,
-  tagTracksCmd,
   deleteTracksCmd,
   updatePlaylistCmd,
+  touchPlaylistCmd,
   updateTrackCmd,
   updateTrackSheet,
   type DuplicateGroup,
@@ -145,8 +302,18 @@ export interface ConfirmRequest {
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
 export type ToastType = "success" | "error" | "info";
+/**
+ * Un aviso de los de la esquina.
+ *
+ * Dos campos y no uno porque un aviso útil dice dos cosas: qué pasó y qué
+ * significa. Metidas en una línea —«3 pistas agregadas a "Domingo"»— hay que
+ * leerla entera para quedarse con el titular; separadas, el titular se lee de
+ * un vistazo y el detalle está ahí si hace falta.
+ */
 export interface ToastNotice {
-  message: string;
+  titulo: string;
+  /** La consecuencia, cuando hay algo que añadir. Muchos avisos no la tienen. */
+  detalle?: string;
   type: ToastType;
 }
 
@@ -170,6 +337,15 @@ export interface CantoralState {
   plOrder: Record<string, string[]>;
   /** Ordered track ids the transport walks through (a culto list, or the library). */
   queue: string[];
+  /**
+   * De dónde salió la cola que está sonando.
+   *
+   * No se puede deducir mirándola: una cola de culto y una de biblioteca son
+   * las dos una lista de ids, y el culto puede haber cambiado desde que se
+   * puso a sonar. Se apunta al ponerla, que es el único momento en que se
+   * sabe con seguridad.
+   */
+  queueOrigen: "biblioteca" | "culto";
 
   // ---- ui / navigation ----
   theme: Theme;
@@ -181,15 +357,99 @@ export interface CantoralState {
   query: string;
   qf: QuickFilter;
   ocasion: string | null;
-  /**
-   * Tags the library is filtered by, ANDed together.
-   *
-   * Separate from `query` because a tag is the one field the user controls
-   * completely, and folding it into the free-text search meant «lento» also
-   * matched an album called «Lento».
-   */
-  tagFilter: string[];
   groupBy: GroupBy;
+  densidad: Densidad;
+  /**
+   * Grupos plegados, por clave.
+   *
+   * Vive en la sesión y no en las preferencias: plegar «Himnos» es para dejar
+   * de verlo *ahora*, mientras se arma un culto con lo de otra carpeta, no una
+   * decisión que valga la pena recordar hasta la semana que viene.
+   */
+  gruposColapsados: string[];
+  /** Las pantallas conectadas, leídas al entrar en Proyección. */
+  monitores: MonitorInfo[];
+  /** Por cuál sale. Vive en la sesión: el índice de una pantalla cambia al
+   *  enchufar o desenchufar una, así que recordarlo entre arranques apuntaría
+   *  a la de al lado. */
+  monitorSalida: number;
+  /** Si la ventana de salida está abierta. */
+  proyectando: boolean;
+  /**
+   * Qué elemento del culto está en pantalla. `-1` es nada: el proyector en
+   * negro con la salida abierta, que es como empieza y como se queda entre una
+   * cosa y otra.
+   *
+   * Un índice en el orden del culto y no un id de pista: la cola es la lista
+   * abierta en su orden, y la misma pista puede estar dos veces en un culto
+   * —una canción que se repite al final— sin que sean el mismo momento.
+   */
+  proyeccionIdx: number;
+  /**
+   * De qué lista es ese índice.
+   *
+   * No es siempre la lista abierta. En pleno culto se abre otra para buscar
+   * algo, y si «Siguiente» avanzara por la que se está mirando sacaría por el
+   * proyector una pista de una lista que nadie pidió. Lo que está en el aire
+   * sigue siendo de la lista con la que se empezó hasta que se proyecte otra
+   * cosa a propósito.
+   */
+  proyeccionLista: string;
+  /**
+   * Si el proyector está en negro aunque haya un elemento apuntado.
+   *
+   * Dos cosas distintas: «no hay nada elegido» es `proyeccionIdx === -1`, y
+   * «hay algo elegido pero no se está viendo» es esto. Pasa al cortar la
+   * imagen a mano y al terminarse un elemento, y en los dos casos lo elegido
+   * sigue ahí para volver.
+   */
+  proyeccionEnNegro: boolean;
+  /**
+   * En qué estrofa de la letra va lo que está en pantalla.
+   *
+   * Solo cuenta con una pista de audio proyectada como letra. `0` es la
+   * primera; una pista sin letra tiene cero estrofas y se queda en `0`.
+   */
+  proyeccionEstrofa: number;
+  /** Qué sale por el proyector con una pista de solo audio. Se recuerda. */
+  salidaDeAudio: SalidaDeAudio;
+  /** Qué pasa entre un elemento del culto y el siguiente. Se recuerda. */
+  transicionProyeccion: TransicionProyeccion;
+  /**
+   * Qué hace la proyección cuando un elemento se termina. Se recuerda.
+   *
+   * Por defecto, negro: en un culto el video se acaba mientras alguien está
+   * hablando, y arrancar la canción de después por su cuenta delante de la
+   * congregación no es algo que la app deba decidir sin que se lo pidan. Quien
+   * proyecta un culto seguido —una lista entera de principio a fin— lo pone en
+   * «siguiente» una vez y se olvida.
+   */
+  avanceProyeccion: AvanceProyeccion;
+  /** Por dónde va lo que se está proyectando, en segundos. Lo dice la salida. */
+  proyeccionPos: number;
+  proyeccionDur: number;
+  /**
+   * Lo último que falló al proyectar, por `src`.
+   *
+   * Por id de pista y no un solo mensaje porque lo que interesa es *qué
+   * elemento* de la cola no se puede proyectar: marcarlo en su fila se ve antes
+   * de empezar el culto, y un aviso suelto se pierde.
+   *
+   * Sólo se apunta lo que falla estando en pantalla. Lo que falle mientras se
+   * precarga se calla hasta que le toque, porque el elemento que precarga no
+   * informa: si lo hiciera, un archivo roto al final del culto escribiría un
+   * aviso rojo en la cola mientras suena tranquilamente el primero.
+   */
+  proyeccionFallos: Record<string, string>;
+  /**
+   * Si la tarjeta de escaneo de la esquina está escondida.
+   *
+   * Esconderla no cancela nada: son dos cosas distintas —quiero seguir
+   * trabajando sin la tarjeta delante, y quiero que el escaneo pare—, y un
+   * solo botón para las dos haría que quien quisiera lo primero perdiera el
+   * escaneo. Se vuelve a mostrar en el siguiente escaneo.
+   */
+  tarjetaEscaneoOculta: boolean;
   sortKey: SortKey;
   sortDir: "asc" | "desc";
 
@@ -211,12 +471,11 @@ export interface CantoralState {
   // ---- detail panel ----
   selId: string | null;
   detailOpen: boolean;
-  tagDraft: string;
   /** How the selected track's edit is doing. Edits write themselves. */
   saveState: SaveState;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | "addToList" | null;
   /**
    * A shared playlist file that has been read and matched, waiting for the
    * user to look at what was found before anything is created.
@@ -239,6 +498,14 @@ export interface CantoralState {
    */
   scanning: boolean;
   scanPct: number;
+  /**
+   * Archivos que el último escaneo reconoció y no indexó por el formato.
+   *
+   * Se dice al terminar. Saltárselos en silencio sería peor que no tenerlos:
+   * quien ve que faltan tres canciones no tiene forma de saber si es por el
+   * formato o porque el escaneo se rompió.
+   */
+  scanOmitidos: number;
   scanIdx: number;
   scanFile: string;
   /** Message from the last failed backend call, shown in the error state. */
@@ -255,7 +522,6 @@ export interface CantoralState {
 
   // ---- collections ----
   curPlaylist: string;
-  openExt: boolean;
   draggingId: string | null;
   overId: string | null;
   /**
@@ -290,8 +556,6 @@ export interface CantoralState {
   serviceOpen: boolean;
   /** Position within the open list's order. */
   serviceIdx: number;
-  /** Semitones the sheets are shifted by, for the key the group sings in. */
-  serviceSemitones: number;
   /** Text size multiplier, for the distance between the stand and the eyes. */
   serviceScale: number;
 
@@ -303,26 +567,53 @@ export interface CantoralState {
   duplicatesState: "idle" | "buscando" | "listo";
 
   // ---- actions ----
+  /** Ir a la biblioteca, sin tocar lo que la esté filtrando. */
   showBiblioteca: () => void;
+  /** Ir a la biblioteca y soltar todo lo que la esté estrechando. */
+  verTodaLaBiblioteca: () => void;
   showColecciones: () => void;
   showConfig: () => void;
   onFolderClick: () => void;
   openPlaylist: (id: string) => void;
-  toggleTheme: () => void;
   setThemeMode: (m: ThemeMode) => void;
+  /**
+   * Lo último que dijo la ventana nativa sobre el tema del sistema.
+   *
+   * `null` hasta que conteste, y siempre en el modo navegador. Se guarda
+   * porque hace falta al volver a «Seguir al sistema» después de haber estado
+   * en claro u oscuro: sin él habría que volver a preguntar.
+   */
+  temaSistema: Theme | null;
   applySystemTheme: () => void;
+  /** Seguir el tema del sistema por el canal nativo. Devuelve cómo dejar de seguirlo. */
+  seguirAlSistema: () => Promise<() => void>;
 
   onQuery: (v: string) => void;
   clearQuery: () => void;
   onQuickFilter: (q: Exclude<QuickFilter, null>) => void;
   onOcasion: (o: string) => void;
-  /** Add or remove a tag from the filter. Several tags narrow, never widen. */
-  onTagFilter: (tag: string) => void;
-  /** Rename a tag everywhere, folding it into an existing one if taken. */
-  renameTag: (from: string, to: string) => void;
-  /** Take a tag off every track that carried it, after confirming. */
-  deleteTag: (name: string) => void;
   onGroupBy: (g: GroupBy) => void;
+  setDensidad: (d: Densidad) => void;
+  toggleGrupo: (clave: string) => void;
+  showProyeccion: () => void;
+  cargarMonitores: () => Promise<void>;
+  elegirMonitor: (indice: number) => void;
+  alternarProyeccion: () => void;
+  proyectar: (salida: SalidaProyeccion) => void;
+  /** Poner en pantalla el elemento `idx` del culto abierto. */
+  proyectarElemento: (idx: number) => void;
+  /** Pasar al siguiente del culto. */
+  proyeccionSiguiente: () => void;
+  /** Dejar el proyector en negro sin perder por dónde iba el culto. */
+  proyeccionNegro: () => void;
+  setSalidaDeAudio: (v: SalidaDeAudio) => void;
+  setTransicionProyeccion: (v: TransicionProyeccion) => void;
+  setAvanceProyeccion: (v: AvanceProyeccion) => void;
+  /** Volver a mandar a la salida lo que ya está en pantalla. */
+  reproyectar: () => void;
+  /** Empezar a escuchar lo que devuelve la salida. Devuelve cómo dejar de hacerlo. */
+  escucharProyeccion: () => Promise<() => void>;
+  ocultarTarjetaEscaneo: () => void;
   onSortHeader: (k: SortKey) => void;
 
   onRowClick: (id: string, mods?: Modificadores) => void;
@@ -336,20 +627,20 @@ export interface CantoralState {
   endLibraryDrag: () => void;
 
   /** Append the selection to a list, in the order it is shown. */
+  agregarPistas: (playlistId: string, ids: readonly string[]) => void;
   bulkAddToPlaylist: (playlistId: string) => void;
   /** Mark or unmark the selection as favourites. */
   bulkFav: (fav: boolean) => void;
-  /** Put a tag on the selection, or take it off it. */
-  bulkTag: (tag: string, add: boolean) => void;
   /** Drop the selection from the catalogue, after confirming. */
   bulkDelete: () => void;
   onFav: (id: string) => void;
-  onOpenExternal: (id: string) => void;
 
   play: (id: string, queue?: string[]) => void;
   togglePlay: () => void;
   /** Auto-advance when a track finishes (honours «repetir»). */
   advance: () => void;
+  /** Poner el transporte en una pista, abriendo lo que haga falta para verla. */
+  irAPista: (id: string) => void;
   prev: () => void;
   next: () => void;
   toggleShuffle: () => void;
@@ -360,10 +651,16 @@ export interface CantoralState {
 
   /** Change one field of the selected track. It writes itself, debounced. */
   setEdit: (field: keyof TrackEdit, val: unknown) => void;
-  onTagDraft: (v: string) => void;
-  addTag: (v: string) => void;
-  removeTag: (tag: string) => void;
   closeDetail: () => void;
+  /**
+   * Si el panel de detalle aguanta un `Esc`.
+   *
+   * Vive en la sesión: es un modo de trabajo de un rato —estoy repasando la
+   * biblioteca pista por pista y no quiero que se me cierre el panel— y no una
+   * decisión que valga la pena recordar hasta la semana que viene.
+   */
+  detailFijado: boolean;
+  toggleDetailFijado: () => void;
   /** Write an edit still waiting out the debounce, right now. */
   flushEdit: () => void;
 
@@ -402,10 +699,11 @@ export interface CantoralState {
   setPrintWithLyrics: (con: boolean) => void;
   newList: () => void;
   /** `desde` is the id of the template whose order the new list starts from. */
-  createList: (nombre: string, fecha: string, ocasion: string, desde?: string) => void;
+  createList: (nombre: string, ocasion: string, desde?: string) => void;
   editCurrentList: () => void;
-  updateList: (nombre: string, fecha: string, ocasion: string) => void;
-  addToList: (playlistId: string, trackId: string) => void;
+  updateList: (nombre: string, ocasion: string) => void;
+  openAddToList: () => void;
+  addToListConfirm: (playlistId: string) => void;
   deleteCurrentList: () => void;
   /** Copy a list with its whole order and open the copy. */
   duplicateList: (id: string) => void;
@@ -427,10 +725,9 @@ export interface CantoralState {
   setOver: (id: string | null) => void;
   clearDrag: () => void;
 
-  toggleOpenExt: () => void;
   /** Show a track's file in the system file manager. */
   revealTrack: (id: string) => void;
-  /** Point a track at its file's new location, keeping tags and favourite. */
+  /** Point a track at its file's new location, keeping what it carries. */
   relocateTrack: (id: string) => void;
   /** Drop a track from the catalogue. The audio file is never touched. */
   deleteTrack: (id: string) => void;
@@ -442,7 +739,9 @@ export interface CantoralState {
   restore: () => void;
 
   tick: () => void;
-  showToast: (m: string, type?: ToastType) => void;
+  showToast: (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) => void;
+  /** Quitar el aviso antes de que se vaya solo. */
+  closeToast: () => void;
 
   /** Fetch one track's sheet if it is not already in hand. */
   loadSheet: (id: string) => void;
@@ -460,7 +759,6 @@ export interface CantoralState {
   openService: () => void;
   closeService: () => void;
   serviceGo: (delta: number) => void;
-  transposeService: (delta: number) => void;
   scaleService: (delta: number) => void;
 
   /** Look for tracks that are the same song. */
@@ -484,7 +782,8 @@ SEED_PLAYLISTS.forEach((p) => (initialPlOrder[p.id] = p.ids.slice()));
 const MOCK = !isTauri();
 
 export const useStore = create<CantoralState>((set, get) => {
-  const toast = (m: string, type: ToastType = "success") => get().showToast(m, type);
+  const toast = (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) =>
+    get().showToast(titulo, opciones);
 
   /** Replace the catalogue from a backend snapshot, preserving the player /
    *  playlist selection when the referenced ids still exist. */
@@ -588,11 +887,11 @@ export const useStore = create<CantoralState>((set, get) => {
         .then(() => {
           toast("Hoja de la lista exportada");
           // Opens in the default browser, where Cmd/Ctrl+P saves it as PDF.
-          return openExternalPath(dest);
+          return openExportedSheet(dest);
         })
         .catch((err) => {
           console.error(err);
-          toast("No se pudo exportar la lista", "error");
+          toast("No se pudo exportar la lista", { tipo: "error" });
         });
     });
   };
@@ -613,7 +912,7 @@ export const useStore = create<CantoralState>((set, get) => {
       .catch((err) => {
         console.error("update_track_sheet failed", err);
         if (get().sheetDialog === id) set({ sheetState: "error" });
-        toast("No se pudo guardar la letra", "error");
+        toast("No se pudo guardar la letra", { tipo: "error" });
       });
   };
 
@@ -638,7 +937,7 @@ export const useStore = create<CantoralState>((set, get) => {
     const t = get().tracks.find((x) => x.id === id);
     if (!t) return;
 
-    updateTrackCmd(t.id, t.tono, t.bpm, t.ocasion, t.tags || [])
+    updateTrackCmd(t.id, t.artista, t.bpm, t.ocasion)
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.
@@ -649,7 +948,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // The typed value is kept: yanking it back mid-edit would lose work for
         // a failure the user can do nothing about. The footer says so instead.
         if (get().selId === id) set({ saveState: "error" });
-        get().showToast("No se pudieron guardar los cambios", "error");
+        get().showToast("No se pudieron guardar los cambios", { tipo: "error" });
       });
   };
 
@@ -675,11 +974,30 @@ export const useStore = create<CantoralState>((set, get) => {
    */
   const saveOrder = (playlistId: string, next: string[], prev: string[]) => {
     set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: next } }));
+    tocarCulto(playlistId);
     setPlaylistOrderCmd(playlistId, next).catch((err) => {
       console.error("set_playlist_order failed", err);
       set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: prev } }));
-      get().showToast("No se pudo guardar el orden de la lista", "error");
+      get().showToast("No se pudo guardar el orden de la lista", { tipo: "error" });
     });
+  };
+
+  /**
+   * Apuntar que alguien acaba de abrir o cambiar un culto.
+   *
+   * Es lo que ordena la lista de cultos, que no tienen fecha: lo que se está
+   * preparando es lo último que se tocó. Sube arriba en el acto y se guarda
+   * para la próxima vez.
+   *
+   * Donde la acción devuelve una instantánea del núcleo, esto va **después** de
+   * aplicarla: la instantánea sale antes de que el toque se escriba, y
+   * aplicarla después lo devolvería a su sitio.
+   */
+  const tocarCulto = (id: string) => {
+    if (!id) return;
+    const ahora = new Date().toISOString();
+    set((st) => ({ playlists: st.playlists.map((p) => (p.id === id ? { ...p, tocada: ahora } : p)) }));
+    touchPlaylistCmd(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
   return {
@@ -691,17 +1009,38 @@ export const useStore = create<CantoralState>((set, get) => {
     playlists: MOCK ? SEED_PLAYLISTS : [],
     plOrder: MOCK ? initialPlOrder : {},
     queue: [],
+    queueOrigen: "biblioteca",
+    detailFijado: false,
 
     themeMode: "system",
     theme: resolveTheme("system"),
+    temaSistema: null,
     view: "biblioteca",
     libState: MOCK ? "content" : "empty",
 
     query: "",
     qf: null,
     ocasion: null,
-    tagFilter: [],
     groupBy: "none",
+    densidad: "comoda",
+    gruposColapsados: [],
+    monitores: [],
+    monitorSalida: 0,
+    proyectando: false,
+    proyeccionIdx: -1,
+    proyeccionLista: "",
+    proyeccionEnNegro: true,
+    proyeccionEstrofa: 0,
+    salidaDeAudio: "letra",
+    transicionProyeccion: "negro",
+    // Un culto es una lista preparada para darle y que corra entera: pasar
+    // solo al siguiente es lo que se espera, y el negro entre elementos, la
+    // excepción que se elige.
+    avanceProyeccion: "siguiente",
+    proyeccionPos: 0,
+    proyeccionDur: 0,
+    proyeccionFallos: {},
+    tarjetaEscaneoOculta: false,
     sortKey: "titulo",
     sortDir: "asc",
 
@@ -712,7 +1051,6 @@ export const useStore = create<CantoralState>((set, get) => {
 
     selId: null,
     detailOpen: false,
-    tagDraft: "",
     saveState: "idle",
 
     dialog: null,
@@ -724,6 +1062,7 @@ export const useStore = create<CantoralState>((set, get) => {
     printWithLyrics: false,
     scanning: false,
     scanPct: 0,
+    scanOmitidos: 0,
     scanIdx: 0,
     scanFile: "",
     scanError: null,
@@ -737,7 +1076,6 @@ export const useStore = create<CantoralState>((set, get) => {
     repeat: false,
 
     curPlaylist: MOCK ? "p1" : "",
-    openExt: false,
     draggingId: null,
     overId: null,
     reorderNotice: "",
@@ -751,7 +1089,6 @@ export const useStore = create<CantoralState>((set, get) => {
 
     serviceOpen: false,
     serviceIdx: 0,
-    serviceSemitones: 0,
     serviceScale: 1,
 
     duplicates: [],
@@ -760,38 +1097,280 @@ export const useStore = create<CantoralState>((set, get) => {
 
     // ---------- nav ----------
     showBiblioteca: () => set({ view: "biblioteca" }),
+
+    // «Todas» y el propio «Biblioteca» de la barra lateral. No basta con
+    // cambiar de vista: estando ya en la biblioteca con un filtro puesto, eso
+    // no hacía absolutamente nada —ni se encendía el botón ni cambiaba la
+    // tabla—, que es como se lee un botón roto. Suelta también la búsqueda,
+    // porque «todas» quiere decir todas.
+    verTodaLaBiblioteca: () =>
+      set((s) => ({
+        view: "biblioteca",
+        libState: estadoDeLaBiblioteca(s),
+        qf: null,
+        ocasion: null,
+        query: "",
+      })),
     showColecciones: () => set({ view: "colecciones" }),
     showConfig: () => set({ view: "config" }),
     onFolderClick: () =>
-      set({ view: "biblioteca", libState: "content", qf: null, ocasion: null }),
-    openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
-    toggleTheme: () => {
-      get().setThemeMode(get().theme === "dark" ? "light" : "dark");
+      set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null, ocasion: null })),
+    openPlaylist: (id) => {
+      set({ view: "lista", curPlaylist: id });
+      tocarCulto(id);
     },
     setThemeMode: (m) => {
-      const theme = resolveTheme(m);
+      const theme = resolveTheme(m, get().temaSistema);
       set({ themeMode: m, theme });
       if (isTauri()) void setSetting("themeMode", m);
     },
     applySystemTheme: () => {
-      if (get().themeMode === "system") set({ theme: osPrefersDark() ? "dark" : "light" });
+      if (get().themeMode === "system") set((st) => ({ theme: resolveTheme("system", st.temaSistema) }));
+    },
+
+    // Preguntar a la ventana nativa cuál es el tema del sistema, y quedarse
+    // escuchando. Devuelve cómo dejar de hacerlo.
+    //
+    // Hace falta porque `prefers-color-scheme` no es de fiar dentro de la app:
+    // en Windows, WebView2 lo resuelve contra el tema de la ventana y contesta
+    // «claro» aunque el sistema esté en oscuro, así que «Seguir al sistema» no
+    // seguía nada. La ventana sí lo sabe.
+    seguirAlSistema: async () => {
+      const aplicar = (t: Theme | null) => {
+        if (!t) return;
+        set((st) => (st.themeMode === "system" ? { temaSistema: t, theme: t } : { temaSistema: t }));
+      };
+      aplicar(await temaDelSistema());
+      return onTemaDelSistema(aplicar);
     },
 
     // ---------- library filters ----------
     onQuery: (v) => set({ query: v }),
     clearQuery: () => set({ query: "" }),
     onQuickFilter: (q) =>
-      set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: "content" })),
+      set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: estadoDeLaBiblioteca(s) })),
     onOcasion: (o) => set((s) => ({ ocasion: s.ocasion === o ? null : o || null })),
-    onTagFilter: (tag) =>
+    // Cambiar el eje deja las claves plegadas sin sentido —«f1/Clásicos» no
+    // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
+    onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
+    setDensidad: (d) => set({ densidad: d }),
+    ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
+
+    showProyeccion: () => {
+      // Se proyecta el culto que está abierto, que es el que quien opera acaba
+      // de repasar. No hay otro que pudiera querer decir.
+      set({ view: "proyeccion" });
+      void get().cargarMonitores();
+    },
+
+    cargarMonitores: async () => {
+      const lista = await projectionMonitors().catch((err) => {
+        console.error("projection_monitors failed", err);
+        return [] as MonitorInfo[];
+      });
       set((st) => ({
-        // A new array every time: the memoised selectors key on its identity.
-        tagFilter: st.tagFilter.includes(tag)
-          ? st.tagFilter.filter((t) => t !== tag)
-          : [...st.tagFilter, tag],
-        view: "biblioteca",
+        monitores: lista,
+        // Por defecto, la primera pantalla que no sea en la que está la
+        // ventana: en un culto el proyector es siempre la otra. Si solo hay
+        // una, se queda esa y quien opera verá la salida encima — que es lo
+        // que pasa cuando se prepara sin el proyector conectado.
+        monitorSalida:
+          lista.some((m) => m.indice === st.monitorSalida) && st.proyectando
+            ? st.monitorSalida
+            : (lista.find((m) => !m.principal) ?? lista[0])?.indice ?? 0,
+      }));
+    },
+
+    elegirMonitor: (indice) => {
+      set({ monitorSalida: indice });
+      // En marcha, elegir otra pantalla la mueve: pedir que se cierre y se
+      // vuelva a abrir sería un parpadeo delante de la congregación.
+      if (get().proyectando) {
+        void openProjectionCmd(indice).catch((err) => {
+          console.error("open_projection failed", err);
+          toast("No se pudo mover la proyección a esa pantalla", { tipo: "error" });
+        });
+      }
+    },
+
+    alternarProyeccion: () => {
+      if (get().proyectando) {
+        // Cortar deja la cola donde estaba. Quien corta suele cortar para
+        // arreglar algo —el proyector, el cable, un archivo— y volver al
+        // mismo sitio, no para empezar el culto otra vez.
+        set({ proyectando: false, proyeccionPos: 0, proyeccionDur: 0 });
+        void closeProjectionCmd().catch(console.error);
+        return;
+      }
+      void openProjectionCmd(get().monitorSalida)
+        .then(() => {
+          set({ proyectando: true });
+          // Salir al aire es salir con algo. Con un culto a medias vuelve a
+          // donde estaba —y a la lista en la que estaba—; si no, empieza por
+          // el principio del que esté abierto.
+          const st = get();
+          if (st.proyeccionIdx >= 0 && filasProyectadas(st).length > st.proyeccionIdx) {
+            set({ proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
+            get().proyectar(salidaDelCulto(get(), st.proyeccionIdx, true));
+          } else if (filasDeLista(st).length > 0) {
+            get().proyectarElemento(0);
+          } else {
+            get().proyeccionNegro();
+          }
+        })
+        .catch((err) => {
+          console.error("open_projection failed", err);
+          toast("No se pudo abrir la proyección", { tipo: "error" });
+        });
+    },
+
+    proyectar: (salida) => {
+      if (!get().proyectando) return;
+      void setProjectionCmd(salida).catch((err) => console.error("set_projection failed", err));
+    },
+
+    proyectarElemento: (idx) => {
+      // Se proyecta desde la lista abierta, y a partir de aquí esa pasa a ser
+      // la que está en el aire.
+      if (idx < 0 || idx >= filasDeLista(get()).length) return;
+      // Y se calla lo que estuviera sonando en el portátil. Hay una sola salida
+      // de audio: dos cosas a la vez por los altavoces del culto no es algo que
+      // nadie quiera, y ahora que el video suena dentro de la app es fácil
+      // acabar ahí sin darse cuenta.
+      if (get().playing) set({ playing: false });
+      const veniaDeOtro = get().proyeccionIdx !== idx || get().proyeccionEnNegro;
+      set({
+        proyeccionIdx: idx,
+        proyeccionLista: get().curPlaylist,
+        proyeccionEnNegro: false,
+        proyeccionEstrofa: 0,
+        proyeccionPos: 0,
+        proyeccionDur: 0,
+      });
+      get().proyectar({
+        ...salidaDelCulto(get(), idx, true),
+        // Volver a poner lo mismo que ya estaba —pulsar su fila otra vez— no
+        // lleva transición: sería medio segundo de negro sin motivo.
+        ...(veniaDeOtro ? { transicion: get().transicionProyeccion } : {}),
+      });
+    },
+
+    proyeccionSiguiente: () => {
+      const st = get();
+      // Primero la letra, después la cola. «Siguiente» es un solo botón y una
+      // sola tecla porque desde el atril no se quiere elegir entre dos: se
+      // quiere pasar a lo que viene, sea la estrofa de abajo o la canción de
+      // después.
+      const trozos = estrofasEnPantalla(st);
+      if (!st.proyeccionEnNegro && st.proyeccionEstrofa + 1 < trozos.length) {
+        set({ proyeccionEstrofa: st.proyeccionEstrofa + 1 });
+        get().proyectar(salidaDelCulto(get(), st.proyeccionIdx, true));
+        return;
+      }
+      const filas = filasProyectadas(st);
+      const siguiente = st.proyeccionIdx + 1;
+      if (siguiente >= filas.length) {
+        // Se acabó el culto. Negro y no volver al principio: nadie quiere que
+        // la última canción arranque otra vez sola delante de todos.
+        get().proyeccionNegro();
+        return;
+      }
+      set({ proyeccionIdx: siguiente, proyeccionEnNegro: false, proyeccionEstrofa: 0, proyeccionPos: 0, proyeccionDur: 0 });
+      get().proyectar({ ...salidaDelCulto(get(), siguiente, true), transicion: get().transicionProyeccion });
+    },
+
+    setSalidaDeAudio: (v) => {
+      set({ salidaDeAudio: v });
+      // En marcha, el cambio se ve al momento: quien lo está tocando lo toca
+      // para ver el efecto, no para que se aplique en la siguiente canción.
+      get().reproyectar();
+    },
+
+    setTransicionProyeccion: (v) => set({ transicionProyeccion: v }),
+
+    setAvanceProyeccion: (v) => set({ avanceProyeccion: v }),
+
+    /** Volver a mandar lo que ya está en pantalla, con lo que haya cambiado. */
+    reproyectar: () => {
+      const st = get();
+      if (!st.proyectando || st.proyeccionEnNegro || st.proyeccionIdx < 0) return;
+      get().proyectar(salidaDelCulto(st, st.proyeccionIdx, true));
+    },
+
+    proyeccionNegro: () => {
+      set({ proyeccionEnNegro: true, proyeccionPos: 0, proyeccionDur: 0 });
+      // El negro se lleva la precarga del siguiente: volver del negro tiene
+      // que ser inmediato, y lo que venga después ya está cargado.
+      get().proyectar({ vista: { modo: "negro" }, precarga: precargaDe(get(), get().proyeccionIdx) });
+    },
+
+    escucharProyeccion: async () => {
+      // La salida acaba de engancharse: se le manda lo que debería estar
+      // viendo. Sin esto, lo primero del culto se pierde en el arranque.
+      // `proyectar` ya no manda nada con la salida cortada, así que un aviso
+      // que llegue tarde no hace falta filtrarlo aquí también.
+      const soltarLista = await onProjectionReady(() => {
+        const st = get();
+        get().proyectar(
+          st.proyeccionIdx >= 0 && filasProyectadas(st).length > st.proyeccionIdx
+            ? salidaDelCulto(st, st.proyeccionIdx, true)
+            : { vista: { modo: "negro" } },
+        );
+      });
+      const soltarEstado = await onProjectionState((e) => {
+        const st = get();
+        const actual = filasProyectadas(st)[st.proyeccionIdx];
+        // Lo que llega de un archivo que ya no está en pantalla es de antes de
+        // pasar de elemento y se descarta: escribirlo pondría el tiempo de la
+        // canción anterior debajo de la que acaba de empezar.
+        if (!actual || !st.proyectando || rutaProyectable(actual) !== e.src) return;
+        if (e.fin) {
+          // Se acabó lo que había en pantalla.
+          //
+          // Con «Pasar al siguiente» puesto, la proyección sigue sola: es lo
+          // que quiere quien proyecta un culto de principio a fin sin que nadie
+          // esté al ratón. Con el ajuste por defecto se queda en negro, porque
+          // un video se termina mientras alguien está hablando y arrancar la
+          // canción de después por su cuenta delante de la congregación no lo
+          // puede decidir la app sin que se lo hayan pedido.
+          //
+          // Al final del culto no avanza en ninguno de los dos casos: no hay
+          // adónde, y `proyeccionSiguiente` deja el negro.
+          if (st.avanceProyeccion === "siguiente") {
+            set({ proyeccionPos: e.dur || get().proyeccionDur });
+            get().proyeccionSiguiente();
+            return;
+          }
+          set({ proyeccionEnNegro: true, proyeccionPos: e.dur || get().proyeccionDur });
+          get().proyectar({ vista: { modo: "negro" }, precarga: precargaDe(get(), get().proyeccionIdx) });
+          return;
+        }
+        if (e.error !== undefined) {
+          const motivo = motivoDeError(e.error, actual.path);
+          set((prev) => ({ proyeccionFallos: { ...prev.proyeccionFallos, [actual.id]: motivo } }));
+          toast(motivo, { detalle: `«${actual.titulo}» no llega al proyector.`, tipo: "error" });
+          return;
+        }
+        set((prev) => {
+          // Un archivo que va se quita de la lista de fallos: pasa al
+          // reapuntarlo o al convertirlo sin cerrar la app.
+          const fallos = prev.proyeccionFallos[actual.id]
+            ? Object.fromEntries(Object.entries(prev.proyeccionFallos).filter(([k]) => k !== actual.id))
+            : prev.proyeccionFallos;
+          return { proyeccionPos: e.pos, proyeccionDur: e.dur || prev.proyeccionDur, proyeccionFallos: fallos };
+        });
+      });
+      return () => {
+        soltarLista();
+        soltarEstado();
+      };
+    },
+    toggleGrupo: (clave) =>
+      set((st) => ({
+        gruposColapsados: st.gruposColapsados.includes(clave)
+          ? st.gruposColapsados.filter((c) => c !== clave)
+          : [...st.gruposColapsados, clave],
       })),
-    onGroupBy: (g) => set({ groupBy: g }),
     onSortHeader: (k) =>
       set((s) => ({
         sortKey: k,
@@ -807,7 +1386,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!r.abrirDetalle) return;
       // Moving to another track must not leave the previous one's edit in limbo.
       if (st.selId !== id) get().flushEdit();
-      set({ selId: id, detailOpen: true, tagDraft: "", saveState: "idle" });
+      set({ selId: id, detailOpen: true, saveState: "idle" });
     },
 
     selectAllVisible: () => {
@@ -832,34 +1411,67 @@ export const useStore = create<CantoralState>((set, get) => {
     endLibraryDrag: () => set({ dragFromLibrary: [] }),
 
     // ---------- bulk actions ----------
-    bulkAddToPlaylist: (playlistId) => {
-      const ids = seleccionVigente(get());
+    // Todo lo que agrega pistas a una lista pasa por aquí: el diálogo, y los
+    // dos sitios donde se puede soltar un arrastre. Antes había dos acciones
+    // con dos comportamientos —una para una pista, otra para la selección— y
+    // la de una pista decía «Ya está en la lista» mientras la otra se callaba.
+    agregarPistas: (playlistId, ids) => {
       if (ids.length === 0) return;
       const nombre = get().playlists.find((p) => p.id === playlistId)?.nombre ?? "la lista";
       const hecho = (n: number) => {
         set({ rowMenu: null });
-        toast(n === 1 ? `1 pista agregada a «${nombre}»` : `${n} pistas agregadas a «${nombre}»`);
+        // Cero es un resultado, no un fallo: significa que ya estaban todas, y
+        // decir «0 pistas agregadas» sería contarlo como si algo hubiera ido
+        // mal.
+        if (n === 0) {
+          toast(ids.length === 1 ? `Ya estaba en «${nombre}»` : `Ya estaban todas en «${nombre}»`, { tipo: "info" });
+          return;
+        }
+        tocarCulto(playlistId);
+        toast(`Agregadas a «${nombre}»`, {
+          detalle: n === 1 ? "1 pista, al final del culto." : `${n} pistas, al final del culto.`,
+        });
       };
       if (!isTauri()) {
         // Browser stand-in: the same outcome, minus what is already on the list.
-        set((st) => {
-          const ya = st.plOrder[playlistId] || [];
-          const nuevas = ids.filter((id) => !ya.includes(id));
-          hecho(nuevas.length);
-          return { plOrder: { ...st.plOrder, [playlistId]: [...ya, ...nuevas] } };
-        });
+        const ya = get().plOrder[playlistId] || [];
+        const nuevas = ids.filter((id) => !ya.includes(id));
+        set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: [...ya, ...nuevas] } }));
+        hecho(nuevas.length);
         return;
       }
       const yaEstaban = (get().plOrder[playlistId] || []).length;
-      addTracksToPlaylistCmd(playlistId, ids)
+      addTracksToPlaylistCmd(playlistId, [...ids])
         .then((snap) => {
           if (snap) applySnapshot(snap);
           hecho((get().plOrder[playlistId] || []).length - yaEstaban);
         })
         .catch((err) => {
           console.error("add_tracks_to_playlist failed", err);
-          toast("No se pudieron agregar las pistas", "error");
+          toast("No se pudieron agregar las pistas", { tipo: "error" });
         });
+    },
+
+    bulkAddToPlaylist: (playlistId) => get().agregarPistas(playlistId, seleccionVigente(get())),
+
+    /**
+     * Abre el único sitio desde el que se agrega a un culto.
+     *
+     * No abre nada si no hay qué agregar: un diálogo vacío con un «Cancelar»
+     * es peor que no responder al atajo.
+     */
+    openAddToList: () => {
+      if (pistasParaAgregar(get()).length === 0) return;
+      set({ dialog: "addToList", rowMenu: null });
+    },
+
+    addToListConfirm: (playlistId) => {
+      const ids = pistasParaAgregar(get());
+      get().agregarPistas(playlistId, ids);
+      // La selección se deshace al terminar: lo que se quería hacer con ella
+      // ya está hecho, y dejarla puesta deja la fila de herramientas ocupada
+      // por una barra que ya no tiene trabajo.
+      set({ dialog: null, selection: [], selAnchor: null });
     },
 
     bulkFav: (fav) => {
@@ -873,51 +1485,26 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!isTauri()) return;
       void setTracksFavCmd(ids, fav).catch((err) => {
         console.error("set_tracks_fav failed", err);
-        toast("No se pudo guardar el cambio", "error");
-      });
-    },
-
-    bulkTag: (tag, add) => {
-      const ids = seleccionVigente(get());
-      const nombre = normalizarEtiqueta(tag);
-      if (ids.length === 0 || !nombre) return;
-      // The same snapping as the detail panel: a bulk edit must not be what
-      // invents a second spelling of an existing tag.
-      const existente = etiquetaEquivalente(nombre, etiquetas(get()).map((e) => e.nombre));
-      const final = add ? (existente ?? nombre) : nombre;
-      const tocadas = new Set(ids);
-      set((st) => ({
-        tracks: st.tracks.map((t) => {
-          if (!tocadas.has(t.id)) return t;
-          const tags = t.tags || [];
-          if (add) return tags.includes(final) ? t : { ...t, tags: [...tags, final].sort() };
-          return { ...t, tags: tags.filter((x) => x !== final) };
-        }),
-        rowMenu: null,
-      }));
-      toast(add ? `Etiqueta «${final}» agregada` : `Etiqueta «${final}» quitada`);
-      if (!isTauri()) return;
-      void tagTracksCmd(ids, final, add).catch((err) => {
-        console.error("tag_tracks failed", err);
-        toast("No se pudo guardar la etiqueta", "error");
+        toast("No se pudo guardar el cambio", { tipo: "error" });
       });
     },
 
     bulkDelete: () => {
       const ids = seleccionVigente(get());
       if (ids.length === 0) return;
-      // Cuántas *pistas* están en alguna lista, no cuántas apariciones suman:
-      // una pista en tres listas es una pista, y contarla tres veces daba un
-      // número mayor que la propia selección.
-      const enAlgunaLista = new Set(Object.values(get().plOrder).flat());
-      const enListas = ids.filter((id) => enAlgunaLista.has(id)).length;
+      // Qué cultos pierden algo, por su nombre. Un número suelto —«3 están en
+      // alguna lista»— no deja decidir: quitar una pista del culto del domingo
+      // que viene no es lo mismo que quitarla de una plantilla de hace un año.
+      const cultos = cultosAfectados(ids, get().playlists, get().plOrder);
       get().askConfirm({
-        title: ids.length === 1 ? "¿Quitar esta pista?" : `¿Quitar ${ids.length} pistas?`,
-        message: "Salen de la biblioteca y de todas las listas para culto donde estén.",
-        detail:
-          `Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.` +
-          (enListas ? `\n${enListas} ${enListas === 1 ? "está" : "están"} en alguna lista.` : ""),
-        safe: "Los archivos de audio no se borran del disco. Volverán a aparecer si escaneas su carpeta.",
+        title:
+          ids.length === 1
+            ? "¿Quitar esta pista de la biblioteca?"
+            : `¿Quitar ${ids.length} pistas de la biblioteca?`,
+        message: cultos
+          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos, tempo, ocasión y la letra que tengan escrita.`
+          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos, tempo, ocasión y la letra que tengan escrita.`,
+        safe: "Los archivos no se tocan. Siguen en el disco, en su carpeta, con su nombre. Si vuelves a escanear la carpeta, reaparecen.",
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
           set({ rowMenu: null, selection: [], selAnchor: null });
@@ -930,17 +1517,21 @@ export const useStore = create<CantoralState>((set, get) => {
               });
               return { tracks: st.tracks.filter((t) => !fuera.has(t.id)), plOrder };
             });
-            toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`);
+            toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
+              detalle: "Los archivos siguen en el disco.",
+            });
             return;
           }
           deleteTracksCmd(ids)
             .then((snap) => {
               if (snap) applySnapshot(snap);
-              toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`);
+              toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
+                detalle: "Los archivos siguen en el disco.",
+              });
             })
             .catch((err) => {
               console.error("delete_tracks failed", err);
-              toast("No se pudieron quitar las pistas", "error");
+              toast("No se pudieron quitar las pistas", { tipo: "error" });
             });
         },
       });
@@ -952,41 +1543,24 @@ export const useStore = create<CantoralState>((set, get) => {
       set((s) => ({ tracks: s.tracks.map((x) => (x.id === id ? { ...x, fav: nf } : x)) }));
       void setTrackFav(id, nf);
     },
-    onOpenExternal: (id) => {
-      const t = get().tracks.find((x) => x.id === id);
-      if (!isTauri()) {
-        toast("Abriendo en el reproductor del sistema…", "info");
-        return;
-      }
-      if (!t?.path) {
-        toast("Sin archivo para abrir", "info");
-        return;
-      }
-      toast("Abriendo en el reproductor del sistema…", "info");
-      void openExternalPath(t.path).catch((err) => {
-        console.error("openExternalPath failed", err);
-        toast("No se pudo abrir el archivo", "error");
-      });
-    },
-
     // ---------- player ----------
     play: (id, queue) => {
       const s = get();
       const t = s.tracks.find((x) => x.id === id);
       if (!t) return;
       if (t.missing) {
-        toast("El archivo no se encuentra en el disco", "error");
-        return;
-      }
-      // Videos always, and any track when "abrir en el sistema" is on, open in
-      // the OS default player instead of the integrated one.
-      if (t.video || s.openExt) {
-        get().onOpenExternal(id);
+        toast("El archivo no se encuentra en el disco", { tipo: "error" });
         return;
       }
       // Playing from a culto list queues that list, so the transport follows the
       // service order instead of falling back to whatever the library shows.
-      set({ queue: queue ?? queueForView(s), playerId: id, playing: true, posSec: 0 });
+      //
+      // Un video se reproduce dentro, como cualquier otra pista. Esto se lo
+      // pasaba al reproductor del sistema, que en mitad de un culto significaba
+      // otra ventana encima de la proyección, otro volumen y otra cola — con la
+      // lista del culto quedándose atrás.
+      set({ queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true });
+      get().irAPista(id);
     },
     togglePlay: () => set((s) => ({ playing: !s.playing })),
     advance: () => {
@@ -1002,7 +1576,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const ids = playQueue(s);
       const i = ids.indexOf(s.playerId);
       const n = ids.length ? ids[(i - 1 + ids.length) % ids.length] : s.playerId;
-      set({ playerId: n, posSec: 0 });
+      get().irAPista(n);
     },
     next: () => {
       const s = get();
@@ -1016,7 +1590,15 @@ export const useStore = create<CantoralState>((set, get) => {
       } else {
         n = ids.length ? ids[(i + 1) % ids.length] : s.playerId;
       }
-      set({ playerId: n, posSec: 0 });
+      get().irAPista(n);
+    },
+
+    irAPista: (id) => {
+      // La única superficie de video de esta ventana está en el panel de
+      // detalle, así que llegar a un video sin el panel abierto sería llegar a
+      // una pista que suena y no se ve. Se abre solo, y en la pista que toca.
+      const t = get().tracks.find((x) => x.id === id);
+      set(t?.video ? { playerId: id, posSec: 0, detailOpen: true, selId: id } : { playerId: id, posSec: 0 });
     },
     toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
     toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
@@ -1039,30 +1621,8 @@ export const useStore = create<CantoralState>((set, get) => {
       }));
       scheduleSave(id);
     },
-    onTagDraft: (v) => set({ tagDraft: v }),
-    addTag: (v) => {
-      const val = normalizarEtiqueta(v);
-      if (!val) return;
-      const s = get();
-      if (!s.selId) return;
-      // A tag that already exists but for its capitalisation is the same tag to
-      // everyone except SQLite, so the one in the catalogue wins and the pair
-      // never forms in the first place.
-      const yaExiste = etiquetaEquivalente(val, etiquetas(s).map((e) => e.nombre));
-      const nombre = yaExiste ?? val;
-      const curT = s.tracks.find((x) => x.id === s.selId);
-      const tags = (curT?.tags || []).slice();
-      if (!tags.includes(nombre)) tags.push(nombre);
-      s.setEdit("tags", tags);
-      set({ tagDraft: "" });
-      if (nombre !== val) toast(`Se usó «${nombre}», que ya existía`, "info");
-    },
-    removeTag: (tag) => {
-      const s = get();
-      if (!s.selId) return;
-      const curT = s.tracks.find((x) => x.id === s.selId);
-      s.setEdit("tags", (curT?.tags || []).filter((t) => t !== tag));
-    },
+    toggleDetailFijado: () => set((st) => ({ detailFijado: !st.detailFijado })),
+
     closeDetail: () => {
       // Nothing may stay waiting out the debounce once the panel is gone.
       get().flushEdit();
@@ -1080,7 +1640,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // store is where the rule actually lives — only one scan at a time, and
       // the dialog's only outcome is starting one.
       if (get().scanning) {
-        toast("Espera a que termine el escaneo en curso", "info");
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
       set({ dialog: "addFolder" });
@@ -1096,7 +1656,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // The backend refuses a second scan outright, and an error screen is a
       // harsh answer to what is usually a double click.
       if (get().scanning) {
-        toast("Espera a que termine el escaneo en curso", "info");
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
       if (isTauri() && path) {
@@ -1105,13 +1665,13 @@ export const useStore = create<CantoralState>((set, get) => {
         // The view does move to the library here — the user just asked for a
         // folder from the add dialog, so that is where they expect to land.
         // What it no longer does is *replace* the library with the scan.
-        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "" });
+        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
         startLiveRefresh();
         addAndScanFolder(path, recursive)
           .then((snap) => {
             applySnapshot(snap);
             set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast("Biblioteca actualizada");
+            toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
           })
           .catch((err) => {
             console.error(err);
@@ -1129,7 +1689,7 @@ export const useStore = create<CantoralState>((set, get) => {
     // first of those has any business moving the user.
     startScan: () => {
       if (scanTimer) clearInterval(scanTimer);
-      set({ scanning: true, scanPct: 0, scanIdx: 0 });
+      set({ scanning: true, scanPct: 0, scanIdx: 0, scanOmitidos: 0, tarjetaEscaneoOculta: false });
       scanTimer = setInterval(() => {
         const p = get().scanPct + Math.random() * 7 + 3;
         if (p >= 100) {
@@ -1174,7 +1734,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // Belt and braces: `MOCK` is decided at module-eval time. If that ever ran
       // before Tauri injected its globals, drop the seed before the real
       // catalogue lands so demo rows can never reach the screen.
-      if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], playerId: "", curPlaylist: "", posSec: 0 });
+      if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], queueOrigen: "biblioteca", playerId: "", curPlaylist: "", posSec: 0 });
       try {
         const snap = await getLibrary();
         if (snap) {
@@ -1182,10 +1742,13 @@ export const useStore = create<CantoralState>((set, get) => {
           set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
         }
         // Restore saved preferences.
-        const [modeS, themeS, openExtS, uiS] = await Promise.all([
+        // `openExt` ya no se lee. La fila que dejó en `settings` una
+        // instalación anterior se queda ahí sin hacer nada: borrarla sería
+        // tocar datos del usuario para ganar nada, y si el ajuste volviera
+        // alguna vez, volvería con su valor.
+        const [modeS, themeS, uiS] = await Promise.all([
           getSetting("themeMode"),
           getSetting("theme"),
-          getSetting("openExt"),
           getSetting(UI_PREFS_KEY),
         ]);
         const patch: Partial<CantoralState> = {};
@@ -1199,7 +1762,6 @@ export const useStore = create<CantoralState>((set, get) => {
           patch.themeMode = mode;
           patch.theme = resolveTheme(mode);
         }
-        if (openExtS != null) patch.openExt = openExtS === "1";
         // The rest of the interface: volume, transport, sorting, grouping and
         // where the user was. Only the fields that survived validation, over
         // whatever the defaults are, and settled against the lists that exist.
@@ -1295,12 +1857,12 @@ export const useStore = create<CantoralState>((set, get) => {
         // que nadie lo haya preguntado es ruido en cada apertura.
         if (manual && update.estado === "alDia") toast("Cantoral está al día");
         if (manual && update.estado === "sinConfigurar") {
-          toast("Esta compilación no trae actualizaciones automáticas", "info");
+          toast("Esta compilación no trae actualizaciones automáticas", { tipo: "info" });
         }
       } catch (err) {
         console.error("update check failed", err);
         set({ updateState: "error", updateError: String(err) });
-        if (manual) toast("No se pudo comprobar si hay actualizaciones", "error");
+        if (manual) toast("No se pudo comprobar si hay actualizaciones", { tipo: "error" });
       }
     },
     installUpdate: () => {
@@ -1317,15 +1879,15 @@ export const useStore = create<CantoralState>((set, get) => {
           pararProgreso?.();
           pararProgreso = null;
           set({ updateState: "error", updateError: String(err), updateProgress: null });
-          toast("No se pudo instalar la actualización", "error");
+          toast("No se pudo instalar la actualización", { tipo: "error" });
         });
     },
     newList: () => set({ dialog: "newList" }),
-    createList: (nombre, fecha, ocasion, desde) => {
+    createList: (nombre, ocasion, desde) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
       if (isTauri()) {
-        createPlaylistCmd(name, fecha, ocasion, desde)
+        createPlaylistCmd(name, ocasion, desde)
           .then(async (id) => {
             const snap = await getLibrary();
             if (snap) applySnapshot(snap);
@@ -1334,13 +1896,13 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo crear la lista", "error");
+            toast("No se pudo crear la lista", { tipo: "error" });
           });
       } else {
         const id = "new-" + Date.now();
         const base = desde ? get().plOrder[desde] ?? [] : [];
         const ids = base.slice();
-        const pl: Playlist = { id, nombre: name, fecha, ocasion, ids, plantilla: false };
+        const pl: Playlist = { id, nombre: name, ocasion, ids, plantilla: false, tocada: new Date().toISOString() };
         set((s) => ({
           playlists: [...s.playlists, pl],
           plOrder: { ...s.plOrder, [id]: ids },
@@ -1364,7 +1926,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo duplicar la lista", "error");
+            toast("No se pudo duplicar la lista", { tipo: "error" });
           });
       } else {
         const nuevo = "copy-" + Date.now();
@@ -1372,11 +1934,10 @@ export const useStore = create<CantoralState>((set, get) => {
         const copia: Playlist = {
           id: nuevo,
           nombre: nombreDeCopia(pl.nombre, st.playlists.map((p) => p.nombre)),
-          // No date: a copy is the *next* service, not the one it came from.
-          fecha: "",
           ocasion: pl.ocasion,
           ids,
           plantilla: false,
+          tocada: new Date().toISOString(),
         };
         set((s) => ({
           playlists: [...s.playlists, copia],
@@ -1418,7 +1979,7 @@ export const useStore = create<CantoralState>((set, get) => {
           .then(() => toast("Lista exportada para otra instalación"))
           .catch((err) => {
             console.error(err);
-            toast("No se pudo exportar la lista", "error");
+            toast("No se pudo exportar la lista", { tipo: "error" });
           });
       });
     },
@@ -1436,7 +1997,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
         return;
       }
@@ -1446,7 +2007,7 @@ export const useStore = create<CantoralState>((set, get) => {
           mostrar(await readPlaylistFileCmd(src));
         } catch (err) {
           console.error(err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         }
       });
     },
@@ -1455,19 +2016,20 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!previo) return;
       const ids = idsParaLaLista(previo.resultado.encontradas);
       if (ids.length === 0) return;
-      const { nombre, fecha, ocasion } = previo.archivo.lista;
+      const { nombre, ocasion } = previo.archivo.lista;
       set({ dialog: null, importPreview: null });
       const aviso = () => {
         const faltan = previo.resultado.faltantes.length;
-        toast(
-          faltan === 0
-            ? "Lista importada"
-            : `Lista importada · ${faltan} ${faltan === 1 ? "pista no está" : "pistas no están"} en esta biblioteca`,
-          faltan === 0 ? "success" : "info",
-        );
+        toast("Lista importada", {
+          detalle:
+            faltan === 0
+              ? undefined
+              : `${faltan} ${faltan === 1 ? "pista no está" : "pistas no están"} en esta biblioteca.`,
+          tipo: faltan === 0 ? "success" : "info",
+        });
       };
       if (isTauri()) {
-        createPlaylistCmd(nombre, fecha, ocasion)
+        createPlaylistCmd(nombre, ocasion)
           .then(async (id) => {
             await setPlaylistOrderCmd(id, ids);
             const snap = await getLibrary();
@@ -1477,11 +2039,11 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo importar la lista", "error");
+            toast("No se pudo importar la lista", { tipo: "error" });
           });
       } else {
         const id = "imp-" + Date.now();
-        const pl: Playlist = { id, nombre, fecha, ocasion, ids, plantilla: false };
+        const pl: Playlist = { id, nombre, ocasion, ids, plantilla: false, tocada: new Date().toISOString() };
         set((st) => ({
           playlists: [...st.playlists, pl],
           plOrder: { ...st.plOrder, [id]: ids },
@@ -1506,7 +2068,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo cambiar la plantilla", "error");
+            toast("No se pudo cambiar la plantilla", { tipo: "error" });
           });
       } else {
         set((s) => ({
@@ -1516,40 +2078,30 @@ export const useStore = create<CantoralState>((set, get) => {
       }
     },
     editCurrentList: () => set({ dialog: "editList" }),
-    updateList: (nombre, fecha, ocasion) => {
+    updateList: (nombre, ocasion) => {
       const id = get().curPlaylist;
       const name = nombre.trim() || "Lista sin título";
       set({ dialog: null });
       if (isTauri()) {
-        updatePlaylistCmd(id, name, fecha, ocasion)
+        updatePlaylistCmd(id, name, ocasion)
           .then((snap) => {
             applySnapshot(snap);
+            tocarCulto(id);
             toast("Lista actualizada");
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo actualizar la lista", "error");
+            toast("No se pudo actualizar la lista", { tipo: "error" });
           });
       } else {
         set((st) => ({
           playlists: st.playlists.map((p) =>
-            p.id === id ? { ...p, nombre: name, fecha, ocasion } : p,
+            p.id === id ? { ...p, nombre: name, ocasion } : p,
           ),
         }));
+        tocarCulto(id);
         toast("Lista actualizada");
       }
-    },
-    addToList: (playlistId, trackId) => {
-      const cur = get().plOrder[playlistId] || [];
-      if (cur.includes(trackId)) {
-        toast("Ya está en la lista", "info");
-        return;
-      }
-      const next = [...cur, trackId];
-      set((s) => ({ plOrder: { ...s.plOrder, [playlistId]: next } }));
-      const pl = get().playlists.find((p) => p.id === playlistId);
-      toast(`Agregada a «${pl?.nombre ?? "lista"}»`);
-      if (isTauri()) void addToPlaylistCmd(playlistId, trackId).then(applySnapshot).catch(console.error);
     },
     deleteCurrentList: () => {
       const st = get();
@@ -1576,7 +2128,7 @@ export const useStore = create<CantoralState>((set, get) => {
               })
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo eliminar la lista", "error");
+                toast("No se pudo eliminar la lista", { tipo: "error" });
               });
           } else {
             set((s) => {
@@ -1640,28 +2192,23 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     // ---------- config ----------
-    toggleOpenExt: () => {
-      const v = !get().openExt;
-      set({ openExt: v });
-      if (isTauri()) void setSetting("openExt", v ? "1" : "0");
-    },
     revealTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t?.path) return;
       if (!isTauri()) {
-        toast("Mostrar el archivo solo funciona en la app de escritorio", "info");
+        toast("Mostrar el archivo solo funciona en la app de escritorio", { tipo: "info" });
         return;
       }
       revealFile(t.path).catch((err) => {
         console.error("revealItemInDir failed", err);
-        toast("No se pudo mostrar el archivo", "error");
+        toast("No se pudo mostrar el archivo", { tipo: "error" });
       });
     },
     relocateTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t) return;
       if (!isTauri()) {
-        toast("Localizar archivos solo funciona en la app de escritorio", "info");
+        toast("Localizar archivos solo funciona en la app de escritorio", { tipo: "info" });
         return;
       }
       void pickMediaFile().then((path) => {
@@ -1669,11 +2216,13 @@ export const useStore = create<CantoralState>((set, get) => {
         relocateTrackCmd(id, path)
           .then((snap) => {
             applySnapshot(snap);
-            toast(`«${t.titulo}» vuelve a estar localizada`);
+            toast(`«${t.titulo}» vuelve a estar localizada`, {
+              detalle: "Conserva su favorito y su sitio en los cultos.",
+            });
           })
           .catch((err) => {
             console.error(err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
       });
     },
@@ -1686,7 +2235,7 @@ export const useStore = create<CantoralState>((set, get) => {
         title: "¿Quitar esta pista de la biblioteca?",
         message: `«${t.titulo}» dejará de aparecer en el catálogo.`,
         detail:
-          `Se pierden sus etiquetas, favorito, tono, tempo y ocasión.` +
+          `Se pierden su favorito, tempo, ocasión y la letra que tenga escrita.` +
           (listas.length
             ? ` También sale de ${listas.length === 1 ? "la lista" : "las listas"} ${listas
                 .map((p) => `«${p.nombre}»`)
@@ -1708,7 +2257,7 @@ export const useStore = create<CantoralState>((set, get) => {
             })
             .catch((err) => {
               console.error(err);
-              toast("No se pudo quitar la pista", "error");
+              toast("No se pudo quitar la pista", { tipo: "error" });
             });
         },
       });
@@ -1717,7 +2266,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const f = get().folders.find((x) => x.id === id);
       if (!f) return;
       if (!isTauri()) {
-        toast("Mover carpetas solo funciona en la app de escritorio", "info");
+        toast("Mover carpetas solo funciona en la app de escritorio", { tipo: "info" });
         return;
       }
       void pickFolder().then((path) => {
@@ -1725,11 +2274,13 @@ export const useStore = create<CantoralState>((set, get) => {
         relocateFolderCmd(id, path)
           .then((snap) => {
             applySnapshot(snap);
-            toast(`«${f.nombre}» ahora apunta a su nueva ubicación`);
+            toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
+              detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
+            });
           })
           .catch((err) => {
             console.error(err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
       });
     },
@@ -1742,7 +2293,7 @@ export const useStore = create<CantoralState>((set, get) => {
         message: `«${f.nombre}» dejará de estar indexada.`,
         detail:
           n > 0
-            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus etiquetas, favoritos, tono y ocasión. Eso no se puede deshacer.`
+            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus favoritos y su ocasión. Eso no se puede deshacer.`
             : "La carpeta no tiene pistas indexadas.",
         safe: "Tus archivos de audio no se tocan: siguen donde están.",
         confirmLabel: "Quitar carpeta",
@@ -1753,7 +2304,7 @@ export const useStore = create<CantoralState>((set, get) => {
               .then(() => toast("Carpeta quitada de la biblioteca"))
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo quitar la carpeta", "error");
+                toast("No se pudo quitar la carpeta", { tipo: "error" });
               });
           } else {
             set((s) => ({ folders: s.folders.filter((x) => x.id !== id) }));
@@ -1764,20 +2315,20 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     rescanFolder: (id) => {
       if (get().scanning) {
-        toast("Espera a que termine el escaneo en curso", "info");
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
       if (isTauri() && id) {
         // No `view` here on purpose. A re-scan is started from Configuración,
         // and yanking the user out of the screen they are working on is the
         // whole complaint this change exists to fix.
-        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "" });
+        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
         startLiveRefresh();
         rescanFolderCmd(id)
           .then((snap) => {
             applySnapshot(snap);
             set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast("Biblioteca actualizada");
+            toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
           })
           .catch((err) => {
             console.error(err);
@@ -1800,7 +2351,7 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     restore: () => {
       if (!isTauri()) {
-        toast("Selecciona un archivo de respaldo…", "info");
+        toast("Selecciona un archivo de respaldo…", { tipo: "info" });
         return;
       }
       void pickDbFile().then(async (src) => {
@@ -1812,7 +2363,7 @@ export const useStore = create<CantoralState>((set, get) => {
           info = await inspectBackup(src);
         } catch (err) {
           console.error(err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
           return;
         }
         const st = get();
@@ -1838,7 +2389,7 @@ export const useStore = create<CantoralState>((set, get) => {
               })
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo restaurar la base de datos", "error");
+                toast("No se pudo restaurar la base de datos", { tipo: "error" });
               });
           },
         });
@@ -1874,7 +2425,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("get_track_sheet failed", err);
-          toast("No se pudo leer la letra de esta pista", "error");
+          toast("No se pudo leer la letra de esta pista", { tipo: "error" });
         });
     },
 
@@ -1899,7 +2450,7 @@ export const useStore = create<CantoralState>((set, get) => {
         set((st) => ({ sheets: { ...st.sheets, ...vacias, ...traidas } }));
       } catch (err) {
         console.error("get_sheets failed", err);
-        toast("No se pudieron leer las letras de esta lista", "error");
+        toast("No se pudieron leer las letras de esta lista", { tipo: "error" });
       }
     },
 
@@ -1938,18 +2489,14 @@ export const useStore = create<CantoralState>((set, get) => {
     openService: () => {
       const ids = get().plOrder[get().curPlaylist] || [];
       if (ids.length === 0) {
-        toast("Esta lista está vacía", "info");
+        toast("Esta lista está vacía", { tipo: "info" });
         return;
       }
       void get().loadSheets(ids);
       // Starts on whatever is playing if it belongs to this list, so opening
       // the view mid-song lands on the song.
       const enCurso = ids.indexOf(get().playerId);
-      set({
-        serviceOpen: true,
-        serviceIdx: enCurso >= 0 ? enCurso : 0,
-        serviceSemitones: 0,
-      });
+      set({ serviceOpen: true, serviceIdx: enCurso >= 0 ? enCurso : 0 });
     },
 
     closeService: () => set({ serviceOpen: false }),
@@ -1958,97 +2505,11 @@ export const useStore = create<CantoralState>((set, get) => {
       const ids = get().plOrder[get().curPlaylist] || [];
       if (ids.length === 0) return;
       const siguiente = Math.min(ids.length - 1, Math.max(0, get().serviceIdx + delta));
-      // Moving to another song drops the transposition: it belonged to the one
-      // being left, and carrying it over would silently put the next song in a
-      // key nobody asked for.
-      set({ serviceIdx: siguiente, serviceSemitones: 0 });
+      set({ serviceIdx: siguiente });
     },
-
-    transposeService: (delta) =>
-      set((st) => ({ serviceSemitones: Math.max(-11, Math.min(11, st.serviceSemitones + delta)) })),
 
     scaleService: (delta) =>
       set((st) => ({ serviceScale: Math.max(0.7, Math.min(2.4, +(st.serviceScale + delta).toFixed(2))) })),
-
-    // ---------- tags ----------
-    renameTag: (from, to) => {
-      const nombre = normalizarEtiqueta(to);
-      if (!nombre || nombre === from) return;
-      const fusion = etiquetas(get()).some((e) => e.nombre !== from && e.nombre === nombre);
-      const aplicar = () => {
-        // The filter follows the rename, or it would be pinned to a tag that
-        // no longer exists and quietly show nothing.
-        set((st) => ({ tagFilter: st.tagFilter.map((t) => (t === from ? nombre : t)) }));
-        if (!isTauri()) {
-          set((st) => ({
-            tracks: st.tracks.map((t) => {
-              const tags = t.tags || [];
-              if (!tags.includes(from)) return t;
-              return { ...t, tags: [...new Set(tags.map((x) => (x === from ? nombre : x)))].sort() };
-            }),
-          }));
-          toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada");
-          return;
-        }
-        renameTagCmd(from, nombre)
-          .then((snap) => {
-            if (snap) applySnapshot(snap);
-            toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada");
-          })
-          .catch((err) => {
-            console.error("rename_tag failed", err);
-            toast(String(err), "error");
-          });
-      };
-
-      if (!fusion) {
-        aplicar();
-        return;
-      }
-      // Folding two tags together cannot be undone by renaming back, so it is
-      // asked rather than assumed.
-      const cuantas = etiquetas(get()).find((e) => e.nombre === from)?.cuenta ?? 0;
-      get().askConfirm({
-        title: "¿Unir las dos etiquetas?",
-        message: `Ya existe una etiqueta «${nombre}». Las pistas de «${from}» pasarán a ella y «${from}» desaparecerá.`,
-        detail: `${cuantas} ${cuantas === 1 ? "pista lleva" : "pistas llevan"} «${from}».`,
-        safe: "Ninguna pista sale de la biblioteca; solo cambia la etiqueta.",
-        confirmLabel: "Unir",
-        onConfirm: aplicar,
-      });
-    },
-
-    deleteTag: (name) => {
-      const cuantas = etiquetas(get()).find((e) => e.nombre === name)?.cuenta ?? 0;
-      get().askConfirm({
-        title: "¿Quitar esta etiqueta?",
-        message: `«${name}» se quitará de todas las pistas que la llevan.`,
-        detail: `${cuantas} ${cuantas === 1 ? "pista la lleva" : "pistas la llevan"}.`,
-        safe: "Las pistas se quedan en la biblioteca con el resto de sus etiquetas.",
-        confirmLabel: "Quitar etiqueta",
-        onConfirm: () => {
-          set((st) => ({ tagFilter: st.tagFilter.filter((t) => t !== name) }));
-          if (!isTauri()) {
-            set((st) => ({
-              tracks: st.tracks.map((t) =>
-                (t.tags || []).includes(name) ? { ...t, tags: (t.tags || []).filter((x) => x !== name) } : t,
-              ),
-            }));
-            toast("Etiqueta quitada");
-            return;
-          }
-          deleteTagCmd(name)
-            .then((snap) => {
-              if (snap) applySnapshot(snap);
-              toast("Etiqueta quitada");
-            })
-            .catch((err) => {
-              console.error("delete_tag failed", err);
-              toast(String(err), "error");
-            });
-        },
-      });
-    },
 
     // ---------- duplicates ----------
     findDuplicates: () => {
@@ -2066,7 +2527,7 @@ export const useStore = create<CantoralState>((set, get) => {
         .catch((err) => {
           console.error("find_duplicates failed", err);
           set({ duplicatesState: "idle" });
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         });
     },
 
@@ -2082,7 +2543,7 @@ export const useStore = create<CantoralState>((set, get) => {
         message: `Se queda «${queda.titulo}» (${queda.formato}, ${queda.carpeta}). Las demás salen de la biblioteca.`,
         detail: copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`).join("\n\n"),
         safe:
-          "Sus etiquetas, su favorito y su sitio en las listas para culto pasan a la que se queda. " +
+          "Su favorito y su sitio en las listas para culto pasan a la que se queda. " +
           "Los archivos de audio no se borran del disco.",
         confirmLabel: "Fusionar",
         onConfirm: () => {
@@ -2091,13 +2552,9 @@ export const useStore = create<CantoralState>((set, get) => {
             // Browser stand-in: the same visible outcome, none of the SQL.
             set((st) => {
               const fuera = new Set(ids);
-              const etiquetas = new Set<string>();
               let fav = false;
               st.tracks.forEach((t) => {
-                if (t.id === keepId || fuera.has(t.id)) {
-                  (t.tags || []).forEach((x) => etiquetas.add(x));
-                  fav = fav || t.fav;
-                }
+                if (t.id === keepId || fuera.has(t.id)) fav = fav || t.fav;
               });
               // Lists follow the survivor, and a list that held two copies
               // ends up with the song once, not twice.
@@ -2116,24 +2573,28 @@ export const useStore = create<CantoralState>((set, get) => {
               return {
                 tracks: st.tracks
                   .filter((t) => !fuera.has(t.id))
-                  .map((t) => (t.id === keepId ? { ...t, tags: [...etiquetas].sort(), fav } : t)),
+                  .map((t) => (t.id === keepId ? { ...t, fav } : t)),
                 plOrder,
                 duplicates: st.duplicates.filter((g) => g.signature !== signature),
               };
             });
-            toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`);
+            toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
+              detalle: "Se quedó una con el favorito y su sitio en los cultos.",
+            });
             return;
           }
           mergeDuplicatesCmd(keepId, ids)
             .then((snap) => {
               if (snap) applySnapshot(snap);
-              toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`);
+              toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
+                detalle: "Se quedó una con el favorito y su sitio en los cultos.",
+              });
               // `applySnapshot` cleared the list; fill it with what is left.
               get().findDuplicates();
             })
             .catch((err) => {
               console.error("merge_duplicates failed", err);
-              toast(String(err), "error");
+              toast(String(err), { tipo: "error" });
             });
         },
       });
@@ -2153,7 +2614,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("dismiss_duplicates failed", err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         });
     },
 
@@ -2168,7 +2629,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("restore_dismissed_duplicates failed", err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         });
     },
 
@@ -2180,10 +2641,19 @@ export const useStore = create<CantoralState>((set, get) => {
       req?.onConfirm();
     },
 
-    showToast: (m, type = "success") => {
+    showToast: (titulo, opciones) => {
+      const type = opciones?.tipo ?? "success";
       if (toastTimer) clearTimeout(toastTimer);
-      set({ toast: { message: m, type } });
-      toastTimer = setTimeout(() => set({ toast: null }), type === "error" ? 4000 : 2200);
+      set({ toast: { titulo, detalle: opciones?.detalle, type } });
+      // Un error aguanta más: quien lo lee suele tener que hacer algo con él.
+      // Y un aviso con detalle también, porque hay dos líneas que leer.
+      const ms = type === "error" ? 5000 : opciones?.detalle ? 3500 : 2200;
+      toastTimer = setTimeout(() => set({ toast: null }), ms);
+    },
+
+    closeToast: () => {
+      if (toastTimer) clearTimeout(toastTimer);
+      set({ toast: null });
     },
   };
 });
@@ -2324,6 +2794,26 @@ export const filasDeLista = recordar(
 );
 
 /**
+ * Las pistas sobre las que actúa «Agregar a un culto».
+ *
+ * La selección si hay una; si no, la pista que el panel de detalle tiene
+ * abierta. En ese orden, porque una selección es explícita y el panel puede
+ * llevar abierto desde hace rato. El menú contextual no hace falta mirarlo:
+ * `openRowMenu` ya deja la selección apuntando a la fila sobre la que se abrió.
+ */
+export const pistasParaAgregar = recordar(
+  (s: CantoralState): readonly string[] => {
+    const elegidas = seleccionVigente(s);
+    if (elegidas.length > 0) return elegidas;
+    return s.detailOpen && s.selId ? [s.selId] : VACIO;
+  },
+  (s: CantoralState) => [seleccionVigente(s), s.detailOpen, s.selId],
+);
+
+/** Una sola instancia, para que el memo de arriba conserve su identidad. */
+const VACIO: readonly string[] = [];
+
+/**
  * The selection, pruned to what is on screen and put in display order.
  *
  * Both the count the user reads and the ids a bulk action sends come from
@@ -2335,7 +2825,7 @@ export const seleccionVigente = recordar(
     const visibles = applyFilters(s).map((t) => t.id);
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir, s.selection],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
 /**
@@ -2350,49 +2840,24 @@ export const plantillas = recordar(
   (s: CantoralState) => [s.playlists],
 );
 
-/**
- * The last service held, per occasion — what «repetir el culto anterior»
- * offers. Templates and undated lists are left out; see `ultimaPorOcasion`.
- */
-export const repetibles = recordar(
-  (s: CantoralState) => ultimaPorOcasion(s.playlists),
-  // The day is a dependency: «anterior» means «before today», so an app left
-  // open overnight would otherwise keep offering yesterday's answer.
-  (s: CantoralState) => [s.playlists, new Date().toDateString()],
-);
-
-/** A tag and how many tracks carry it. */
-export interface Etiqueta {
-  nombre: string;
-  cuenta: number;
+/** Cuándo se tocó un culto, en milisegundos; `0` si no lo dice. */
+function cuandoSeToco(p: Playlist): number {
+  const t = Date.parse(p.tocada);
+  return Number.isNaN(t) ? 0 : t;
 }
 
 /**
- * Every tag in the catalogue, with its use count.
+ * Los cultos, el último que se tocó arriba. Las plantillas, fuera.
  *
- * Derived rather than fetched: tags already travel with the tracks, so asking
- * the backend for a list it could only recompute from the same rows would be a
- * round trip for nothing.
+ * Se compara el instante y no el texto: el núcleo escribe `+00:00` y el
+ * navegador `Z`, y como texto esas dos formas del mismo momento no ordenan
+ * igual. El orden es estable, así que un empate conserva el que trajo el
+ * núcleo.
  */
-export const etiquetas = recordar(
-  (s: CantoralState): Etiqueta[] => {
-    const cuenta = new Map<string, number>();
-    s.tracks.forEach((t) =>
-      (t.tags || []).forEach((raw) => {
-        const tag = raw.trim();
-        if (tag) cuenta.set(tag, (cuenta.get(tag) ?? 0) + 1);
-      }),
-    );
-    // A tag being filtered on stays listed even once nothing carries it,
-    // otherwise its chip vanishes and the filter can never be switched off.
-    s.tagFilter.forEach((t) => {
-      if (!cuenta.has(t)) cuenta.set(t, 0);
-    });
-    return [...cuenta.entries()]
-      .map(([nombre, c]) => ({ nombre, cuenta: c }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  },
-  (s: CantoralState) => [s.tracks, s.tagFilter],
+export const cultos = recordar(
+  (s: CantoralState): Playlist[] =>
+    s.playlists.filter((p) => !p.plantilla).sort((a, b) => cuandoSeToco(b) - cuandoSeToco(a)),
+  (s: CantoralState) => [s.playlists],
 );
 
 /** Ids that form the play queue for the view the user pressed play in. */
@@ -2416,18 +2881,10 @@ export const applyFilters = recordar(
     else if (s.qf === "missing") list = list.filter((t) => t.missing);
     else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
-    // Every selected tag has to be on the track: picking two is «both», which
-    // is the only reading that makes picking a second one useful.
-    if (s.tagFilter.length) {
-      list = list.filter((t) => {
-        const tags = t.tags || [];
-        return s.tagFilter.every((f) => tags.includes(f));
-      });
-    }
     if (s.query) {
       const q = s.query.toLowerCase();
       list = list.filter((t) =>
-        [t.titulo, t.artista, t.album, t.tono, t.ocasion, (t.tags || []).join(" ")]
+        [t.titulo, t.artista, t.album, t.ocasion]
           .join(" ")
           .toLowerCase()
           .includes(q),
@@ -2449,42 +2906,81 @@ export const applyFilters = recordar(
     }
     return list;
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
 );
 
 export interface Group {
   showHeader: boolean;
+  /** Identidad del grupo, para plegarlo. Vacía cuando no hay agrupación. */
+  clave: string;
   label?: string;
+  /** La carpeta en el disco, solo al agrupar por carpeta. */
+  ruta?: string;
   countLabel?: string;
+  /** Cuántas pistas tiene, plegado o no: el encabezado sigue diciéndolo. */
+  count: number;
+  colapsado: boolean;
   tracks: { track: Track; num: number }[];
 }
 
-/** Group + number the filtered list like buildGroups(). */
+/**
+ * Group + number the filtered list.
+ *
+ * Agrupar por carpeta usa la carpeta *del disco*, no la raíz indexada: ver
+ * `carpetaReal`. Un grupo plegado no entrega pistas, y la numeración solo
+ * avanza sobre lo que se está viendo, así que los números siempre leen 1, 2,
+ * 3… hacia abajo de la tabla.
+ */
 export const buildGroups = recordar(
   (s: CantoralState, list: Track[]): Group[] => {
     if (s.groupBy === "none" || s.qf === "recent") {
-      return [{ showHeader: false, tracks: list.map((track, i) => ({ track, num: i + 1 })) }];
+      return [
+        {
+          showHeader: false,
+          clave: "",
+          count: list.length,
+          colapsado: false,
+          tracks: list.map((track, i) => ({ track, num: i + 1 })),
+        },
+      ];
     }
+    const porCarpeta = s.groupBy === "carpeta";
     const key = s.groupBy;
-    const map = new Map<string, Track[]>();
+    const mapa = new Map<string, { nombre: string; ruta: string; pistas: Track[] }>();
     list.forEach((t) => {
-      const g = (t[key as keyof Track] as string) || "—";
-      if (!map.has(g)) map.set(g, []);
-      map.get(g)!.push(t);
+      const c = porCarpeta
+        ? carpetaReal(t, s.folders)
+        : (() => {
+            const v = ((t[key as keyof Track] as string) || "").trim() || "—";
+            return { clave: v, nombre: v, ruta: "" };
+          })();
+      let g = mapa.get(c.clave);
+      if (!g) {
+        g = { nombre: c.nombre, ruta: c.ruta, pistas: [] };
+        mapa.set(c.clave, g);
+      }
+      g.pistas.push(t);
     });
-    const keys = [...map.keys()].sort((a, b) => String(a).localeCompare(String(b), "es"));
+    const claves = [...mapa.keys()].sort((a, b) =>
+      mapa.get(a)!.nombre.localeCompare(mapa.get(b)!.nombre, "es"),
+    );
     let n = 0;
-    return keys.map((g) => {
-      const arr = map.get(g)!.map((track) => ({ track, num: ++n }));
+    return claves.map((clave) => {
+      const g = mapa.get(clave)!;
+      const colapsado = s.gruposColapsados.includes(clave);
       return {
         showHeader: true,
-        label: g,
-        countLabel: arr.length + (arr.length === 1 ? " pista" : " pistas"),
-        tracks: arr,
+        clave,
+        label: g.nombre,
+        ruta: g.ruta,
+        count: g.pistas.length,
+        countLabel: g.pistas.length + (g.pistas.length === 1 ? " pista" : " pistas"),
+        colapsado,
+        tracks: colapsado ? [] : g.pistas.map((track) => ({ track, num: ++n })),
       };
     });
   },
-  (s: CantoralState, list: Track[]) => [list, s.groupBy, s.qf],
+  (s: CantoralState, list: Track[]) => [list, s.groupBy, s.qf, s.folders, s.gruposColapsados],
 );
 
 /**

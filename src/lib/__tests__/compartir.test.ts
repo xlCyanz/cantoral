@@ -22,12 +22,10 @@ function pista(over: Partial<Track> = {}): Track {
     album: "Himnos",
     dur: "4:12",
     durSec: 252,
-    tono: "Sol",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -39,7 +37,7 @@ function pista(over: Partial<Track> = {}): Track {
 const lista: Playlist = {
   id: "p1",
   nombre: "Culto 4 Ene",
-  fecha: "2026-01-04",
+  tocada: "",
   ocasion: "Servicio dominical",
   ids: ["1"],
   plantilla: false,
@@ -76,21 +74,12 @@ describe("armarArchivo", () => {
   });
 
   it("guarda lo que sirve para volver a encontrar la pista", () => {
-    const [p] = comoVienen([pista({ tags: ["lenta", "apertura"] })]);
+    const [p] = comoVienen([pista({})]);
 
     expect(p.titulo).toBe("Sublime Gracia");
     expect(p.artista).toBe("Coro Congregacional");
     expect(p.durSec).toBe(252);
-    expect(p.tono).toBe("Sol");
-    expect(p.etiquetas).toEqual(["lenta", "apertura"]);
-  });
-
-  it("copia las etiquetas en vez de compartirlas", () => {
-    const original = pista({ tags: ["lenta"] });
-
-    armarArchivo(lista, [original]).pistas[0].etiquetas.push("intrusa");
-
-    expect(original.tags).toEqual(["lenta"]);
+    expect(p.ocasion).toBe("Adoración");
   });
 
   it("conserva los datos de la lista, plantilla incluida", () => {
@@ -98,7 +87,6 @@ describe("armarArchivo", () => {
 
     expect(archivo.lista).toEqual({
       nombre: "Culto 4 Ene",
-      fecha: "2026-01-04",
       ocasion: "Servicio dominical",
       plantilla: true,
     });
@@ -284,7 +272,7 @@ describe("parsearArchivo", () => {
   it("los campos opcionales pueden faltar", () => {
     const leido = parsearArchivo(minimo);
 
-    expect(leido.lista.fecha).toBe("");
+    expect(leido.lista.ocasion).toBe("");
     expect(leido.lista.plantilla).toBe(false);
     expect(leido.pistas).toEqual([]);
   });
@@ -314,12 +302,11 @@ describe("parsearArchivo", () => {
 
   it("un campo con el tipo equivocado no envenena la lista", () => {
     // El archivo pudo editarse a mano entre las dos instalaciones.
-    const raro = '{"cantoral":1,"lista":{"nombre":"Culto"},"pistas":[{"titulo":"X","durSec":"largo","etiquetas":"no es lista"}]}';
+    const raro = '{"cantoral":1,"lista":{"nombre":"Culto"},"pistas":[{"titulo":"X","durSec":"largo"}]}';
 
     const [p] = parsearArchivo(raro).pistas;
 
     expect(p.durSec).toBe(0);
-    expect(p.etiquetas).toEqual([]);
     expect(p.artista).toBe("");
   });
 });

@@ -5,12 +5,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const updateTrackCmd =
-  vi.fn<(id: string, tono: string, bpm: number, ocasion: string, tags: string[]) => Promise<void>>();
+  vi.fn<(id: string, artista: string, bpm: number, ocasion: string) => Promise<void>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
-  updateTrackCmd: (id: string, tono: string, bpm: number, ocasion: string, tags: string[]) =>
-    updateTrackCmd(id, tono, bpm, ocasion, tags),
+  updateTrackCmd: (id: string, artista: string, bpm: number, ocasion: string) =>
+    updateTrackCmd(id, artista, bpm, ocasion),
 }));
 
 const { useStore } = await import("../../store");
@@ -39,24 +39,24 @@ const seleccionada = () => {
 
 describe("editar un campo", () => {
   it("lo aplica al catálogo al instante, sin esperar al guardado", () => {
-    useStore.getState().setEdit("tono", "Solm");
+    useStore.getState().setEdit("ocasion", "Comunión");
 
-    expect(seleccionada().tono).toBe("Solm");
+    expect(seleccionada().ocasion).toBe("Comunión");
     expect(useStore.getState().saveState).toBe("saving");
   });
 
   it("agrupa una ráfaga de tecleo en una sola escritura", async () => {
     const s = useStore.getState();
-    s.setEdit("tono", "S");
-    s.setEdit("tono", "So");
-    s.setEdit("tono", "Sol");
+    s.setEdit("ocasion", "A");
+    s.setEdit("ocasion", "Ad");
+    s.setEdit("ocasion", "Adoración");
 
     expect(updateTrackCmd).not.toHaveBeenCalled();
     await vi.runAllTimersAsync();
 
     expect(updateTrackCmd).toHaveBeenCalledTimes(1);
     // Manda el valor final, no el que había cuando arrancó el temporizador.
-    expect(updateTrackCmd.mock.calls[0][1]).toBe("Sol");
+    expect(updateTrackCmd.mock.calls[0][3]).toBe("Adoración");
   });
 
   it("manda el tempo como número, que es lo que espera el i64 de Rust", async () => {
@@ -90,13 +90,13 @@ describe("nada queda a medio escribir", () => {
   it("saltar a otra pista escribe la anterior antes de cambiar", () => {
     const primera = useStore.getState().tracks[0];
     const segunda = useStore.getState().tracks[1];
-    useStore.getState().setEdit("tono", "Fa#");
+    useStore.getState().setEdit("ocasion", "Vigilia");
 
     useStore.getState().onRowClick(segunda.id);
 
     expect(updateTrackCmd).toHaveBeenCalledTimes(1);
     expect(updateTrackCmd.mock.calls[0][0]).toBe(primera.id);
-    expect(updateTrackCmd.mock.calls[0][1]).toBe("Fa#");
+    expect(updateTrackCmd.mock.calls[0][3]).toBe("Vigilia");
   });
 
   it("flushEdit no escribe nada si no hay nada pendiente", () => {
@@ -108,7 +108,7 @@ describe("nada queda a medio escribir", () => {
 describe("si el guardado falla", () => {
   it("lo dice en vez de aparentar que se guardó", async () => {
     updateTrackCmd.mockRejectedValue(new Error("base bloqueada"));
-    useStore.getState().setEdit("tono", "Reb");
+    useStore.getState().setEdit("ocasion", "Reflexión");
 
     // Only the debounce, not every timer: runAllTimers would also fire the
     // toast's own 2.2s dismissal and clear the very thing being asserted.
@@ -116,15 +116,57 @@ describe("si el guardado falla", () => {
 
     expect(useStore.getState().saveState).toBe("error");
     expect(useStore.getState().toast?.type).toBe("error");
-    expect(useStore.getState().toast?.message).toContain("No se pudieron guardar");
+    expect(useStore.getState().toast?.titulo).toContain("No se pudieron guardar");
   });
 
   it("conserva lo tecleado, que el usuario no puede recuperar de otro modo", async () => {
     updateTrackCmd.mockRejectedValue(new Error("no"));
-    useStore.getState().setEdit("tono", "Reb");
+    useStore.getState().setEdit("ocasion", "Reflexión");
 
     await vi.runAllTimersAsync();
 
-    expect(seleccionada().tono).toBe("Reb");
+    expect(seleccionada().ocasion).toBe("Reflexión");
+  });
+});
+
+
+describe("corregir el artista", () => {
+  it("se escribe como cualquier otro campo", async () => {
+    // En una biblioteca de iglesia media el artista viene mal en las etiquetas
+    // del archivo —«Track 03», «Unknown Artist»— y hasta ahora se leía y no se
+    // podía corregir sin tocar el MP3.
+    const id = seleccionada().id;
+
+    useStore.getState().setEdit("artista", "Coro Congregacional");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(seleccionada().artista).toBe("Coro Congregacional");
+    const escrito = updateTrackCmd.mock.calls.find(([llamado]) => llamado === id);
+    expect(escrito?.[1]).toBe("Coro Congregacional");
+  });
+
+  it("y viaja junto a lo demás, en una sola escritura", async () => {
+    useStore.getState().setEdit("artista", "Voces de Gracia");
+    useStore.getState().setEdit("ocasion", "Alabanza");
+    await vi.advanceTimersByTimeAsync(600);
+
+    const llamadas = updateTrackCmd.mock.calls.filter(([id]) => id === seleccionada().id);
+    expect(llamadas).toHaveLength(1);
+    expect(llamadas[0][1]).toBe("Voces de Gracia");
+    expect(llamadas[0][3]).toBe("Alabanza");
+  });
+});
+
+describe("fijar el panel", () => {
+  it("empieza sin fijar y se alterna", () => {
+    // Fijado, `Esc` deja de cerrarlo: repasando pista por pista, que se cierre
+    // al pulsar Esc para salir de un campo es perder el sitio.
+    expect(useStore.getState().detailFijado).toBe(false);
+
+    useStore.getState().toggleDetailFijado();
+    expect(useStore.getState().detailFijado).toBe(true);
+
+    useStore.getState().toggleDetailFijado();
+    expect(useStore.getState().detailFijado).toBe(false);
   });
 });

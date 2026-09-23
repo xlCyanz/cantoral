@@ -1,22 +1,53 @@
-import { useState } from "react";
+import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, ChevronDown, FileText, FolderOpen, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
-import { etiquetas, ocasiones, useStore } from "../store";
+import { Check, FileText, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
+import { useEstrecho } from "../lib/ventana";
+import { useReproductor } from "../lib/media";
+import { motivoNoProyectable } from "../lib/formatos";
+import { AddToListButton } from "./AddToListDialog";
 import type { Track } from "../lib/types";
 
-const labelStyle: CSSProperties = { display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 5 };
-const fieldStyle: CSSProperties = { width: "100%", height: 38, border: "1px solid var(--border-2)", background: "var(--surface-2)", borderRadius: 9, fontSize: "13.5px", fontWeight: 600, color: "var(--text)", outline: "none" };
-const sectionLabel: CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: "var(--text-3)" };
+/**
+ * El video de la pista, donde va la carátula de un audio.
+ *
+ * Aquí y no en la barra del reproductor: un 16:9 no cabe en una barra de 88
+ * píxeles, y el panel ya es el sitio donde se mira una pista de cerca. Es
+ * además para lo que de verdad se usa entre semana — comprobar que el clip es
+ * el correcto antes del domingo—, no para proyectarlo: eso lo hace la ventana
+ * de salida, que sí ocupa la pantalla entera.
+ *
+ * Sin `controls`: el transporte es el de la barra de abajo, el mismo que el
+ * del audio. Dos juegos de controles para una sola pista serían dos sitios
+ * donde mirar en qué segundo va.
+ */
+function VideoDeLaPista({ t }: { t: Track }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const esLaQueSuena = useStore((s) => s.playerId) === t.id;
+  const manejadores = useReproductor(ref, t, esLaQueSuena);
 
-/** Latin note names, the notation the rest of the app already uses ("Sol", "Lam"). */
-const TONOS = [
-  "Do", "Dom", "Do#", "Reb", "Re", "Rem", "Re#", "Mib", "Mibm", "Mi", "Mim",
-  "Fa", "Fam", "Fa#", "Solb", "Sol", "Solm", "Sol#", "Lab", "La", "Lam",
-  "La#", "Sib", "Sibm", "Si", "Sim",
-];
+  return (
+    <video
+      ref={ref}
+      preload="metadata"
+      playsInline
+      {...manejadores}
+      style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 12, background: "#000", objectFit: "contain", border: "1px solid var(--border)" }}
+    />
+  );
+}
+
+// El rediseño aprieta el panel: de 360 px a 300, y de 272 cuando la ventana
+// se queda corta. Lo que gana es la tabla que tiene al lado, que es donde se
+// arma el culto; el panel se lee de arriba abajo igual con los campos más
+// bajos.
+const labelStyle: CSSProperties = { display: "block", fontSize: "10.5px", color: "var(--text-2)", marginBottom: 3 };
+const fieldStyle: CSSProperties = { width: "100%", height: 28, border: "1px solid var(--border-2)", background: "var(--surface-2)", borderRadius: 6, fontSize: 12, color: "var(--text)", outline: "none" };
+const sectionLabel: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: ".11em", textTransform: "uppercase", color: "var(--text-3)" };
+
 
 /** What the footer shows for each phase of an edit writing itself. */
 const ESTADO: Record<SaveState, { icono: ReactNode; texto: string; color: string }> = {
@@ -39,30 +70,24 @@ function BigCoverInner({ t }: { t: Track }) {
 }
 
 export default function DetailPanel() {
-  const [listMenu, setListMenu] = useState(false);
   // Field by field: the panel sits beside a player that writes `posSec`
   // several times a second, and none of what it shows changes with it.
   const detailOpen = useStore((s) => s.detailOpen);
   const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
   const playlists = useStore((s) => s.playlists);
-  const plOrder = useStore((s) => s.plOrder);
-  const tagDraft = useStore((s) => s.tagDraft);
   const saveState = useStore((s) => s.saveState);
   const ocasionesDelCatalogo = useStore(ocasiones);
-  const todasLasEtiquetas = useStore(etiquetas);
 
   const closeDetail = useStore((s) => s.closeDetail);
   const relocateTrack = useStore((s) => s.relocateTrack);
   const deleteTrack = useStore((s) => s.deleteTrack);
   const play = useStore((s) => s.play);
-  const onOpenExternal = useStore((s) => s.onOpenExternal);
-  const addToList = useStore((s) => s.addToList);
   const setEdit = useStore((s) => s.setEdit);
-  const onTagDraft = useStore((s) => s.onTagDraft);
-  const addTag = useStore((s) => s.addTag);
-  const removeTag = useStore((s) => s.removeTag);
   const revealTrack = useStore((s) => s.revealTrack);
   const openSheetEditor = useStore((s) => s.openSheetEditor);
+  const detailFijado = useStore((s) => s.detailFijado);
+  const toggleDetailFijado = useStore((s) => s.toggleDetailFijado);
+  const estrecho = useEstrecho(300);
 
   if (!detailOpen || !sel) return null;
 
@@ -76,35 +101,59 @@ export default function DetailPanel() {
   // differed from its filename got a path that did not exist, and the separator
   // was a hardcoded backslash on every platform.
   const ruta = sel.path ?? "";
-  const tags = sel.tags || [];
 
 
   return (
-    <aside style={{ width: 360, flex: "0 0 auto", background: "var(--surface)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", minHeight: 0, animation: "canPanel .26s cubic-bezier(.22,1,.36,1)", boxShadow: "-8px 0 24px rgba(30,22,14,.05)" }}>
-      <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 14px 12px", borderBottom: "1px solid var(--border)" }}>
-        <span style={sectionLabel}>Detalle de pista</span>
-        <button onClick={closeDetail} title="Cerrar" className="hb-s2t" style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", color: "var(--text-2)" }}>
-          <X size={16} />
+    <aside style={{ width: estrecho ? 272 : 300, flex: "0 0 auto", background: "var(--surface)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", minHeight: 0, animation: "canPanel .26s cubic-bezier(.22,1,.36,1)", boxShadow: "-8px 0 24px rgba(30,22,14,.05)" }}>
+      <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "9px 10px 9px 12px", borderBottom: "1px solid var(--border)" }}>
+        <span style={sectionLabel}>Detalle</span>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={toggleDetailFijado}
+          title={detailFijado ? "Esc ya no cierra el panel" : "Mantener abierto: Esc dejará de cerrarlo"}
+          aria-pressed={detailFijado}
+          className={detailFijado ? undefined : "hb-s2"}
+          style={{ height: 24, padding: "0 9px", borderRadius: 6, border: `1px solid ${detailFijado ? "var(--primary)" : "var(--border-2)"}`, background: detailFijado ? "var(--primary-soft)" : "var(--surface-2)", color: detailFijado ? "var(--primary)" : "var(--text-2)", fontSize: 11, fontWeight: 600 }}
+        >
+          Fijar
+        </button>
+        <button onClick={closeDetail} title="Cerrar (Esc)" className="hb-s2" style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text-2)", display: "grid", placeItems: "center" }}>
+          <X size={13} />
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 18px 22px" }}>
-        {/* cover + primary meta */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 20 }}>
-          <div style={coverStyle(sel, 96)}><BigCoverInner t={sel} /></div>
-          <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.2px", margin: "16px 0 3px", textWrap: "balance" } as CSSProperties}>{sel.titulo}</h2>
-          <p style={{ fontSize: "13.5px", color: "var(--text-2)", margin: 0 }}>{sel.artista}</p>
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 13px 16px" }}>
+        {/* La carátula al lado del título y no encima: apilados se comían un
+            tercio del panel antes de llegar al primer dato editable. */}
+        <div style={{ marginBottom: 13 }}>
+          {sel.video ? (
+            <VideoDeLaPista t={sel} />
+          ) : (
+            <div style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
+              <div style={{ ...coverStyle(sel, 74), flex: "0 0 auto" }}><BigCoverInner t={sel} /></div>
+              <div style={{ minWidth: 0 }}>
+                <div className="display" style={{ fontSize: 19, lineHeight: 1.15, marginBottom: 2, textWrap: "balance" } as CSSProperties}>{sel.titulo}</div>
+                <div style={{ fontSize: "11.5px", color: "var(--text-2)" }}>{sel.artista}</div>
+              </div>
+            </div>
+          )}
+          {sel.video && (
+            <div style={{ marginTop: 9 }}>
+              <div className="display" style={{ fontSize: 19, lineHeight: 1.15, marginBottom: 2, textWrap: "balance" } as CSSProperties}>{sel.titulo}</div>
+              <div style={{ fontSize: "11.5px", color: "var(--text-2)" }}>{sel.artista}</div>
+            </div>
+          )}
 
           {sel.missing && (
             <div style={{ marginTop: 12, width: "100%", background: "var(--danger-soft)", color: "var(--danger)", padding: "10px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26, flex: "0 0 auto" }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
-                El archivo no se encuentra en el disco. Búscalo para que la pista conserve sus etiquetas.
+                El archivo no se encuentra en el disco. Búscalo para que la pista conserve lo que lleva escrito.
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button
                   onClick={() => relocateTrack(sel.id)}
-                  style={{ flex: 1, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 9, background: "var(--danger)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
+                  style={{ flex: 1, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 9, background: "var(--danger-fill)", color: "var(--on-danger)", fontSize: "12.5px", fontWeight: 600, transition: "filter .14s" }}
                   className="hb-danger-solid"
                 >
                   <Search size={14} strokeWidth={2.4} />Localizar…
@@ -119,98 +168,56 @@ export default function DetailPanel() {
               </div>
             </div>
           )}
-          {sel.video && !sel.missing && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 9, background: "var(--surface-2)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35, border: "1px solid var(--border)" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26, flex: "0 0 auto" }}><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>
-              Los videos se abren en el reproductor predeterminado del sistema, no dentro de la app.
+          {/* Un archivo que está en el disco y que la app no puede abrir. Ya no
+              hay reproductor del sistema al que mandarlo, así que decirlo aquí
+              —con el formato, que es lo que hay que convertir— es todo lo que
+              se puede hacer por quien lo tiene en un culto del domingo. */}
+          {!sel.missing && motivoNoProyectable(sel) && (
+            <div style={{ marginTop: 12, width: "100%", display: "flex", alignItems: "center", gap: 9, background: "var(--surface-2)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35, border: "1px solid var(--border)" }}>
+              <TriangleAlert size={18} strokeWidth={2} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
+              {motivoNoProyectable(sel)}. Conviértelo a MP3 o MP4 y vuelve a escanear la carpeta.
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 16, width: "100%" }}>
-            <button onClick={() => play(sel.id)} className="hb-primary" style={{ flex: 1, height: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, background: "var(--primary)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
-              {sel.video ? <SquareArrowOutUpRight size={15} /> : <Play size={15} fill="currentColor" stroke="none" />}
-              {sel.video ? "Abrir video" : "Reproducir"}
-            </button>
-            <button onClick={() => onOpenExternal(sel.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ width: 44, height: 40, display: "grid", placeItems: "center", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
-              <SquareArrowOutUpRight size={16} />
-            </button>
-          </div>
         </div>
 
-        {/* add to a playlist */}
-        {playlists.length > 0 && (
-          <div style={{ marginBottom: 16, position: "relative" }}>
-            <label style={labelStyle}>Agregar a una lista</label>
-            <button
-              onClick={() => setListMenu((v) => !v)}
+        {/* Las dos cosas que se hacen con una pista abierta, en una fila. El
+            de agregar abre el mismo diálogo que la barra de selección y el
+            menú contextual, que además dice cuántas pistas va a mover. */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <button onClick={() => play(sel.id)} className="hb-primary" style={{ flex: 1, minWidth: 0, height: 30, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 7, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", transition: "background .14s" }}>
+            <Play size={13} fill="currentColor" stroke="none" />
+            Reproducir
+          </button>
+          {playlists.length > 0 && (
+            <AddToListButton
               className="hb-s3"
-              style={{ ...fieldStyle, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", cursor: "pointer", color: "var(--text-2)" }}
-            >
-              <span>Elegir lista…</span>
-              <ChevronDown size={14} style={{ color: "var(--text-3)", transform: listMenu ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
-            </button>
-            {listMenu && (
-              <>
-                <div onClick={() => setListMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
-                <div style={{ position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, maxHeight: 220, overflowY: "auto" }}>
-                  {playlists.map((p) => {
-                    const inList = (plOrder[p.id] || []).includes(sel.id);
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => { addToList(p.id, sel.id); setListMenu(false); }}
-                        className="hb-s2"
-                        style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500, textAlign: "left", color: "var(--text)" }}
-                      >
-                        <ListMusic size={15} style={{ color: "var(--text-3)", flex: "0 0 auto" }} />
-                        <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</span>
-                        {inList && <Check size={14} strokeWidth={2.4} style={{ color: "var(--primary)", flex: "0 0 auto" }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+              style={{ flex: 1, minWidth: 0, height: 30, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 7, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+              // Con el panel estrecho, «Agregar a culto…» parte en dos líneas y
+              // rompe la fila. Se acorta antes que dejar que la corte.
+              label={estrecho ? "Agregar…" : "Agregar a culto…"}
+            />
+          )}
+        </div>
 
         {/* datos del culto: lo que el equipo necesita saber de un vistazo */}
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ ...sectionLabel, marginBottom: 9 }}>Datos del culto</div>
-          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <label htmlFor="det-tono" style={labelStyle}>Tono</label>
-              <input
-                id="det-tono"
-                value={sel.tono}
-                onChange={(e) => setEdit("tono", e.target.value)}
-                list="tonos-musicales"
-                placeholder="Sol"
-                className="in-focus"
-                style={{ ...fieldStyle, padding: "0 12px" }}
-              />
-              <datalist id="tonos-musicales">
-                {TONOS.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            </div>
-            <div style={{ width: 96, flex: "0 0 auto" }}>
-              <label htmlFor="det-bpm" style={labelStyle}>Tempo</label>
-              <input
-                id="det-bpm"
-                type="number"
-                min={0}
-                max={400}
-                inputMode="numeric"
-                value={sel.bpm || ""}
-                // Rust takes an i64, so this has to leave the field as a number.
-                onChange={(e) => setEdit("bpm", Math.max(0, Math.min(400, Number(e.target.value) || 0)))}
-                placeholder="BPM"
-                className="in-focus"
-                style={{ ...fieldStyle, padding: "0 10px" }}
-              />
-            </div>
+        <div style={{ marginBottom: 14 }}>
+          {/* Artista y ocasión, y nada más: es lo que pide el rediseño. */}
+          <div style={{ ...sectionLabel, marginBottom: 8 }}>Datos del culto</div>
+          {/* El artista, que hasta ahora se leía y no se podía corregir. En una
+              biblioteca de iglesia media viene mal en las etiquetas del
+              archivo —«Track 03», «Unknown Artist»— y no había dónde
+              arreglarlo sin tocar el MP3. */}
+          <div style={{ marginBottom: 9 }}>
+            <label htmlFor="det-artista" style={labelStyle}>Artista</label>
+            <input
+              id="det-artista"
+              value={sel.artista}
+              onChange={(e) => setEdit("artista", e.target.value)}
+              placeholder="Coro Congregacional"
+              className="in-focus"
+              style={{ ...fieldStyle, padding: "0 8px" }}
+            />
           </div>
           <div>
             <label htmlFor="det-ocasion" style={labelStyle}>Ocasión</label>
@@ -221,7 +228,7 @@ export default function DetailPanel() {
               list="ocasiones-pista"
               placeholder="Adoración"
               className="in-focus"
-              style={{ ...fieldStyle, fontWeight: 500, padding: "0 12px" }}
+              style={{ ...fieldStyle, padding: "0 8px" }}
             />
             <datalist id="ocasiones-pista">
               {sugerenciasDeOcasion.map((o) => (
@@ -231,83 +238,42 @@ export default function DetailPanel() {
           </div>
         </div>
 
-        {/* tags */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ ...labelStyle, marginBottom: 7 }}>Etiquetas</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-            {tags.map((tag) => (
-              <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 27, padding: "0 6px 0 10px", borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", fontSize: 12, fontWeight: 600 }}>
-                {tag}
-                <button onClick={() => removeTag(tag)} className="hb-primsoft2" style={{ width: 17, height: 17, borderRadius: 5, display: "grid", placeItems: "center", color: "var(--primary)" }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" style={{ width: 10, height: 10 }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                </button>
-              </span>
-            ))}
-            {tags.length === 0 && <span style={{ fontSize: 12, color: "var(--text-3)", padding: "4px 0" }}>Sin etiquetas todavía</span>}
+        {/* Letra y acordes: una línea con su estado a la derecha. Escrita o
+            sin escribir es lo único que hace falta saber desde aquí; lo demás
+            está dentro del editor. */}
+        <button
+          onClick={() => openSheetEditor(sel.id)}
+          className="hb-s2"
+          style={{ width: "100%", height: 32, display: "flex", alignItems: "center", gap: 8, padding: "0 10px", borderRadius: 7, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12, fontWeight: 600, marginBottom: 14 }}
+        >
+          <FileText size={13} color={sel.tieneHoja ? "var(--primary)" : "var(--text-3)"} />
+          Letra y acordes
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: "10.5px", fontWeight: 600, padding: "2px 7px", borderRadius: 10, background: sel.tieneHoja ? "var(--primary-soft)" : "var(--surface-3)", color: sel.tieneHoja ? "var(--primary)" : "var(--text-3)" }}>
+            {sel.tieneHoja ? "escrita" : "sin escribir"}
+          </span>
+        </button>
+
+        {/* El archivo: lo que hay que saber para encontrarlo, no una ficha
+            técnica. El álbum y la duración ya están en la tabla de al lado. */}
+        <div style={{ ...sectionLabel, marginBottom: 7 }}>Archivo</div>
+        <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.75, marginBottom: 9 }}>
+          <div>
+            {[sel.formato, sel.album].filter(Boolean).join(" · ") || "—"}
           </div>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <Tag size={14} style={{ position: "absolute", left: 11, color: "var(--text-3)", pointerEvents: "none" }} />
-            <input
-              value={tagDraft}
-              onChange={(e) => onTagDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") addTag(tagDraft); }}
-              placeholder="Agregar etiqueta y Enter…"
-              list="etiquetas-existentes"
-              className="in-focus"
-              style={{ width: "100%", height: 36, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, padding: "0 12px 0 32px", fontSize: 13, outline: "none" }}
-            />
-            {/* The tags already in use, so a second spelling of one never gets
-                invented. Ones this track carries are left out — offering them
-                would only invite a no-op. */}
-            <datalist id="etiquetas-existentes">
-              {todasLasEtiquetas
-                .filter((e) => !tags.includes(e.nombre))
-                .map((e) => (
-                  <option key={e.nombre} value={e.nombre} />
-                ))}
-            </datalist>
+          <div title={ruta} style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: "10.5px", color: "var(--text-3)", wordBreak: "break-all" }}>
+            {ruta || "sin archivo"}
           </div>
         </div>
-
-        {/* letra y acordes */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ ...labelStyle, marginBottom: 7 }}>Letra y acordes</label>
+        {ruta && (
           <button
-            onClick={() => openSheetEditor(sel.id)}
+            onClick={() => revealTrack(sel.id)}
             className="hb-s2"
-            style={{ width: "100%", height: 38, display: "flex", alignItems: "center", gap: 9, padding: "0 12px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "13px", fontWeight: 600 }}
+            style={{ width: "100%", height: 28, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 7, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "11.5px" }}
           >
-            <FileText size={15} color={sel.tieneHoja ? "var(--primary)" : "var(--text-3)"} />
-            {sel.tieneHoja ? "Editar la hoja" : "Escribir la letra"}
-            <div style={{ flex: 1 }} />
-            {sel.tieneHoja && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)" }}>ESCRITA</span>
-            )}
+            <FolderOpen size={13} />Mostrar en {gestorDeArchivos()}
           </button>
-        </div>
-
-        {/* file info */}
-        <div style={{ ...sectionLabel, marginBottom: 9 }}>Información del archivo</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: 13 }}>
-          <InfoRow label="Álbum" value={sel.album} />
-          <InfoRow label="Duración" value={sel.dur} mono />
-          <InfoRow label="Formato" value={sel.formato} />
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0" }}>
-            <span style={{ color: "var(--text-2)", flex: "0 0 auto" }}>Ubicación</span>
-            <span title={ruta} style={{ fontWeight: 500, fontFamily: "ui-monospace,monospace", fontSize: 11, textAlign: "right", wordBreak: "break-all", color: "var(--text-2)" }}>
-              {ruta || "—"}
-            </span>
-          </div>
-          {ruta && (
-            <button
-              onClick={() => revealTrack(sel.id)}
-              className="hb-s2"
-              style={{ marginTop: 8, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)", fontSize: "12.5px", fontWeight: 600 }}
-            >
-              <FolderOpen size={14} />Mostrar en {gestorDeArchivos()}
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/*
@@ -325,11 +291,3 @@ export default function DetailPanel() {
   );
 }
 
-function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-      <span style={{ color: "var(--text-2)" }}>{label}</span>
-      <span style={{ fontWeight: 500, textAlign: "right", ...(mono ? { fontVariantNumeric: "tabular-nums" } : {}) }}>{value}</span>
-    </div>
-  );
-}

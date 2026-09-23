@@ -16,7 +16,7 @@ body:
     attributes:
       label: Qué pasa
       description: Descríbelo en una o dos frases.
-      placeholder: Al quitar una carpeta desde Configuración, desaparecen también las etiquetas de sus pistas.
+      placeholder: Al quitar una carpeta desde Configuración, desaparecen también las letras escritas de sus pistas.
     validations:
       required: true
 

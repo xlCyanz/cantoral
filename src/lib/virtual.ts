@@ -6,12 +6,26 @@
 // and line height instead and the table drifts the moment a platform renders
 // the font a pixel taller.
 
-import type { Track } from "./types";
+import type { Densidad, Track } from "./types";
 
-/** Height of one track row, in pixels. */
-export const ALTO_FILA = 56;
-/** Height of one group header. */
-export const ALTO_GRUPO = 44;
+/** Cuánto mide cada clase de fila, en píxeles. */
+export interface Altos {
+  fila: number;
+  grupo: number;
+}
+
+/**
+ * Los altos de cada densidad.
+ *
+ * Pinchados aquí y aplicados como altos explícitos en la vista: derivarlos del
+ * relleno y la altura de línea haría que la tabla se descuadrara en cuanto una
+ * plataforma dibujara la tipografía un píxel más alta, y la ventana de filas
+ * se calcula contando estos números sin medir el DOM.
+ */
+export const ALTOS: Record<Densidad, Altos> = {
+  comoda: { fila: 56, grupo: 44 },
+  compacta: { fila: 34, grupo: 30 },
+};
 /** Rows kept mounted above and below the viewport, so a fast scroll is not blank. */
 export const MARGEN = 8;
 /**
@@ -27,7 +41,7 @@ export const DESDE = 120;
 
 /** One row of the flattened table: a group header, or a track. */
 export type Fila =
-  | { tipo: "grupo"; label: string; countLabel: string }
+  | { tipo: "grupo"; clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean }
   | { tipo: "pista"; track: Track; num: number };
 
 /**
@@ -36,8 +50,11 @@ export type Fila =
  */
 interface Grupo {
   showHeader: boolean;
+  clave: string;
   label?: string;
+  ruta?: string;
   countLabel?: string;
+  colapsado: boolean;
   tracks: { track: Track; num: number }[];
 }
 
@@ -49,19 +66,26 @@ export interface Plano {
 }
 
 /** Flatten groups into rows and measure where each one sits. */
-export function aplanar(grupos: Grupo[]): Plano {
+export function aplanar(grupos: Grupo[], altos: Altos = ALTOS.comoda): Plano {
   const filas: Fila[] = [];
   const offsets: number[] = [0];
   let y = 0;
   for (const g of grupos) {
     if (g.showHeader) {
-      filas.push({ tipo: "grupo", label: g.label ?? "", countLabel: g.countLabel ?? "" });
-      y += ALTO_GRUPO;
+      filas.push({
+        tipo: "grupo",
+        clave: g.clave,
+        label: g.label ?? "",
+        ruta: g.ruta ?? "",
+        countLabel: g.countLabel ?? "",
+        colapsado: g.colapsado,
+      });
+      y += altos.grupo;
       offsets.push(y);
     }
     for (const { track, num } of g.tracks) {
       filas.push({ tipo: "pista", track, num });
-      y += ALTO_FILA;
+      y += altos.fila;
       offsets.push(y);
     }
   }

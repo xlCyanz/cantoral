@@ -81,9 +81,30 @@ impl Drop for ScanClaim<'_> {
     }
 }
 
-const AUDIO_EXTS: &[&str] =
-    &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff", "aif"];
-const VIDEO_EXTS: &[&str] = &["mp4", "mov", "mkv", "avi", "webm", "m4v", "wmv"];
+// Lo que se indexa es lo que Cantoral puede reproducir.
+//
+// Antes se indexaba más de lo que la app sabe abrir, y funcionaba porque había
+// una salida de emergencia: la pista que no sonaba se le pasaba al reproductor
+// del sistema. Quitada esa salida (#81), indexar un `.wma` sería meter en la
+// biblioteca una pista muda, con aspecto de pista normal, que en mitad de un
+// culto no suena y no dice por qué.
+//
+// El recorte es solo de lo que **no decodifica ningún motor**, en ninguna
+// plataforma. `ogg`, `opus`, `aiff` y `mov` dependen del motor —WKWebView en
+// macOS y WebView2 en Windows no coinciden— y se siguen indexando: el
+// catálogo viaja entre máquinas (hay copia y restauración), y una lista de
+// formatos distinta en cada una haría que la misma biblioteca cambiara al
+// pasarla del Mac al PC. Lo que dependa del motor falla al abrirlo, con el
+// motivo que dé el reproductor.
+const AUDIO_EXTS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif"];
+const VIDEO_EXTS: &[&str] = &["mp4", "mov", "webm", "m4v"];
+
+/// Medios que se reconocen como tales para poder contarlos, pero no se indexan.
+///
+/// Se cuentan y se dicen al terminar el escaneo. Saltárselos en silencio sería
+/// peor que no tenerlos: quien ve que faltan tres canciones no tiene forma de
+/// saber si es por el formato o porque el escaneo se rompió.
+const SIN_SOPORTE: &[&str] = &["wma", "mkv", "avi", "wmv"];
 
 fn ext_lower(p: &Path) -> Option<String> {
     p.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase())
@@ -93,12 +114,9 @@ fn is_media(ext: &str) -> bool {
     AUDIO_EXTS.contains(&ext) || VIDEO_EXTS.contains(&ext)
 }
 
-/// Whether a path names a file this app indexes.
-///
-/// The same list the scanner walks with, so «what Cantoral will hand to the
-/// system player» can never drift from «what Cantoral put in the library».
-pub fn is_media_path(path: &Path) -> bool {
-    ext_lower(path).map(|e| is_media(&e)).unwrap_or(false)
+/// Un archivo de medios que la app reconoce y no puede reproducir.
+fn es_sin_soporte(ext: &str) -> bool {
+    SIN_SOPORTE.contains(&ext)
 }
 
 /// (title, artist, album, dur_sec, cover as (bytes, extension)).
@@ -174,14 +192,23 @@ pub fn scan_folder(
 ) -> Result<i64> {
     let _ = std::fs::create_dir_all(cover_dir);
 
-    // Collect media paths first so progress has a denominator.
-    let files: Vec<_> = WalkDir::new(root)
+    // Collect media paths first so progress has a denominator. En la misma
+    // pasada se cuentan los que se reconocen y no se pueden reproducir, para
+    // poder decirlos al terminar en vez de dejar un hueco sin explicar.
+    let mut omitidos: i64 = 0;
+    let mut files: Vec<walkdir::DirEntry> = Vec::new();
+    for entrada in WalkDir::new(root)
         .max_depth(if recursive { usize::MAX } else { 1 })
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-        .filter(|e| ext_lower(e.path()).map(|x| is_media(&x)).unwrap_or(false))
-        .collect();
+    {
+        match ext_lower(entrada.path()) {
+            Some(ext) if is_media(&ext) => files.push(entrada),
+            Some(ext) if es_sin_soporte(&ext) => omitidos += 1,
+            _ => {}
+        }
+    }
 
     let total = files.len().max(1);
     let mut count: i64 = 0;
@@ -249,6 +276,7 @@ pub fn scan_folder(
                 file: entry.file_name().to_string_lossy().to_string(),
                 done: false,
                 added: count,
+                omitidos,
             });
         }
     }
@@ -264,6 +292,7 @@ pub fn scan_folder(
         file: String::new(),
         done: true,
         added: count,
+        omitidos,
     });
     Ok(count)
 }
@@ -344,6 +373,79 @@ mod tests {
         cancel: &AtomicBool,
     ) -> i64 {
         scan_folder(conn, fid, &tree.path(), covers, recursive, cancel, &|_| {}).unwrap()
+    }
+
+    /// El último progreso de un escaneo, que es el que lleva las cuentas.
+    fn escanear_con_resumen(
+        conn: &Connection,
+        fid: i64,
+        tree: &Tree,
+        covers: &std::path::Path,
+    ) -> ScanProgress {
+        let ultimo = std::sync::Mutex::new(None);
+        scan_folder(conn, fid, &tree.path(), covers, true, &AtomicBool::new(false), &|p| {
+            *ultimo.lock().unwrap() = Some(p);
+        })
+        .unwrap();
+        ultimo.into_inner().unwrap().expect("el escaneo siempre informa del final")
+    }
+
+    #[test]
+    fn a_format_no_engine_decodes_is_not_indexed_but_is_counted() {
+        // Indexarlo metería en la biblioteca una pista muda con aspecto de
+        // pista normal, que en mitad de un culto no suena y no dice por qué.
+        // Saltárselo en silencio sería igual de malo: quien ve que faltan tres
+        // canciones no sabría si es por el formato o porque algo se rompió.
+        let tree = Tree::new("sin-soporte");
+        for f in ["himno.wma", "testimonio.mkv", "boda.avi", "clip.wmv"] {
+            tree.write(f);
+        }
+        let (conn, fid, covers) = setup(&tree);
+
+        let resumen = escanear_con_resumen(&conn, fid, &tree, &covers);
+
+        assert_eq!(resumen.added, 5, "los cinco wav del árbol, y nada más");
+        assert_eq!(resumen.omitidos, 4);
+        let titulos: Vec<String> =
+            db::list_tracks(&conn).unwrap().into_iter().map(|t| t.titulo).collect();
+        assert!(!titulos.iter().any(|t| t == "himno" || t == "testimonio"));
+    }
+
+    #[test]
+    fn extensions_are_matched_without_case() {
+        let tree = Tree::new("mayusculas");
+        tree.write("HIMNO.WMA");
+        let (conn, fid, covers) = setup(&tree);
+
+        assert_eq!(escanear_con_resumen(&conn, fid, &tree, &covers).omitidos, 1);
+    }
+
+    #[test]
+    fn what_is_not_media_is_not_counted_as_skipped() {
+        // El árbol trae un `notas.txt`. Contarlo diría «1 archivo que Cantoral
+        // no reproduce» de un archivo que nadie esperaba reproducir.
+        let tree = Tree::new("no-medios");
+        let (conn, fid, covers) = setup(&tree);
+
+        assert_eq!(escanear_con_resumen(&conn, fid, &tree, &covers).omitidos, 0);
+    }
+
+    #[test]
+    fn engine_dependent_formats_are_still_indexed() {
+        // El catálogo viaja entre máquinas: `ogg` y `opus` suenan en Windows y
+        // `aiff` en macOS, así que recortarlos aquí haría que la misma
+        // biblioteca cambiara al pasarla de un sistema al otro. Lo que falle,
+        // falla al abrirlo y lo dice.
+        let tree = Tree::new("dependientes");
+        for f in ["coro.ogg", "coro.opus", "coro.aiff", "coro.aif", "clip.mov"] {
+            tree.write(f);
+        }
+        let (conn, fid, covers) = setup(&tree);
+
+        let resumen = escanear_con_resumen(&conn, fid, &tree, &covers);
+
+        assert_eq!(resumen.added, 10, "los cinco wav más estos cinco");
+        assert_eq!(resumen.omitidos, 0);
     }
 
     #[test]

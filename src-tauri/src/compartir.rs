@@ -35,8 +35,6 @@ pub struct PlaylistFile {
 pub struct SharedPlaylist {
     pub nombre: String,
     #[serde(default)]
-    pub fecha: String,
-    #[serde(default)]
     pub ocasion: String,
     #[serde(default)]
     pub plantilla: bool,
@@ -54,11 +52,7 @@ pub struct SharedTrack {
     #[serde(default)]
     pub dur_sec: i64,
     #[serde(default)]
-    pub tono: String,
-    #[serde(default)]
     pub ocasion: String,
-    #[serde(default)]
-    pub etiquetas: Vec<String>,
     /// File name only — never the path it sat at on the other machine.
     #[serde(default)]
     pub archivo: String,
@@ -143,7 +137,6 @@ mod tests {
             cantoral: VERSION,
             lista: SharedPlaylist {
                 nombre: "Culto 4 Ene".into(),
-                fecha: "2026-01-04".into(),
                 ocasion: "Servicio dominical".into(),
                 plantilla: false,
             },
@@ -152,9 +145,7 @@ mod tests {
                 artista: "Coro Congregacional".into(),
                 album: "Himnos".into(),
                 dur_sec: 252,
-                tono: "Sol".into(),
                 ocasion: "Adoración".into(),
-                etiquetas: vec!["lenta".into()],
                 archivo: "sublime.mp3".into(),
             }],
             exportado: "2026-01-01T00:00:00Z".into(),
@@ -164,11 +155,10 @@ mod tests {
         let leido = leer(&p).unwrap();
 
         assert_eq!(leido.lista.nombre, "Culto 4 Ene");
-        assert_eq!(leido.lista.fecha, "2026-01-04");
+        assert_eq!(leido.lista.ocasion, "Servicio dominical");
         assert_eq!(leido.pistas.len(), 1);
         assert_eq!(leido.pistas[0].titulo, "Sublime Gracia");
         assert_eq!(leido.pistas[0].dur_sec, 252);
-        assert_eq!(leido.pistas[0].etiquetas, vec!["lenta"]);
         assert_eq!(leido.pistas[0].archivo, "sublime.mp3");
     }
 
@@ -180,9 +170,25 @@ mod tests {
         let leido = leer(&p).unwrap();
 
         assert_eq!(leido.lista.nombre, "Culto");
-        assert_eq!(leido.lista.fecha, "");
         assert!(!leido.lista.plantilla);
         assert!(leido.pistas.is_empty());
+    }
+
+    #[test]
+    fn a_file_from_before_services_lost_their_date_still_opens() {
+        // Una versión anterior mandaba `fecha`, y las etiquetas y el tono de
+        // cada pista. Nada de eso se lee ya, pero el archivo tiene que abrir:
+        // quien lo recibe no eligió con qué versión se exportó.
+        let dir = Dir::new("con-fecha");
+        let viejo = r#"{"cantoral":1,
+            "lista":{"nombre":"Culto","fecha":"2026-01-04","ocasion":"Santa Cena"},
+            "pistas":[{"titulo":"Santo","tono":"Re","etiquetas":["lenta"]}]}"#;
+        let p = dir.escribir("lista.json", viejo);
+
+        let leido = leer(&p).unwrap();
+
+        assert_eq!(leido.lista.ocasion, "Santa Cena");
+        assert_eq!(leido.pistas[0].titulo, "Santo");
     }
 
     #[test]

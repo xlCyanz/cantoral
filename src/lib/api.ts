@@ -3,10 +3,10 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import type { Folder, Playlist, Track } from "./types";
+import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
 import type { ArchivoDeLista } from "./compartir";
 
 export function isTauri(): boolean {
@@ -27,14 +27,6 @@ export function gestorDeArchivos(): string {
   return "la carpeta";
 }
 
-/** Short OS label for the "open in system player" affordance. */
-export function osShortName(): string {
-  if (typeof navigator === "undefined") return "Sistema";
-  const ua = navigator.userAgent;
-  if (/Mac/i.test(ua)) return "macOS";
-  if (/Win/i.test(ua)) return "Windows";
-  return "Sistema";
-}
 
 async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
@@ -66,16 +58,17 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 // ---------------------------------------------------------------- os / files
 
 /**
- * Open a file/URL in the OS default application (e.g. Windows media player).
+ * Abre en el navegador la hoja que la app acaba de exportar, para imprimirla.
  *
- * Files go through the backend rather than the opener plugin: the webview is
- * no longer allowed to ask the system to open an arbitrary path, and the
- * backend only lets through what the library indexed plus an exported sheet.
+ * Va por el núcleo y no por el plugin del abridor: el webview no puede pedirle
+ * al sistema que abra una ruta cualquiera, y el núcleo solo deja pasar la hoja
+ * —comprueba la extensión—. Antes esto también abría pistas, para el desvío al
+ * reproductor del sistema; ese desvío ya no existe (#81) y la regla se
+ * estrechó con él.
  */
-export async function openExternalPath(target: string): Promise<void> {
-  if (!isTauri() || !target) return;
-  if (/^https?:\/\//.test(target)) await openUrl(target);
-  else await inv("open_media_path", { path: target });
+export async function openExportedSheet(path: string): Promise<void> {
+  if (!isTauri() || !path) return;
+  await inv("open_exported_sheet", { path });
 }
 
 /** Native picker for a single media file, used when relocating a track. */
@@ -94,6 +87,41 @@ export async function pickMediaFile(): Promise<string | null> {
     ],
   });
   return typeof res === "string" ? res : null;
+}
+
+/**
+ * El tema del sistema, preguntado a la ventana nativa.
+ *
+ * `prefers-color-scheme` no basta: en Windows, WebView2 lo resuelve contra el
+ * tema de la ventana, no contra el del sistema, así que una app que no le diga
+ * nada se queda en claro para siempre aunque Windows esté en oscuro. La
+ * ventana sí sabe cuál es, y es la misma respuesta en macOS.
+ *
+ * `null` cuando no hay ventana nativa —el modo navegador— o cuando el sistema
+ * no lo dice: macOS 10.13 y anteriores no tienen tema.
+ */
+export async function temaDelSistema(): Promise<Theme | null> {
+  if (!isTauri()) return null;
+  try {
+    return (await getCurrentWindow().theme()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Avisa cuando el sistema cambia de tema. Devuelve cómo dejar de escuchar.
+ *
+ * Por el evento de la ventana y no por `matchMedia`: en Windows el webview no
+ * se entera de que el sistema cambió, y en macOS llega antes por aquí.
+ */
+export async function onTemaDelSistema(cb: (t: Theme) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    return await getCurrentWindow().onThemeChanged(({ payload }) => cb(payload));
+  } catch {
+    return () => {};
+  }
 }
 
 /** Show a file in the system file manager, selected. */
@@ -183,6 +211,9 @@ export interface ScanProgressEvent {
   file: string;
   done: boolean;
   added: number;
+  /** Archivos de medios que se reconocieron y no se indexaron porque ningún
+   *  motor de webview los decodifica. */
+  omitidos: number;
 }
 
 /** Append a whole selection to a list, in one transaction and one snapshot. */
@@ -200,32 +231,10 @@ export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<Snap
   return inv<Snapshot>("set_tracks_fav", { ids, fav });
 }
 
-/** Put a tag on a whole selection, or take it off it. */
-export async function tagTracksCmd(
-  ids: string[],
-  tag: string,
-  add: boolean,
-): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("tag_tracks", { ids, tag, add });
-}
-
 /** Drop a whole selection from the catalogue. The audio files are untouched. */
 export async function deleteTracksCmd(ids: string[]): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("delete_tracks", { ids });
-}
-
-/** Rename a tag everywhere, folding it into an existing one if the name is taken. */
-export async function renameTagCmd(from: string, to: string): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("rename_tag", { from, to });
-}
-
-/** Take a tag off every track that carried it. The tracks are untouched. */
-export async function deleteTagCmd(name: string): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("delete_tag", { name });
 }
 
 /** The lyrics and chords of one track. */
@@ -268,7 +277,6 @@ export interface DuplicateTrack {
   fsize: number;
   fav: boolean;
   missing: boolean;
-  tags: string[];
 }
 
 /** A set of tracks that look like the same song. */
@@ -294,7 +302,7 @@ export async function findDuplicatesCmd(): Promise<DuplicateReport | null> {
   return inv<DuplicateReport>("find_duplicates");
 }
 
-/** Fold `drop` into `keep`, moving tags, favourite and list places across. */
+/** Fold `drop` into `keep`, moving the favourite and list places across. */
 export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("merge_duplicates", { keep, drop });
@@ -335,7 +343,7 @@ export async function reconcileLibraryCmd(): Promise<Snapshot | null> {
 export async function removeFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("remove_folder", { id });
 }
-/** Point a track at its file's new location, keeping tags and favourite. */
+/** Point a track at its file's new location, keeping what it carries. */
 export async function relocateTrackCmd(id: string, path: string): Promise<Snapshot> {
   return inv<Snapshot>("relocate_track", { id, path });
 }
@@ -353,26 +361,20 @@ export async function setTrackFav(id: string, fav: boolean): Promise<void> {
 }
 export async function updateTrackCmd(
   id: string,
-  tono: string,
+  artista: string,
   bpm: number,
   ocasion: string,
-  tags: string[],
 ): Promise<void> {
   if (!isTauri()) return;
-  await inv("update_track", { id, tono, bpm, ocasion, tags });
+  await inv("update_track", { id, artista, bpm, ocasion });
 }
 export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Promise<void> {
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
 /** `desde` is the template to copy the order from, if the user picked one. */
-export async function createPlaylistCmd(
-  nombre: string,
-  fecha: string,
-  ocasion: string,
-  desde?: string,
-): Promise<string> {
-  return inv<string>("create_playlist", { nombre, fecha, ocasion, desde: desde ?? null });
+export async function createPlaylistCmd(nombre: string, ocasion: string, desde?: string): Promise<string> {
+  return inv<string>("create_playlist", { nombre, ocasion, desde: desde ?? null });
 }
 export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
   return inv<string>("duplicate_playlist", { playlist });
@@ -383,13 +385,13 @@ export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolea
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Snapshot> {
   return inv<Snapshot>("add_to_playlist", { playlist, track });
 }
-export async function updatePlaylistCmd(
-  playlist: string,
-  nombre: string,
-  fecha: string,
-  ocasion: string,
-): Promise<Snapshot> {
-  return inv<Snapshot>("update_playlist", { playlist, nombre, fecha, ocasion });
+export async function updatePlaylistCmd(playlist: string, nombre: string, ocasion: string): Promise<Snapshot> {
+  return inv<Snapshot>("update_playlist", { playlist, nombre, ocasion });
+}
+/** Apuntar que un culto se acaba de abrir o de cambiar. */
+export async function touchPlaylistCmd(playlist: string): Promise<void> {
+  if (!isTauri()) return;
+  await inv("touch_playlist", { playlist });
 }
 export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
   return inv<Snapshot>("delete_playlist", { playlist });
@@ -504,4 +506,135 @@ export async function installUpdateCmd(): Promise<void> {
 export async function onUpdateProgress(cb: (p: UpdateProgress) => void): Promise<() => void> {
   if (!isTauri()) return () => {};
   return listen<UpdateProgress>("update-progress", (e) => cb(e.payload));
+}
+
+// ---------- proyección ----------
+
+/** Una pantalla del sistema, como se ofrece para elegir la salida. */
+export interface MonitorInfo {
+  indice: number;
+  nombre: string;
+  ancho: number;
+  alto: number;
+  principal: boolean;
+}
+
+/** Lo que la ventana de salida está mostrando. */
+export type VistaProyeccion =
+  | { modo: "negro" }
+  | { modo: "titulo"; titulo: string; sub?: string }
+  | {
+      modo: "media";
+      /** URL `asset://` del archivo. */
+      src: string;
+      /** Si trae imagen. Un audio no llena la pantalla por sí solo. */
+      video: boolean;
+      titulo: string;
+      sub?: string;
+      reproduciendo: boolean;
+      /**
+       * Qué dibujar mientras suena, cuando el archivo no trae imagen.
+       *
+       * Ausente en un video: ahí la pantalla ya está llena. Sin `lineas` —una
+       * pista sin letra escrita— la salida cae al título, que es mejor que un
+       * negro con el que nadie sabe si la app se colgó.
+       */
+      audio?: {
+        tipo: SalidaDeAudio;
+        /** «Coro», «Puente»… de la estrofa que está en pantalla. */
+        etiqueta?: string;
+        lineas?: string[];
+        /** URL `asset://` de la carátula, para el fondo. */
+        portada?: string;
+      };
+    };
+
+/**
+ * El mensaje completo que recibe la salida.
+ *
+ * `precarga` no se ve: es el archivo siguiente del culto, que la salida carga
+ * en silencio y deja en pausa. Sin eso, pasar de un elemento a otro deja la
+ * pantalla grande en negro el tiempo que tarde el disco — medio segundo en un
+ * SSD, varios en un pendrive, que es de donde sale la música en muchas
+ * iglesias.
+ */
+export interface SalidaProyeccion {
+  vista: VistaProyeccion;
+  precarga?: string;
+  /**
+   * Qué hacer antes de enseñar esto.
+   *
+   * Solo viene al cambiar de elemento del culto. Pasar de una estrofa a otra,
+   * cortar a negro o cambiar un ajuste en marcha no llevan transición: serían
+   * medio segundo de negro en mitad de una canción.
+   *
+   * La cuenta la lleva la ventana de salida y no esta: es la que tiene el
+   * fotograma delante, y un temporizador que viaje entre ventanas llegaría
+   * tarde de forma distinta cada vez.
+   */
+  transicion?: TransicionProyeccion;
+}
+
+/** Lo que la salida devuelve sobre lo que está reproduciendo. */
+export interface EstadoProyeccion {
+  /** La `src` a la que se refiere, para descartar lo que llega tarde. */
+  src: string;
+  pos: number;
+  dur: number;
+  fin: boolean;
+  /** Código de `MediaError` si falló. */
+  error?: number;
+}
+
+/**
+ * Las pantallas conectadas.
+ *
+ * En el navegador no hay ninguna: proyectar necesita una segunda ventana del
+ * sistema, y decir que hay cero es más honesto que inventar una que al pulsar
+ * no haría nada.
+ */
+export async function projectionMonitors(): Promise<MonitorInfo[]> {
+  if (!isTauri()) return [];
+  return inv<MonitorInfo[]>("projection_monitors");
+}
+
+export async function openProjectionCmd(monitor: number): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("open_projection", { monitor });
+}
+
+export async function closeProjectionCmd(): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("close_projection");
+}
+
+export async function setProjectionCmd(contenido: SalidaProyeccion): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("set_projection", { contenido });
+}
+
+/**
+ * Avisa cuando la ventana de salida termina de suscribirse.
+ *
+ * Hace falta porque abrir la ventana y mandarle lo primero son dos cosas
+ * seguidas, y entre una y otra el webview todavía está arrancando: el primer
+ * mensaje se perdía entero y el proyector se quedaba en negro justo al empezar
+ * el culto. En vez de adivinar cuánto tarda, la salida lo dice. Vale igual
+ * para cuando la ventana se recarga sola a mitad de un culto.
+ */
+export async function onProjectionReady(cb: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen("proyeccion-lista", () => cb());
+}
+
+/**
+ * Sigue lo que la salida está reproduciendo. Devuelve cómo dejar de seguirlo.
+ *
+ * La salida emite y la principal escucha, no al revés: el tiempo que lleva el
+ * video lo sabe el elemento que lo está reproduciendo, y preguntárselo desde
+ * fuera cada décima sería pasar por el núcleo mil veces por culto.
+ */
+export async function onProjectionState(cb: (e: EstadoProyeccion) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen<EstadoProyeccion>("proyeccion-estado", (e) => cb(e.payload));
 }

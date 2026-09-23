@@ -4,6 +4,7 @@ mod commands;
 mod compartir;
 mod db;
 mod models;
+mod proyeccion;
 mod scanner;
 #[cfg(desktop)]
 mod updates;
@@ -67,11 +68,8 @@ pub fn run() {
             commands::cancel_scan,
             commands::add_tracks_to_playlist,
             commands::set_tracks_fav,
-            commands::tag_tracks,
             commands::delete_tracks,
-            commands::open_media_path,
-            commands::rename_tag,
-            commands::delete_tag,
+            commands::open_exported_sheet,
             commands::get_track_sheet,
             commands::get_sheets,
             commands::update_track_sheet,
@@ -87,6 +85,10 @@ pub fn run() {
             commands::set_track_fav,
             commands::update_track,
             commands::check_for_update,
+            commands::projection_monitors,
+            commands::open_projection,
+            commands::close_projection,
+            commands::set_projection,
             commands::install_update,
             commands::create_playlist,
             commands::duplicate_playlist,
@@ -94,6 +96,7 @@ pub fn run() {
             commands::set_playlist_order,
             commands::add_to_playlist,
             commands::update_playlist,
+            commands::touch_playlist,
             commands::delete_playlist,
             commands::export_playlist,
             commands::export_playlist_json,

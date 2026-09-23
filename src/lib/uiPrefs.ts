@@ -7,7 +7,7 @@
 // field is checked on its own and whatever does not hold up is dropped, leaving
 // that preference at its default instead of poisoning the whole load.
 
-import type { GroupBy, SortDir, SortKey, View } from "./types";
+import type { AvanceProyeccion, Densidad, GroupBy, SalidaDeAudio, SortDir, SortKey, TransicionProyeccion, View } from "./types";
 
 /** What is remembered between sessions. */
 export interface UiPrefs {
@@ -22,15 +22,43 @@ export interface UiPrefs {
   curPlaylist: string;
   /** Whether the print preview includes the lyrics and chords. */
   printWithLyrics: boolean;
+  /** How tall the library rows are. */
+  densidad: Densidad;
+  /**
+   * Qué sale por el proyector con una pista de solo audio, y qué pasa entre
+   * un elemento y el siguiente.
+   *
+   * Se recuerdan, al contrario que el resto del estado de proyección: una
+   * iglesia elige una vez si proyecta la letra o deja el negro, y no quiere
+   * volver a decidirlo cada domingo antes de empezar.
+   */
+  salidaDeAudio: SalidaDeAudio;
+  transicionProyeccion: TransicionProyeccion;
+  /**
+   * Si la proyección pasa sola al siguiente elemento del culto.
+   *
+   * Se recuerda como los otros dos: una iglesia que proyecta el culto entero
+   * seguido lo elige una vez, y otra que corta entre canción y canción para
+   * que alguien hable también.
+   */
+  avanceProyeccion: AvanceProyeccion;
 }
 
 /** The settings key it is stored under. */
 export const UI_PREFS_KEY = "ui";
 
-const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "tono", "bpm", "dur"];
+const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "bpm", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
+// «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde
+// en la pantalla de proyectar, sin proyector conectado, no es donde nadie
+// quiere aterrizar. Se recuerda dónde se estaba trabajando, no lo que se
+// estaba haciendo en vivo.
 const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
+const DENSIDADES: Densidad[] = ["comoda", "compacta"];
+const SALIDAS_DE_AUDIO: SalidaDeAudio[] = ["negro", "portada", "letra"];
+const TRANSICIONES: TransicionProyeccion[] = ["negro", "cuenta"];
+const AVANCES: AvanceProyeccion[] = ["negro", "siguiente"];
 
 /** The fields worth writing back, in one place so a new one cannot be missed. */
 export const PREF_FIELDS = [
@@ -44,6 +72,10 @@ export const PREF_FIELDS = [
   "view",
   "curPlaylist",
   "printWithLyrics",
+  "densidad",
+  "salidaDeAudio",
+  "transicionProyeccion",
+  "avanceProyeccion",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -58,6 +90,10 @@ export function serialisePrefs(s: UiPrefs): string {
     view: s.view,
     curPlaylist: s.curPlaylist,
     printWithLyrics: s.printWithLyrics,
+    densidad: s.densidad,
+    salidaDeAudio: s.salidaDeAudio,
+    transicionProyeccion: s.transicionProyeccion,
+    avanceProyeccion: s.avanceProyeccion,
   };
   return JSON.stringify(limpio);
 }
@@ -100,6 +136,16 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (VIEWS.includes(o.view as View)) out.view = o.view as View;
   if (typeof o.curPlaylist === "string") out.curPlaylist = o.curPlaylist;
   if (esBooleano(o.printWithLyrics)) out.printWithLyrics = o.printWithLyrics;
+  if (DENSIDADES.includes(o.densidad as Densidad)) out.densidad = o.densidad as Densidad;
+  if (SALIDAS_DE_AUDIO.includes(o.salidaDeAudio as SalidaDeAudio)) {
+    out.salidaDeAudio = o.salidaDeAudio as SalidaDeAudio;
+  }
+  if (TRANSICIONES.includes(o.transicionProyeccion as TransicionProyeccion)) {
+    out.transicionProyeccion = o.transicionProyeccion as TransicionProyeccion;
+  }
+  if (AVANCES.includes(o.avanceProyeccion as AvanceProyeccion)) {
+    out.avanceProyeccion = o.avanceProyeccion as AvanceProyeccion;
+  }
   return out;
 }
 

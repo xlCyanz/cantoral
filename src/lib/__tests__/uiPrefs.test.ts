@@ -37,6 +37,10 @@ const GUARDADAS: UiPrefs = {
   view: "colecciones",
   curPlaylist: "p2",
   printWithLyrics: true,
+  densidad: "compacta",
+  salidaDeAudio: "portada",
+  transicionProyeccion: "cuenta",
+  avanceProyeccion: "siguiente",
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -68,11 +72,34 @@ describe("parsePrefs", () => {
       muted: "sí",
       volume: "alto",
       curPlaylist: 7,
+      densidad: "apretadísima",
+      salidaDeAudio: "fuegos artificiales",
+      transicionProyeccion: "fundido",
+      avanceProyeccion: "a lo loco",
       shuffle: true,
     });
 
     // Only the one field that held up survives; the rest fall back to defaults.
     expect(parsePrefs(raro)).toEqual({ shuffle: true });
+  });
+
+  it("recuerda los ajustes de la proyección", () => {
+    // Una iglesia elige una vez si proyecta la letra o deja el negro, y no
+    // quiere volver a decidirlo cada domingo antes de empezar.
+    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+
+    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+  });
+
+  it("y recuerda si la proyección avanza sola", () => {
+    expect(parsePrefs(JSON.stringify({ avanceProyeccion: "siguiente" }))).toEqual({ avanceProyeccion: "siguiente" });
+    expect(parsePrefs(JSON.stringify({ avanceProyeccion: "negro" }))).toEqual({ avanceProyeccion: "negro" });
+  });
+
+  it("y acepta los tres modos de salida de audio", () => {
+    for (const modo of ["negro", "portada", "letra"] as const) {
+      expect(parsePrefs(JSON.stringify({ salidaDeAudio: modo }))).toEqual({ salidaDeAudio: modo });
+    }
   });
 
   it("clamps a volume outside the range instead of dropping it", () => {
@@ -163,16 +190,51 @@ describe("guardar los cambios", () => {
     expect(ultimoGuardado().volume).toBe(0.3);
   });
 
+  it("y también los ajustes de la proyección", async () => {
+    // Van por el mismo vigilante que el resto: si no estuvieran en la lista de
+    // campos observados, se elegiría «Solo la letra» un domingo y el siguiente
+    // volvería a estar en negro.
+    useStore.getState().setSalidaDeAudio("negro");
+    useStore.getState().setTransicionProyeccion("cuenta");
+    useStore.getState().setAvanceProyeccion("siguiente");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(ultimoGuardado().salidaDeAudio).toBe("negro");
+    expect(ultimoGuardado().transicionProyeccion).toBe("cuenta");
+    expect(ultimoGuardado().avanceProyeccion).toBe("siguiente");
+  });
+
+  it("y el avance solo, aunque no cambie nada más", async () => {
+    // A solas: si no estuviera en la lista de campos vigilados, cambiarlo no
+    // dispararía ninguna escritura y solo se guardaría de rebote, cuando se
+    // tocara otra cosa.
+    // «Siguiente» es el de fábrica, así que se prueba volviendo al negro.
+    useStore.getState().setAvanceProyeccion("negro");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(1);
+    expect(ultimoGuardado().avanceProyeccion).toBe("negro");
+  });
+
   it("recoge el cambio venga de donde venga", async () => {
     useStore.getState().toggleShuffle();
     useStore.getState().onGroupBy("album");
-    useStore.getState().onSortHeader("tono");
+    useStore.getState().onSortHeader("ocasion");
     await vi.advanceTimersByTimeAsync(400);
 
     const g = ultimoGuardado();
     expect(g.shuffle).toBe(true);
     expect(g.groupBy).toBe("album");
-    expect(g.sortKey).toBe("tono");
+    expect(g.sortKey).toBe("ocasion");
+  });
+
+  it("recuerda la densidad: se elige una vez y vale para siempre", async () => {
+    // La densidad no es un filtro, es cómo alguien quiere ver la tabla. Que se
+    // olvide al cerrar la app significaría volver a elegirla cada domingo.
+    useStore.getState().setDensidad("compacta");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(ultimoGuardado().densidad).toBe("compacta");
   });
 
   it("no guarda los filtros de la biblioteca", async () => {
@@ -216,8 +278,8 @@ describe("restaurar al arrancar", () => {
       tracks: [],
       folders: [],
       playlists: [
-        { id: "p1", nombre: "Uno", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Uno", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ocasion: "", ids: [], plantilla: false },
       ],
     });
     reconcileLibraryCmd.mockReset();

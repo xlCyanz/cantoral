@@ -1,14 +1,13 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Calendar, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
-import { coverStyle, gradientFor, hasCover } from "../lib/covers";
+import { coverStyle, gradientFor, hasCover, inicialDe } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
-import { formatearFecha } from "../lib/fechas";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
-const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 86px";
+const GRID = "26px 26px minmax(150px,3fr) 116px 58px 86px";
 
 const menuItem = {
   display: "flex",
@@ -110,7 +109,6 @@ const PlRow = memo(function PlRow({ t, num, total }: { t: Track; num: number; to
         </div>
       </div>
       <div><span style={ocasionBadge}>{t.ocasion}</span></div>
-      <div style={{ fontSize: "12.5px", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{t.tono}</div>
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
         {/* Visible buttons, not just the drag handle: precise dragging is a
@@ -152,6 +150,7 @@ export default function PlaylistView() {
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
   const openService = useStore((s) => s.openService);
+  const showProyeccion = useStore((s) => s.showProyeccion);
   const openPrintPreview = useStore((s) => s.openPrintPreview);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
@@ -170,24 +169,35 @@ export default function PlaylistView() {
       {/* hero */}
       <div style={{ display: "flex", gap: 22, padding: "28px 24px 24px", alignItems: "flex-end", background: "linear-gradient(180deg,var(--surface-2),transparent)" }}>
         <div style={{ position: "relative", width: 148, height: 148, flex: "0 0 auto", borderRadius: 16, overflow: "hidden", boxShadow: "var(--sh-md)" }}>
-          <div style={gradientFor(curPlaylist)} />
+          <div style={gradientFor(curPlaylist, 150)} />
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-            <ListMusic size={58} color="rgba(255,255,255,.92)" strokeWidth={1.4} />
+            <span className="display" style={{ fontSize: 58, color: "rgba(255,255,255,.9)" }}>{inicialDe(pl?.nombre ?? "")}</span>
           </div>
         </div>
         <div style={{ minWidth: 0, paddingBottom: 2 }}>
-          <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", color: "var(--primary)", background: "var(--primary-soft)", padding: "3px 10px", borderRadius: 7, marginBottom: 10 }}>
-            {pl?.plantilla ? "Plantilla" : "Lista para culto"}
+          {/* El sobrescrito dice la ocasión, no «Lista para culto». Eso último
+              lo sabe cualquiera que esté mirando esta pantalla; la ocasión es
+              lo que distingue un domingo de un ensayo. Una lista sin ocasión
+              —las importadas y las viejas pueden no tenerla— vuelve al rótulo
+              genérico antes que dejar el hueco. */}
+          <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--primary)", marginBottom: 8 }}>
+            {pl?.plantilla ? "Plantilla" : pl?.ocasion?.trim() || "Lista para culto"}
           </span>
-          <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-.8px", lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
+          <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Calendar size={15} />{formatearFecha(pl?.fecha) || "Sin fecha"}</span>
-            <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-3)" }} />
             <span>{order.length} pistas · {duracion}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
-            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
+            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
+            </button>
+            {/* El documento pone «Proyectar» aquí, entre reproducir e
+                imprimir. En la etapa 4 se quedó fuera porque no había a dónde
+                ir; ahora sí, y es la única puerta: se proyecta el culto que
+                está abierto. */}
+            <button onClick={() => showProyeccion()} className="hb-s2" title="Sacar el culto por el proyector"
+              style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+              <MonitorPlay size={16} />Proyectar
             </button>
             <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <Presentation size={16} />Modo culto
@@ -265,7 +275,7 @@ export default function PlaylistView() {
           style={{ padding: "8px 24px 0", ...(sobreLaLista ? { outline: "2px dashed var(--primary)", outlineOffset: -6, borderRadius: 14 } : {}) }}
         >
           <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "8px 8px 9px", borderBottom: "1px solid var(--border)", fontSize: 11, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>
-            <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style={{ textAlign: "right" }}>Dur.</span><span />
+            <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span style={{ textAlign: "right" }}>Dur.</span><span />
           </div>
           <div role="list">
             {rows.map((t, i) => (

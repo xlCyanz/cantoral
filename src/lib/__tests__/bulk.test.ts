@@ -9,7 +9,6 @@ import type { Track } from "../types";
 
 const addTracksToPlaylistCmd = vi.fn<(pl: string, ids: string[]) => Promise<Snapshot | null>>();
 const setTracksFavCmd = vi.fn<(ids: string[], fav: boolean) => Promise<Snapshot | null>>();
-const tagTracksCmd = vi.fn<(ids: string[], tag: string, add: boolean) => Promise<Snapshot | null>>();
 const deleteTracksCmd = vi.fn<(ids: string[]) => Promise<Snapshot | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -18,11 +17,10 @@ vi.mock("../api", async (importOriginal) => ({
   assetUrl: (p: string) => p,
   addTracksToPlaylistCmd: (pl: string, ids: string[]) => addTracksToPlaylistCmd(pl, ids),
   setTracksFavCmd: (ids: string[], fav: boolean) => setTracksFavCmd(ids, fav),
-  tagTracksCmd: (ids: string[], tag: string, add: boolean) => tagTracksCmd(ids, tag, add),
   deleteTracksCmd: (ids: string[]) => deleteTracksCmd(ids),
 }));
 
-const { useStore, seleccionVigente } = await import("../../store");
+const { useStore, pistasParaAgregar, seleccionVigente } = await import("../../store");
 const initial = useStore.getState();
 
 function track(id: string, over: Partial<Track> = {}): Track {
@@ -33,12 +31,10 @@ function track(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Sol",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -52,13 +48,13 @@ const CINCO = ["a", "b", "c", "d", "e"].map((id) => track(id, { titulo: `Pista $
 
 beforeEach(() => {
   useStore.setState(initial, true);
-  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, tagTracksCmd, deleteTracksCmd]) m.mockReset();
-  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, tagTracksCmd, deleteTracksCmd]) {
+  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) m.mockReset();
+  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) {
     m.mockResolvedValue(null);
   }
   useStore.setState({
     tracks: CINCO,
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: [], plantilla: false }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids: [], plantilla: false }],
     plOrder: { p1: [] },
     curPlaylist: "p1",
     selection: [],
@@ -139,6 +135,124 @@ describe("agregar a una lista", () => {
 
     expect(addTracksToPlaylistCmd).not.toHaveBeenCalled();
   });
+
+  it("si ya estaban todas lo dice, en vez de contar cero agregadas", () => {
+    // «0 pistas agregadas» se lee como que algo falló. Ya estaban, que es un
+    // resultado y no un fallo.
+    useStore.setState({ plOrder: { p1: ["a", "b"] }, selection: ["a", "b"] });
+    addTracksToPlaylistCmd.mockResolvedValue(null);
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => {
+      expect(useStore.getState().toast?.titulo).toContain("Ya estaban todas");
+      expect(useStore.getState().toast?.type).toBe("info");
+    });
+  });
+
+  /** Lo que devolvería el backend tras meter `ids` en la lista. */
+  const conLaLista = (ids: string[]): Snapshot => ({
+    tracks: CINCO,
+    folders: [],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids, plantilla: false }],
+  });
+
+  it("al agregarlas, el titular dice a dónde y el detalle cuántas", () => {
+    // Antes cabía una sola línea y había que meter las dos cosas: «3 pistas
+    // agregadas a "Domingo de alabanza"». Separadas, a dónde fueron se lee de
+    // un vistazo.
+    useStore.setState({ selection: ["a", "b"] });
+    addTracksToPlaylistCmd.mockResolvedValue(conLaLista(["a", "b"]));
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => {
+      expect(useStore.getState().toast?.titulo).toBe("Agregadas a «Culto»");
+      expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final del culto.");
+    });
+  });
+
+  it("y una sola pista va en singular en el detalle", () => {
+    useStore.setState({ selection: ["a"] });
+    addTracksToPlaylistCmd.mockResolvedValue(conLaLista(["a"]));
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => expect(useStore.getState().toast?.detalle).toBe("1 pista, al final del culto."));
+  });
+
+  it("y con una sola pista lo dice en singular", () => {
+    useStore.setState({ plOrder: { p1: ["a"] }, selection: ["a"] });
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => expect(useStore.getState().toast?.titulo).toContain("Ya estaba en"));
+  });
+});
+
+describe("una sola forma de agregar a un culto", () => {
+  it("con selección, actúa sobre la selección", () => {
+    useStore.setState({ selection: ["b", "a"] });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual(["a", "b"]);
+  });
+
+  it("sin selección, sobre lo que el panel de detalle tiene abierto", () => {
+    useStore.setState({ selection: [], selId: "c", detailOpen: true });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual(["c"]);
+  });
+
+  it("la selección manda sobre el panel, que puede llevar abierto desde hace rato", () => {
+    useStore.setState({ selection: ["d"], selId: "c", detailOpen: true });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual(["d"]);
+  });
+
+  it("un panel cerrado no cuenta aunque recuerde una pista", () => {
+    useStore.setState({ selection: [], selId: "c", detailOpen: false });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual([]);
+  });
+
+  it("no abre un diálogo que no tendría nada que agregar", () => {
+    // Un diálogo vacío con un «Cancelar» es peor que no responder al atajo.
+    useStore.setState({ selection: [], detailOpen: false });
+
+    useStore.getState().openAddToList();
+
+    expect(useStore.getState().dialog).toBeNull();
+  });
+
+  it("y al abrirlo cierra el menú contextual, que es desde donde se pudo pedir", () => {
+    useStore.setState({ selection: ["a"], rowMenu: { id: "a", x: 0, y: 0 } });
+
+    useStore.getState().openAddToList();
+
+    expect(useStore.getState().dialog).toBe("addToList");
+    expect(useStore.getState().rowMenu).toBeNull();
+  });
+
+  it("al elegir el culto agrega, cierra y deshace la selección", () => {
+    useStore.setState({ selection: ["a", "b"] });
+    useStore.getState().openAddToList();
+
+    useStore.getState().addToListConfirm("p1");
+
+    expect(addTracksToPlaylistCmd).toHaveBeenCalledWith("p1", ["a", "b"]);
+    expect(useStore.getState().dialog).toBeNull();
+    // Lo que se quería hacer con ella ya está hecho; dejarla puesta deja la
+    // fila de herramientas ocupada por una barra sin trabajo.
+    expect(useStore.getState().selection).toEqual([]);
+  });
+
+  it("también agrega la pista del panel cuando no hay selección", () => {
+    useStore.setState({ selection: [], selId: "e", detailOpen: true });
+
+    useStore.getState().addToListConfirm("p1");
+
+    expect(addTracksToPlaylistCmd).toHaveBeenCalledWith("p1", ["e"]);
+  });
 });
 
 describe("favoritas en bloque", () => {
@@ -162,51 +276,6 @@ describe("favoritas en bloque", () => {
   });
 });
 
-describe("etiquetar en bloque", () => {
-  it("pone la etiqueta en todas las elegidas", () => {
-    useStore.setState({ selection: ["a", "b"] });
-
-    useStore.getState().bulkTag("navidad", true);
-
-    expect(useStore.getState().tracks.find((t) => t.id === "a")!.tags).toEqual(["navidad"]);
-    expect(tagTracksCmd).toHaveBeenCalledWith(["a", "b"], "navidad", true);
-  });
-
-  it("se acopla a la etiqueta que ya existe en vez de crear otra", () => {
-    // El mismo cuidado que el panel de detalle: una edición en bloque no puede
-    // ser lo que invente una segunda forma de escribir la misma etiqueta.
-    useStore.setState({
-      tracks: [track("a", { tags: ["navidad"] }), track("b")],
-      selection: ["b"],
-    });
-
-    useStore.getState().bulkTag("Navidad", true);
-
-    expect(useStore.getState().tracks.find((t) => t.id === "b")!.tags).toEqual(["navidad"]);
-    expect(tagTracksCmd).toHaveBeenCalledWith(["b"], "navidad", true);
-  });
-
-  it("la quita de todas las elegidas", () => {
-    useStore.setState({
-      tracks: [track("a", { tags: ["navidad", "lento"] }), track("b", { tags: ["navidad"] })],
-      selection: ["a"],
-    });
-
-    useStore.getState().bulkTag("navidad", false);
-
-    expect(useStore.getState().tracks.find((t) => t.id === "a")!.tags).toEqual(["lento"]);
-    expect(useStore.getState().tracks.find((t) => t.id === "b")!.tags).toEqual(["navidad"]);
-  });
-
-  it("ignora una etiqueta en blanco", () => {
-    useStore.setState({ selection: ["a"] });
-
-    useStore.getState().bulkTag("   ", true);
-
-    expect(tagTracksCmd).not.toHaveBeenCalled();
-  });
-});
-
 describe("quitar en bloque", () => {
   it("no quita nada hasta que el usuario confirma", () => {
     useStore.setState({ selection: ["a", "b"] });
@@ -217,31 +286,59 @@ describe("quitar en bloque", () => {
     expect(useStore.getState().confirm?.title).toContain("2 pistas");
   });
 
-  it("avisa de cuántas están en alguna lista", () => {
-    useStore.setState({ selection: ["a", "b"], plOrder: { p1: ["a"] } });
-
-    useStore.getState().bulkDelete();
-
-    expect(useStore.getState().confirm?.detail).toContain("1 está en alguna lista");
-  });
-
-  it("cuenta pistas, no apariciones", () => {
-    // Una pista en tres listas es una pista. Contando apariciones salía un
-    // número mayor que la propia selección — «3 pistas» y «6 están en alguna
-    // lista», que no significa nada.
+  it("nombra los cultos que pierden algo", () => {
+    // Un número suelto no deja decidir: quitar una pista del culto del domingo
+    // que viene no es lo mismo que quitarla de una plantilla de hace un año.
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
-        { id: "p1", nombre: "Uno", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p3", nombre: "Tres", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Domingo de alabanza", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Reunión de jóvenes", tocada: "", ocasion: "", ids: [], plantilla: false },
+      ],
+      plOrder: { p1: ["a"], p2: ["b"] },
+    });
+
+    useStore.getState().bulkDelete();
+
+    const msg = useStore.getState().confirm?.message ?? "";
+    expect(msg).toContain("2 cultos");
+    expect(msg).toContain("Domingo de alabanza");
+    expect(msg).toContain("Reunión de jóvenes");
+  });
+
+  it("y no nombra el que no pierde nada", () => {
+    useStore.setState({
+      selection: ["a"],
+      playlists: [
+        { id: "p1", nombre: "Con la pista", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Sin nada suyo", tocada: "", ocasion: "", ids: [], plantilla: false },
+      ],
+      plOrder: { p1: ["a"], p2: ["z"] },
+    });
+
+    useStore.getState().bulkDelete();
+
+    const msg = useStore.getState().confirm?.message ?? "";
+    expect(msg).toContain("1 culto (Con la pista)");
+    expect(msg).not.toContain("Sin nada suyo");
+  });
+
+  it("un culto se nombra una vez aunque se lleve varias de las pistas", () => {
+    // Contando apariciones salía un número mayor que la propia selección —
+    // «3 pistas» y «6 cultos», que no significa nada.
+    useStore.setState({
+      selection: ["a", "b"],
+      playlists: [
+        { id: "p1", nombre: "Uno", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p3", nombre: "Tres", tocada: "", ocasion: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["a"], p3: ["a", "b"] },
     });
 
     useStore.getState().bulkDelete();
 
-    expect(useStore.getState().confirm?.detail).toContain("2 están en alguna lista");
+    expect(useStore.getState().confirm?.message).toContain("3 cultos");
   });
 
   it("al aceptar manda la selección y la vacía", async () => {
@@ -272,5 +369,39 @@ describe("el menú contextual", () => {
     useStore.getState().openRowMenu("b", 10, 10);
 
     expect(useStore.getState().selection).toEqual(["a", "b"]);
+  });
+});
+
+describe("el aviso de la esquina", () => {
+  it("se puede cerrar antes de que se vaya solo", () => {
+    // Un aviso que tapa algo y no se quita hasta que él quiere estorba.
+    useStore.getState().showToast("Algo pasó");
+    expect(useStore.getState().toast).not.toBeNull();
+
+    useStore.getState().closeToast();
+
+    expect(useStore.getState().toast).toBeNull();
+  });
+
+  it("sin detalle, no se inventa uno", () => {
+    useStore.getState().showToast("Algo pasó");
+
+    expect(useStore.getState().toast?.detalle).toBeUndefined();
+  });
+
+  it("por defecto cuenta como que salió bien", () => {
+    useStore.getState().showToast("Algo pasó");
+
+    expect(useStore.getState().toast?.type).toBe("success");
+  });
+
+  it("y guarda el título y el detalle por separado", () => {
+    useStore.getState().showToast("Agregadas a «Culto»", { detalle: "2 pistas.", tipo: "info" });
+
+    expect(useStore.getState().toast).toEqual({
+      titulo: "Agregadas a «Culto»",
+      detalle: "2 pistas.",
+      type: "info",
+    });
   });
 });

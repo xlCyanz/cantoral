@@ -32,12 +32,10 @@ function track(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Sol",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -51,7 +49,7 @@ const LISTA = ["a", "b", "c"];
 function conLista() {
   useStore.setState({
     tracks: LISTA.map((id) => track(id)),
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: LISTA, plantilla: false }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids: LISTA, plantilla: false }],
     plOrder: { p1: LISTA },
     curPlaylist: "p1",
     playerId: "",
@@ -191,7 +189,7 @@ describe("modo culto", () => {
     useStore.getState().openService();
 
     expect(useStore.getState().serviceOpen).toBe(false);
-    expect(useStore.getState().toast?.message).toMatch(/vacía/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/vacía/i);
   });
 
   it("no se pasa de los extremos de la lista", () => {
@@ -202,28 +200,6 @@ describe("modo culto", () => {
 
     useStore.getState().serviceGo(5);
     expect(useStore.getState().serviceIdx).toBe(2);
-  });
-
-  it("olvida la transposición al cambiar de canción", () => {
-    // El tono elegido era de la canción anterior; arrastrarlo pondría la
-    // siguiente en un tono que nadie pidió.
-    useStore.getState().openService();
-    useStore.getState().transposeService(3);
-    expect(useStore.getState().serviceSemitones).toBe(3);
-
-    useStore.getState().serviceGo(1);
-
-    expect(useStore.getState().serviceSemitones).toBe(0);
-  });
-
-  it("no transpone más de una octava en ninguna dirección", () => {
-    useStore.getState().openService();
-
-    for (let i = 0; i < 20; i++) useStore.getState().transposeService(1);
-    expect(useStore.getState().serviceSemitones).toBe(11);
-
-    for (let i = 0; i < 40; i++) useStore.getState().transposeService(-1);
-    expect(useStore.getState().serviceSemitones).toBe(-11);
   });
 
   it("mantiene el tamaño de letra dentro de lo legible", () => {

@@ -28,12 +28,10 @@ function track(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Sol",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -45,7 +43,7 @@ function track(id: string, over: Partial<Track> = {}): Track {
 function conLista(ids: string[] = ["a", "b"]) {
   useStore.setState({
     tracks: [track("a"), track("b")],
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids, plantilla: false }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids, plantilla: false }],
     plOrder: { p1: ids },
     curPlaylist: "p1",
     view: "lista",
@@ -83,7 +81,7 @@ describe("abrir la vista previa", () => {
     useStore.getState().openPrintPreview();
 
     await vi.waitFor(() => expect(useStore.getState().toast?.type).toBe("error"));
-    expect(useStore.getState().toast?.message).toContain("No se pudieron leer las letras");
+    expect(useStore.getState().toast?.titulo).toContain("No se pudieron leer las letras");
     expect(useStore.getState().dialog).toBe("printPreview");
   });
 
@@ -93,7 +91,7 @@ describe("abrir la vista previa", () => {
     useStore.getState().openPrintPreview();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(useStore.getState().toast?.message).toContain("vacía");
+    expect(useStore.getState().toast?.titulo).toContain("vacía");
     expect(getSheets).not.toHaveBeenCalled();
   });
 
@@ -105,7 +103,7 @@ describe("abrir la vista previa", () => {
     useStore.getState().openPrintPreview();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(useStore.getState().toast?.message).toContain("vacía");
+    expect(useStore.getState().toast?.titulo).toContain("vacía");
   });
 
   it("sin lista abierta no hace nada", () => {

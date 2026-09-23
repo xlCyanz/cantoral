@@ -9,7 +9,505 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
-Nada todavía.
+## [0.3.0] - 2026-09-23
+
+**El rediseño, y una app que proyecta el culto entero.** Cantoral estrena piel
+de punta a punta, suena todo por dentro —sin pasarle nada a otro programa— y
+saca el culto por el proyector en su propia ventana: video, letra y portada,
+pasando sola de un elemento al siguiente. Los cultos pasan a ser listas
+preparadas, sin fecha, y la app se aligera de lo que nadie terminaba de llenar:
+las etiquetas y el tono.
+
+**Lo escrito no se borra.** Las etiquetas, los tonos y las fechas que hubiera
+en tu base se quedan donde están; esta versión deja de leerlos.
+
+### Añadido
+
+- **La proyección sale por su propia ventana.** Primera parte de la etapa 7.
+  Una ventana aparte a pantalla completa en la pantalla que elijas: negra, sin
+  controles, sin barra de título y sin cursor. No muestra nada de la ventana
+  donde trabajas, que es justo lo que se le pide a una pantalla que cuelga
+  delante de una congregación.
+
+  Por defecto sale por la pantalla que **no** es la del operador. Si se
+  equivocara en eso, lo primero que vería la iglesia un domingo sería el
+  escritorio de quien opera.
+
+  Se llega desde «Proyectar», en la fila de acciones del culto abierto: se
+  proyecta el culto que quien opera acaba de repasar.
+
+  La ventana se crea desde el núcleo, no desde la interfaz: hacerlo desde el
+  webview obligaría a darle permiso de crear ventanas, y con él el de fabricar
+  cualquier otra. Y la de proyección tiene su propio archivo de permisos, con
+  mucho menos que la principal — solo escucha eventos: no abre diálogos, no
+  abre URLs, no toca ventanas y no habla con la base de datos.
+
+  Todavía no reproduce video: eso es lo siguiente. Esta parte es la ventana,
+  elegir pantalla y sacarla en negro o con un título.
+
+- **La proyección reproduce el culto.** Segunda parte de la etapa 7. La cola
+  del culto abierto está a la izquierda de la pantalla de Proyección: pulsa un
+  elemento para sacarlo, «Siguiente» para pasar al de después y «Pantalla en
+  negro» para cortar la imagen sin perder el sitio. Con teclado, `→` y `B`; y
+  `Esc` corta la salida entera.
+
+  **El siguiente va cargado y en pausa.** Mientras suena uno, el que viene
+  detrás ya se está leyendo del disco en un segundo reproductor que no se ve.
+  Pasar de uno a otro es enseñarlo y darle al play, sin el negro que tardaría
+  el disco en responder — que en un pendrive, que es de donde sale la música en
+  muchas iglesias, son varios segundos delante de la congregación.
+
+  **Lo que sigue en pantalla es lo que se empezó.** Abrir otro culto a mitad
+  para buscar algo no cambia lo que está en el aire ni a dónde va «Siguiente».
+
+  **Una pista que no se pueda reproducir sale como su título sobre el negro**,
+  no como un negro a secas: esa canción se canta igual. El motivo —falta el
+  archivo, no está indexado, o el formato no lo entiende ningún reproductor— se
+  queda en la ventana de mandos, marcado en su fila de la cola. A la
+  congregación no le importa que falte un archivo.
+
+  Se avisa de `.mkv`, `.avi`, `.wmv` y `.wma` antes de intentarlo, porque no
+  los decodifica ningún motor. De `.mov`, `.ogg`, `.opus` o `.aiff` no se
+  avisa: dependen del sistema, y decir que no sirven donde sí sirven sería
+  peor. Si alguno falla de verdad, el fallo aparece en la cola con lo que dijo
+  el reproductor.
+
+  **Cuando un elemento se acaba, el proyector se pone en negro** y ahí se
+  queda. No pasa solo al siguiente: un video se termina mientras alguien está
+  hablando, y arrancar la canción de después por su cuenta delante de la
+  congregación no lo puede decidir la app. Lo siguiente queda cargado y en
+  pausa, a un botón de distancia.
+
+  Debajo del título, el tiempo real de lo que está sonando: lo cuenta la
+  ventana de salida y se lo devuelve a la de mandos.
+
+- **Todo se reproduce dentro de Cantoral.** El video se ve en el panel de
+  detalle mientras preparas el domingo, y por el proyector desde Proyección. Al
+  llegar a un video —dándole a reproducir o porque le tocó en la cola del
+  culto— el panel se abre solo, que es donde está la única pantalla de video de
+  esa ventana.
+
+  Y proyectar calla el reproductor del portátil: hay una sola salida de audio, y
+  dos cosas a la vez por los altavoces del culto no las quiere nadie.
+
+- **Proyectar un culto entero sin nadie al ratón.** Al acabarse un elemento, la
+  proyección pasa sola al siguiente: un culto es una lista que se le da y corre
+  entera. Viene así de fábrica; en Proyección, «Cuando un elemento se acaba»,
+  está *Negro y esperar* para quien prefiera parar entre uno y otro.
+
+  El avance automático lleva la transición que tengas puesta, igual que pulsar
+  «Siguiente» a mano. Al final del culto no avanza: no hay adónde, y que la
+  última canción arranque otra vez sola delante de todos es lo que no puede
+  pasar. Recorrer la letra sigue siendo manual — nadie sabe a qué velocidad
+  canta la congregación.
+
+- **La biblioteca tiene dos densidades.** Un par de botones en la fila de
+  herramientas: «cómoda», que es la de siempre, y «compacta», que baja la fila
+  de 56 a 34 px y casi duplica cuántas pistas caben en pantalla. Son dos
+  situaciones distintas y no un gradiente: preparar el culto el jueves con
+  sitio para respirar, y sostener el atril el domingo sin tener que
+  desplazarse a media alabanza. Se elige una vez y se recuerda.
+
+  En la fila compacta el título y el artista comparten línea, con el título
+  quedándose el espacio: recortar «Cristo Ya Resucit…» para que quepa entero
+  «Voces de Gracia» es al revés. Y si la fila lleva aviso —sin archivo, video—
+  el artista se va del todo: que falte el archivo importa más que quién la
+  canta.
+
+- **Los grupos se pliegan.** Un clic en el encabezado esconde su contenido y
+  deja el encabezado, que sigue diciendo cuántas pistas tiene. Es para el
+  minuto en que estás armando un culto con una carpeta y las otras tres
+  estorban, así que vive en la sesión: la próxima vez que abras Cantoral está
+  todo desplegado otra vez. Cambiar el eje de agrupación también lo olvida.
+
+- **La letra por el proyector.** Tercera y última parte de la etapa 7. Con una
+  pista de solo audio, la pantalla grande deja de enseñar el título y pasa a
+  enseñar lo que la congregación está cantando, una estrofa cada vez.
+
+  Se elige en Proyección, en **«Si la pista es solo audio»**: *Solo la letra*
+  sobre el negro, *Portada y letra* con la carátula de fondo —apagada y
+  desenfocada, para que la letra se lea encima—, o *Negro* si lo que se quiere
+  mientras suena la ofrenda es una pantalla apagada. Se recuerda entre
+  sesiones: una iglesia lo elige una vez, no cada domingo antes de empezar.
+
+  La letra se parte donde ya la partió quien escribió la hoja: por las líneas
+  en blanco y por los encabezados de sección (`{coro}`), que además salen
+  rotulados en la pantalla. Una estrofa muy larga se parte en trozos de ocho
+  líneas — una hoja escrita de corrido saldría entera en un tamaño que no se
+  lee desde la última fila. Los acordes no salen: por el proyector va la letra,
+  y los acordes son para el atril.
+
+  **«Siguiente» recorre la letra antes de cambiar de canción**, con el mismo
+  botón y la misma tecla `→`. Desde el atril no se quiere elegir entre dos
+  cosas: se quiere pasar a lo que viene, sea la estrofa de abajo o la canción
+  de después. Los mandos dicen por cuál se va y a cuál se pasa.
+
+- **Qué pasa entre un elemento y el siguiente.** También en Proyección, en
+  **«Entre un elemento y otro»**: medio segundo de negro, o una cuenta atrás de
+  tres segundos en la pantalla grande. La lleva la ventana de salida, que es la
+  que tiene el fotograma delante, y mientras corre no se ve ni lo que se va ni
+  lo que viene. Pasar de estrofa o cortar a negro no la llevan: serían medio
+  segundo de negro en mitad de una canción.
+
+- **El artista se puede corregir.** En el panel de detalle, junto a la
+  ocasión. En una biblioteca de iglesia media viene mal en las etiquetas del
+  archivo —«Track 03», «Unknown Artist»— y hasta ahora se leía y no había
+  dónde arreglarlo sin tocar el MP3.
+
+  La corrección **sobrevive a los escaneos**: la pista queda marcada y el
+  escáner deja de pisarle el artista con lo que diga el archivo. Sin eso se
+  arreglaría el domingo y estaría mal otra vez el jueves.
+
+- **Fijar el panel de detalle.** Fijado, `Esc` deja de cerrarlo. Repasando
+  pista por pista, que se cierre al pulsar Esc para salir de un campo es perder
+  el sitio.
+
+### Cambiado
+
+- **Logo nuevo.** Un libro abierto: la página izquierda con una corchea calada
+  y la derecha con cuatro líneas de letra, en el índigo de la app. Está en el
+  icono de la app de macOS y de Windows, en la barra de título —símbolo y
+  nombre en Bricolage Grotesque—, en el pie de Configuración, en el favicon y
+  en el banner del README.
+
+  El icono de macOS lleva el margen de la plantilla de Apple, y los tamaños
+  chicos usan las versiones simplificadas del manual: tres líneas a 32 y 48 px,
+  dos y sin nota a 16 y 24, donde la corchea sería una mancha. En modo oscuro
+  el símbolo pasa al gris frío claro de la marca.
+
+- **Los cultos ya no tienen fecha.** Un culto es una lista preparada: se arma
+  una vez, se le da a proyectar y corre entero. La fecha lo convertía en otra
+  cosa —un evento del calendario— y era lo que decidía el orden, las secciones
+  «Próximos», «Anteriores» y «Sin fecha», y qué culto era «el anterior».
+
+  Ahora sale arriba **el último que abriste o cambiaste**: abrirlo, agregarle
+  pistas, reordenarlo o cambiarle el nombre lo sube. Lo que se está preparando
+  queda arriba sin que nadie escriba nada para decirlo. El mismo orden en la
+  barra lateral, en la vista de listas y en «Agregar a un culto».
+
+  Fuera el campo de fecha del diálogo, la fecha de la cabecera del culto, la
+  de la hoja imprimible y la del formato compartido. Un `.cantoral.json`
+  exportado con fecha se sigue abriendo; la fecha se ignora.
+
+  **Lo escrito no se borra**: la columna `fecha` se queda en las bases que ya
+  la tengan. La primera vez que abras con esta versión, los cultos salen del
+  más nuevo al más viejo según se crearon.
+
+- **La fila de filtros se recorre con el ratón, sin barra.** La barra
+  horizontal que salía debajo de los chips se comía tres píxeles de la fila y
+  tapaba el borde de los botones — y en Windows sale siempre, no se esconde
+  sola como en macOS, así que era una raya gris permanente cruzando la
+  interfaz.
+
+  Ahora la fila se recorre girando la rueda encima o arrastrándola. Un clic
+  sigue siendo un clic: hasta que el ratón no se mueve cuatro píxeles no cuenta
+  como arrastre, y el clic que viene detrás de un arrastre no filtra por el
+  chip que quedara debajo al soltar.
+
+- **La biblioteca dice cómo se llama y cuánto estás viendo.** Era la única
+  vista sin título: su sitio en la barra lo ocupa el buscador. Pero es donde
+  más falta hacía, porque «Biblioteca», «Favoritas» y «Archivos faltantes» son
+  la misma tabla filtrada y desde la tabla no se distinguen — la única pista
+  era cuál de los botones de la barra lateral estaba encendido.
+
+  Debajo, el recuento: «4 de 19 pistas · agrupadas por carpeta». El «19
+  canciones» de antes no decía si eran todas o si un filtro se estaba comiendo
+  la mitad. Y en «Archivos faltantes» no va un número sino qué hacer con ellos,
+  que es a lo que se entra ahí.
+
+- **El aviso de la esquina dice dos cosas.** Pasa de una píldora centrada con
+  una línea a una tarjeta abajo a la derecha con **titular y detalle**, y con
+  una ✕ para quitarla.
+
+  Antes, como solo cabía una línea, los avisos metían dos cosas dentro: «3
+  pistas agregadas a "Domingo de alabanza"». Ahora el titular dice **a dónde
+  fueron** y el detalle **cuántas**, y se lee de un vistazo.
+
+  Lo mismo con el escaneo, la importación de una lista, quitar pistas, fusionar
+  duplicadas, reapuntar una carpeta y localizar una pista perdida: el titular
+  es lo que pasó y debajo va lo que significa —«Los archivos siguen en el
+  disco», «Conserva su favorito y su sitio en los cultos»—. Los avisos que solo dicen
+  una cosa se quedan con el titular: no se les inventa un detalle.
+
+  Y la píldora se cruzaba por delante de la barra del reproductor; la tarjeta
+  se aparta y, si estorba, se cierra.
+
+- **El menú contextual dice sobre qué pista se abrió**, y ofrece tres cosas
+  más: **Ver el detalle**, **Letra y acordes** y **Mostrar en el Finder**. Con
+  el menú abierto encima de una tabla de veinte filas, lo primero que hay que
+  poder comprobar es cuál se pulsó. Se van los iconos: seis dibujos en columna
+  a la izquierda de seis palabras no añadían nada y le daban al menú el ancho
+  de un panel.
+
+  Con varias pistas elegidas solo salen las que tienen sentido en plural: «ver
+  el detalle» de doce pistas no quiere decir nada.
+
+  Y se van las dos de favoritas: el corazón está en cada fila y en la barra de
+  selección, que es la que sale al elegir varias. Una tercera puerta a lo mismo
+  solo alargaba el menú.
+
+- **Quitar pistas dice de qué cultos se van, por su nombre.** Antes decía
+  cuántas estaban en alguna lista. Un número no deja decidir: quitar una pista
+  del culto del domingo que viene no es lo mismo que quitarla de una plantilla
+  de hace un año.
+
+  Y lo que **no** pasa —«los archivos no se tocan»— pasa a su propia caja en
+  vez de ir en gris pequeño al pie. Es justo lo que está buscando quien duda.
+
+- **La vista previa de impresión, en una sola fila de acciones.** «Imprimir o
+  guardar PDF» y «Cerrar» arriba, y debajo qué lleva la hoja. Antes estaba
+  repartido entre una cabecera con su icono y un pie con tres botones más, y
+  había que recorrer el diálogo entero para encontrar «Imprimir».
+
+
+- **Configuración, en tarjetas.** Cada cosa en la suya en vez de una sucesión
+  de títulos sueltos con 30 px de aire entre ellos. Se mira entera de una
+  sentada —qué carpetas hay, si hay duplicadas, cuándo fue la última copia— y
+  ahora entra sin tener que recorrerla.
+
+  Los botones de cada carpeta pasan a llevar su nombre —**Reescanear**,
+  **Reapuntar…**, **Quitar…**— en vez de tres iconos seguidos. «Reapuntar» no
+  tiene dibujo que se entienda solo, y equivocarse de botón ahí quita una
+  carpeta.
+
+  Y debajo de cada ruta se dice **cuántos archivos no se encuentran en esa
+  carpeta**. El total estaba en la barra lateral, pero cuando un disco externo
+  se queda sin enchufar lo que hace falta saber es *qué* carpeta se ha quedado
+  a oscuras.
+
+
+- **La barra del reproductor baja de 88 px a 60.** Es la medida del rediseño, y
+  el sitio que suelta se lo queda la lista que tiene encima — que es donde se
+  arma el culto. Entran dos filas más de biblioteca sin tocar nada.
+
+  A la derecha dice ahora **de dónde sale lo que suena**: «Cola: culto» o
+  «Cola: biblioteca». Poner una canción suelta en mitad de un culto deja el
+  transporte siguiendo la biblioteca, y sin decirlo nadie se enteraba hasta que
+  sonaba lo que no tocaba.
+
+- **El panel de detalle, más apretado.** De 360 px a 300, y a 272 cuando la
+  ventana se queda corta. La carátula va al lado del título en vez de encima
+  —apilados se comían un tercio del panel antes del primer dato editable—, y
+  «Reproducir» y «Agregar a culto…» comparten fila. El bloque del archivo deja
+  de ser una ficha técnica: formato, álbum y ruta, que es lo que hace falta
+  para encontrarlo; el álbum y la duración ya están en la tabla de al lado.
+
+
+- **La biblioteca solo indexa lo que se puede reproducir.** Salen `.wma`,
+  `.mkv`, `.avi` y `.wmv`, que no decodifica ningún motor de los que usa la
+  app. Al escanear se dice cuántos archivos se quedaron fuera por eso —
+  saltárselos en silencio sería peor: quien ve que faltan tres canciones no
+  tendría forma de saber si es por el formato o porque el escaneo se rompió.
+
+  `.ogg`, `.opus`, `.aiff` y `.mov` **sí** se siguen indexando aunque dependan
+  del sistema. El catálogo viaja entre máquinas y una lista de formatos
+  distinta en cada una haría que la misma biblioteca cambiara al pasarla del
+  Mac al PC; lo que falle, falla al abrirlo y lo dice con el formato de que se
+  trata.
+
+  Lo que ya estuviera indexado se queda donde está: quitarlo sacaría pistas de
+  tus cultos sin avisar. El panel de detalle marca las que no se pueden abrir,
+  con el motivo.
+
+
+
+- **Una sola forma de agregar a un culto.** Había tres, y cada una era un
+  desplegable distinto: el del panel de detalle agregaba **una** pista, el de
+  la barra de selección y el del menú contextual agregaban **la selección**.
+  Tres implementaciones del mismo menú, dos comportamientos y ninguna forma de
+  saber cuál te iba a tocar. Ahora los tres abren el mismo diálogo, que antes
+  de que elijas a dónde dice cuántas pistas va a mover y en qué cultos ya
+  estaban. Se abre también con la tecla `A`, que es lo que más se repite
+  armando un domingo.
+
+  De paso, agregar algo que ya estaba deja de decir «0 pistas agregadas»
+  —que se lee como que algo falló— y dice que ya estaban.
+
+- **Las pantallas de estado dicen lo que hace falta.** La biblioteca vacía
+  dejaba la promesa —«sin mover ni copiar tus archivos»— al final de un párrafo
+  largo. Ahora es la frase, enumerada y en negrita: **no mueve, no renombra y
+  no borra ningún archivo**. Quien administra la música de una iglesia lleva
+  años ordenándola a mano, y eso es lo que necesita saber antes de dejar entrar
+  a un programa.
+
+  El escaneo a pantalla completa dice «Leyendo tus carpetas» y añade que se
+  puede seguir usando la app, que las pistas irán apareciendo solas. El error
+  de carpeta añade que las pistas y los cultos siguen donde estaban: quien ve
+  un error sobre su biblioteca asume lo peor. Y la búsqueda sin resultados dice
+  **dónde** buscó —título, artista, álbum y ocasión—, que es
+  la respuesta a lo que uno se pregunta al verla.
+
+  Las marcas de arriba bajan de 96 px a 54 y pierden el relleno. Una
+  ilustración ocupando el centro de la primera pantalla es decoración; lo que
+  hay que leer es la frase de debajo.
+
+- **La tarjeta de escaneo de la esquina se puede esconder.** Esconderla no
+  cancela nada, y cancelar sigue teniendo su botón: son dos cosas distintas
+  —seguir trabajando sin la tarjeta delante, y parar el escaneo— y un solo
+  botón para las dos haría que quien quisiera lo primero perdiera el escaneo.
+  Vuelve a salir en el siguiente.
+
+- **El fondo de la ventana nativa deja la paleta vieja.** Era `#FAF7F2`, el
+  papel cálido: lo que se veía un instante en cada arranque, antes de que la
+  interfaz pintara. Ahora es el gris del tema claro.
+
+- **Las tarjetas de lista llevan su inicial.** Veinte tarjetas con el mismo
+  icono no se distinguen de un vistazo; la inicial del nombre sí, y la ocasión
+  pasa a un sobrescrito sobre la portada en vez de una pastilla encima. La
+  cabecera de una lista abierta hace lo mismo: el sobrescrito dice la ocasión
+  —«Reunión juvenil»— y no «Lista para culto», que ya se sabe por estar ahí.
+
+- **Los títulos de página usan la tipografía de títulos.** Quedaba por
+  aplicarla desde la primera etapa del rediseño.
+
+- **La barra de selección entra en la fila de herramientas.** Flotaba sobre la
+  tabla, cerca del reproductor, encima justamente de las filas sobre las que
+  actúa: lo último que se veía antes de pulsar «Quitar» era una barra tapando
+  la prueba. Ahora ocupa la fila de herramientas mientras hay algo elegido —los
+  chips y los controles de agrupación se apartan, porque con tres pistas
+  elegidas lo que toca es actuar sobre ellas y no volver a filtrar—. Sus menús
+  se abren hacia abajo, y «Cancelar» dice que `Esc` hace lo mismo, que ya era
+  verdad y nadie tenía forma de saberlo.
+
+- **Agrupar por carpeta usa la carpeta del disco.** Hasta ahora usaba la
+  carpeta *indexada*, la raíz que alguien eligió en Configuración: las 128
+  pistas de `C:\Música\Iglesia\Himnos` caían todas en un montón, aunque en el
+  disco estuvieran repartidas en «Clásicos», «Coritos» y «Especiales». Ese
+  reparto es trabajo que alguien ya hizo, y la app lo estaba tirando. Ahora
+  cada grupo es una carpeta de verdad, con su ruta debajo del nombre para
+  saber de qué «Himnos» se trata cuando hay dos discos con uno.
+
+  No hubo que tocar el núcleo ni volver a escanear: el catálogo ya viaja con
+  la ruta de cada pista y la raíz de cada carpeta, así que la resta se hace en
+  la interfaz.
+
+- **Cantoral estrena piel.** Primera etapa del rediseño: las tipografías y los
+  colores. La interfaz pasa a **Public Sans**, los títulos a **Bricolage
+  Grotesque**, y la paleta cálida de papel deja paso a grises fríos con acento
+  índigo, en los dos temas. Las carátulas que Cantoral genera para las pistas
+  sin arte incrustado dejan de ser ocho gradientes de colores distintos y pasan
+  a seis tonos de la misma familia azul: en una biblioteca de iglesia casi
+  ninguna pista trae carátula, y ocho colores compitiendo hacían ruido en vez
+  de ayudar a distinguir. La hoja impresa y el PDF cambian con ella, para que
+  lo que sale por la impresora no contradiga lo que se ve en pantalla.
+
+  Ningún comportamiento cambia: solo el valor de los tokens, la familia
+  tipográfica y los colores que estaban escritos a mano en cuatro sitios. Las
+  dos familias nuevas son SIL OFL 1.1 y viajan dentro del paquete, como las
+  anteriores: la CSP declara `font-src 'self'` y la app no habla con la red.
+
+- **La barra lateral, en dos zonas.** Segunda etapa del rediseño. Arriba, a
+  dónde se va, con los filtros sangrados bajo Biblioteca y las listas
+  sangradas bajo Listas para cultos —la sangría dice de quién es cada fila, que
+  es lo que una columna de botones iguales no podía decir—. Abajo, Configuración
+  y una línea con lo que Cantoral tiene indexado.
+
+  Las carpetas indexadas se van de la barra lateral: una carpeta se elige una
+  vez, no es un sitio al que se navega, y ya se administran en Configuración,
+  que es donde se agregan, se vuelven a escanear y se quitan.
+
+  Las listas dejan de aparecer solo mientras arrastras algo y están siempre:
+  un destino que aparece a mitad del arrastre es un destino al que no se puede
+  apuntar. Solo aceptan lo que salió de la biblioteca, así que arrastrar una
+  carpeta del escritorio hasta ahí ya no agrega lo que estuviera seleccionado.
+
+### Eliminado
+
+- **«Repetir el culto anterior».** Buscaba el último culto ya celebrado de cada
+  ocasión, y sin fechas no hay forma de saber cuál fue. Para partir de un culto
+  que ya existe quedan duplicarlo y las plantillas, que hacen lo mismo sin
+  adivinar.
+
+- **Las etiquetas.** Eran un segundo eje de clasificación encima de la ocasión:
+  el campo del panel de detalle, «Etiquetar…» en la barra de selección, los
+  chips de filtro de la biblioteca, la tarjeta de Configuración que las
+  renombraba y unía, y las columnas por las que buscaba el buscador.
+
+  **Lo que ya esté escrito no se borra.** Las tablas `tags` y `track_tags` se
+  quedan intactas en tu `cantoral.db`; la app deja de leerlas y de escribirlas,
+  nada más. Una base de datos nueva ya no las crea.
+
+- **El tono.** El campo de la pista, la columna «Tono» de la biblioteca y del
+  culto, la columna de la hoja imprimible y el tono que encabezaba cada hoja de
+  acordes. Desde que dejó de editarse en el panel de detalle no había forma de
+  rellenarlo —el escáner nunca lo ha escrito—, así que era una columna vacía en
+  todas partes.
+
+  La columna `tono` tampoco se toca en las bases que ya la tengan.
+
+- **La transposición del modo culto.** Con el tono fuera, los botones `+` / `−`
+  y sus atajos se quedaban sin la referencia que decidía la armadura: subir dos
+  semitonos desde un tono que nadie sabe cuál es no es transponer, es adivinar.
+  La hoja de acordes se sigue leyendo en el atril, con los acordes tal como los
+  escribió quien la escribió.
+
+  Con ella se van `transponerAcorde`, `transponerTono`, `transponerHoja` y
+  `usaBemoles`. Lo que queda de `chords.ts` solo necesita saber **si** algo
+  entre corchetes es un acorde, así que `parseAcorde` pasa a ser `esAcorde`.
+
+- **Los comandos `tag_tracks`, `rename_tag` y `delete_tag`**, y los parámetros
+  `tono` y `tags` de `update_track`. Un `.cantoral.json` compartido ya no lleva
+  esos dos campos; uno exportado por una versión anterior se sigue abriendo, y
+  esos campos se ignoran.
+
+- **El botón de tema de la barra superior.** Alternaba entre claro y oscuro, y
+  ahí quedaba: no podía volver a «Seguir al sistema», que es el tercer modo y
+  el que viene puesto. Elegir el tema se hace en Configuración › Apariencia,
+  con los tres, y es una decisión de una vez, no un botón que convenga tener
+  al lado de «Agregar carpeta».
+
+- **El desvío al reproductor del sistema.** Cantoral ya no le pasa ningún
+  archivo a otro programa. Se van el botón «macOS»/«Windows» de la barra del
+  reproductor, el ajuste «Abrir siempre en el reproductor del sistema» de
+  Configuración, «Abrir en el sistema» del menú contextual y los botones de
+  abrir fuera de la biblioteca y del panel de detalle.
+
+  En mitad de un culto, que una pista saltara a Apple Music o al Reproductor de
+  Windows significaba otra ventana encima de la proyección, otro volumen, otra
+  cola — y la lista del culto quedándose atrás.
+
+  El comando del núcleo que abría archivos se estrecha con él: ahora solo puede
+  abrir la hoja que la propia app acaba de exportar para imprimir, y rechaza
+  cualquier otra cosa. Un comando que puede abrir menos vale menos para lo que
+  consiga llamarlo.
+
+- **El tempo sale del panel de detalle.** El bloque «Datos del culto» queda con
+  Artista y Ocasión, como el rediseño. El panel era el único sitio desde el que
+  se escribía —el escáner no lo lee del archivo—, así que las pistas nuevas
+  llegan sin tempo. El que ya estaba escrito se conserva y sigue saliendo en la
+  hoja imprimible.
+
+- **La baldosa de puntos «Crear nueva lista»** al final de la rejilla de
+  listas. «Nueva lista» está en la cabecera y en la pantalla vacía; tres
+  sitios para lo mismo es uno bueno y dos que estorban.
+
+### Corregido
+
+- **«Seguir al sistema» ahora sigue al sistema.** Era el modo que viene puesto
+  y dentro de la app no funcionaba en todas partes: se resolvía con
+  `prefers-color-scheme`, que un webview no contesta de forma fiable. En
+  Windows, WebView2 lo resuelve contra el tema de la *ventana* y dice «claro»
+  aunque Windows esté en oscuro, así que quien no tocaba nada se quedaba en
+  claro para siempre.
+
+  Ahora se le pregunta a la ventana nativa, que sí lo sabe, y se queda
+  escuchando: cambiar el tema del sistema con Cantoral abierto lo cambia en el
+  acto. Elegir Claro u Oscuro a mano sigue mandando sobre el sistema.
+
+
+- **«Todas» en la barra lateral no hacía nada.** Estando ya en la biblioteca
+  con un filtro puesto —Favoritas, una ocasión o una búsqueda—,
+  pulsarlo no encendía el botón ni cambiaba la tabla: solo cambiaba de vista, y
+  la vista ya era esa.
+
+  Ahora suelta todo lo que estreche la biblioteca, que es lo que «todas»
+  quiere decir. Y el botón se apaga mientras haya cualquier filtro puesto:
+  antes se quedaba encendido con una búsqueda activa, diciendo
+  que se estaban viendo todas cuando no.
+
+  De paso, volver a la biblioteca desde un filtro ya no finge que hay contenido
+  cuando no hay nada indexado: enseñaba una tabla vacía en vez de la pantalla
+  que explica cómo empezar.
 
 ## [0.2.1] - 2026-09-21
 
@@ -485,6 +983,7 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.2.1...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/xlCyanz/cantoral/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/xlCyanz/cantoral/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/xlCyanz/cantoral/releases/tag/v0.2.0
