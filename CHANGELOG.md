@@ -142,6 +142,20 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   pista por pista, que se cierre al pulsar Esc para salir de un campo es perder
   el sitio.
 
+### Eliminado
+
+- **Tono y Tempo salen del panel de detalle.** El bloque «Datos del culto»
+  queda con Artista y Ocasión, como el rediseño.
+
+  Conviene saber qué se lleva: el panel era el único sitio desde el que se
+  escribían —el escáner no los lee del archivo—, así que la columna «Tono» de
+  la biblioteca y del culto, la hoja impresa y el archivo que se comparte
+  quedan sin tono. El `+`/`-` del modo culto sigue transponiendo los acordes de
+  la hoja, pero sin un tono de partida escrito.
+
+  El modelo no se toca: las columnas siguen en la base y se siguen guardando,
+  así que devolverlas es volver a poner dos campos.
+
 ### Cambiado
 
 - **El menú contextual dice sobre qué pista se abrió**, y ofrece tres cosas
