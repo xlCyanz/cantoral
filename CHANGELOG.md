@@ -144,6 +144,22 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **Configuración, en tarjetas.** Cada cosa en la suya en vez de una sucesión
+  de títulos sueltos con 30 px de aire entre ellos. Se mira entera de una
+  sentada —qué carpetas hay, si hay duplicadas, cuándo fue la última copia— y
+  ahora entra sin tener que recorrerla.
+
+  Los botones de cada carpeta pasan a llevar su nombre —**Reescanear**,
+  **Reapuntar…**, **Quitar…**— en vez de tres iconos seguidos. «Reapuntar» no
+  tiene dibujo que se entienda solo, y equivocarse de botón ahí quita una
+  carpeta.
+
+  Y debajo de cada ruta se dice **cuántos archivos no se encuentran en esa
+  carpeta**. El total estaba en la barra lateral, pero cuando un disco externo
+  se queda sin enchufar lo que hace falta saber es *qué* carpeta se ha quedado
+  a oscuras.
+
+
 - **La barra del reproductor baja de 88 px a 60.** Es la medida del rediseño, y
   el sitio que suelta se lo queda la lista que tiene encima — que es donde se
   arma el culto. Entran dos filas más de biblioteca sin tocar nada.

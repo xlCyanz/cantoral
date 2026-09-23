@@ -5,7 +5,7 @@
 // grupo vacío.
 
 import { describe, expect, it } from "vitest";
-import { carpetaReal } from "../carpetas";
+import { carpetaReal, faltantesPorCarpetaDe, metaDeCarpeta } from "../carpetas";
 import type { Folder, Track } from "../types";
 
 function pista(path: string, over: Partial<Track> = {}): Track {
@@ -113,5 +113,72 @@ describe("carpetaReal", () => {
   it("y si tampoco recuerda una, dice algo antes que nada", () => {
     expect(carpetaReal(pista("", { carpeta: "   " }), CARPETAS).nombre).toBe("—");
     expect(carpetaReal(pista("", { carpeta: "" }), []).nombre).toBe("—");
+  });
+});
+
+describe("la línea de una carpeta en Configuración", () => {
+  it("dice cuántas pistas y cuándo se leyó", () => {
+    expect(metaDeCarpeta({ count: 18, lastScan: "2026-09-23T09:12:00Z" }, 0, "hoy a las 9:12")).toBe(
+      "18 pistas · actualizada hoy a las 9:12",
+    );
+  });
+
+  it("una carpeta sin escanear lo dice, y no «actualizada aún sin escanear»", () => {
+    expect(metaDeCarpeta({ count: 0 }, 0, "aún sin escanear")).toBe("0 pistas · aún sin escanear");
+  });
+
+  it("una sola pista va en singular", () => {
+    expect(metaDeCarpeta({ count: 1, lastScan: "2026-09-23T09:12:00Z" }, 0, "hoy")).toContain("1 pista ·");
+  });
+
+  it("y lo que falta se dice al final", () => {
+    // Cuando un disco externo se queda sin enchufar, lo que hace falta saber
+    // es qué carpeta se ha quedado a oscuras.
+    expect(metaDeCarpeta({ count: 5, lastScan: "x" }, 1, "hoy")).toContain("1 archivo no encontrado");
+    expect(metaDeCarpeta({ count: 5, lastScan: "x" }, 3, "hoy")).toContain("3 archivos no encontrados");
+  });
+});
+
+describe("contar los archivos que faltan por carpeta", () => {
+  const carpeta = (id: string, ruta: string): Folder => ({ id, nombre: id, ruta, count: 0 });
+  const perdida = (id: string, path: string): Track => ({ ...pista(path), id, missing: true });
+
+  it("suma cada pista perdida a su carpeta", () => {
+    const fuera = faltantesPorCarpetaDe(
+      [perdida("1", "/m/Himnos/a.mp3"), perdida("2", "/m/Himnos/b.mp3"), perdida("3", "/m/Coros/c.mp3")],
+      [carpeta("f1", "/m/Himnos"), carpeta("f2", "/m/Coros")],
+    );
+
+    expect(fuera).toEqual({ f1: 2, f2: 1 });
+  });
+
+  it("las que están no cuentan", () => {
+    const fuera = faltantesPorCarpetaDe([pista("/m/a.mp3")], [carpeta("f1", "/m")]);
+
+    expect(fuera).toEqual({});
+  });
+
+  it("gana la carpeta más profunda, como en el agrupado", () => {
+    // Con «Música» y «Música/Coros» indexadas las dos, una pista de Coros
+    // cuenta para Coros.
+    const fuera = faltantesPorCarpetaDe(
+      [perdida("1", "/m/Coros/a.mp3")],
+      [carpeta("raiz", "/m"), carpeta("coros", "/m/Coros")],
+    );
+
+    expect(fuera).toEqual({ coros: 1 });
+  });
+
+  it("una pista de fuera de toda carpeta indexada no cuenta para ninguna", () => {
+    const fuera = faltantesPorCarpetaDe([perdida("1", "/otro/a.mp3")], [carpeta("f1", "/m")]);
+
+    expect(fuera).toEqual({});
+  });
+
+  it("y «/m/Himnos2» no cuenta para «/m/Himnos»", () => {
+    // El borde tiene que ser de segmento, no de texto.
+    const fuera = faltantesPorCarpetaDe([perdida("1", "/m/Himnos2/a.mp3")], [carpeta("f1", "/m/Himnos")]);
+
+    expect(fuera).toEqual({});
   });
 });
