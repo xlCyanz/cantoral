@@ -80,13 +80,11 @@ const PEOPLE = [
 export default function ConfigView() {
   const folders = useStore((s) => s.folders);
   const totalTracks = useStore((s) => s.tracks.length);
-  const openExt = useStore((s) => s.openExt);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const scanning = useStore((s) => s.scanning);
   const rescanFolder = useStore((s) => s.rescanFolder);
   const relocateFolder = useStore((s) => s.relocateFolder);
   const removeFolder = useStore((s) => s.removeFolder);
-  const toggleOpenExt = useStore((s) => s.toggleOpenExt);
   const restore = useStore((s) => s.restore);
   const backup = useStore((s) => s.backup);
   const openHelp = useStore((s) => s.openHelp);
@@ -163,20 +161,6 @@ export default function ConfigView() {
       <TagManager />
 
       <DuplicateGroups />
-
-      {/* reproduccion */}
-      <div style={{ marginBottom: 30 }}>
-        <h2 style={{ ...h2Style, marginBottom: 12 }}>Reproducción</h2>
-        <label onClick={toggleOpenExt} style={{ display: "flex", alignItems: "center", gap: 14, padding: 15, border: "1px solid var(--border)", borderRadius: 13, background: "var(--surface)", cursor: "pointer" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "13.5px", fontWeight: 600 }}>Abrir siempre en el reproductor del sistema</div>
-            <div style={{ fontSize: "12.5px", color: "var(--text-2)", marginTop: 2 }}>Al pulsar reproducir, usa la app predeterminada del sistema en vez del reproductor integrado.</div>
-          </div>
-          <div style={{ width: 42, height: 24, borderRadius: 20, padding: 2, transition: "background .16s", flex: "0 0 auto", cursor: "pointer", background: openExt ? "var(--primary)" : "var(--border-2)" }}>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.3)", transition: "transform .16s", transform: `translateX(${openExt ? "18px" : "0px"})` }} />
-          </div>
-        </label>
-      </div>
 
       {/* base de datos */}
       <div style={{ marginBottom: 30 }}>

@@ -9,7 +9,7 @@ const STEPS: { icon: ReactNode; title: string; desc: string }[] = [
   { icon: <Search size={19} />, title: "Explora la biblioteca", desc: "Busca por título, artista, tono o etiqueta; filtra por ocasión y ordena o agrupa la lista." },
   { icon: <Tag size={19} />, title: "Etiqueta y organiza", desc: "Abre una pista para agregarle etiquetas y localizarla más rápido." },
   { icon: <ListMusic size={19} />, title: "Arma listas para cultos", desc: "Crea una lista, agrega pistas desde su detalle y reordénalas arrastrando." },
-  { icon: <Play size={19} />, title: "Reproduce", desc: "Escucha dentro de la app, o ábrela en el reproductor predeterminado del sistema. Los videos se abren fuera." },
+  { icon: <Play size={19} />, title: "Reproduce", desc: "Todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle, y por el proyector desde Proyección." },
   { icon: <Database size={19} />, title: "Respalda", desc: "En Configuración → Base de datos puedes crear una copia y restaurarla cuando quieras." },
 ];
 

@@ -117,6 +117,9 @@ pub struct ScanProgress {
     pub file: String,
     pub done: bool,
     pub added: i64,
+    /// Archivos de medios que se reconocieron y no se indexaron porque ningún
+    /// motor de webview los decodifica.
+    pub omitidos: i64,
 }
 
 /// Format seconds as m:ss.

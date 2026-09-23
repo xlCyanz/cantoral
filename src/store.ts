@@ -66,6 +66,19 @@ function salidaDelCulto(s: CantoralState, idx: number, reproduciendo: boolean): 
   };
 }
 
+/**
+ * La coletilla del aviso de escaneo, o cadena vacía.
+ *
+ * Va pegada al «Biblioteca actualizada» en vez de en un aviso aparte porque
+ * son la misma noticia: esto es lo que entró y esto es lo que no.
+ */
+export function avisoDeOmitidos(n: number): string {
+  if (n <= 0) return "";
+  return n === 1
+    ? " · 1 archivo en un formato que Cantoral no reproduce"
+    : ` · ${n} archivos en formatos que Cantoral no reproduce`;
+}
+
 function osPrefersDark(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -122,7 +135,7 @@ import {
   isTauri,
   mergeDuplicatesCmd,
   restoreDismissedDuplicatesCmd,
-  openExternalPath,
+  openExportedSheet,
   onUpdateProgress,
   pickDbFile,
   pickExportPath,
@@ -372,6 +385,14 @@ export interface CantoralState {
    */
   scanning: boolean;
   scanPct: number;
+  /**
+   * Archivos que el último escaneo reconoció y no indexó por el formato.
+   *
+   * Se dice al terminar. Saltárselos en silencio sería peor que no tenerlos:
+   * quien ve que faltan tres canciones no tiene forma de saber si es por el
+   * formato o porque el escaneo se rompió.
+   */
+  scanOmitidos: number;
   scanIdx: number;
   scanFile: string;
   /** Message from the last failed backend call, shown in the error state. */
@@ -388,7 +409,6 @@ export interface CantoralState {
 
   // ---- collections ----
   curPlaylist: string;
-  openExt: boolean;
   draggingId: string | null;
   overId: string | null;
   /**
@@ -494,12 +514,13 @@ export interface CantoralState {
   /** Drop the selection from the catalogue, after confirming. */
   bulkDelete: () => void;
   onFav: (id: string) => void;
-  onOpenExternal: (id: string) => void;
 
   play: (id: string, queue?: string[]) => void;
   togglePlay: () => void;
   /** Auto-advance when a track finishes (honours «repetir»). */
   advance: () => void;
+  /** Poner el transporte en una pista, abriendo lo que haga falta para verla. */
+  irAPista: (id: string) => void;
   prev: () => void;
   next: () => void;
   toggleShuffle: () => void;
@@ -578,7 +599,6 @@ export interface CantoralState {
   setOver: (id: string | null) => void;
   clearDrag: () => void;
 
-  toggleOpenExt: () => void;
   /** Show a track's file in the system file manager. */
   revealTrack: (id: string) => void;
   /** Point a track at its file's new location, keeping tags and favourite. */
@@ -739,7 +759,7 @@ export const useStore = create<CantoralState>((set, get) => {
         .then(() => {
           toast("Hoja de la lista exportada");
           // Opens in the default browser, where Cmd/Ctrl+P saves it as PDF.
-          return openExternalPath(dest);
+          return openExportedSheet(dest);
         })
         .catch((err) => {
           console.error(err);
@@ -887,6 +907,7 @@ export const useStore = create<CantoralState>((set, get) => {
     printWithLyrics: false,
     scanning: false,
     scanPct: 0,
+    scanOmitidos: 0,
     scanIdx: 0,
     scanFile: "",
     scanError: null,
@@ -900,7 +921,6 @@ export const useStore = create<CantoralState>((set, get) => {
     repeat: false,
 
     curPlaylist: MOCK ? "p1" : "",
-    openExt: false,
     draggingId: null,
     overId: null,
     reorderNotice: "",
@@ -1039,6 +1059,11 @@ export const useStore = create<CantoralState>((set, get) => {
       // Se proyecta desde la lista abierta, y a partir de aquí esa pasa a ser
       // la que está en el aire.
       if (idx < 0 || idx >= filasDeLista(get()).length) return;
+      // Y se calla lo que estuviera sonando en el portátil. Hay una sola salida
+      // de audio: dos cosas a la vez por los altavoces del culto no es algo que
+      // nadie quiera, y ahora que el video suena dentro de la app es fácil
+      // acabar ahí sin darse cuenta.
+      if (get().playing) set({ playing: false });
       set({ proyeccionIdx: idx, proyeccionLista: get().curPlaylist, proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
       get().proyectar(salidaDelCulto(get(), idx, true));
     },
@@ -1312,23 +1337,6 @@ export const useStore = create<CantoralState>((set, get) => {
       set((s) => ({ tracks: s.tracks.map((x) => (x.id === id ? { ...x, fav: nf } : x)) }));
       void setTrackFav(id, nf);
     },
-    onOpenExternal: (id) => {
-      const t = get().tracks.find((x) => x.id === id);
-      if (!isTauri()) {
-        toast("Abriendo en el reproductor del sistema…", "info");
-        return;
-      }
-      if (!t?.path) {
-        toast("Sin archivo para abrir", "info");
-        return;
-      }
-      toast("Abriendo en el reproductor del sistema…", "info");
-      void openExternalPath(t.path).catch((err) => {
-        console.error("openExternalPath failed", err);
-        toast("No se pudo abrir el archivo", "error");
-      });
-    },
-
     // ---------- player ----------
     play: (id, queue) => {
       const s = get();
@@ -1338,15 +1346,15 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("El archivo no se encuentra en el disco", "error");
         return;
       }
-      // Videos always, and any track when "abrir en el sistema" is on, open in
-      // the OS default player instead of the integrated one.
-      if (t.video || s.openExt) {
-        get().onOpenExternal(id);
-        return;
-      }
       // Playing from a culto list queues that list, so the transport follows the
       // service order instead of falling back to whatever the library shows.
-      set({ queue: queue ?? queueForView(s), playerId: id, playing: true, posSec: 0 });
+      //
+      // Un video se reproduce dentro, como cualquier otra pista. Esto se lo
+      // pasaba al reproductor del sistema, que en mitad de un culto significaba
+      // otra ventana encima de la proyección, otro volumen y otra cola — con la
+      // lista del culto quedándose atrás.
+      set({ queue: queue ?? queueForView(s), playing: true });
+      get().irAPista(id);
     },
     togglePlay: () => set((s) => ({ playing: !s.playing })),
     advance: () => {
@@ -1362,7 +1370,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const ids = playQueue(s);
       const i = ids.indexOf(s.playerId);
       const n = ids.length ? ids[(i - 1 + ids.length) % ids.length] : s.playerId;
-      set({ playerId: n, posSec: 0 });
+      get().irAPista(n);
     },
     next: () => {
       const s = get();
@@ -1376,7 +1384,15 @@ export const useStore = create<CantoralState>((set, get) => {
       } else {
         n = ids.length ? ids[(i + 1) % ids.length] : s.playerId;
       }
-      set({ playerId: n, posSec: 0 });
+      get().irAPista(n);
+    },
+
+    irAPista: (id) => {
+      // La única superficie de video de esta ventana está en el panel de
+      // detalle, así que llegar a un video sin el panel abierto sería llegar a
+      // una pista que suena y no se ve. Se abre solo, y en la pista que toca.
+      const t = get().tracks.find((x) => x.id === id);
+      set(t?.video ? { playerId: id, posSec: 0, detailOpen: true, selId: id } : { playerId: id, posSec: 0 });
     },
     toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
     toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
@@ -1465,13 +1481,13 @@ export const useStore = create<CantoralState>((set, get) => {
         // The view does move to the library here — the user just asked for a
         // folder from the add dialog, so that is where they expect to land.
         // What it no longer does is *replace* the library with the scan.
-        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", tarjetaEscaneoOculta: false });
+        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
         startLiveRefresh();
         addAndScanFolder(path, recursive)
           .then((snap) => {
             applySnapshot(snap);
             set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast("Biblioteca actualizada");
+            toast(`Biblioteca actualizada${avisoDeOmitidos(get().scanOmitidos)}`);
           })
           .catch((err) => {
             console.error(err);
@@ -1489,7 +1505,7 @@ export const useStore = create<CantoralState>((set, get) => {
     // first of those has any business moving the user.
     startScan: () => {
       if (scanTimer) clearInterval(scanTimer);
-      set({ scanning: true, scanPct: 0, scanIdx: 0, tarjetaEscaneoOculta: false });
+      set({ scanning: true, scanPct: 0, scanIdx: 0, scanOmitidos: 0, tarjetaEscaneoOculta: false });
       scanTimer = setInterval(() => {
         const p = get().scanPct + Math.random() * 7 + 3;
         if (p >= 100) {
@@ -1542,10 +1558,13 @@ export const useStore = create<CantoralState>((set, get) => {
           set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
         }
         // Restore saved preferences.
-        const [modeS, themeS, openExtS, uiS] = await Promise.all([
+        // `openExt` ya no se lee. La fila que dejó en `settings` una
+        // instalación anterior se queda ahí sin hacer nada: borrarla sería
+        // tocar datos del usuario para ganar nada, y si el ajuste volviera
+        // alguna vez, volvería con su valor.
+        const [modeS, themeS, uiS] = await Promise.all([
           getSetting("themeMode"),
           getSetting("theme"),
-          getSetting("openExt"),
           getSetting(UI_PREFS_KEY),
         ]);
         const patch: Partial<CantoralState> = {};
@@ -1559,7 +1578,6 @@ export const useStore = create<CantoralState>((set, get) => {
           patch.themeMode = mode;
           patch.theme = resolveTheme(mode);
         }
-        if (openExtS != null) patch.openExt = openExtS === "1";
         // The rest of the interface: volume, transport, sorting, grouping and
         // where the user was. Only the fields that survived validation, over
         // whatever the defaults are, and settled against the lists that exist.
@@ -1988,11 +2006,6 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     // ---------- config ----------
-    toggleOpenExt: () => {
-      const v = !get().openExt;
-      set({ openExt: v });
-      if (isTauri()) void setSetting("openExt", v ? "1" : "0");
-    },
     revealTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t?.path) return;
@@ -2119,13 +2132,13 @@ export const useStore = create<CantoralState>((set, get) => {
         // No `view` here on purpose. A re-scan is started from Configuración,
         // and yanking the user out of the screen they are working on is the
         // whole complaint this change exists to fix.
-        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", tarjetaEscaneoOculta: false });
+        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
         startLiveRefresh();
         rescanFolderCmd(id)
           .then((snap) => {
             applySnapshot(snap);
             set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast("Biblioteca actualizada");
+            toast(`Biblioteca actualizada${avisoDeOmitidos(get().scanOmitidos)}`);
           })
           .catch((err) => {
             console.error(err);

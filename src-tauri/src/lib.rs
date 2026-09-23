@@ -70,7 +70,7 @@ pub fn run() {
             commands::set_tracks_fav,
             commands::tag_tracks,
             commands::delete_tracks,
-            commands::open_media_path,
+            commands::open_exported_sheet,
             commands::rename_tag,
             commands::delete_tag,
             commands::get_track_sheet,

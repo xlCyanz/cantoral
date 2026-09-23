@@ -74,7 +74,51 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   «Proyectar» en la tarjeta «En vivo» ahora abre el culto que la tarjeta
   nombra. Antes proyectaba el que estuviera abierto, que podía ser otro.
 
+- **Todo se reproduce dentro de Cantoral.** El video se ve en el panel de
+  detalle mientras preparas el domingo, y por el proyector desde Proyección. Al
+  llegar a un video —dándole a reproducir o porque le tocó en la cola del
+  culto— el panel se abre solo, que es donde está la única pantalla de video de
+  esa ventana.
+
+  Y proyectar calla el reproductor del portátil: hay una sola salida de audio, y
+  dos cosas a la vez por los altavoces del culto no las quiere nadie.
+
+### Eliminado
+
+- **El desvío al reproductor del sistema.** Cantoral ya no le pasa ningún
+  archivo a otro programa. Se van el botón «macOS»/«Windows» de la barra del
+  reproductor, el ajuste «Abrir siempre en el reproductor del sistema» de
+  Configuración, «Abrir en el sistema» del menú contextual y los botones de
+  abrir fuera de la biblioteca y del panel de detalle.
+
+  En mitad de un culto, que una pista saltara a Apple Music o al Reproductor de
+  Windows significaba otra ventana encima de la proyección, otro volumen, otra
+  cola — y la lista del culto quedándose atrás.
+
+  El comando del núcleo que abría archivos se estrecha con él: ahora solo puede
+  abrir la hoja que la propia app acaba de exportar para imprimir, y rechaza
+  cualquier otra cosa. Un comando que puede abrir menos vale menos para lo que
+  consiga llamarlo.
+
 ### Cambiado
+
+- **La biblioteca solo indexa lo que se puede reproducir.** Salen `.wma`,
+  `.mkv`, `.avi` y `.wmv`, que no decodifica ningún motor de los que usa la
+  app. Al escanear se dice cuántos archivos se quedaron fuera por eso —
+  saltárselos en silencio sería peor: quien ve que faltan tres canciones no
+  tendría forma de saber si es por el formato o porque el escaneo se rompió.
+
+  `.ogg`, `.opus`, `.aiff` y `.mov` **sí** se siguen indexando aunque dependan
+  del sistema. El catálogo viaja entre máquinas y una lista de formatos
+  distinta en cada una haría que la misma biblioteca cambiara al pasarla del
+  Mac al PC; lo que falle, falla al abrirlo y lo dice con el formato de que se
+  trata.
+
+  Lo que ya estuviera indexado se queda donde está: quitarlo sacaría pistas de
+  tus cultos sin avisar. El panel de detalle marca las que no se pueden abrir,
+  con el motivo.
+
+
 
 - **Una sola forma de agregar a un culto.** Había tres, y cada una era un
   desplegable distinto: el del panel de detalle agregaba **una** pista, el de

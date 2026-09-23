@@ -67,7 +67,7 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 - 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
 - 🎚️ **Transposición** — sube o baja medio tono y la hoja entera se reescribe en el tono en que canta el grupo esta semana, con la armadura correcta: en un tono con bemoles verás `Lab`, no `Sol#`.
 - 🖨️ **Imprimir** — la hoja de la lista (título, artista, ocasión, tono, BPM, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». Eliges entre solo el repertorio o con las letras y acordes detrás, una canción por página; y puedes guardar el `.html` si prefieres mandarla por correo.
-- ▶️ **Reproducción** — reproductor integrado con cola que sigue el orden del culto; los videos de proyección se abren en el reproductor predeterminado del sistema.
+- ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder sus etiquetas, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
@@ -434,10 +434,16 @@ una a una todavía no se puede ([#17](https://github.com/xlCyanz/cantoral/issues
 </details>
 
 <details>
-<summary><b>Los videos no se reproducen dentro de la app</b></summary>
+<summary><b>Una pista está en la carpeta y no aparece en la biblioteca</b></summary>
 
-Es deliberado: los videos de proyección se abren en el reproductor predeterminado
-del sistema, que maneja mejor pantalla completa y salidas secundarias.
+Cantoral solo indexa lo que puede reproducir. `.wma`, `.mkv`, `.avi` y `.wmv` no
+los abre ningún motor de los que usa la app, así que no entran: al escanear se
+dice cuántos archivos se quedaron fuera por eso. Conviértelos a MP3 o MP4 y
+vuelve a escanear la carpeta.
+
+Con `.ogg`, `.opus`, `.aiff` y `.mov` depende del sistema —Windows y macOS no
+coinciden—, así que sí se indexan; si alguno no suena, la app lo dice al
+intentarlo.
 </details>
 
 <details>

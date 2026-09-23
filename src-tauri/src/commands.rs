@@ -226,36 +226,36 @@ fn permitir_asset(app: &AppHandle, ruta: &str) {
     }
 }
 
-/// Hand a file to the system's default application.
+/// Hand the sheet the app just exported to the system's default application.
 ///
 /// The webview no longer holds `opener:allow-open-path`, so this is the only
-/// way to the OS opener — and it only lets through what the app itself put in
-/// the library, plus the sheet it just exported. With the permission granted
-/// straight to the webview, `open_path` was a request to run anything: the
-/// scope was `**`, and the system opener does not care whether the file is a
-/// song or an executable.
+/// way to the OS opener. With the permission granted straight to the webview,
+/// `open_path` was a request to run anything: the scope was `**`, and the
+/// system opener does not care whether the file is a song or an executable.
+///
+/// It used to let media through as well, for the «open in the system player»
+/// escape hatch. That hatch is gone (#81) — everything plays inside the app
+/// now — so the only file left to open is the printable sheet, and the rule
+/// narrowed with it. A command that can open less is a command worth less to
+/// anything that manages to call it.
 #[tauri::command]
-pub fn open_media_path(path: String) -> CmdResult<()> {
+pub fn open_exported_sheet(path: String) -> CmdResult<()> {
     if !abrible(std::path::Path::new(&path)) {
-        return Err(format!(
-            "Cantoral solo abre pistas de su biblioteca y hojas exportadas, no «{path}»."
-        ));
+        return Err(format!("Cantoral solo abre las hojas que exporta, no «{path}»."));
     }
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(e)
 }
 
 /// Whether this is a file Cantoral is willing to hand to the system opener.
 ///
-/// What the scanner indexes, plus the printable sheet the app itself just
-/// wrote. Separate from the command so the rule can be read and tested without
-/// anything actually opening.
+/// The printable sheet the app itself just wrote, and nothing else. Separate
+/// from the command so the rule can be read and tested without anything
+/// actually opening.
 fn abrible(path: &std::path::Path) -> bool {
-    let hoja = path
-        .extension()
+    path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
-        .unwrap_or(false);
-    scanner::is_media_path(path) || hoja
+        .unwrap_or(false)
 }
 
 /// Parse a list of ids coming from the frontend.
@@ -706,25 +706,29 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn what_the_library_indexes_can_be_opened() {
-        for bueno in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
-            assert!(abrible(Path::new(bueno)), "{bueno} should be openable");
-        }
-    }
-
-    #[test]
-    fn the_exported_sheet_can_be_opened_too() {
-        // It is what «Exportar» hands to the browser to be printed.
+    fn the_exported_sheet_can_be_opened() {
+        // It is what «Exportar» hands to the browser to be printed, and now
+        // the only thing this command opens at all.
         assert!(abrible(Path::new("/tmp/Culto.html")));
         assert!(abrible(Path::new("/tmp/Culto.htm")));
     }
 
     #[test]
+    fn media_is_no_longer_openable() {
+        // The escape hatch to the system player is gone (#81): everything
+        // plays inside the app, so handing a track to the OS is no longer
+        // something the app does — or something this command allows.
+        for media in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
+            assert!(!abrible(Path::new(media)), "{media} must no longer be openable");
+        }
+    }
+
+    #[test]
     fn an_extension_in_capitals_is_the_same_extension() {
-        // Windows is full of «.MP3»; a case-sensitive check would refuse to
-        // play half a library.
-        assert!(abrible(Path::new("/m/CORO.MP3")));
+        // Windows is full of «.HTML»; a case-sensitive check would refuse the
+        // sheet the app itself just wrote.
         assert!(abrible(Path::new("/tmp/Culto.HTML")));
+        assert!(abrible(Path::new("/tmp/Culto.Htm")));
     }
 
     #[test]

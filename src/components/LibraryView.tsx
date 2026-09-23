@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, SquareArrowOutUpRight, TriangleAlert, Video } from "lucide-react";
+import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
 import { SCAN_FILES } from "../lib/seed";
@@ -63,7 +63,6 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
   const onRowClick = useStore((s) => s.onRowClick);
   const play = useStore((s) => s.play);
   const onFav = useStore((s) => s.onFav);
-  const onOpenExternal = useStore((s) => s.onOpenExternal);
   const openRowMenu = useStore((s) => s.openRowMenu);
   const startLibraryDrag = useStore((s) => s.startLibraryDrag);
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
@@ -136,11 +135,11 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
             <span style={{ fontSize: "12.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{num}</span>
             <button
               onClick={(e) => { e.stopPropagation(); play(t.id); }}
-              title={t.video ? "Abrir en el reproductor del sistema" : "Reproducir"}
+              title="Reproducir"
               className="row-play"
               style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "var(--text)", borderRadius: 7 }}
             >
-              {t.video ? <SquareArrowOutUpRight size={13} /> : <Play size={14} fill="currentColor" stroke="none" />}
+              <Play size={14} fill="currentColor" stroke="none" />
             </button>
           </>
         )}
@@ -192,9 +191,6 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
         <button onClick={(e) => { e.stopPropagation(); onFav(t.id); }} title="Favorita" aria-label={t.fav ? `Quitar «${t.titulo}» de favoritas` : `Marcar «${t.titulo}» como favorita`} aria-pressed={t.fav} className="hb-s3" style={favBtnStyle(t.fav)}>
           <Heart size={15} fill={t.fav ? "currentColor" : "none"} />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); onOpenExternal(t.id); }} title="Abrir en el reproductor del sistema" aria-label={`Abrir «${t.titulo}» en el reproductor del sistema`} className="hb-s3t" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
-          <SquareArrowOutUpRight size={14} />
         </button>
       </div>
     </div>

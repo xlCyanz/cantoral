@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import type { CSSProperties } from "react";
-import { Heart, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, SquareArrowOutUpRight, Volume2, VolumeX } from "lucide-react";
+import { Heart, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { cur, useStore } from "../store";
+import { useReproductor } from "../lib/media";
 import { coverStyle, fmt, hasCover } from "../lib/covers";
-import { isTauri, osShortName, toAssetUrl } from "../lib/api";
 
 /** Draggable progress / volume track (ported from dragBar). */
 function DragBar({
@@ -61,7 +61,6 @@ export default function PlayerBar() {
   const shuffle = useStore((s) => s.shuffle);
   const repeat = useStore((s) => s.repeat);
   const onFav = useStore((s) => s.onFav);
-  const onOpenExternal = useStore((s) => s.onOpenExternal);
   const toggleShuffle = useStore((s) => s.toggleShuffle);
   const togglePlay = useStore((s) => s.togglePlay);
   const toggleRepeat = useStore((s) => s.toggleRepeat);
@@ -75,76 +74,17 @@ export default function PlayerBar() {
   const progPct = Math.min(100, (posSec / durS) * 100);
   const volPct = (muted ? 0 : volume) * 100;
 
-  // ---- integrated audio playback (Tauri only; browser uses the timer) ----
+  // ---- reproducción integrada (solo en Tauri; el navegador usa el temporizador) ----
+  //
+  // Solo el audio. El video se reproduce en el `<video>` del panel de detalle,
+  // que es donde se puede ver; aquí se queda sin `src` para que los dos
+  // elementos no reclamen el mismo archivo a la vez.
   const audioRef = useRef<HTMLAudioElement>(null);
-  const playableId = track && track.path && !track.video && !track.missing ? track.id : null;
-
-  // Load the current track's asset URL when it becomes playable.
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (isTauri() && track && playableId) {
-      let cancelled = false;
-      void toAssetUrl(track.path!).then((url) => {
-        if (cancelled || !audioRef.current) return;
-        audioRef.current.src = url;
-        audioRef.current.volume = muted ? 0 : volume;
-        if (useStore.getState().playing) audioRef.current.play().catch(() => {});
-      });
-      return () => { cancelled = true; };
-    }
-    a.removeAttribute("src");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playableId]);
-
-  // Play / pause + volume follow store state.
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !a.src) return;
-    if (playing) a.play().catch(() => {});
-    else a.pause();
-  }, [playing]);
-  useEffect(() => {
-    const a = audioRef.current;
-    if (a) a.volume = muted ? 0 : volume;
-  }, [volume, muted]);
-  // Sync a user seek (a jump in posSec) into the audio element.
-  useEffect(() => {
-    const a = audioRef.current;
-    if (a && a.src && Math.abs(a.currentTime - posSec) > 1.5) a.currentTime = posSec;
-  }, [posSec]);
+  const manejadores = useReproductor(audioRef, track, !!track && !track.video);
 
   return (
     <footer style={{ height: 88, flex: "0 0 auto", background: "var(--bg-2)", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16, padding: "0 20px", zIndex: 6 }}>
-      <audio
-        ref={audioRef}
-        preload="metadata"
-        onTimeUpdate={(e) => useStore.setState({ posSec: Math.floor((e.target as HTMLAudioElement).currentTime) })}
-        onLoadedMetadata={(e) => {
-          const d = Math.round((e.target as HTMLAudioElement).duration);
-          if (Number.isFinite(d) && d > 0) {
-            useStore.setState((st) => ({
-              tracks: st.tracks.map((t) => (t.id === st.playerId ? { ...t, durSec: d, dur: fmt(d) } : t)),
-            }));
-          }
-        }}
-        onEnded={() => {
-          const st = useStore.getState();
-          st.advance();
-          // Repeat-one: the element already fired `ended`, so rewind and restart it.
-          if (st.repeat) {
-            const a = audioRef.current;
-            if (a) {
-              a.currentTime = 0;
-              void a.play().catch(() => {});
-            }
-          }
-        }}
-        onError={() => {
-          if (audioRef.current?.src) useStore.getState().showToast("No se pudo reproducir el archivo", "error");
-        }}
-        style={{ display: "none" }}
-      />
+      <audio ref={audioRef} preload="metadata" {...manejadores} style={{ display: "none" }} />
       {/* now playing */}
       <div style={{ display: "flex", alignItems: "center", gap: 13, width: 280, minWidth: 0 }}>
         <div style={coverStyle(track, 56)}>
@@ -191,9 +131,6 @@ export default function PlayerBar() {
 
       {/* right controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, width: 280, justifyContent: "flex-end" }}>
-        <button onClick={() => track && onOpenExternal(track.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ height: 32, display: "flex", alignItems: "center", gap: 7, padding: "0 11px", borderRadius: 9, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)", fontSize: 12, fontWeight: 600, transition: "background .14s,color .14s" }}>
-          <SquareArrowOutUpRight size={14} />{osShortName()}
-        </button>
         <div style={{ display: "flex", alignItems: "center", gap: 8, width: 132 }}>
           <button onClick={toggleMute} title="Silenciar" className="hb-s2t" style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: "var(--text-2)", borderRadius: 7 }}>
             {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}

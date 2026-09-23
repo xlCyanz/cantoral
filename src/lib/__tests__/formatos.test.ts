@@ -37,10 +37,10 @@ describe("extensionDe", () => {
 
 describe("avisoDeFormato", () => {
   it("avisa de los contenedores que no decodifica ningún motor", () => {
-    expect(avisoDeFormato("/m/testimonio.mkv")).toContain("no se puede proyectar");
-    expect(avisoDeFormato("/m/boda.avi")).toContain("no se puede proyectar");
-    expect(avisoDeFormato("/m/clip.WMV")).toContain("no se puede proyectar");
-    expect(avisoDeFormato("/m/himno.wma")).toContain("no se puede proyectar");
+    expect(avisoDeFormato("/m/testimonio.mkv")).toContain("no se puede reproducir");
+    expect(avisoDeFormato("/m/boda.avi")).toContain("no se puede reproducir");
+    expect(avisoDeFormato("/m/clip.WMV")).toContain("no se puede reproducir");
+    expect(avisoDeFormato("/m/himno.wma")).toContain("no se puede reproducir");
   });
 
   it("y se calla con lo que depende del motor", () => {
@@ -64,7 +64,7 @@ describe("motivoDeError", () => {
     expect(motivoDeError(1)).toBe("La carga se interrumpió");
     expect(motivoDeError(2)).toBe("No se pudo leer el archivo");
     expect(motivoDeError(3)).toContain("códec");
-    expect(motivoDeError(4)).toContain("no se puede proyectar");
+    expect(motivoDeError(4)).toContain("no reproduce este formato");
   });
 
   it("dice qué extensión era, que es lo que se va a convertir", () => {
