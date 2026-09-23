@@ -48,12 +48,6 @@ const labelStyle: CSSProperties = { display: "block", fontSize: "10.5px", color:
 const fieldStyle: CSSProperties = { width: "100%", height: 28, border: "1px solid var(--border-2)", background: "var(--surface-2)", borderRadius: 6, fontSize: 12, color: "var(--text)", outline: "none" };
 const sectionLabel: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: ".11em", textTransform: "uppercase", color: "var(--text-3)" };
 
-/** Latin note names, the notation the rest of the app already uses ("Sol", "Lam"). */
-const TONOS = [
-  "Do", "Dom", "Do#", "Reb", "Re", "Rem", "Re#", "Mib", "Mibm", "Mi", "Mim",
-  "Fa", "Fam", "Fa#", "Solb", "Sol", "Solm", "Sol#", "Lab", "La", "Lam",
-  "La#", "Sib", "Sibm", "Si", "Sim",
-];
 
 /** What the footer shows for each phase of an edit writing itself. */
 const ESTADO: Record<SaveState, { icono: ReactNode; texto: string; color: string }> = {
@@ -214,6 +208,9 @@ export default function DetailPanel() {
 
         {/* datos del culto: lo que el equipo necesita saber de un vistazo */}
         <div style={{ marginBottom: 14 }}>
+          {/* Artista y ocasión, y nada más: es lo que pide el rediseño. El
+              tono y el tempo se editaban aquí y ya no se editan en ningún
+              sitio — ver el issue que acompaña a este cambio. */}
           <div style={{ ...sectionLabel, marginBottom: 8 }}>Datos del culto</div>
           {/* El artista, que hasta ahora se leía y no se podía corregir. En una
               biblioteca de iglesia media viene mal en las etiquetas del
@@ -229,41 +226,6 @@ export default function DetailPanel() {
               className="in-focus"
               style={{ ...fieldStyle, padding: "0 8px" }}
             />
-          </div>
-          <div style={{ display: "flex", gap: 9, marginBottom: 9 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <label htmlFor="det-tono" style={labelStyle}>Tono</label>
-              <input
-                id="det-tono"
-                value={sel.tono}
-                onChange={(e) => setEdit("tono", e.target.value)}
-                list="tonos-musicales"
-                placeholder="Sol"
-                className="in-focus"
-                style={{ ...fieldStyle, padding: "0 8px" }}
-              />
-              <datalist id="tonos-musicales">
-                {TONOS.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            </div>
-            <div style={{ width: 88, flex: "0 0 auto" }}>
-              <label htmlFor="det-bpm" style={labelStyle}>Tempo</label>
-              <input
-                id="det-bpm"
-                type="number"
-                min={0}
-                max={400}
-                inputMode="numeric"
-                value={sel.bpm || ""}
-                // Rust takes an i64, so this has to leave the field as a number.
-                onChange={(e) => setEdit("bpm", Math.max(0, Math.min(400, Number(e.target.value) || 0)))}
-                placeholder="BPM"
-                className="in-focus"
-                style={{ ...fieldStyle, padding: "0 8px" }}
-              />
-            </div>
           </div>
           <div>
             <label htmlFor="det-ocasion" style={labelStyle}>Ocasión</label>
