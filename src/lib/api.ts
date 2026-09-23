@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import type { Folder, Playlist, SalidaDeAudio, Track, TransicionProyeccion } from "./types";
+import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
 import type { ArchivoDeLista } from "./compartir";
 
 export function isTauri(): boolean {
@@ -87,6 +87,41 @@ export async function pickMediaFile(): Promise<string | null> {
     ],
   });
   return typeof res === "string" ? res : null;
+}
+
+/**
+ * El tema del sistema, preguntado a la ventana nativa.
+ *
+ * `prefers-color-scheme` no basta: en Windows, WebView2 lo resuelve contra el
+ * tema de la ventana, no contra el del sistema, así que una app que no le diga
+ * nada se queda en claro para siempre aunque Windows esté en oscuro. La
+ * ventana sí sabe cuál es, y es la misma respuesta en macOS.
+ *
+ * `null` cuando no hay ventana nativa —el modo navegador— o cuando el sistema
+ * no lo dice: macOS 10.13 y anteriores no tienen tema.
+ */
+export async function temaDelSistema(): Promise<Theme | null> {
+  if (!isTauri()) return null;
+  try {
+    return (await getCurrentWindow().theme()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Avisa cuando el sistema cambia de tema. Devuelve cómo dejar de escuchar.
+ *
+ * Por el evento de la ventana y no por `matchMedia`: en Windows el webview no
+ * se entera de que el sistema cambió, y en macOS llega antes por aquí.
+ */
+export async function onTemaDelSistema(cb: (t: Theme) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    return await getCurrentWindow().onThemeChanged(({ payload }) => cb(payload));
+  } catch {
+    return () => {};
+  }
 }
 
 /** Show a file in the system file manager, selected. */

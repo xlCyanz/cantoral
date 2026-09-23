@@ -148,12 +148,28 @@ function estadoDeLaBiblioteca(s: CantoralState): LibState {
 /** Una sola lista vacía, para no romper la identidad que memorizan los selectores. */
 const VACIO_ETIQUETAS: string[] = [];
 
+/**
+ * El tema del sistema según el webview, que no siempre acierta.
+ *
+ * Se usa para pintar algo en el primer fotograma, antes de que conteste la
+ * ventana nativa. En macOS suele ser correcto; en Windows, WebView2 resuelve
+ * `prefers-color-scheme` contra el tema de la ventana y devuelve claro hasta
+ * que alguien le dice otra cosa — por eso `seguirAlSistema` pregunta después
+ * a la ventana y corrige.
+ */
 function osPrefersDark(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
-/** Effective theme for a preference mode. */
-function resolveTheme(mode: ThemeMode): Theme {
-  return mode === "system" ? (osPrefersDark() ? "dark" : "light") : mode;
+
+/**
+ * El tema efectivo de un modo, con lo que se sepa del sistema.
+ *
+ * `delSistema` es lo que contestó la ventana nativa, que manda sobre el
+ * webview; `null` mientras no haya contestado o en el modo navegador.
+ */
+function resolveTheme(mode: ThemeMode, delSistema: Theme | null = null): Theme {
+  if (mode !== "system") return mode;
+  return delSistema ?? (osPrefersDark() ? "dark" : "light");
 }
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
 import { nombreDeCopia } from "./lib/copias";
@@ -181,6 +197,7 @@ import {
   backupDatabase,
   checkForUpdateCmd,
   closeProjectionCmd,
+  onTemaDelSistema,
   onProjectionReady,
   onProjectionState,
   openProjectionCmd,
@@ -226,6 +243,7 @@ import {
   setPlaylistOrderCmd,
   setPlaylistTemplateCmd,
   setSetting,
+  temaDelSistema,
   setTrackFav,
   setTracksFavCmd,
   tagTracksCmd,
@@ -577,7 +595,17 @@ export interface CantoralState {
   onFolderClick: () => void;
   openPlaylist: (id: string) => void;
   setThemeMode: (m: ThemeMode) => void;
+  /**
+   * Lo último que dijo la ventana nativa sobre el tema del sistema.
+   *
+   * `null` hasta que conteste, y siempre en el modo navegador. Se guarda
+   * porque hace falta al volver a «Seguir al sistema» después de haber estado
+   * en claro u oscuro: sin él habría que volver a preguntar.
+   */
+  temaSistema: Theme | null;
   applySystemTheme: () => void;
+  /** Seguir el tema del sistema por el canal nativo. Devuelve cómo dejar de seguirlo. */
+  seguirAlSistema: () => Promise<() => void>;
 
   onQuery: (v: string) => void;
   clearQuery: () => void;
@@ -998,6 +1026,7 @@ export const useStore = create<CantoralState>((set, get) => {
 
     themeMode: "system",
     theme: resolveTheme("system"),
+    temaSistema: null,
     view: "biblioteca",
     libState: MOCK ? "content" : "empty",
 
@@ -1101,12 +1130,28 @@ export const useStore = create<CantoralState>((set, get) => {
       set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null, ocasion: null })),
     openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
     setThemeMode: (m) => {
-      const theme = resolveTheme(m);
+      const theme = resolveTheme(m, get().temaSistema);
       set({ themeMode: m, theme });
       if (isTauri()) void setSetting("themeMode", m);
     },
     applySystemTheme: () => {
-      if (get().themeMode === "system") set({ theme: osPrefersDark() ? "dark" : "light" });
+      if (get().themeMode === "system") set((st) => ({ theme: resolveTheme("system", st.temaSistema) }));
+    },
+
+    // Preguntar a la ventana nativa cuál es el tema del sistema, y quedarse
+    // escuchando. Devuelve cómo dejar de hacerlo.
+    //
+    // Hace falta porque `prefers-color-scheme` no es de fiar dentro de la app:
+    // en Windows, WebView2 lo resuelve contra el tema de la ventana y contesta
+    // «claro» aunque el sistema esté en oscuro, así que «Seguir al sistema» no
+    // seguía nada. La ventana sí lo sabe.
+    seguirAlSistema: async () => {
+      const aplicar = (t: Theme | null) => {
+        if (!t) return;
+        set((st) => (st.themeMode === "system" ? { temaSistema: t, theme: t } : { temaSistema: t }));
+      };
+      aplicar(await temaDelSistema());
+      return onTemaDelSistema(aplicar);
     },
 
     // ---------- library filters ----------

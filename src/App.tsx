@@ -64,13 +64,22 @@ export default function App() {
     return () => un?.();
   }, []);
 
-  // Follow the OS appearance while the theme mode is "Sistema".
+  // Seguir al sistema mientras el modo sea «Sistema».
+  //
+  // Por dos canales a la vez, y no por capricho: el de la ventana nativa es el
+  // que acierta —en Windows el webview contesta «claro» aunque el sistema esté
+  // en oscuro—, y `matchMedia` es el único que hay en el modo navegador.
   useEffect(() => {
-    if (!window.matchMedia) return;
+    let soltar: (() => void) | undefined;
+    void useStore.getState().seguirAlSistema().then((f) => (soltar = f));
+    if (!window.matchMedia) return () => soltar?.();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => useStore.getState().applySystemTheme();
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    return () => {
+      soltar?.();
+      mq.removeEventListener("change", handler);
+    };
   }, []);
 
   // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).

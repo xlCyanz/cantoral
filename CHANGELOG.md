@@ -19,6 +19,18 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Corregido
 
+- **«Seguir al sistema» ahora sigue al sistema.** Era el modo que viene puesto
+  y dentro de la app no funcionaba en todas partes: se resolvía con
+  `prefers-color-scheme`, que un webview no contesta de forma fiable. En
+  Windows, WebView2 lo resuelve contra el tema de la *ventana* y dice «claro»
+  aunque Windows esté en oscuro, así que quien no tocaba nada se quedaba en
+  claro para siempre.
+
+  Ahora se le pregunta a la ventana nativa, que sí lo sabe, y se queda
+  escuchando: cambiar el tema del sistema con Cantoral abierto lo cambia en el
+  acto. Elegir Claro u Oscuro a mano sigue mandando sobre el sistema.
+
+
 - **«Todas» en la barra lateral no hacía nada.** Estando ya en la biblioteca
   con un filtro puesto —Favoritas, una ocasión, una etiqueta o una búsqueda—,
   pulsarlo no encendía el botón ni cambiaba la tabla: solo cambiaba de vista, y
