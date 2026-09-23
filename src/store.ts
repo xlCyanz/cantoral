@@ -148,6 +148,7 @@ import { partirPorFecha } from "./lib/fechas";
 import type { MonitorInfo, SalidaProyeccion, VistaProyeccion } from "./lib/api";
 import { motivoDeError, motivoNoProyectable } from "./lib/formatos";
 import { carpetaReal } from "./lib/carpetas";
+import { cultosAfectados } from "./lib/afectados";
 import { estrofasDe } from "./lib/estrofas";
 import type { Estrofa } from "./lib/estrofas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
@@ -1422,18 +1423,19 @@ export const useStore = create<CantoralState>((set, get) => {
     bulkDelete: () => {
       const ids = seleccionVigente(get());
       if (ids.length === 0) return;
-      // Cuántas *pistas* están en alguna lista, no cuántas apariciones suman:
-      // una pista en tres listas es una pista, y contarla tres veces daba un
-      // número mayor que la propia selección.
-      const enAlgunaLista = new Set(Object.values(get().plOrder).flat());
-      const enListas = ids.filter((id) => enAlgunaLista.has(id)).length;
+      // Qué cultos pierden algo, por su nombre. Un número suelto —«3 están en
+      // alguna lista»— no deja decidir: quitar una pista del culto del domingo
+      // que viene no es lo mismo que quitarla de una plantilla de hace un año.
+      const cultos = cultosAfectados(ids, get().playlists, get().plOrder);
       get().askConfirm({
-        title: ids.length === 1 ? "¿Quitar esta pista?" : `¿Quitar ${ids.length} pistas?`,
-        message: "Salen de la biblioteca y de todas las listas para culto donde estén.",
-        detail:
-          `Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.` +
-          (enListas ? `\n${enListas} ${enListas === 1 ? "está" : "están"} en alguna lista.` : ""),
-        safe: "Los archivos de audio no se borran del disco. Volverán a aparecer si escaneas su carpeta.",
+        title:
+          ids.length === 1
+            ? "¿Quitar esta pista de la biblioteca?"
+            : `¿Quitar ${ids.length} pistas de la biblioteca?`,
+        message: cultos
+          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.`
+          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.`,
+        safe: "Los archivos no se tocan. Siguen en el disco, en su carpeta, con su nombre. Si vuelves a escanear la carpeta, reaparecen.",
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
           set({ rowMenu: null, selection: [], selAnchor: null });

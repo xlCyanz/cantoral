@@ -144,6 +144,30 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **El menú contextual dice sobre qué pista se abrió**, y ofrece tres cosas
+  más: **Ver el detalle**, **Letra y acordes** y **Mostrar en el Finder**. Con
+  el menú abierto encima de una tabla de veinte filas, lo primero que hay que
+  poder comprobar es cuál se pulsó. Se van los iconos: seis dibujos en columna
+  a la izquierda de seis palabras no añadían nada y le daban al menú el ancho
+  de un panel.
+
+  Con varias pistas elegidas solo salen las que tienen sentido en plural: «ver
+  el detalle» de doce pistas no quiere decir nada.
+
+- **Quitar pistas dice de qué cultos se van, por su nombre.** Antes decía
+  cuántas estaban en alguna lista. Un número no deja decidir: quitar una pista
+  del culto del domingo que viene no es lo mismo que quitarla de una plantilla
+  de hace un año.
+
+  Y lo que **no** pasa —«los archivos no se tocan»— pasa a su propia caja en
+  vez de ir en gris pequeño al pie. Es justo lo que está buscando quien duda.
+
+- **La vista previa de impresión, en una sola fila de acciones.** «Imprimir o
+  guardar PDF» y «Cerrar» arriba, y debajo qué lleva la hoja. Antes estaba
+  repartido entre una cabecera con su icono y un pie con tres botones más, y
+  había que recorrer el diálogo entero para encontrar «Imprimir».
+
+
 - **Configuración, en tarjetas.** Cada cosa en la suya en vez de una sucesión
   de títulos sueltos con 30 px de aire entre ellos. Se mira entera de una
   sentada —qué carpetas hay, si hay duplicadas, cuándo fue la última copia— y
