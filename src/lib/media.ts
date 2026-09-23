@@ -121,7 +121,10 @@ export function useReproductor(
       // reproductor del sistema, una pista que el webview no abría tenía una
       // segunda oportunidad. Ahora esta es la única explicación que va a
       // haber, así que dice qué formato era — que es lo que hay que convertir.
-      useStore.getState().showToast(motivoDeError(el.error?.code, track?.path), "error");
+      useStore.getState().showToast(motivoDeError(el.error?.code, track?.path), {
+        detalle: track ? `«${track.titulo}» se queda sin sonar.` : undefined,
+        tipo: "error",
+      });
     },
   };
 }

@@ -149,9 +149,40 @@ describe("agregar a una lista", () => {
     useStore.getState().bulkAddToPlaylist("p1");
 
     return vi.waitFor(() => {
-      expect(useStore.getState().toast?.message).toContain("Ya estaban todas");
+      expect(useStore.getState().toast?.titulo).toContain("Ya estaban todas");
       expect(useStore.getState().toast?.type).toBe("info");
     });
+  });
+
+  /** Lo que devolvería el backend tras meter `ids` en la lista. */
+  const conLaLista = (ids: string[]): Snapshot => ({
+    tracks: CINCO,
+    folders: [],
+    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids, plantilla: false }],
+  });
+
+  it("al agregarlas, el titular dice a dónde y el detalle cuántas", () => {
+    // Antes cabía una sola línea y había que meter las dos cosas: «3 pistas
+    // agregadas a "Domingo de alabanza"». Separadas, a dónde fueron se lee de
+    // un vistazo.
+    useStore.setState({ selection: ["a", "b"] });
+    addTracksToPlaylistCmd.mockResolvedValue(conLaLista(["a", "b"]));
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => {
+      expect(useStore.getState().toast?.titulo).toBe("Agregadas a «Culto»");
+      expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final del culto.");
+    });
+  });
+
+  it("y una sola pista va en singular en el detalle", () => {
+    useStore.setState({ selection: ["a"] });
+    addTracksToPlaylistCmd.mockResolvedValue(conLaLista(["a"]));
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => expect(useStore.getState().toast?.detalle).toBe("1 pista, al final del culto."));
   });
 
   it("y con una sola pista lo dice en singular", () => {
@@ -159,7 +190,7 @@ describe("agregar a una lista", () => {
 
     useStore.getState().bulkAddToPlaylist("p1");
 
-    return vi.waitFor(() => expect(useStore.getState().toast?.message).toContain("Ya estaba en"));
+    return vi.waitFor(() => expect(useStore.getState().toast?.titulo).toContain("Ya estaba en"));
   });
 });
 
@@ -387,5 +418,39 @@ describe("el menú contextual", () => {
     useStore.getState().openRowMenu("b", 10, 10);
 
     expect(useStore.getState().selection).toEqual(["a", "b"]);
+  });
+});
+
+describe("el aviso de la esquina", () => {
+  it("se puede cerrar antes de que se vaya solo", () => {
+    // Un aviso que tapa algo y no se quita hasta que él quiere estorba.
+    useStore.getState().showToast("Algo pasó");
+    expect(useStore.getState().toast).not.toBeNull();
+
+    useStore.getState().closeToast();
+
+    expect(useStore.getState().toast).toBeNull();
+  });
+
+  it("sin detalle, no se inventa uno", () => {
+    useStore.getState().showToast("Algo pasó");
+
+    expect(useStore.getState().toast?.detalle).toBeUndefined();
+  });
+
+  it("por defecto cuenta como que salió bien", () => {
+    useStore.getState().showToast("Algo pasó");
+
+    expect(useStore.getState().toast?.type).toBe("success");
+  });
+
+  it("y guarda el título y el detalle por separado", () => {
+    useStore.getState().showToast("Agregadas a «Culto»", { detalle: "2 pistas.", tipo: "info" });
+
+    expect(useStore.getState().toast).toEqual({
+      titulo: "Agregadas a «Culto»",
+      detalle: "2 pistas.",
+      type: "info",
+    });
   });
 });

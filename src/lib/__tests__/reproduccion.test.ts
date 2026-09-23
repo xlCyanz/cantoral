@@ -21,7 +21,7 @@ vi.mock("../api", async (importOriginal) => ({
   onProjectionReady: () => Promise.resolve(() => {}),
 }));
 
-const { avisoDeOmitidos, useStore } = await import("../../store");
+const { detalleDeOmitidos, useStore } = await import("../../store");
 const initial = useStore.getState();
 
 function pista(id: string, over: Partial<Track> = {}): Track {
@@ -158,19 +158,19 @@ describe("proyectar mientras algo suena", () => {
 });
 
 describe("el aviso de lo que el escaneo no indexó", () => {
-  it("con cero, no dice nada: no hay nada que decir", () => {
-    expect(avisoDeOmitidos(0)).toBe("");
-    expect(avisoDeOmitidos(-1)).toBe("");
+  it("con cero no hay detalle: no hay nada que decir", () => {
+    expect(detalleDeOmitidos(0)).toBeUndefined();
+    expect(detalleDeOmitidos(-1)).toBeUndefined();
   });
 
   it("con uno, en singular", () => {
-    expect(avisoDeOmitidos(1)).toBe(" · 1 archivo en un formato que Cantoral no reproduce");
+    expect(detalleDeOmitidos(1)).toBe("1 archivo se quedó fuera: Cantoral no reproduce su formato.");
   });
 
   it("con varios, en plural", () => {
     // Saltárselos en silencio sería peor que no tenerlos: quien ve que faltan
     // tres canciones no sabría si es por el formato o porque algo se rompió.
-    expect(avisoDeOmitidos(3)).toBe(" · 3 archivos en formatos que Cantoral no reproduce");
+    expect(detalleDeOmitidos(3)).toBe("3 archivos se quedaron fuera: Cantoral no reproduce su formato.");
   });
 });
 

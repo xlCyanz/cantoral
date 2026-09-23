@@ -186,7 +186,7 @@ describe("agregar una etiqueta", () => {
     useStore.getState().addTag("Lento");
 
     expect(etiquetasDe("2")).toEqual(["lento"]);
-    expect(useStore.getState().toast?.message).toMatch(/ya existía/);
+    expect(useStore.getState().toast?.titulo).toMatch(/ya existía/);
   });
 
   it("recorta y colapsa los espacios de una etiqueta nueva", () => {

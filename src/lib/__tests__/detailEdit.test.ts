@@ -124,7 +124,7 @@ describe("si el guardado falla", () => {
 
     expect(useStore.getState().saveState).toBe("error");
     expect(useStore.getState().toast?.type).toBe("error");
-    expect(useStore.getState().toast?.message).toContain("No se pudieron guardar");
+    expect(useStore.getState().toast?.titulo).toContain("No se pudieron guardar");
   });
 
   it("conserva lo tecleado, que el usuario no puede recuperar de otro modo", async () => {

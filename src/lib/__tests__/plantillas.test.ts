@@ -130,7 +130,7 @@ describe("duplicar una lista, en la app", () => {
     useStore.getState().duplicateList("p1");
 
     await vi.waitFor(() => expect(useStore.getState().toast?.type).toBe("error"));
-    expect(useStore.getState().toast?.message).toContain("No se pudo duplicar");
+    expect(useStore.getState().toast?.titulo).toContain("No se pudo duplicar");
     expect(useStore.getState().curPlaylist).toBe("p1");
   });
 });

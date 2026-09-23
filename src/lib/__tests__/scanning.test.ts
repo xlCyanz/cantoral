@@ -292,7 +292,7 @@ describe("un solo escaneo a la vez", () => {
     useStore.getState().indexFolder("/otra", true);
 
     expect(addAndScanFolder).toHaveBeenCalledOnce();
-    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
   });
 
   it("no lanza un segundo escaneo desde Configuración", () => {
@@ -301,7 +301,7 @@ describe("un solo escaneo a la vez", () => {
     useStore.getState().rescanFolder("f1");
 
     expect(rescanFolderCmd).not.toHaveBeenCalled();
-    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
   });
 
   it("ni siquiera abre el diálogo de agregar carpeta mientras escanea", () => {
@@ -310,7 +310,7 @@ describe("un solo escaneo a la vez", () => {
     useStore.getState().openAddFolder();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(useStore.getState().toast?.message).toMatch(/escaneo en curso/i);
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
   });
 
   it("vuelve a dejar escanear en cuanto el anterior termina", async () => {

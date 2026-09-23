@@ -120,16 +120,17 @@ export function estrofasEnPantalla(s: CantoralState): Estrofa[] {
 const VACIO_ESTROFAS: Estrofa[] = [];
 
 /**
- * La coletilla del aviso de escaneo, o cadena vacía.
+ * El detalle del aviso de escaneo, o nada.
  *
- * Va pegada al «Biblioteca actualizada» en vez de en un aviso aparte porque
- * son la misma noticia: esto es lo que entró y esto es lo que no.
+ * Debajo del «Biblioteca actualizada» y no pegado a él: son la misma noticia
+ * —esto entró, esto no— pero el titular es que la biblioteca ya está, y lo
+ * que se quedó fuera es la letra pequeña.
  */
-export function avisoDeOmitidos(n: number): string {
-  if (n <= 0) return "";
+export function detalleDeOmitidos(n: number): string | undefined {
+  if (n <= 0) return undefined;
   return n === 1
-    ? " · 1 archivo en un formato que Cantoral no reproduce"
-    : ` · ${n} archivos en formatos que Cantoral no reproduce`;
+    ? "1 archivo se quedó fuera: Cantoral no reproduce su formato."
+    : `${n} archivos se quedaron fuera: Cantoral no reproduce su formato.`;
 }
 
 function osPrefersDark(): boolean {
@@ -276,8 +277,18 @@ export interface ConfirmRequest {
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
 export type ToastType = "success" | "error" | "info";
+/**
+ * Un aviso de los de la esquina.
+ *
+ * Dos campos y no uno porque un aviso útil dice dos cosas: qué pasó y qué
+ * significa. Metidas en una línea —«3 pistas agregadas a "Domingo"»— hay que
+ * leerla entera para quedarse con el titular; separadas, el titular se lee de
+ * un vistazo y el detalle está ahí si hace falta.
+ */
 export interface ToastNotice {
-  message: string;
+  titulo: string;
+  /** La consecuencia, cuando hay algo que añadir. Muchos avisos no la tienen. */
+  detalle?: string;
   type: ToastType;
 }
 
@@ -713,7 +724,9 @@ export interface CantoralState {
   restore: () => void;
 
   tick: () => void;
-  showToast: (m: string, type?: ToastType) => void;
+  showToast: (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) => void;
+  /** Quitar el aviso antes de que se vaya solo. */
+  closeToast: () => void;
 
   /** Fetch one track's sheet if it is not already in hand. */
   loadSheet: (id: string) => void;
@@ -755,7 +768,8 @@ SEED_PLAYLISTS.forEach((p) => (initialPlOrder[p.id] = p.ids.slice()));
 const MOCK = !isTauri();
 
 export const useStore = create<CantoralState>((set, get) => {
-  const toast = (m: string, type: ToastType = "success") => get().showToast(m, type);
+  const toast = (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) =>
+    get().showToast(titulo, opciones);
 
   /** Replace the catalogue from a backend snapshot, preserving the player /
    *  playlist selection when the referenced ids still exist. */
@@ -863,7 +877,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error(err);
-          toast("No se pudo exportar la lista", "error");
+          toast("No se pudo exportar la lista", { tipo: "error" });
         });
     });
   };
@@ -884,7 +898,7 @@ export const useStore = create<CantoralState>((set, get) => {
       .catch((err) => {
         console.error("update_track_sheet failed", err);
         if (get().sheetDialog === id) set({ sheetState: "error" });
-        toast("No se pudo guardar la letra", "error");
+        toast("No se pudo guardar la letra", { tipo: "error" });
       });
   };
 
@@ -920,7 +934,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // The typed value is kept: yanking it back mid-edit would lose work for
         // a failure the user can do nothing about. The footer says so instead.
         if (get().selId === id) set({ saveState: "error" });
-        get().showToast("No se pudieron guardar los cambios", "error");
+        get().showToast("No se pudieron guardar los cambios", { tipo: "error" });
       });
   };
 
@@ -949,7 +963,7 @@ export const useStore = create<CantoralState>((set, get) => {
     setPlaylistOrderCmd(playlistId, next).catch((err) => {
       console.error("set_playlist_order failed", err);
       set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: prev } }));
-      get().showToast("No se pudo guardar el orden de la lista", "error");
+      get().showToast("No se pudo guardar el orden de la lista", { tipo: "error" });
     });
   };
 
@@ -1120,7 +1134,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (get().proyectando) {
         void openProjectionCmd(indice).catch((err) => {
           console.error("open_projection failed", err);
-          toast("No se pudo mover la proyección a esa pantalla", "error");
+          toast("No se pudo mover la proyección a esa pantalla", { tipo: "error" });
         });
       }
     },
@@ -1152,7 +1166,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("open_projection failed", err);
-          toast("No se pudo abrir la proyección", "error");
+          toast("No se pudo abrir la proyección", { tipo: "error" });
         });
     },
 
@@ -1280,7 +1294,7 @@ export const useStore = create<CantoralState>((set, get) => {
         if (e.error !== undefined) {
           const motivo = motivoDeError(e.error, actual.path);
           set((prev) => ({ proyeccionFallos: { ...prev.proyeccionFallos, [actual.id]: motivo } }));
-          toast(`«${actual.titulo}»: ${motivo.toLocaleLowerCase("es")}`, "error");
+          toast(motivo, { detalle: `«${actual.titulo}» no llega al proyector.`, tipo: "error" });
           return;
         }
         set((prev) => {
@@ -1356,10 +1370,12 @@ export const useStore = create<CantoralState>((set, get) => {
         // decir «0 pistas agregadas» sería contarlo como si algo hubiera ido
         // mal.
         if (n === 0) {
-          toast(ids.length === 1 ? `Ya estaba en «${nombre}»` : `Ya estaban todas en «${nombre}»`, "info");
+          toast(ids.length === 1 ? `Ya estaba en «${nombre}»` : `Ya estaban todas en «${nombre}»`, { tipo: "info" });
           return;
         }
-        toast(n === 1 ? `1 pista agregada a «${nombre}»` : `${n} pistas agregadas a «${nombre}»`);
+        toast(`Agregadas a «${nombre}»`, {
+          detalle: n === 1 ? "1 pista, al final del culto." : `${n} pistas, al final del culto.`,
+        });
       };
       if (!isTauri()) {
         // Browser stand-in: the same outcome, minus what is already on the list.
@@ -1379,7 +1395,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("add_tracks_to_playlist failed", err);
-          toast("No se pudieron agregar las pistas", "error");
+          toast("No se pudieron agregar las pistas", { tipo: "error" });
         });
     },
 
@@ -1416,7 +1432,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!isTauri()) return;
       void setTracksFavCmd(ids, fav).catch((err) => {
         console.error("set_tracks_fav failed", err);
-        toast("No se pudo guardar el cambio", "error");
+        toast("No se pudo guardar el cambio", { tipo: "error" });
       });
     },
 
@@ -1442,7 +1458,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!isTauri()) return;
       void tagTracksCmd(ids, final, add).catch((err) => {
         console.error("tag_tracks failed", err);
-        toast("No se pudo guardar la etiqueta", "error");
+        toast("No se pudo guardar la etiqueta", { tipo: "error" });
       });
     },
 
@@ -1474,17 +1490,21 @@ export const useStore = create<CantoralState>((set, get) => {
               });
               return { tracks: st.tracks.filter((t) => !fuera.has(t.id)), plOrder };
             });
-            toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`);
+            toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
+              detalle: "Los archivos siguen en el disco.",
+            });
             return;
           }
           deleteTracksCmd(ids)
             .then((snap) => {
               if (snap) applySnapshot(snap);
-              toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`);
+              toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
+                detalle: "Los archivos siguen en el disco.",
+              });
             })
             .catch((err) => {
               console.error("delete_tracks failed", err);
-              toast("No se pudieron quitar las pistas", "error");
+              toast("No se pudieron quitar las pistas", { tipo: "error" });
             });
         },
       });
@@ -1502,7 +1522,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const t = s.tracks.find((x) => x.id === id);
       if (!t) return;
       if (t.missing) {
-        toast("El archivo no se encuentra en el disco", "error");
+        toast("El archivo no se encuentra en el disco", { tipo: "error" });
         return;
       }
       // Playing from a culto list queues that list, so the transport follows the
@@ -1590,7 +1610,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!tags.includes(nombre)) tags.push(nombre);
       s.setEdit("tags", tags);
       set({ tagDraft: "" });
-      if (nombre !== val) toast(`Se usó «${nombre}», que ya existía`, "info");
+      if (nombre !== val) toast(`Se usó «${nombre}», que ya existía`, { tipo: "info" });
     },
     removeTag: (tag) => {
       const s = get();
@@ -1617,7 +1637,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // store is where the rule actually lives — only one scan at a time, and
       // the dialog's only outcome is starting one.
       if (get().scanning) {
-        toast("Espera a que termine el escaneo en curso", "info");
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
       set({ dialog: "addFolder" });
@@ -1633,7 +1653,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // The backend refuses a second scan outright, and an error screen is a
       // harsh answer to what is usually a double click.
       if (get().scanning) {
-        toast("Espera a que termine el escaneo en curso", "info");
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
       if (isTauri() && path) {
@@ -1648,7 +1668,7 @@ export const useStore = create<CantoralState>((set, get) => {
           .then((snap) => {
             applySnapshot(snap);
             set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast(`Biblioteca actualizada${avisoDeOmitidos(get().scanOmitidos)}`);
+            toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
           })
           .catch((err) => {
             console.error(err);
@@ -1834,12 +1854,12 @@ export const useStore = create<CantoralState>((set, get) => {
         // que nadie lo haya preguntado es ruido en cada apertura.
         if (manual && update.estado === "alDia") toast("Cantoral está al día");
         if (manual && update.estado === "sinConfigurar") {
-          toast("Esta compilación no trae actualizaciones automáticas", "info");
+          toast("Esta compilación no trae actualizaciones automáticas", { tipo: "info" });
         }
       } catch (err) {
         console.error("update check failed", err);
         set({ updateState: "error", updateError: String(err) });
-        if (manual) toast("No se pudo comprobar si hay actualizaciones", "error");
+        if (manual) toast("No se pudo comprobar si hay actualizaciones", { tipo: "error" });
       }
     },
     installUpdate: () => {
@@ -1856,7 +1876,7 @@ export const useStore = create<CantoralState>((set, get) => {
           pararProgreso?.();
           pararProgreso = null;
           set({ updateState: "error", updateError: String(err), updateProgress: null });
-          toast("No se pudo instalar la actualización", "error");
+          toast("No se pudo instalar la actualización", { tipo: "error" });
         });
     },
     newList: () => set({ dialog: "newList" }),
@@ -1873,7 +1893,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo crear la lista", "error");
+            toast("No se pudo crear la lista", { tipo: "error" });
           });
       } else {
         const id = "new-" + Date.now();
@@ -1903,7 +1923,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo duplicar la lista", "error");
+            toast("No se pudo duplicar la lista", { tipo: "error" });
           });
       } else {
         const nuevo = "copy-" + Date.now();
@@ -1957,7 +1977,7 @@ export const useStore = create<CantoralState>((set, get) => {
           .then(() => toast("Lista exportada para otra instalación"))
           .catch((err) => {
             console.error(err);
-            toast("No se pudo exportar la lista", "error");
+            toast("No se pudo exportar la lista", { tipo: "error" });
           });
       });
     },
@@ -1975,7 +1995,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
         return;
       }
@@ -1985,7 +2005,7 @@ export const useStore = create<CantoralState>((set, get) => {
           mostrar(await readPlaylistFileCmd(src));
         } catch (err) {
           console.error(err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         }
       });
     },
@@ -1998,12 +2018,13 @@ export const useStore = create<CantoralState>((set, get) => {
       set({ dialog: null, importPreview: null });
       const aviso = () => {
         const faltan = previo.resultado.faltantes.length;
-        toast(
-          faltan === 0
-            ? "Lista importada"
-            : `Lista importada · ${faltan} ${faltan === 1 ? "pista no está" : "pistas no están"} en esta biblioteca`,
-          faltan === 0 ? "success" : "info",
-        );
+        toast("Lista importada", {
+          detalle:
+            faltan === 0
+              ? undefined
+              : `${faltan} ${faltan === 1 ? "pista no está" : "pistas no están"} en esta biblioteca.`,
+          tipo: faltan === 0 ? "success" : "info",
+        });
       };
       if (isTauri()) {
         createPlaylistCmd(nombre, fecha, ocasion)
@@ -2016,7 +2037,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo importar la lista", "error");
+            toast("No se pudo importar la lista", { tipo: "error" });
           });
       } else {
         const id = "imp-" + Date.now();
@@ -2045,7 +2066,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo cambiar la plantilla", "error");
+            toast("No se pudo cambiar la plantilla", { tipo: "error" });
           });
       } else {
         set((s) => ({
@@ -2067,7 +2088,7 @@ export const useStore = create<CantoralState>((set, get) => {
           })
           .catch((err) => {
             console.error(err);
-            toast("No se pudo actualizar la lista", "error");
+            toast("No se pudo actualizar la lista", { tipo: "error" });
           });
       } else {
         set((st) => ({
@@ -2103,7 +2124,7 @@ export const useStore = create<CantoralState>((set, get) => {
               })
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo eliminar la lista", "error");
+                toast("No se pudo eliminar la lista", { tipo: "error" });
               });
           } else {
             set((s) => {
@@ -2171,19 +2192,19 @@ export const useStore = create<CantoralState>((set, get) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t?.path) return;
       if (!isTauri()) {
-        toast("Mostrar el archivo solo funciona en la app de escritorio", "info");
+        toast("Mostrar el archivo solo funciona en la app de escritorio", { tipo: "info" });
         return;
       }
       revealFile(t.path).catch((err) => {
         console.error("revealItemInDir failed", err);
-        toast("No se pudo mostrar el archivo", "error");
+        toast("No se pudo mostrar el archivo", { tipo: "error" });
       });
     },
     relocateTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t) return;
       if (!isTauri()) {
-        toast("Localizar archivos solo funciona en la app de escritorio", "info");
+        toast("Localizar archivos solo funciona en la app de escritorio", { tipo: "info" });
         return;
       }
       void pickMediaFile().then((path) => {
@@ -2191,11 +2212,13 @@ export const useStore = create<CantoralState>((set, get) => {
         relocateTrackCmd(id, path)
           .then((snap) => {
             applySnapshot(snap);
-            toast(`«${t.titulo}» vuelve a estar localizada`);
+            toast(`«${t.titulo}» vuelve a estar localizada`, {
+              detalle: "Conserva sus etiquetas y su favorito.",
+            });
           })
           .catch((err) => {
             console.error(err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
       });
     },
@@ -2230,7 +2253,7 @@ export const useStore = create<CantoralState>((set, get) => {
             })
             .catch((err) => {
               console.error(err);
-              toast("No se pudo quitar la pista", "error");
+              toast("No se pudo quitar la pista", { tipo: "error" });
             });
         },
       });
@@ -2239,7 +2262,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const f = get().folders.find((x) => x.id === id);
       if (!f) return;
       if (!isTauri()) {
-        toast("Mover carpetas solo funciona en la app de escritorio", "info");
+        toast("Mover carpetas solo funciona en la app de escritorio", { tipo: "info" });
         return;
       }
       void pickFolder().then((path) => {
@@ -2247,11 +2270,13 @@ export const useStore = create<CantoralState>((set, get) => {
         relocateFolderCmd(id, path)
           .then((snap) => {
             applySnapshot(snap);
-            toast(`«${f.nombre}» ahora apunta a su nueva ubicación`);
+            toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
+              detalle: "Sus pistas conservan etiquetas, favoritos y su sitio en los cultos.",
+            });
           })
           .catch((err) => {
             console.error(err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
       });
     },
@@ -2275,7 +2300,7 @@ export const useStore = create<CantoralState>((set, get) => {
               .then(() => toast("Carpeta quitada de la biblioteca"))
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo quitar la carpeta", "error");
+                toast("No se pudo quitar la carpeta", { tipo: "error" });
               });
           } else {
             set((s) => ({ folders: s.folders.filter((x) => x.id !== id) }));
@@ -2286,7 +2311,7 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     rescanFolder: (id) => {
       if (get().scanning) {
-        toast("Espera a que termine el escaneo en curso", "info");
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
       if (isTauri() && id) {
@@ -2299,7 +2324,7 @@ export const useStore = create<CantoralState>((set, get) => {
           .then((snap) => {
             applySnapshot(snap);
             set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast(`Biblioteca actualizada${avisoDeOmitidos(get().scanOmitidos)}`);
+            toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
           })
           .catch((err) => {
             console.error(err);
@@ -2322,7 +2347,7 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     restore: () => {
       if (!isTauri()) {
-        toast("Selecciona un archivo de respaldo…", "info");
+        toast("Selecciona un archivo de respaldo…", { tipo: "info" });
         return;
       }
       void pickDbFile().then(async (src) => {
@@ -2334,7 +2359,7 @@ export const useStore = create<CantoralState>((set, get) => {
           info = await inspectBackup(src);
         } catch (err) {
           console.error(err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
           return;
         }
         const st = get();
@@ -2360,7 +2385,7 @@ export const useStore = create<CantoralState>((set, get) => {
               })
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo restaurar la base de datos", "error");
+                toast("No se pudo restaurar la base de datos", { tipo: "error" });
               });
           },
         });
@@ -2396,7 +2421,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("get_track_sheet failed", err);
-          toast("No se pudo leer la letra de esta pista", "error");
+          toast("No se pudo leer la letra de esta pista", { tipo: "error" });
         });
     },
 
@@ -2421,7 +2446,7 @@ export const useStore = create<CantoralState>((set, get) => {
         set((st) => ({ sheets: { ...st.sheets, ...vacias, ...traidas } }));
       } catch (err) {
         console.error("get_sheets failed", err);
-        toast("No se pudieron leer las letras de esta lista", "error");
+        toast("No se pudieron leer las letras de esta lista", { tipo: "error" });
       }
     },
 
@@ -2460,7 +2485,7 @@ export const useStore = create<CantoralState>((set, get) => {
     openService: () => {
       const ids = get().plOrder[get().curPlaylist] || [];
       if (ids.length === 0) {
-        toast("Esta lista está vacía", "info");
+        toast("Esta lista está vacía", { tipo: "info" });
         return;
       }
       void get().loadSheets(ids);
@@ -2509,17 +2534,21 @@ export const useStore = create<CantoralState>((set, get) => {
               return { ...t, tags: [...new Set(tags.map((x) => (x === from ? nombre : x)))].sort() };
             }),
           }));
-          toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada");
+          toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada", {
+            detalle: fusion ? "Las pistas de las dos quedan bajo el mismo nombre." : undefined,
+          });
           return;
         }
         renameTagCmd(from, nombre)
           .then((snap) => {
             if (snap) applySnapshot(snap);
-            toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada");
+            toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada", {
+              detalle: fusion ? "Las pistas de las dos quedan bajo el mismo nombre." : undefined,
+            });
           })
           .catch((err) => {
             console.error("rename_tag failed", err);
-            toast(String(err), "error");
+            toast(String(err), { tipo: "error" });
           });
       };
 
@@ -2566,7 +2595,7 @@ export const useStore = create<CantoralState>((set, get) => {
             })
             .catch((err) => {
               console.error("delete_tag failed", err);
-              toast(String(err), "error");
+              toast(String(err), { tipo: "error" });
             });
         },
       });
@@ -2588,7 +2617,7 @@ export const useStore = create<CantoralState>((set, get) => {
         .catch((err) => {
           console.error("find_duplicates failed", err);
           set({ duplicatesState: "idle" });
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         });
     },
 
@@ -2643,19 +2672,23 @@ export const useStore = create<CantoralState>((set, get) => {
                 duplicates: st.duplicates.filter((g) => g.signature !== signature),
               };
             });
-            toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`);
+            toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
+              detalle: "Se quedó una con las etiquetas, el favorito y su sitio en los cultos.",
+            });
             return;
           }
           mergeDuplicatesCmd(keepId, ids)
             .then((snap) => {
               if (snap) applySnapshot(snap);
-              toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`);
+              toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
+                detalle: "Se quedó una con las etiquetas, el favorito y su sitio en los cultos.",
+              });
               // `applySnapshot` cleared the list; fill it with what is left.
               get().findDuplicates();
             })
             .catch((err) => {
               console.error("merge_duplicates failed", err);
-              toast(String(err), "error");
+              toast(String(err), { tipo: "error" });
             });
         },
       });
@@ -2675,7 +2708,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("dismiss_duplicates failed", err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         });
     },
 
@@ -2690,7 +2723,7 @@ export const useStore = create<CantoralState>((set, get) => {
         })
         .catch((err) => {
           console.error("restore_dismissed_duplicates failed", err);
-          toast(String(err), "error");
+          toast(String(err), { tipo: "error" });
         });
     },
 
@@ -2702,10 +2735,19 @@ export const useStore = create<CantoralState>((set, get) => {
       req?.onConfirm();
     },
 
-    showToast: (m, type = "success") => {
+    showToast: (titulo, opciones) => {
+      const type = opciones?.tipo ?? "success";
       if (toastTimer) clearTimeout(toastTimer);
-      set({ toast: { message: m, type } });
-      toastTimer = setTimeout(() => set({ toast: null }), type === "error" ? 4000 : 2200);
+      set({ toast: { titulo, detalle: opciones?.detalle, type } });
+      // Un error aguanta más: quien lo lee suele tener que hacer algo con él.
+      // Y un aviso con detalle también, porque hay dos líneas que leer.
+      const ms = type === "error" ? 5000 : opciones?.detalle ? 3500 : 2200;
+      toastTimer = setTimeout(() => set({ toast: null }), ms);
+    },
+
+    closeToast: () => {
+      if (toastTimer) clearTimeout(toastTimer);
+      set({ toast: null });
     },
   };
 });
