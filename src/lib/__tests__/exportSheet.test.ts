@@ -11,12 +11,10 @@ function track(over: Partial<Track> = {}): Track {
     album: "Himnos",
     dur: "3:48",
     durSec: 228,
-    tono: "Re",
     bpm: 72,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -108,11 +106,11 @@ describe("las letras en la hoja impresa", () => {
     expect(html).toContain('<span class="a">Do</span><span class="w">gracia</span>');
   });
 
-  it("encabeza cada hoja con el título, el artista y el tono", () => {
+  it("encabeza cada hoja con el título y el artista", () => {
     const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ letra: "Aleluya" }));
 
     expect(html).toContain("<h2>Santo, Santo, Santo</h2>");
-    expect(html).toContain("Ensamble Getsemaní · Tono Re");
+    expect(html).toContain('<p class="meta">Ensamble Getsemaní</p>');
   });
 
   it("imprime la letra sola cuando no hay acordes", () => {

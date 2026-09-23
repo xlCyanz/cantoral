@@ -16,9 +16,7 @@ export interface PistaCompartida {
   artista: string;
   album: string;
   durSec: number;
-  tono: string;
   ocasion: string;
-  etiquetas: string[];
   /** Solo el nombre del archivo, nunca la ruta. */
   archivo: string;
 }
@@ -63,9 +61,7 @@ export function armarArchivo(
       artista: t.artista,
       album: t.album,
       durSec: t.durSec,
-      tono: t.tono,
       ocasion: t.ocasion,
-      etiquetas: [...(t.tags ?? [])],
       archivo: soloElNombre(t.path),
     })),
     exportado: ahora.toISOString(),
@@ -245,9 +241,7 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
         artista: texto_(t.artista),
         album: texto_(t.album),
         durSec: typeof t.durSec === "number" && Number.isFinite(t.durSec) ? t.durSec : 0,
-        tono: texto_(t.tono),
         ocasion: texto_(t.ocasion),
-        etiquetas: Array.isArray(t.etiquetas) ? t.etiquetas.map(texto_).filter(Boolean) : [],
         archivo: texto_(t.archivo),
       };
     }),

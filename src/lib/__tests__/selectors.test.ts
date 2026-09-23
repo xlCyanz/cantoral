@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, etiquetas, filasDeLista, ocasiones, plantillas, plDur, playQueue, proximoCulto, queueForView, repetibles } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, proximoCulto, queueForView, repetibles } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -10,12 +10,10 @@ function track(over: Partial<Track> & { id: string }): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Do",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -106,8 +104,8 @@ describe("applyFilters", () => {
     expect(applyFilters(state({ ocasion: "Adoración" })).map((t) => t.id)).toEqual(["2", "3"]);
   });
 
-  it("searches across title, artist, album, key, occasion and tags", () => {
-    const s = state({ tracks: [...TRACKS, track({ id: "4", titulo: "Otra", tags: ["ensayo"] })] });
+  it("searches across title, artist, album and occasion", () => {
+    const s = state({ tracks: [...TRACKS, track({ id: "4", titulo: "Otra", album: "Ensayo" })] });
     expect(applyFilters({ ...s, query: "ensayo" }).map((t) => t.id)).toEqual(["4"]);
     expect(applyFilters({ ...s, query: "comunión" }).map((t) => t.id)).toEqual(["1"]);
   });
@@ -370,94 +368,6 @@ describe("filasDeLista", () => {
 
   it("is empty for a list that has no order yet", () => {
     expect(filasDeLista(state({ curPlaylist: "p9" }))).toEqual([]);
-  });
-});
-
-describe("filtrar por etiqueta", () => {
-  const CON_ETIQUETAS: Track[] = [
-    track({ id: "1", titulo: "Uno", tags: ["lento", "clásico"] }),
-    track({ id: "2", titulo: "Dos", tags: ["lento"] }),
-    track({ id: "3", titulo: "Tres", tags: ["júbilo"] }),
-  ];
-
-  it("deja solo las pistas que llevan la etiqueta", () => {
-    const s = state({ tracks: CON_ETIQUETAS, tagFilter: ["lento"] });
-
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["2", "1"]);
-  });
-
-  it("varias etiquetas se suman: tienen que estar todas", () => {
-    // Elegir una segunda etiqueta solo sirve para algo si acota.
-    const s = state({ tracks: CON_ETIQUETAS, tagFilter: ["lento", "clásico"] });
-
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["1"]);
-  });
-
-  it("una combinación que nadie lleva no devuelve nada", () => {
-    const s = state({ tracks: CON_ETIQUETAS, tagFilter: ["lento", "júbilo"] });
-
-    expect(applyFilters(s)).toEqual([]);
-  });
-
-  it("sin etiquetas elegidas no filtra nada", () => {
-    const s = state({ tracks: CON_ETIQUETAS });
-
-    expect(applyFilters(s)).toHaveLength(3);
-  });
-
-  it("no se mezcla con la búsqueda de texto", () => {
-    // Era el problema de fondo: buscar «lento» también encontraba el álbum
-    // llamado «Lento». La etiqueta es un campo aparte.
-    const s = state({
-      tracks: [
-        track({ id: "1", titulo: "Uno", album: "Lento", tags: [] }),
-        track({ id: "2", titulo: "Dos", album: "Otro", tags: ["lento"] }),
-      ],
-      tagFilter: ["lento"],
-    });
-
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["2"]);
-  });
-});
-
-describe("etiquetas", () => {
-  it("lista cada etiqueta una vez, con cuántas pistas la llevan", () => {
-    const s = state({
-      tracks: [
-        track({ id: "1", tags: ["lento", "clásico"] }),
-        track({ id: "2", tags: ["lento"] }),
-      ],
-    });
-
-    expect(etiquetas(s)).toEqual([
-      { nombre: "clásico", cuenta: 1 },
-      { nombre: "lento", cuenta: 2 },
-    ]);
-  });
-
-  it("ordena con la collation española", () => {
-    const s = state({ tracks: [track({ id: "1", tags: ["zamba", "ñandú", "adviento"] })] });
-
-    expect(etiquetas(s).map((e) => e.nombre)).toEqual(["adviento", "ñandú", "zamba"]);
-  });
-
-  it("ignora los espacios de sobra", () => {
-    const s = state({ tracks: [track({ id: "1", tags: ["  ", "lento"] })] });
-
-    expect(etiquetas(s).map((e) => e.nombre)).toEqual(["lento"]);
-  });
-
-  it("mantiene listada la etiqueta filtrada aunque ya no la lleve nadie", () => {
-    // Si no, su chip desaparece y el filtro no se puede quitar.
-    const s = state({ tracks: [track({ id: "1", tags: [] })], tagFilter: ["lento"] });
-
-    expect(etiquetas(s)).toEqual([{ nombre: "lento", cuenta: 0 }]);
-  });
-
-  it("distingue mayúsculas, que es justo el problema que hay que poder ver", () => {
-    const s = state({ tracks: [track({ id: "1", tags: ["Lento"] }), track({ id: "2", tags: ["lento"] })] });
-
-    expect(etiquetas(s).map((e) => e.nombre)).toHaveLength(2);
   });
 });
 

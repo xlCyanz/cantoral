@@ -18,7 +18,7 @@ body:
       label: Qué problema resuelve
       description: Qué te cuesta hoy, y cómo lo resuelves mientras tanto.
       placeholder: |
-        Cada domingo transponemos los acordes a mano porque la cantante no llega al tono
+        Cada domingo rehacemos la lista del culto a mano porque no se puede partir de la del año pasado
         original. Los llevamos en un PDF aparte que nadie sabe cuál es el vigente.
     validations:
       required: true

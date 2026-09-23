@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, FileText, FolderOpen, Play, Save, Search, Tag, Trash2, TriangleAlert, X } from "lucide-react";
-import { etiquetas, ocasiones, useStore } from "../store";
+import { Check, FileText, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
@@ -75,19 +75,14 @@ export default function DetailPanel() {
   const detailOpen = useStore((s) => s.detailOpen);
   const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
   const playlists = useStore((s) => s.playlists);
-  const tagDraft = useStore((s) => s.tagDraft);
   const saveState = useStore((s) => s.saveState);
   const ocasionesDelCatalogo = useStore(ocasiones);
-  const todasLasEtiquetas = useStore(etiquetas);
 
   const closeDetail = useStore((s) => s.closeDetail);
   const relocateTrack = useStore((s) => s.relocateTrack);
   const deleteTrack = useStore((s) => s.deleteTrack);
   const play = useStore((s) => s.play);
   const setEdit = useStore((s) => s.setEdit);
-  const onTagDraft = useStore((s) => s.onTagDraft);
-  const addTag = useStore((s) => s.addTag);
-  const removeTag = useStore((s) => s.removeTag);
   const revealTrack = useStore((s) => s.revealTrack);
   const openSheetEditor = useStore((s) => s.openSheetEditor);
   const detailFijado = useStore((s) => s.detailFijado);
@@ -106,7 +101,6 @@ export default function DetailPanel() {
   // differed from its filename got a path that did not exist, and the separator
   // was a hardcoded backslash on every platform.
   const ruta = sel.path ?? "";
-  const tags = sel.tags || [];
 
 
   return (
@@ -154,7 +148,7 @@ export default function DetailPanel() {
             <div style={{ marginTop: 12, width: "100%", background: "var(--danger-soft)", color: "var(--danger)", padding: "10px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26, flex: "0 0 auto" }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
-                El archivo no se encuentra en el disco. Búscalo para que la pista conserve sus etiquetas.
+                El archivo no se encuentra en el disco. Búscalo para que la pista conserve lo que lleva escrito.
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button
@@ -208,9 +202,7 @@ export default function DetailPanel() {
 
         {/* datos del culto: lo que el equipo necesita saber de un vistazo */}
         <div style={{ marginBottom: 14 }}>
-          {/* Artista y ocasión, y nada más: es lo que pide el rediseño. El
-              tono y el tempo se editaban aquí y ya no se editan en ningún
-              sitio — ver el issue que acompaña a este cambio. */}
+          {/* Artista y ocasión, y nada más: es lo que pide el rediseño. */}
           <div style={{ ...sectionLabel, marginBottom: 8 }}>Datos del culto</div>
           {/* El artista, que hasta ahora se leía y no se podía corregir. En una
               biblioteca de iglesia media viene mal en las etiquetas del
@@ -242,44 +234,6 @@ export default function DetailPanel() {
               {sugerenciasDeOcasion.map((o) => (
                 <option key={o} value={o} />
               ))}
-            </datalist>
-          </div>
-        </div>
-
-        {/* tags */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ ...sectionLabel, marginBottom: 7 }}>Etiquetas</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-            {tags.map((tag) => (
-              <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 4, height: 23, padding: "0 4px 0 9px", borderRadius: 12, background: "var(--primary-soft)", color: "var(--primary)", fontSize: 11, fontWeight: 600 }}>
-                {tag}
-                <button onClick={() => removeTag(tag)} className="hb-primsoft2" style={{ width: 17, height: 17, borderRadius: 5, display: "grid", placeItems: "center", color: "var(--primary)" }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" style={{ width: 10, height: 10 }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                </button>
-              </span>
-            ))}
-            {tags.length === 0 && <span style={{ fontSize: 11, color: "var(--text-3)", padding: "3px 0" }}>Sin etiquetas todavía</span>}
-          </div>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <Tag size={12} style={{ position: "absolute", left: 9, color: "var(--text-3)", pointerEvents: "none" }} />
-            <input
-              value={tagDraft}
-              onChange={(e) => onTagDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") addTag(tagDraft); }}
-              placeholder="Añadir y Enter"
-              list="etiquetas-existentes"
-              className="in-focus"
-              style={{ width: "100%", height: 26, border: "1px dashed var(--border-2)", background: "transparent", borderRadius: 13, padding: "0 10px 0 28px", fontSize: 11, outline: "none", color: "var(--text)" }}
-            />
-            {/* The tags already in use, so a second spelling of one never gets
-                invented. Ones this track carries are left out — offering them
-                would only invite a no-op. */}
-            <datalist id="etiquetas-existentes">
-              {todasLasEtiquetas
-                .filter((e) => !tags.includes(e.nombre))
-                .map((e) => (
-                  <option key={e.nombre} value={e.nombre} />
-                ))}
             </datalist>
           </div>
         </div>

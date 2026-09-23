@@ -47,7 +47,7 @@ export interface UiPrefs {
 /** The settings key it is stored under. */
 export const UI_PREFS_KEY = "ui";
 
-const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "tono", "bpm", "dur"];
+const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "bpm", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
 // «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde

@@ -9,7 +9,7 @@ import { favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
 import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
 import type { Densidad, SortKey, Track } from "../lib/types";
 
-const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 48px 62px 72px";
+const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 62px 72px";
 
 /** White glyph shown inside a cover swatch, keyed by track state. */
 function CoverInner({ t, chico }: { t: Track; chico?: boolean }) {
@@ -98,7 +98,7 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
     <div
       className="lib-row"
       tabIndex={0}
-      aria-label={`${t.titulo}, ${t.artista}${t.tono ? `, tono ${t.tono}` : ""}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
+      aria-label={`${t.titulo}, ${t.artista}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
       aria-selected={elegida}
       draggable
       onDragStart={(e) => {
@@ -183,8 +183,6 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.album}</div>
       {/* ocasion */}
       <div><span style={ocasionBadge}>{t.ocasion}</span></div>
-      {/* tono */}
-      <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{t.tono}</div>
       {/* dur */}
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       {/* actions */}
@@ -244,7 +242,6 @@ function ColumnHeader() {
     { key: "titulo", label: "Título" },
     { key: "album", label: "Álbum" },
     { key: "ocasion", label: "Ocasión" },
-    { key: "tono", label: "Tono" },
     { key: "dur", label: "", icon: true },
   ];
   return (
@@ -485,9 +482,9 @@ function Tabla() {
         // Decir dónde se buscó es la respuesta a la pregunta que se hace
         // cualquiera al ver esto: «¿lo estoy escribiendo mal, o de verdad no
         // está?». La lista de campos es la que `applyFilters` recorre.
-        desc={`Se buscó en el título, el artista, el álbum, el tono, la ocasión y las etiquetas de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
+        desc={`Se buscó en el título, el artista, el álbum y la ocasión de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
         action={
-          <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null, tagFilter: [] })} className="hb-s2" style={emptyBtnSecondary}>
+          <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null })} className="hb-s2" style={emptyBtnSecondary}>
             Quitar la búsqueda y los filtros
           </button>
         }

@@ -54,11 +54,7 @@ pub struct SharedTrack {
     #[serde(default)]
     pub dur_sec: i64,
     #[serde(default)]
-    pub tono: String,
-    #[serde(default)]
     pub ocasion: String,
-    #[serde(default)]
-    pub etiquetas: Vec<String>,
     /// File name only — never the path it sat at on the other machine.
     #[serde(default)]
     pub archivo: String,
@@ -152,9 +148,7 @@ mod tests {
                 artista: "Coro Congregacional".into(),
                 album: "Himnos".into(),
                 dur_sec: 252,
-                tono: "Sol".into(),
                 ocasion: "Adoración".into(),
-                etiquetas: vec!["lenta".into()],
                 archivo: "sublime.mp3".into(),
             }],
             exportado: "2026-01-01T00:00:00Z".into(),
@@ -168,7 +162,6 @@ mod tests {
         assert_eq!(leido.pistas.len(), 1);
         assert_eq!(leido.pistas[0].titulo, "Sublime Gracia");
         assert_eq!(leido.pistas[0].dur_sec, 252);
-        assert_eq!(leido.pistas[0].etiquetas, vec!["lenta"]);
         assert_eq!(leido.pistas[0].archivo, "sublime.mp3");
     }
 

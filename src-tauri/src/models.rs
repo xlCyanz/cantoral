@@ -12,13 +12,11 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub tono: String,
     pub bpm: i64,
     pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
     pub carpeta: String,
-    pub tags: Vec<String>,
     pub fav: bool,
     pub missing: bool,
     /// Recency ordinal (row id) — higher means added more recently.
@@ -91,7 +89,6 @@ pub struct DuplicateTrack {
     pub fsize: i64,
     pub fav: bool,
     pub missing: bool,
-    pub tags: Vec<String>,
 }
 
 /// A set of tracks that look like the same song.

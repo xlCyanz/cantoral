@@ -21,7 +21,6 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
   { keys: "Esc", label: "Cerrar diálogo o panel, o cortar la proyección" },
   { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
-  { keys: "+ / −", label: "Subir o bajar el tono en modo culto" },
   { keys: "B", label: "Dejar el proyector en negro" },
   { keys: "→", label: "Pasar al siguiente elemento proyectado" },
   { keys: "?", label: "Mostrar esta ayuda" },
@@ -120,16 +119,6 @@ export function registerShortcuts(): () => void {
       if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
         s.serviceGo(-1);
-        return;
-      }
-      if (e.key === "+" || e.key === "=") {
-        e.preventDefault();
-        s.transposeService(1);
-        return;
-      }
-      if (e.key === "-") {
-        e.preventDefault();
-        s.transposeService(-1);
         return;
       }
     }

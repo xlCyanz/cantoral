@@ -286,14 +286,6 @@ pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<S
     snapshot(&conn).map_err(e)
 }
 
-/// Put a tag on a whole selection, or take it off it.
-#[tauri::command]
-pub fn tag_tracks(db: State<Db>, ids: Vec<String>, tag: String, add: bool) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    db::tag_tracks(&conn, &ids_de(&ids)?, &tag, add).map_err(e)?;
-    snapshot(&conn).map_err(e)
-}
-
 /// Drop a whole selection from the catalogue. The audio files are untouched.
 #[tauri::command]
 pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
@@ -301,24 +293,6 @@ pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
     let parsed = ids_de(&ids)?;
     db::delete_tracks(&conn, &parsed).map_err(e)?;
     log::info!("{} tracks removed from the catalogue", parsed.len());
-    snapshot(&conn).map_err(e)
-}
-
-/// Rename a tag everywhere, folding it into an existing one if the name is taken.
-#[tauri::command]
-pub fn rename_tag(db: State<Db>, from: String, to: String) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    let total = db::rename_tag(&conn, &from, &to).map_err(e)?;
-    log::info!("tag «{from}» renamed to «{to}» ({total} tracks)");
-    snapshot(&conn).map_err(e)
-}
-
-/// Remove a tag from every track that carried it.
-#[tauri::command]
-pub fn delete_tag(db: State<Db>, name: String) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    db::delete_tag(&conn, &name).map_err(e)?;
-    log::info!("tag «{name}» deleted");
     snapshot(&conn).map_err(e)
 }
 
@@ -369,7 +343,7 @@ pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
-/// Point a track at the file's new location, keeping its tags and favourite.
+/// Point a track at the file's new location, keeping what it carries.
 #[tauri::command]
 pub fn relocate_track(
     app: AppHandle,
@@ -425,15 +399,12 @@ pub fn update_track(
     db: State<Db>,
     id: String,
     artista: String,
-    tono: String,
     bpm: i64,
     ocasion: String,
-    tags: Vec<String>,
 ) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &artista, &tono, bpm, &ocasion).map_err(e)?;
-    db::set_track_tags(&conn, tid, &tags).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista, bpm, &ocasion).map_err(e)?;
     Ok(())
 }
 

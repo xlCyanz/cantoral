@@ -8,7 +8,7 @@ import { formatearFecha } from "../lib/fechas";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
 
-const GRID = "26px 26px minmax(150px,3fr) 116px 50px 58px 86px";
+const GRID = "26px 26px minmax(150px,3fr) 116px 58px 86px";
 
 const menuItem = {
   display: "flex",
@@ -110,7 +110,6 @@ const PlRow = memo(function PlRow({ t, num, total }: { t: Track; num: number; to
         </div>
       </div>
       <div><span style={ocasionBadge}>{t.ocasion}</span></div>
-      <div style={{ fontSize: "12.5px", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{t.tono}</div>
       <div style={{ fontSize: "12.5px", color: "var(--text-2)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
         {/* Visible buttons, not just the drag handle: precise dragging is a
@@ -280,7 +279,7 @@ export default function PlaylistView() {
           style={{ padding: "8px 24px 0", ...(sobreLaLista ? { outline: "2px dashed var(--primary)", outlineOffset: -6, borderRadius: 14 } : {}) }}
         >
           <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "8px 8px 9px", borderBottom: "1px solid var(--border)", fontSize: 11, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>
-            <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span>Tono</span><span style={{ textAlign: "right" }}>Dur.</span><span />
+            <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span style={{ textAlign: "right" }}>Dur.</span><span />
           </div>
           <div role="list">
             {rows.map((t, i) => (

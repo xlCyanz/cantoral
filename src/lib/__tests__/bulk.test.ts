@@ -9,7 +9,6 @@ import type { Track } from "../types";
 
 const addTracksToPlaylistCmd = vi.fn<(pl: string, ids: string[]) => Promise<Snapshot | null>>();
 const setTracksFavCmd = vi.fn<(ids: string[], fav: boolean) => Promise<Snapshot | null>>();
-const tagTracksCmd = vi.fn<(ids: string[], tag: string, add: boolean) => Promise<Snapshot | null>>();
 const deleteTracksCmd = vi.fn<(ids: string[]) => Promise<Snapshot | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -18,7 +17,6 @@ vi.mock("../api", async (importOriginal) => ({
   assetUrl: (p: string) => p,
   addTracksToPlaylistCmd: (pl: string, ids: string[]) => addTracksToPlaylistCmd(pl, ids),
   setTracksFavCmd: (ids: string[], fav: boolean) => setTracksFavCmd(ids, fav),
-  tagTracksCmd: (ids: string[], tag: string, add: boolean) => tagTracksCmd(ids, tag, add),
   deleteTracksCmd: (ids: string[]) => deleteTracksCmd(ids),
 }));
 
@@ -33,12 +31,10 @@ function track(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Sol",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -52,8 +48,8 @@ const CINCO = ["a", "b", "c", "d", "e"].map((id) => track(id, { titulo: `Pista $
 
 beforeEach(() => {
   useStore.setState(initial, true);
-  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, tagTracksCmd, deleteTracksCmd]) m.mockReset();
-  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, tagTracksCmd, deleteTracksCmd]) {
+  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) m.mockReset();
+  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) {
     m.mockResolvedValue(null);
   }
   useStore.setState({
@@ -277,51 +273,6 @@ describe("favoritas en bloque", () => {
 
     expect(useStore.getState().tracks.find((t) => t.id === "a")!.fav).toBe(false);
     expect(useStore.getState().tracks.find((t) => t.id === "b")!.fav).toBe(true);
-  });
-});
-
-describe("etiquetar en bloque", () => {
-  it("pone la etiqueta en todas las elegidas", () => {
-    useStore.setState({ selection: ["a", "b"] });
-
-    useStore.getState().bulkTag("navidad", true);
-
-    expect(useStore.getState().tracks.find((t) => t.id === "a")!.tags).toEqual(["navidad"]);
-    expect(tagTracksCmd).toHaveBeenCalledWith(["a", "b"], "navidad", true);
-  });
-
-  it("se acopla a la etiqueta que ya existe en vez de crear otra", () => {
-    // El mismo cuidado que el panel de detalle: una edición en bloque no puede
-    // ser lo que invente una segunda forma de escribir la misma etiqueta.
-    useStore.setState({
-      tracks: [track("a", { tags: ["navidad"] }), track("b")],
-      selection: ["b"],
-    });
-
-    useStore.getState().bulkTag("Navidad", true);
-
-    expect(useStore.getState().tracks.find((t) => t.id === "b")!.tags).toEqual(["navidad"]);
-    expect(tagTracksCmd).toHaveBeenCalledWith(["b"], "navidad", true);
-  });
-
-  it("la quita de todas las elegidas", () => {
-    useStore.setState({
-      tracks: [track("a", { tags: ["navidad", "lento"] }), track("b", { tags: ["navidad"] })],
-      selection: ["a"],
-    });
-
-    useStore.getState().bulkTag("navidad", false);
-
-    expect(useStore.getState().tracks.find((t) => t.id === "a")!.tags).toEqual(["lento"]);
-    expect(useStore.getState().tracks.find((t) => t.id === "b")!.tags).toEqual(["navidad"]);
-  });
-
-  it("ignora una etiqueta en blanco", () => {
-    useStore.setState({ selection: ["a"] });
-
-    useStore.getState().bulkTag("   ", true);
-
-    expect(tagTracksCmd).not.toHaveBeenCalled();
   });
 });
 

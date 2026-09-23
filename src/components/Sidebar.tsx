@@ -100,7 +100,6 @@ export default function Sidebar() {
   const culto = useStore(proximoCulto);
 
   const verTodaLaBiblioteca = useStore((s) => s.verTodaLaBiblioteca);
-  const tagFilter = useStore((s) => s.tagFilter);
   const query = useStore((s) => s.query);
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
@@ -122,7 +121,7 @@ export default function Sidebar() {
   // «Todas» está encendida cuando de verdad se están viendo todas: sin filtro
   // rápido, sin ocasión, sin etiquetas y sin búsqueda. Contaba solo las dos
   // primeras, así que con una etiqueta puesta decía que estaban todas.
-  const todasActive = libActive && !qf && !ocasion && tagFilter.length === 0 && !query.trim();
+  const todasActive = libActive && !qf && !ocasion && !query.trim();
 
   // El mismo orden en que se lee la vista de listas: primero lo que viene,
   // después lo que ya pasó. Una plantilla no es un culto y se queda fuera.
