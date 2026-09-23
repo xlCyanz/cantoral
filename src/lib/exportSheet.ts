@@ -42,10 +42,9 @@ function lyricsHtml(tracks: Track[], sheets: Record<string, Sheet>): string {
       const letra = hoja?.letra?.trim() ?? "";
       if (!escrita(hoja)) return "";
       const cuerpo = acordes ? lineasHtml(acordes) : `<pre class="letra">${esc(letra)}</pre>`;
-      const tono = t.tono ? ` · Tono ${esc(t.tono)}` : "";
       return `  <section class="hoja">
     <h2>${esc(t.titulo)}</h2>
-    <p class="meta">${esc(t.artista)}${tono}</p>
+    <p class="meta">${esc(t.artista)}</p>
 ${cuerpo}
   </section>`;
     })
@@ -103,7 +102,6 @@ export function playlistSheetHtml(
         esc(t.titulo),
         esc(t.artista),
         esc(t.ocasion),
-        esc(t.tono),
         t.bpm ? String(t.bpm) : "",
         esc(t.dur),
       ];
@@ -112,9 +110,8 @@ export function playlistSheetHtml(
         <td class="titulo">${cells[1]}</td>
         <td>${cells[2]}</td>
         <td>${cells[3]}</td>
-        <td class="tono">${cells[4]}</td>
+        <td class="num">${cells[4]}</td>
         <td class="num">${cells[5]}</td>
-        <td class="num">${cells[6]}</td>
       </tr>`;
     })
     .join("\n");
@@ -156,7 +153,6 @@ export function playlistSheetHtml(
   td { padding: 9px 8px; border-bottom: 1px solid #e1e5ea; vertical-align: top; }
   tr { page-break-inside: avoid; }
   .titulo { font-weight: 600; }
-  .tono { font-weight: 600; white-space: nowrap; }
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th.num { text-align: right; }
   footer { margin-top: 26px; font-size: 10.5px; color: #8d95a1; }
@@ -186,7 +182,6 @@ export function playlistSheetHtml(
         <th>Título</th>
         <th>Artista</th>
         <th>Ocasión</th>
-        <th>Tono</th>
         <th class="num">BPM</th>
         <th class="num">Dur.</th>
       </tr>

@@ -3,8 +3,8 @@
 // cambiaba la tabla, que es exactamente como se lee un botón roto.
 //
 // Lo que se fija aquí es que suelte *todo* lo que estreche la biblioteca —el
-// filtro rápido, la ocasión, las etiquetas y la búsqueda— y que no se lleve
-// por delante la pantalla de una biblioteca sin indexar.
+// filtro rápido, la ocasión y la búsqueda— y que no se lleve por delante la
+// pantalla de una biblioteca sin indexar.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { useStore } from "../../store";
@@ -30,16 +30,6 @@ describe("ver toda la biblioteca", () => {
     useStore.getState().verTodaLaBiblioteca();
 
     expect(useStore.getState().ocasion).toBeNull();
-  });
-
-  it("suelta las etiquetas", () => {
-    // «Todas» quiere decir todas: una etiqueta puesta dejaba la tabla
-    // filtrada con el botón diciendo que estaban todas.
-    useStore.setState({ tagFilter: ["clásico", "lento"] });
-
-    useStore.getState().verTodaLaBiblioteca();
-
-    expect(useStore.getState().tagFilter).toEqual([]);
   });
 
   it("y suelta la búsqueda", () => {

@@ -145,9 +145,6 @@ function estadoDeLaBiblioteca(s: CantoralState): LibState {
   return s.tracks.length ? "content" : "empty";
 }
 
-/** Una sola lista vacía, para no romper la identidad que memorizan los selectores. */
-const VACIO_ETIQUETAS: string[] = [];
-
 /**
  * El tema del sistema según el webview, que no siempre acierta.
  *
@@ -186,7 +183,6 @@ import { estrofasDe } from "./lib/estrofas";
 import type { Estrofa } from "./lib/estrofas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
-import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
 import { alHacerClic, enOrden, vigentes } from "./lib/selection";
 import type { Modificadores } from "./lib/selection";
 import {
@@ -232,8 +228,6 @@ import {
   pickMediaFile,
   pickSavePath,
   reconcileLibraryCmd,
-  renameTagCmd,
-  deleteTagCmd,
   revealFile,
   relocateFolderCmd,
   relocateTrackCmd,
@@ -246,7 +240,6 @@ import {
   temaDelSistema,
   setTrackFav,
   setTracksFavCmd,
-  tagTracksCmd,
   deleteTracksCmd,
   updatePlaylistCmd,
   updateTrackCmd,
@@ -365,14 +358,6 @@ export interface CantoralState {
   query: string;
   qf: QuickFilter;
   ocasion: string | null;
-  /**
-   * Tags the library is filtered by, ANDed together.
-   *
-   * Separate from `query` because a tag is the one field the user controls
-   * completely, and folding it into the free-text search meant «lento» also
-   * matched an album called «Lento».
-   */
-  tagFilter: string[];
   groupBy: GroupBy;
   densidad: Densidad;
   /**
@@ -487,7 +472,6 @@ export interface CantoralState {
   // ---- detail panel ----
   selId: string | null;
   detailOpen: boolean;
-  tagDraft: string;
   /** How the selected track's edit is doing. Edits write themselves. */
   saveState: SaveState;
 
@@ -573,8 +557,6 @@ export interface CantoralState {
   serviceOpen: boolean;
   /** Position within the open list's order. */
   serviceIdx: number;
-  /** Semitones the sheets are shifted by, for the key the group sings in. */
-  serviceSemitones: number;
   /** Text size multiplier, for the distance between the stand and the eyes. */
   serviceScale: number;
 
@@ -611,12 +593,6 @@ export interface CantoralState {
   clearQuery: () => void;
   onQuickFilter: (q: Exclude<QuickFilter, null>) => void;
   onOcasion: (o: string) => void;
-  /** Add or remove a tag from the filter. Several tags narrow, never widen. */
-  onTagFilter: (tag: string) => void;
-  /** Rename a tag everywhere, folding it into an existing one if taken. */
-  renameTag: (from: string, to: string) => void;
-  /** Take a tag off every track that carried it, after confirming. */
-  deleteTag: (name: string) => void;
   onGroupBy: (g: GroupBy) => void;
   setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
@@ -656,8 +632,6 @@ export interface CantoralState {
   bulkAddToPlaylist: (playlistId: string) => void;
   /** Mark or unmark the selection as favourites. */
   bulkFav: (fav: boolean) => void;
-  /** Put a tag on the selection, or take it off it. */
-  bulkTag: (tag: string, add: boolean) => void;
   /** Drop the selection from the catalogue, after confirming. */
   bulkDelete: () => void;
   onFav: (id: string) => void;
@@ -678,16 +652,13 @@ export interface CantoralState {
 
   /** Change one field of the selected track. It writes itself, debounced. */
   setEdit: (field: keyof TrackEdit, val: unknown) => void;
-  onTagDraft: (v: string) => void;
-  addTag: (v: string) => void;
-  removeTag: (tag: string) => void;
   closeDetail: () => void;
   /**
    * Si el panel de detalle aguanta un `Esc`.
    *
-   * Vive en la sesión: es un modo de trabajo de un rato —estoy etiquetando
-   * pista por pista y no quiero que se me cierre el panel— y no una decisión
-   * que valga la pena recordar hasta la semana que viene.
+   * Vive en la sesión: es un modo de trabajo de un rato —estoy repasando la
+   * biblioteca pista por pista y no quiero que se me cierre el panel— y no una
+   * decisión que valga la pena recordar hasta la semana que viene.
    */
   detailFijado: boolean;
   toggleDetailFijado: () => void;
@@ -757,7 +728,7 @@ export interface CantoralState {
 
   /** Show a track's file in the system file manager. */
   revealTrack: (id: string) => void;
-  /** Point a track at its file's new location, keeping tags and favourite. */
+  /** Point a track at its file's new location, keeping what it carries. */
   relocateTrack: (id: string) => void;
   /** Drop a track from the catalogue. The audio file is never touched. */
   deleteTrack: (id: string) => void;
@@ -789,7 +760,6 @@ export interface CantoralState {
   openService: () => void;
   closeService: () => void;
   serviceGo: (delta: number) => void;
-  transposeService: (delta: number) => void;
   scaleService: (delta: number) => void;
 
   /** Look for tracks that are the same song. */
@@ -968,7 +938,7 @@ export const useStore = create<CantoralState>((set, get) => {
     const t = get().tracks.find((x) => x.id === id);
     if (!t) return;
 
-    updateTrackCmd(t.id, t.artista, t.tono, t.bpm, t.ocasion, t.tags || [])
+    updateTrackCmd(t.id, t.artista, t.bpm, t.ocasion)
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.
@@ -1033,7 +1003,6 @@ export const useStore = create<CantoralState>((set, get) => {
     query: "",
     qf: null,
     ocasion: null,
-    tagFilter: [],
     groupBy: "none",
     densidad: "comoda",
     gruposColapsados: [],
@@ -1061,7 +1030,6 @@ export const useStore = create<CantoralState>((set, get) => {
 
     selId: null,
     detailOpen: false,
-    tagDraft: "",
     saveState: "idle",
 
     dialog: null,
@@ -1100,7 +1068,6 @@ export const useStore = create<CantoralState>((set, get) => {
 
     serviceOpen: false,
     serviceIdx: 0,
-    serviceSemitones: 0,
     serviceScale: 1,
 
     duplicates: [],
@@ -1113,15 +1080,14 @@ export const useStore = create<CantoralState>((set, get) => {
     // «Todas» y el propio «Biblioteca» de la barra lateral. No basta con
     // cambiar de vista: estando ya en la biblioteca con un filtro puesto, eso
     // no hacía absolutamente nada —ni se encendía el botón ni cambiaba la
-    // tabla—, que es como se lee un botón roto. Suelta también la búsqueda y
-    // las etiquetas, porque «todas» quiere decir todas.
+    // tabla—, que es como se lee un botón roto. Suelta también la búsqueda,
+    // porque «todas» quiere decir todas.
     verTodaLaBiblioteca: () =>
       set((s) => ({
         view: "biblioteca",
         libState: estadoDeLaBiblioteca(s),
         qf: null,
         ocasion: null,
-        tagFilter: VACIO_ETIQUETAS,
         query: "",
       })),
     showColecciones: () => set({ view: "colecciones" }),
@@ -1160,14 +1126,6 @@ export const useStore = create<CantoralState>((set, get) => {
     onQuickFilter: (q) =>
       set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: estadoDeLaBiblioteca(s) })),
     onOcasion: (o) => set((s) => ({ ocasion: s.ocasion === o ? null : o || null })),
-    onTagFilter: (tag) =>
-      set((st) => ({
-        // A new array every time: the memoised selectors key on its identity.
-        tagFilter: st.tagFilter.includes(tag)
-          ? st.tagFilter.filter((t) => t !== tag)
-          : [...st.tagFilter, tag],
-        view: "biblioteca",
-      })),
     // Cambiar el eje deja las claves plegadas sin sentido —«f1/Clásicos» no
     // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
     onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
@@ -1406,7 +1364,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!r.abrirDetalle) return;
       // Moving to another track must not leave the previous one's edit in limbo.
       if (st.selId !== id) get().flushEdit();
-      set({ selId: id, detailOpen: true, tagDraft: "", saveState: "idle" });
+      set({ selId: id, detailOpen: true, saveState: "idle" });
     },
 
     selectAllVisible: () => {
@@ -1510,32 +1468,6 @@ export const useStore = create<CantoralState>((set, get) => {
       });
     },
 
-    bulkTag: (tag, add) => {
-      const ids = seleccionVigente(get());
-      const nombre = normalizarEtiqueta(tag);
-      if (ids.length === 0 || !nombre) return;
-      // The same snapping as the detail panel: a bulk edit must not be what
-      // invents a second spelling of an existing tag.
-      const existente = etiquetaEquivalente(nombre, etiquetas(get()).map((e) => e.nombre));
-      const final = add ? (existente ?? nombre) : nombre;
-      const tocadas = new Set(ids);
-      set((st) => ({
-        tracks: st.tracks.map((t) => {
-          if (!tocadas.has(t.id)) return t;
-          const tags = t.tags || [];
-          if (add) return tags.includes(final) ? t : { ...t, tags: [...tags, final].sort() };
-          return { ...t, tags: tags.filter((x) => x !== final) };
-        }),
-        rowMenu: null,
-      }));
-      toast(add ? `Etiqueta «${final}» agregada` : `Etiqueta «${final}» quitada`);
-      if (!isTauri()) return;
-      void tagTracksCmd(ids, final, add).catch((err) => {
-        console.error("tag_tracks failed", err);
-        toast("No se pudo guardar la etiqueta", { tipo: "error" });
-      });
-    },
-
     bulkDelete: () => {
       const ids = seleccionVigente(get());
       if (ids.length === 0) return;
@@ -1549,8 +1481,8 @@ export const useStore = create<CantoralState>((set, get) => {
             ? "¿Quitar esta pista de la biblioteca?"
             : `¿Quitar ${ids.length} pistas de la biblioteca?`,
         message: cultos
-          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.`
-          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus etiquetas, favoritos, tono, tempo, ocasión y la letra que tengan escrita.`,
+          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos, tempo, ocasión y la letra que tengan escrita.`
+          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos, tempo, ocasión y la letra que tengan escrita.`,
         safe: "Los archivos no se tocan. Siguen en el disco, en su carpeta, con su nombre. Si vuelves a escanear la carpeta, reaparecen.",
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
@@ -1667,30 +1599,6 @@ export const useStore = create<CantoralState>((set, get) => {
         saveState: "saving",
       }));
       scheduleSave(id);
-    },
-    onTagDraft: (v) => set({ tagDraft: v }),
-    addTag: (v) => {
-      const val = normalizarEtiqueta(v);
-      if (!val) return;
-      const s = get();
-      if (!s.selId) return;
-      // A tag that already exists but for its capitalisation is the same tag to
-      // everyone except SQLite, so the one in the catalogue wins and the pair
-      // never forms in the first place.
-      const yaExiste = etiquetaEquivalente(val, etiquetas(s).map((e) => e.nombre));
-      const nombre = yaExiste ?? val;
-      const curT = s.tracks.find((x) => x.id === s.selId);
-      const tags = (curT?.tags || []).slice();
-      if (!tags.includes(nombre)) tags.push(nombre);
-      s.setEdit("tags", tags);
-      set({ tagDraft: "" });
-      if (nombre !== val) toast(`Se usó «${nombre}», que ya existía`, { tipo: "info" });
-    },
-    removeTag: (tag) => {
-      const s = get();
-      if (!s.selId) return;
-      const curT = s.tracks.find((x) => x.id === s.selId);
-      s.setEdit("tags", (curT?.tags || []).filter((t) => t !== tag));
     },
     toggleDetailFijado: () => set((st) => ({ detailFijado: !st.detailFijado })),
 
@@ -2287,7 +2195,7 @@ export const useStore = create<CantoralState>((set, get) => {
           .then((snap) => {
             applySnapshot(snap);
             toast(`«${t.titulo}» vuelve a estar localizada`, {
-              detalle: "Conserva sus etiquetas y su favorito.",
+              detalle: "Conserva su favorito y su sitio en los cultos.",
             });
           })
           .catch((err) => {
@@ -2305,7 +2213,7 @@ export const useStore = create<CantoralState>((set, get) => {
         title: "¿Quitar esta pista de la biblioteca?",
         message: `«${t.titulo}» dejará de aparecer en el catálogo.`,
         detail:
-          `Se pierden sus etiquetas, favorito, tono, tempo y ocasión.` +
+          `Se pierden su favorito, tempo, ocasión y la letra que tenga escrita.` +
           (listas.length
             ? ` También sale de ${listas.length === 1 ? "la lista" : "las listas"} ${listas
                 .map((p) => `«${p.nombre}»`)
@@ -2345,7 +2253,7 @@ export const useStore = create<CantoralState>((set, get) => {
           .then((snap) => {
             applySnapshot(snap);
             toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
-              detalle: "Sus pistas conservan etiquetas, favoritos y su sitio en los cultos.",
+              detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
             });
           })
           .catch((err) => {
@@ -2363,7 +2271,7 @@ export const useStore = create<CantoralState>((set, get) => {
         message: `«${f.nombre}» dejará de estar indexada.`,
         detail:
           n > 0
-            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus etiquetas, favoritos, tono y ocasión. Eso no se puede deshacer.`
+            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus favoritos y su ocasión. Eso no se puede deshacer.`
             : "La carpeta no tiene pistas indexadas.",
         safe: "Tus archivos de audio no se tocan: siguen donde están.",
         confirmLabel: "Quitar carpeta",
@@ -2566,11 +2474,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // Starts on whatever is playing if it belongs to this list, so opening
       // the view mid-song lands on the song.
       const enCurso = ids.indexOf(get().playerId);
-      set({
-        serviceOpen: true,
-        serviceIdx: enCurso >= 0 ? enCurso : 0,
-        serviceSemitones: 0,
-      });
+      set({ serviceOpen: true, serviceIdx: enCurso >= 0 ? enCurso : 0 });
     },
 
     closeService: () => set({ serviceOpen: false }),
@@ -2579,101 +2483,11 @@ export const useStore = create<CantoralState>((set, get) => {
       const ids = get().plOrder[get().curPlaylist] || [];
       if (ids.length === 0) return;
       const siguiente = Math.min(ids.length - 1, Math.max(0, get().serviceIdx + delta));
-      // Moving to another song drops the transposition: it belonged to the one
-      // being left, and carrying it over would silently put the next song in a
-      // key nobody asked for.
-      set({ serviceIdx: siguiente, serviceSemitones: 0 });
+      set({ serviceIdx: siguiente });
     },
-
-    transposeService: (delta) =>
-      set((st) => ({ serviceSemitones: Math.max(-11, Math.min(11, st.serviceSemitones + delta)) })),
 
     scaleService: (delta) =>
       set((st) => ({ serviceScale: Math.max(0.7, Math.min(2.4, +(st.serviceScale + delta).toFixed(2))) })),
-
-    // ---------- tags ----------
-    renameTag: (from, to) => {
-      const nombre = normalizarEtiqueta(to);
-      if (!nombre || nombre === from) return;
-      const fusion = etiquetas(get()).some((e) => e.nombre !== from && e.nombre === nombre);
-      const aplicar = () => {
-        // The filter follows the rename, or it would be pinned to a tag that
-        // no longer exists and quietly show nothing.
-        set((st) => ({ tagFilter: st.tagFilter.map((t) => (t === from ? nombre : t)) }));
-        if (!isTauri()) {
-          set((st) => ({
-            tracks: st.tracks.map((t) => {
-              const tags = t.tags || [];
-              if (!tags.includes(from)) return t;
-              return { ...t, tags: [...new Set(tags.map((x) => (x === from ? nombre : x)))].sort() };
-            }),
-          }));
-          toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada", {
-            detalle: fusion ? "Las pistas de las dos quedan bajo el mismo nombre." : undefined,
-          });
-          return;
-        }
-        renameTagCmd(from, nombre)
-          .then((snap) => {
-            if (snap) applySnapshot(snap);
-            toast(fusion ? `«${from}» se unió a «${nombre}»` : "Etiqueta renombrada", {
-              detalle: fusion ? "Las pistas de las dos quedan bajo el mismo nombre." : undefined,
-            });
-          })
-          .catch((err) => {
-            console.error("rename_tag failed", err);
-            toast(String(err), { tipo: "error" });
-          });
-      };
-
-      if (!fusion) {
-        aplicar();
-        return;
-      }
-      // Folding two tags together cannot be undone by renaming back, so it is
-      // asked rather than assumed.
-      const cuantas = etiquetas(get()).find((e) => e.nombre === from)?.cuenta ?? 0;
-      get().askConfirm({
-        title: "¿Unir las dos etiquetas?",
-        message: `Ya existe una etiqueta «${nombre}». Las pistas de «${from}» pasarán a ella y «${from}» desaparecerá.`,
-        detail: `${cuantas} ${cuantas === 1 ? "pista lleva" : "pistas llevan"} «${from}».`,
-        safe: "Ninguna pista sale de la biblioteca; solo cambia la etiqueta.",
-        confirmLabel: "Unir",
-        onConfirm: aplicar,
-      });
-    },
-
-    deleteTag: (name) => {
-      const cuantas = etiquetas(get()).find((e) => e.nombre === name)?.cuenta ?? 0;
-      get().askConfirm({
-        title: "¿Quitar esta etiqueta?",
-        message: `«${name}» se quitará de todas las pistas que la llevan.`,
-        detail: `${cuantas} ${cuantas === 1 ? "pista la lleva" : "pistas la llevan"}.`,
-        safe: "Las pistas se quedan en la biblioteca con el resto de sus etiquetas.",
-        confirmLabel: "Quitar etiqueta",
-        onConfirm: () => {
-          set((st) => ({ tagFilter: st.tagFilter.filter((t) => t !== name) }));
-          if (!isTauri()) {
-            set((st) => ({
-              tracks: st.tracks.map((t) =>
-                (t.tags || []).includes(name) ? { ...t, tags: (t.tags || []).filter((x) => x !== name) } : t,
-              ),
-            }));
-            toast("Etiqueta quitada");
-            return;
-          }
-          deleteTagCmd(name)
-            .then((snap) => {
-              if (snap) applySnapshot(snap);
-              toast("Etiqueta quitada");
-            })
-            .catch((err) => {
-              console.error("delete_tag failed", err);
-              toast(String(err), { tipo: "error" });
-            });
-        },
-      });
-    },
 
     // ---------- duplicates ----------
     findDuplicates: () => {
@@ -2707,7 +2521,7 @@ export const useStore = create<CantoralState>((set, get) => {
         message: `Se queda «${queda.titulo}» (${queda.formato}, ${queda.carpeta}). Las demás salen de la biblioteca.`,
         detail: copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`).join("\n\n"),
         safe:
-          "Sus etiquetas, su favorito y su sitio en las listas para culto pasan a la que se queda. " +
+          "Su favorito y su sitio en las listas para culto pasan a la que se queda. " +
           "Los archivos de audio no se borran del disco.",
         confirmLabel: "Fusionar",
         onConfirm: () => {
@@ -2716,13 +2530,9 @@ export const useStore = create<CantoralState>((set, get) => {
             // Browser stand-in: the same visible outcome, none of the SQL.
             set((st) => {
               const fuera = new Set(ids);
-              const etiquetas = new Set<string>();
               let fav = false;
               st.tracks.forEach((t) => {
-                if (t.id === keepId || fuera.has(t.id)) {
-                  (t.tags || []).forEach((x) => etiquetas.add(x));
-                  fav = fav || t.fav;
-                }
+                if (t.id === keepId || fuera.has(t.id)) fav = fav || t.fav;
               });
               // Lists follow the survivor, and a list that held two copies
               // ends up with the song once, not twice.
@@ -2741,13 +2551,13 @@ export const useStore = create<CantoralState>((set, get) => {
               return {
                 tracks: st.tracks
                   .filter((t) => !fuera.has(t.id))
-                  .map((t) => (t.id === keepId ? { ...t, tags: [...etiquetas].sort(), fav } : t)),
+                  .map((t) => (t.id === keepId ? { ...t, fav } : t)),
                 plOrder,
                 duplicates: st.duplicates.filter((g) => g.signature !== signature),
               };
             });
             toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
-              detalle: "Se quedó una con las etiquetas, el favorito y su sitio en los cultos.",
+              detalle: "Se quedó una con el favorito y su sitio en los cultos.",
             });
             return;
           }
@@ -2755,7 +2565,7 @@ export const useStore = create<CantoralState>((set, get) => {
             .then((snap) => {
               if (snap) applySnapshot(snap);
               toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
-                detalle: "Se quedó una con las etiquetas, el favorito y su sitio en los cultos.",
+                detalle: "Se quedó una con el favorito y su sitio en los cultos.",
               });
               // `applySnapshot` cleared the list; fill it with what is left.
               get().findDuplicates();
@@ -2993,7 +2803,7 @@ export const seleccionVigente = recordar(
     const visibles = applyFilters(s).map((t) => t.id);
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir, s.selection],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
 /**
@@ -3035,40 +2845,6 @@ export const proximoCulto = recordar(
   (s: CantoralState) => [s.playlists, new Date().toDateString()],
 );
 
-/** A tag and how many tracks carry it. */
-export interface Etiqueta {
-  nombre: string;
-  cuenta: number;
-}
-
-/**
- * Every tag in the catalogue, with its use count.
- *
- * Derived rather than fetched: tags already travel with the tracks, so asking
- * the backend for a list it could only recompute from the same rows would be a
- * round trip for nothing.
- */
-export const etiquetas = recordar(
-  (s: CantoralState): Etiqueta[] => {
-    const cuenta = new Map<string, number>();
-    s.tracks.forEach((t) =>
-      (t.tags || []).forEach((raw) => {
-        const tag = raw.trim();
-        if (tag) cuenta.set(tag, (cuenta.get(tag) ?? 0) + 1);
-      }),
-    );
-    // A tag being filtered on stays listed even once nothing carries it,
-    // otherwise its chip vanishes and the filter can never be switched off.
-    s.tagFilter.forEach((t) => {
-      if (!cuenta.has(t)) cuenta.set(t, 0);
-    });
-    return [...cuenta.entries()]
-      .map(([nombre, c]) => ({ nombre, cuenta: c }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  },
-  (s: CantoralState) => [s.tracks, s.tagFilter],
-);
-
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
   if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();
@@ -3090,18 +2866,10 @@ export const applyFilters = recordar(
     else if (s.qf === "missing") list = list.filter((t) => t.missing);
     else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
-    // Every selected tag has to be on the track: picking two is «both», which
-    // is the only reading that makes picking a second one useful.
-    if (s.tagFilter.length) {
-      list = list.filter((t) => {
-        const tags = t.tags || [];
-        return s.tagFilter.every((f) => tags.includes(f));
-      });
-    }
     if (s.query) {
       const q = s.query.toLowerCase();
       list = list.filter((t) =>
-        [t.titulo, t.artista, t.album, t.tono, t.ocasion, (t.tags || []).join(" ")]
+        [t.titulo, t.artista, t.album, t.ocasion]
           .join(" ")
           .toLowerCase()
           .includes(q),
@@ -3123,7 +2891,7 @@ export const applyFilters = recordar(
     }
     return list;
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.tagFilter, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
 );
 
 export interface Group {

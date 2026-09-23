@@ -37,12 +37,10 @@ function track(id: string): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    tono: "Do",
     bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
-    tags: [],
     fav: false,
     missing: false,
     tieneHoja: false,
@@ -226,13 +224,13 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
     // Casi a punto de consultar, el usuario teclea en el panel de detalle.
     await vi.advanceTimersByTimeAsync(1800);
     useStore.getState().onRowClick("a");
-    useStore.getState().setEdit("tono", "Solm");
+    useStore.getState().setEdit("ocasion", "Comunión");
 
     // La consulta tocaba ahora; la edición sigue esperando su debounce.
     await vi.advanceTimersByTimeAsync(200);
 
     expect(getLibrary).not.toHaveBeenCalled();
-    expect(useStore.getState().tracks[0].tono).toBe("Solm");
+    expect(useStore.getState().tracks[0].ocasion).toBe("Comunión");
 
     final.resolver(snapshot(["a"]));
     await vi.runOnlyPendingTimersAsync();

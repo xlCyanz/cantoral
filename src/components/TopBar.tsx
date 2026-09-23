@@ -1,7 +1,7 @@
-import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search, Tag, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useRef } from "react";
-import { applyFilters, etiquetas, ocasiones, seleccionVigente, useStore } from "../store";
+import { applyFilters, ocasiones, seleccionVigente, useStore } from "../store";
 import SelectionBar from "./SelectionBar";
 import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
 import { encabezadoBiblioteca } from "../lib/encabezado";
@@ -30,8 +30,6 @@ export default function TopBar() {
   const indexadas = useStore((s) => s.tracks.length);
   const qf = useStore((s) => s.qf);
   const ocs = useStore(ocasiones);
-  const tags = useStore(etiquetas);
-  const tagFilter = useStore((s) => s.tagFilter);
   const haySeleccion = useStore((s) => seleccionVigente(s).length > 0);
 
   const onQuery = useStore((s) => s.onQuery);
@@ -39,7 +37,6 @@ export default function TopBar() {
   const showColecciones = useStore((s) => s.showColecciones);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const onOcasion = useStore((s) => s.onOcasion);
-  const onTagFilter = useStore((s) => s.onTagFilter);
   const onGroupBy = useStore((s) => s.onGroupBy);
   const densidad = useStore((s) => s.densidad);
   const setDensidad = useStore((s) => s.setDensidad);
@@ -86,7 +83,7 @@ export default function TopBar() {
               data-search-input
               value={query}
               onChange={(e) => onQuery(e.target.value)}
-              placeholder="Buscar por título, artista, tono o etiqueta…"
+              placeholder="Buscar por título, artista, álbum u ocasión…"
               className="in-focus"
               style={{
                 width: "100%",
@@ -175,33 +172,6 @@ export default function TopBar() {
                 </button>
               );
             })}
-
-            {/* Tags share the row with the occasions, behind a divider: they
-                are a different axis — several can be on at once, and they
-                narrow together. */}
-            {showFilterBar && tags.length > 0 && (
-              <>
-                {chips.length > 0 && (
-                  <span style={{ flex: "0 0 auto", width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
-                )}
-                {tags.map((t) => {
-                  const activa = tagFilter.includes(t.nombre);
-                  return (
-                    <button
-                      key={t.nombre}
-                      onClick={() => onTagFilter(t.nombre)}
-                      aria-pressed={activa}
-                      title={activa ? `Quitar el filtro «${t.nombre}»` : `Filtrar por «${t.nombre}»`}
-                      style={{ ...chipStyle(activa), display: "inline-flex", alignItems: "center", gap: 6, paddingLeft: 10 }}
-                    >
-                      <Tag size={12} strokeWidth={2.2} />
-                      {t.nombre}
-                      <span style={{ fontSize: 11, opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>{t.cuenta}</span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
           </div>
           )}
           {!haySeleccion && (

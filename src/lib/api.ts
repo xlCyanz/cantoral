@@ -231,32 +231,10 @@ export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<Snap
   return inv<Snapshot>("set_tracks_fav", { ids, fav });
 }
 
-/** Put a tag on a whole selection, or take it off it. */
-export async function tagTracksCmd(
-  ids: string[],
-  tag: string,
-  add: boolean,
-): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("tag_tracks", { ids, tag, add });
-}
-
 /** Drop a whole selection from the catalogue. The audio files are untouched. */
 export async function deleteTracksCmd(ids: string[]): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("delete_tracks", { ids });
-}
-
-/** Rename a tag everywhere, folding it into an existing one if the name is taken. */
-export async function renameTagCmd(from: string, to: string): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("rename_tag", { from, to });
-}
-
-/** Take a tag off every track that carried it. The tracks are untouched. */
-export async function deleteTagCmd(name: string): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("delete_tag", { name });
 }
 
 /** The lyrics and chords of one track. */
@@ -299,7 +277,6 @@ export interface DuplicateTrack {
   fsize: number;
   fav: boolean;
   missing: boolean;
-  tags: string[];
 }
 
 /** A set of tracks that look like the same song. */
@@ -325,7 +302,7 @@ export async function findDuplicatesCmd(): Promise<DuplicateReport | null> {
   return inv<DuplicateReport>("find_duplicates");
 }
 
-/** Fold `drop` into `keep`, moving tags, favourite and list places across. */
+/** Fold `drop` into `keep`, moving the favourite and list places across. */
 export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("merge_duplicates", { keep, drop });
@@ -366,7 +343,7 @@ export async function reconcileLibraryCmd(): Promise<Snapshot | null> {
 export async function removeFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("remove_folder", { id });
 }
-/** Point a track at its file's new location, keeping tags and favourite. */
+/** Point a track at its file's new location, keeping what it carries. */
 export async function relocateTrackCmd(id: string, path: string): Promise<Snapshot> {
   return inv<Snapshot>("relocate_track", { id, path });
 }
@@ -385,13 +362,11 @@ export async function setTrackFav(id: string, fav: boolean): Promise<void> {
 export async function updateTrackCmd(
   id: string,
   artista: string,
-  tono: string,
   bpm: number,
   ocasion: string,
-  tags: string[],
 ): Promise<void> {
   if (!isTauri()) return;
-  await inv("update_track", { id, artista, tono, bpm, ocasion, tags });
+  await inv("update_track", { id, artista, bpm, ocasion });
 }
 export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Promise<void> {
   if (!isTauri()) return;

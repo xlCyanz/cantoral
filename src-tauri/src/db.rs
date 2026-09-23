@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS tracks (
   album     TEXT NOT NULL DEFAULT '',
   dur_sec   INTEGER NOT NULL DEFAULT 0,
   formato   TEXT NOT NULL DEFAULT '',
-  tono      TEXT NOT NULL DEFAULT '',
   bpm       INTEGER NOT NULL DEFAULT 0,
   ocasion   TEXT NOT NULL DEFAULT '',
   fav       INTEGER NOT NULL DEFAULT 0,
@@ -68,17 +67,6 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
   track_id    INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
   position    INTEGER NOT NULL,
   PRIMARY KEY (playlist_id, track_id)
-);
-
-CREATE TABLE IF NOT EXISTS tags (
-  id   INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS track_tags (
-  track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-  tag_id   INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-  PRIMARY KEY (track_id, tag_id)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -139,31 +127,10 @@ fn now() -> String {
 
 // ---------------------------------------------------------------- tracks
 
-/// Every track's tags, keyed by track id and sorted by name.
-///
-/// Read as rows rather than a `group_concat` string: a tag is free text the user
-/// types, so a comma in one of them used to come back as two tags. Grouping here
-/// also makes the order deterministic, which `group_concat` never promised.
-fn tags_by_track(conn: &Connection) -> Result<std::collections::HashMap<i64, Vec<String>>> {
-    let mut stmt = conn.prepare(
-        "SELECT tt.track_id, tg.name
-         FROM track_tags tt JOIN tags tg ON tg.id = tt.tag_id
-         ORDER BY tg.name",
-    )?;
-    let mut out: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
-    for row in rows {
-        let (track_id, name) = row?;
-        out.entry(track_id).or_default().push(name);
-    }
-    Ok(out)
-}
-
 pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
-    let mut tags_of = tags_by_track(conn)?;
     let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
-                t.tono, t.bpm, t.ocasion, t.fav, t.missing, t.video,
+                t.bpm, t.ocasion, t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
                 t.cover_path,
                 {CON_HOJA}
@@ -173,7 +140,6 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
     let rows = stmt.query_map([], |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
-        let tags = tags_of.remove(&id).unwrap_or_default();
         Ok(Track {
             id: id.to_string(),
             path: r.get(1)?,
@@ -183,17 +149,15 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
             dur_sec,
             dur: fmt_dur(dur_sec),
             formato: r.get(6)?,
-            tono: r.get(7)?,
-            bpm: r.get(8)?,
-            ocasion: r.get(9)?,
-            fav: r.get::<_, i64>(10)? != 0,
-            missing: r.get::<_, i64>(11)? != 0,
-            video: r.get::<_, i64>(12)? != 0,
-            carpeta: r.get(13)?,
-            tags,
+            bpm: r.get(7)?,
+            ocasion: r.get(8)?,
+            fav: r.get::<_, i64>(9)? != 0,
+            missing: r.get::<_, i64>(10)? != 0,
+            video: r.get::<_, i64>(11)? != 0,
+            carpeta: r.get(12)?,
             added: id,
-            cover: r.get::<_, Option<String>>(14)?,
-            tiene_hoja: r.get::<_, i64>(15)? != 0,
+            cover: r.get::<_, Option<String>>(13)?,
+            tiene_hoja: r.get::<_, i64>(14)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -207,13 +171,12 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
 /// corrección duraría hasta el siguiente escaneo de la carpeta: se arreglaría
 /// el domingo y estaría mal otra vez el jueves.
 ///
-/// Sólo el artista la lleva. El tono, el tempo y la ocasión no salen de las
-/// etiquetas del archivo, así que no hay nada que los pise.
+/// Sólo el artista la lleva. El tempo y la ocasión no salen de las etiquetas
+/// del archivo, así que no hay nada que los pise.
 pub fn update_track_meta(
     conn: &Connection,
     id: i64,
     artista: &str,
-    tono: &str,
     bpm: i64,
     ocasion: &str,
 ) -> Result<()> {
@@ -221,9 +184,9 @@ pub fn update_track_meta(
         "UPDATE tracks
             SET artista=?1,
                 artista_manual = CASE WHEN artista=?1 THEN artista_manual ELSE 1 END,
-                tono=?2, bpm=?3, ocasion=?4
-          WHERE id=?5",
-        params![artista, tono, bpm, ocasion, id],
+                bpm=?2, ocasion=?3
+          WHERE id=?4",
+        params![artista, bpm, ocasion, id],
     )?;
     Ok(())
 }
@@ -233,46 +196,8 @@ pub fn set_fav(conn: &Connection, id: i64, fav: bool) -> Result<()> {
     Ok(())
 }
 
-/// Tidy a tag the user typed: trim it and collapse runs of whitespace, so
-/// «  lento   suave » and «lento suave» are the same tag rather than two.
-fn normalise_tag(raw: &str) -> String {
-    raw.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-/// Delete tags no track points at any more.
-///
-/// Without this, correcting a typo left the misspelled tag in the table for
-/// good — invisible today, but every tag picker and autocomplete would show it.
-fn drop_orphan_tags(conn: &Connection) -> Result<usize> {
-    Ok(conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM track_tags)", [])?)
-}
-
-/// Replace a track's tags. Runs as one transaction: the delete and the inserts
-/// are the same edit, and half of it applied is a track that silently lost its
-/// tags.
-pub fn set_track_tags(conn: &Connection, id: i64, tags: &[String]) -> Result<()> {
-    let tx = conn.unchecked_transaction()?;
-    tx.execute("DELETE FROM track_tags WHERE track_id=?1", params![id])?;
-    for raw in tags {
-        let name = normalise_tag(raw);
-        if name.is_empty() {
-            continue;
-        }
-        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![name])?;
-        let tag_id: i64 =
-            tx.query_row("SELECT id FROM tags WHERE name=?1", params![name], |r| r.get(0))?;
-        tx.execute(
-            "INSERT OR IGNORE INTO track_tags(track_id, tag_id) VALUES(?1,?2)",
-            params![id, tag_id],
-        )?;
-    }
-    drop_orphan_tags(&tx)?;
-    tx.commit()?;
-    Ok(())
-}
-
 /// Insert or update a scanned track by path. Preserves user-edited church
-/// fields (tono/bpm/ocasion/fav) on re-scan. Returns the track row id.
+/// fields (bpm/ocasion/fav) on re-scan. Returns the track row id.
 #[allow(clippy::too_many_arguments)]
 pub fn upsert_track(
     conn: &Connection,
@@ -376,7 +301,7 @@ fn folder_containing(conn: &Connection, path: &Path) -> Result<Option<i64>> {
 }
 
 /// Point a track at the file's new location, keeping everything the user put on
-/// it — tags, favourite, key, tempo, occasion.
+/// it — the favourite, the tempo, the occasion and the sheet.
 ///
 /// The file stamp is taken from the new file, so the next scan sees it as
 /// unchanged and does not re-read its metadata. If the new location falls inside
@@ -424,9 +349,8 @@ pub fn relocate_track(conn: &Connection, id: i64, new_path: &Path) -> Result<()>
 
 /// Remove a single track from the catalogue, with its extracted cover.
 ///
-/// Its rows in `track_tags` and `playlist_tracks` go with it through the
-/// cascade, so a service list that referenced it simply gets shorter rather
-/// than pointing at nothing.
+/// Its rows in `playlist_tracks` go with it through the cascade, so a service
+/// list that referenced it simply gets shorter rather than pointing at nothing.
 pub fn delete_track(conn: &Connection, id: i64) -> Result<()> {
     let cover: Option<String> = conn
         .query_row("SELECT cover_path FROM tracks WHERE id=?1", params![id], |r| r.get(0))
@@ -437,8 +361,6 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<()> {
     }
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM tracks WHERE id=?1", params![id])?;
-    // The cascade clears track_tags but leaves the tag names behind.
-    drop_orphan_tags(&tx)?;
     tx.commit()?;
     Ok(())
 }
@@ -534,43 +456,6 @@ pub fn set_tracks_fav(conn: &Connection, ids: &[i64], fav: bool) -> Result<()> {
     Ok(())
 }
 
-/// Put a tag on several tracks, or take it off them.
-///
-/// Adding uses the tag already in the catalogue when one matches, so a bulk
-/// edit cannot be the thing that creates a second spelling of a tag.
-pub fn tag_tracks(conn: &Connection, ids: &[i64], raw: &str, poner: bool) -> Result<()> {
-    let nombre = normalise_tag(raw);
-    if nombre.is_empty() || ids.is_empty() {
-        return Ok(());
-    }
-    let lista = lista_de_ids(ids);
-    let tx = conn.unchecked_transaction()?;
-    if poner {
-        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![nombre])?;
-        let tag_id: i64 =
-            tx.query_row("SELECT id FROM tags WHERE name=?1", params![nombre], |r| r.get(0))?;
-        tx.execute(
-            &format!(
-                "INSERT OR IGNORE INTO track_tags(track_id, tag_id)
-                 SELECT id, ?1 FROM tracks WHERE id IN ({lista})"
-            ),
-            params![tag_id],
-        )?;
-    } else {
-        tx.execute(
-            &format!(
-                "DELETE FROM track_tags
-                 WHERE track_id IN ({lista})
-                   AND tag_id IN (SELECT id FROM tags WHERE name=?1)"
-            ),
-            params![nombre],
-        )?;
-        drop_orphan_tags(&tx)?;
-    }
-    tx.commit()?;
-    Ok(())
-}
-
 /// Remove several tracks from the catalogue. The audio files are never touched.
 pub fn delete_tracks(conn: &Connection, ids: &[i64]) -> Result<()> {
     if ids.is_empty() {
@@ -586,68 +471,10 @@ pub fn delete_tracks(conn: &Connection, ids: &[i64]) -> Result<()> {
 
     let tx = conn.unchecked_transaction()?;
     tx.execute(&format!("DELETE FROM tracks WHERE id IN ({lista})"), [])?;
-    drop_orphan_tags(&tx)?;
     tx.commit()?;
 
     for c in portadas {
         let _ = std::fs::remove_file(c);
-    }
-    Ok(())
-}
-
-// ---------------------------------------------------------------- tags
-
-/// Rename a tag, folding it into an existing one when the new name is taken.
-///
-/// Renaming «Lento» to «lento» when both exist is not an error, it is the fix:
-/// `tags.name` is case-sensitive, so the two were separate tags nobody could
-/// see were separate. Both cases end with one tag carrying every track that had
-/// either, which is what the user asked for by typing the other name.
-///
-/// Returns how many tracks ended up on the surviving tag.
-pub fn rename_tag(conn: &Connection, from: &str, to: &str) -> Result<i64> {
-    let nuevo = normalise_tag(to);
-    if nuevo.is_empty() {
-        bail!("una etiqueta no puede quedarse sin nombre");
-    }
-    let viejo_id: i64 = conn
-        .query_row("SELECT id FROM tags WHERE name=?1", params![from], |r| r.get(0))
-        .with_context(|| format!("la etiqueta «{from}» ya no existe"))?;
-
-    let tx = conn.unchecked_transaction()?;
-    let destino: Option<i64> =
-        tx.query_row("SELECT id FROM tags WHERE name=?1", params![nuevo], |r| r.get(0)).ok();
-    let id_final = match destino {
-        Some(otro) if otro != viejo_id => {
-            // `OR IGNORE` for the tracks that already carried both: they end up
-            // with the tag once, not with a duplicate row.
-            tx.execute(
-                "UPDATE OR IGNORE track_tags SET tag_id=?1 WHERE tag_id=?2",
-                params![otro, viejo_id],
-            )?;
-            tx.execute("DELETE FROM tags WHERE id=?1", params![viejo_id])?;
-            otro
-        }
-        _ => {
-            tx.execute("UPDATE tags SET name=?1 WHERE id=?2", params![nuevo, viejo_id])?;
-            viejo_id
-        }
-    };
-    let total: i64 =
-        tx.query_row("SELECT COUNT(*) FROM track_tags WHERE tag_id=?1", params![id_final], |r| {
-            r.get(0)
-        })?;
-    tx.commit()?;
-    Ok(total)
-}
-
-/// Remove a tag from every track that carried it.
-///
-/// The tracks themselves are untouched; only the label goes.
-pub fn delete_tag(conn: &Connection, name: &str) -> Result<()> {
-    let filas = conn.execute("DELETE FROM tags WHERE name=?1", params![name])?;
-    if filas == 0 {
-        bail!("la etiqueta «{name}» ya no existe");
     }
     Ok(())
 }
@@ -760,8 +587,6 @@ pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
     }
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM folders WHERE id=?1", params![id])?;
-    // Its tracks go with it through the cascade, and their tags with them.
-    drop_orphan_tags(&tx)?;
     tx.commit()?;
     Ok(())
 }
@@ -1151,8 +976,7 @@ pub fn delete_playlist(conn: &Connection, id: i64) -> Result<()> {
 
 /// Tables a Cantoral database always has. Used to tell a real backup apart from
 /// some other `.db` the user picked by mistake in the file dialog.
-const REQUIRED_TABLES: &[&str] =
-    &["folders", "tracks", "playlists", "playlist_tracks", "tags", "track_tags", "settings"];
+const REQUIRED_TABLES: &[&str] = &["folders", "tracks", "playlists", "playlist_tracks", "settings"];
 
 /// What a candidate backup file holds. Reported before anything is overwritten
 /// so the user can be told what they are about to restore.
@@ -1379,7 +1203,6 @@ fn calidad(formato: &str, missing: bool) -> i64 {
 
 /// Every track, with the file facts the duplicate view needs.
 fn duplicate_candidates(conn: &Connection) -> Result<Vec<DuplicateTrack>> {
-    let mut tags_of = tags_by_track(conn)?;
     let mut stmt = conn.prepare(
         "SELECT t.id, t.titulo, t.artista, t.path, t.formato, COALESCE(f.nombre,''),
                 t.dur_sec, t.fsize, t.fav, t.missing
@@ -1401,7 +1224,6 @@ fn duplicate_candidates(conn: &Connection) -> Result<Vec<DuplicateTrack>> {
             fsize: r.get(7)?,
             fav: r.get::<_, i64>(8)? != 0,
             missing: r.get::<_, i64>(9)? != 0,
-            tags: tags_of.remove(&id).unwrap_or_default(),
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -1526,12 +1348,12 @@ pub fn dismissed_count(conn: &Connection) -> Result<i64> {
 /// Fold the other copies of a song into the one the user chose to keep.
 ///
 /// Everything the copies carried that the survivor does not moves across before
-/// they go: their tags, their favourite, the church fields they had filled in,
-/// and their place in every service list. Deleting the copy outright — which is
-/// all the user could do until now — would have thrown all of that away.
+/// they go: their favourite, the church fields they had filled in, and their
+/// place in every service list. Deleting the copy outright — which is all the
+/// user could do until now — would have thrown all of that away.
 ///
-/// One transaction: a merge that applied halfway is a track that lost its tags
-/// and kept its duplicates.
+/// One transaction: a merge that applied halfway is a track that lost what its
+/// copies carried and kept the copies.
 pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result<()> {
     if drop_ids.is_empty() {
         bail!("no hay copias que fusionar");
@@ -1556,14 +1378,6 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
     drop(stmt);
 
     let tx = conn.unchecked_transaction()?;
-    // Tags: the union of every copy's.
-    tx.execute(
-        &format!(
-            "INSERT OR IGNORE INTO track_tags(track_id, tag_id)
-             SELECT ?1, tag_id FROM track_tags WHERE track_id IN ({marcador})"
-        ),
-        params![keep_id],
-    )?;
     // A favourite on any copy is a favourite on the one that stays.
     tx.execute(
         &format!(
@@ -1574,17 +1388,15 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
     )?;
     // Church fields the survivor never got, taken from whichever copy has them.
     // Never an overwrite: what the user typed on the copy they are keeping wins.
-    for campo in ["tono", "ocasion"] {
-        tx.execute(
-            &format!(
-                "UPDATE tracks SET {campo} = COALESCE(
-                     (SELECT {campo} FROM tracks
-                      WHERE id IN ({marcador}) AND TRIM({campo}) <> '' ORDER BY id LIMIT 1), {campo})
-                 WHERE id=?1 AND TRIM({campo}) = ''"
-            ),
-            params![keep_id],
-        )?;
-    }
+    tx.execute(
+        &format!(
+            "UPDATE tracks SET ocasion = COALESCE(
+                 (SELECT ocasion FROM tracks
+                  WHERE id IN ({marcador}) AND TRIM(ocasion) <> '' ORDER BY id LIMIT 1), ocasion)
+             WHERE id=?1 AND TRIM(ocasion) = ''"
+        ),
+        params![keep_id],
+    )?;
     tx.execute(
         &format!(
             "UPDATE tracks SET bpm = COALESCE(
@@ -1601,7 +1413,6 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
         params![keep_id],
     )?;
     tx.execute(&format!("DELETE FROM tracks WHERE id IN ({marcador})"), [])?;
-    drop_orphan_tags(&tx)?;
     tx.commit()?;
 
     for c in portadas {
@@ -1714,51 +1525,6 @@ mod tests {
         set_tracks_fav(&conn, &[a], false).unwrap();
         assert!(!list_tracks(&conn).unwrap()[0].fav);
         let _ = c;
-    }
-
-    #[test]
-    fn a_tag_goes_on_a_whole_selection_and_comes_off_it() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-
-        tag_tracks(&conn, &[a, b], "  navidad  ", true).unwrap();
-        let t = list_tracks(&conn).unwrap();
-        assert_eq!(t[0].tags, vec!["navidad"], "and tidied like any other tag");
-        assert_eq!(t[1].tags, vec!["navidad"]);
-
-        tag_tracks(&conn, &[a], "navidad", false).unwrap();
-        let t = list_tracks(&conn).unwrap();
-        assert!(t[0].tags.is_empty());
-        assert_eq!(t[1].tags, vec!["navidad"]);
-    }
-
-    #[test]
-    fn tagging_in_bulk_reuses_the_tag_that_already_exists() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        set_track_tags(&conn, a, &["navidad".into()]).unwrap();
-
-        tag_tracks(&conn, &[b], "navidad", true).unwrap();
-
-        let cuantas: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap();
-        assert_eq!(cuantas, 1, "a bulk edit must not invent a second spelling");
-    }
-
-    #[test]
-    fn taking_off_the_last_use_of_a_tag_clears_the_tag_itself() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        tag_tracks(&conn, &[a], "navidad", true).unwrap();
-
-        tag_tracks(&conn, &[a], "navidad", false).unwrap();
-
-        let cuantas: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap();
-        assert_eq!(cuantas, 0);
     }
 
     #[test]
@@ -1878,107 +1644,6 @@ mod tests {
             list_playlists(&conn).unwrap().into_iter().map(|p| p.nombre).collect();
 
         assert_eq!(nombres, vec!["Agosto", "Julio", "Junio", "Sin fecha"]);
-    }
-
-    // ---- tags ----
-
-    fn etiquetas_de(conn: &Connection, id: i64) -> Vec<String> {
-        list_tracks(conn).unwrap().into_iter().find(|t| t.id == id.to_string()).unwrap().tags
-    }
-
-    fn cuantas_etiquetas(conn: &Connection) -> i64 {
-        conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap()
-    }
-
-    #[test]
-    fn renaming_a_tag_moves_every_track_that_carried_it() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        set_track_tags(&conn, a, &["lemto".into()]).unwrap();
-        set_track_tags(&conn, b, &["lemto".into(), "clásico".into()]).unwrap();
-
-        let total = rename_tag(&conn, "lemto", "lento").unwrap();
-
-        assert_eq!(total, 2);
-        assert!(etiquetas_de(&conn, a).contains(&"lento".to_string()));
-        assert!(etiquetas_de(&conn, b).contains(&"lento".to_string()));
-        assert!(!etiquetas_de(&conn, b).contains(&"lemto".to_string()));
-    }
-
-    #[test]
-    fn renaming_onto_a_name_that_exists_folds_the_two_together() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        // `tags.name` is case-sensitive, so these were two tags nobody could
-        // see were two.
-        set_track_tags(&conn, a, &["Lento".into()]).unwrap();
-        set_track_tags(&conn, b, &["lento".into()]).unwrap();
-        assert_eq!(cuantas_etiquetas(&conn), 2);
-
-        let total = rename_tag(&conn, "Lento", "lento").unwrap();
-
-        assert_eq!(total, 2, "both tracks end up on the surviving tag");
-        assert_eq!(cuantas_etiquetas(&conn), 1);
-        assert_eq!(etiquetas_de(&conn, a), vec!["lento"]);
-    }
-
-    #[test]
-    fn a_track_that_had_both_ends_up_with_the_tag_once() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_tags(&conn, a, &["Lento".into(), "lento".into()]).unwrap();
-
-        rename_tag(&conn, "Lento", "lento").unwrap();
-
-        assert_eq!(etiquetas_de(&conn, a), vec!["lento"]);
-    }
-
-    #[test]
-    fn renaming_tidies_the_new_name_like_any_other_tag() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_tags(&conn, a, &["x".into()]).unwrap();
-
-        rename_tag(&conn, "x", "  muy   lento  ").unwrap();
-
-        assert_eq!(etiquetas_de(&conn, a), vec!["muy lento"]);
-    }
-
-    #[test]
-    fn a_rename_that_makes_no_sense_is_refused() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_tags(&conn, a, &["lento".into()]).unwrap();
-
-        assert!(rename_tag(&conn, "lento", "   ").is_err(), "a tag needs a name");
-        assert!(rename_tag(&conn, "no-existe", "otra").is_err());
-        assert_eq!(etiquetas_de(&conn, a), vec!["lento"], "and nothing moved");
-    }
-
-    #[test]
-    fn deleting_a_tag_takes_it_off_every_track_and_leaves_the_tracks() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_tags(&conn, a, &["lento".into(), "clásico".into()]).unwrap();
-
-        delete_tag(&conn, "lento").unwrap();
-
-        assert_eq!(etiquetas_de(&conn, a), vec!["clásico"]);
-        assert_eq!(list_tracks(&conn).unwrap().len(), 1, "the track itself stays");
-    }
-
-    #[test]
-    fn deleting_a_tag_that_is_gone_is_refused() {
-        let conn = mem();
-        assert!(delete_tag(&conn, "no-existe").is_err());
     }
 
     // ---- lyrics and chords ----
@@ -2298,51 +1963,19 @@ mod tests {
     // ---- merging ----
 
     #[test]
-    fn merging_unions_the_tags_of_every_copy() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
-        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        set_track_tags(&conn, queda, &["lento".into()]).unwrap();
-        set_track_tags(&conn, copia, &["ensayo".into(), "lento".into()]).unwrap();
-
-        merge_tracks(&conn, queda, &[copia]).unwrap();
-
-        let t = list_tracks(&conn).unwrap();
-        assert_eq!(t.len(), 1);
-        let mut tags = t[0].tags.clone();
-        tags.sort();
-        assert_eq!(tags, vec!["ensayo", "lento"]);
-    }
-
-    #[test]
-    fn a_favourite_on_any_copy_survives_the_merge() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
-        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        set_fav(&conn, copia, true).unwrap();
-
-        merge_tracks(&conn, queda, &[copia]).unwrap();
-
-        assert!(list_tracks(&conn).unwrap()[0].fav);
-    }
-
-    #[test]
     fn merging_fills_church_fields_the_survivor_never_got() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        update_track_meta(&conn, queda, "Coro", "Sol", 0, "").unwrap();
-        update_track_meta(&conn, copia, "Coro", "Re", 96, "Adoración").unwrap();
+        update_track_meta(&conn, queda, "Coro", 0, "Adoración").unwrap();
+        update_track_meta(&conn, copia, "Coro", 96, "Comunión").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
         let t = &list_tracks(&conn).unwrap()[0];
-        assert_eq!(t.tono, "Sol", "what the user typed on the copy they keep wins");
+        assert_eq!(t.ocasion, "Adoración", "what the user typed on the copy they keep wins");
         assert_eq!(t.bpm, 96, "and the empty ones are filled from the copy");
-        assert_eq!(t.ocasion, "Adoración");
     }
 
     #[test]
@@ -2416,7 +2049,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
 
-        update_track_meta(&conn, id, "Coro Congregacional", "", 0, "").unwrap();
+        update_track_meta(&conn, id, "Coro Congregacional", 0, "").unwrap();
         // El escaneo vuelve a leer las etiquetas del archivo, que siguen mal.
         pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
 
@@ -2425,17 +2058,17 @@ mod tests {
 
     #[test]
     fn an_artist_nobody_touched_still_follows_the_file() {
-        // La marca sólo la levanta corregirlo. Guardar el tono sin tocar el
+        // La marca sólo la levanta corregirlo. Guardar el tempo sin tocar el
         // artista no puede congelar lo que diga el archivo.
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Viejo", 300, "MP3", 4_000);
 
-        update_track_meta(&conn, id, "Viejo", "Sol", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "Viejo", 72, "Adoración").unwrap();
         pista(&conn, fid, "/m/a.mp3", "Santo", "Corregido en el archivo", 300, "MP3", 4_000);
 
         assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Corregido en el archivo");
-        assert_eq!(list_tracks(&conn).unwrap()[0].tono, "Sol");
+        assert_eq!(list_tracks(&conn).unwrap()[0].bpm, 72);
     }
 
     #[test]
@@ -2444,9 +2077,8 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = add_track(&conn, fid, "/m/a.mp3", "A");
 
-        update_track_meta(&conn, id, "", "Sol", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "", 72, "Adoración").unwrap();
         set_fav(&conn, id, true).unwrap();
-        set_track_tags(&conn, id, &["lento".into()]).unwrap();
 
         // A rescan re-reads tag metadata but must not clobber church fields.
         let again = add_track(&conn, fid, "/m/a.mp3", "A (retag)");
@@ -2454,11 +2086,9 @@ mod tests {
 
         let t = &list_tracks(&conn).unwrap()[0];
         assert_eq!(t.titulo, "A (retag)");
-        assert_eq!(t.tono, "Sol");
         assert_eq!(t.bpm, 72);
         assert_eq!(t.ocasion, "Adoración");
         assert!(t.fav);
-        assert_eq!(t.tags, vec!["lento".to_string()]);
     }
 
     #[test]
@@ -2873,9 +2503,8 @@ mod tests {
         let conn = mem();
         let fid = add_folder(&conn, &files.s("Himnos"), "Himnos", true).unwrap();
         let id = add_track(&conn, fid, &files.s("Himnos/viejo.mp3"), "Sublime Gracia");
-        update_track_meta(&conn, id, "", "Sol", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "", 72, "Adoración").unwrap();
         set_fav(&conn, id, true).unwrap();
-        set_track_tags(&conn, id, &["lento".into()]).unwrap();
         conn.execute("UPDATE tracks SET missing=1", []).unwrap();
 
         let nuevo = files.file("Himnos/nuevo.mp3");
@@ -2885,11 +2514,9 @@ mod tests {
         assert_eq!(t.path, nuevo.to_string_lossy());
         assert!(!t.missing, "deja de estar marcada como faltante");
         // Lo que costó trabajo poner sigue ahí.
-        assert_eq!(t.tono, "Sol");
         assert_eq!(t.bpm, 72);
         assert_eq!(t.ocasion, "Adoración");
         assert!(t.fav);
-        assert_eq!(t.tags, vec!["lento".to_string()]);
         assert_eq!(t.titulo, "Sublime Gracia");
     }
 
@@ -2928,7 +2555,6 @@ mod tests {
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let pid = create_playlist(&conn, "Culto", "", "", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
-        set_track_tags(&conn, a, &["lento".into()]).unwrap();
 
         delete_track(&conn, a).unwrap();
 
@@ -2967,89 +2593,6 @@ mod tests {
 
         assert!(relocate_folder(&conn, fid, &files.dir("B/dentro")).is_err());
         assert!(relocate_folder(&conn, fid, &files.0.join("no-existe")).is_err());
-    }
-
-    // ------------------------------------------------ etiquetas (#9)
-
-    #[test]
-    fn a_tag_with_a_comma_survives_the_round_trip() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-
-        set_track_tags(&conn, id, &["lento, meditativo".into()]).unwrap();
-
-        // Con group_concat volvían dos: "lento" y " meditativo".
-        assert_eq!(list_tracks(&conn).unwrap()[0].tags, vec!["lento, meditativo".to_string()]);
-    }
-
-    #[test]
-    fn tags_come_back_in_a_stable_order() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-
-        set_track_tags(&conn, id, &["zeta".into(), "alfa".into(), "media".into()]).unwrap();
-
-        assert_eq!(
-            list_tracks(&conn).unwrap()[0].tags,
-            vec!["alfa".to_string(), "media".to_string(), "zeta".to_string()]
-        );
-    }
-
-    #[test]
-    fn a_tag_is_tidied_so_spacing_does_not_create_duplicates() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-
-        set_track_tags(&conn, a, &["  lento   suave ".into()]).unwrap();
-        set_track_tags(&conn, b, &["lento suave".into()]).unwrap();
-
-        let n: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0)).unwrap();
-        assert_eq!(n, 1, "es la misma etiqueta, no dos");
-    }
-
-    #[test]
-    fn correcting_a_typo_does_not_leave_the_old_tag_behind() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-
-        set_track_tags(&conn, id, &["lemto".into()]).unwrap();
-        set_track_tags(&conn, id, &["lento".into()]).unwrap();
-
-        let names: Vec<String> = conn
-            .prepare("SELECT name FROM tags")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .collect::<std::result::Result<_, _>>()
-            .unwrap();
-        assert_eq!(names, vec!["lento".to_string()], "la mal escrita se va");
-    }
-
-    #[test]
-    fn deleting_the_last_track_that_used_a_tag_takes_the_tag_with_it() {
-        let conn = mem();
-        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        set_track_tags(&conn, a, &["solo-de-a".into(), "compartida".into()]).unwrap();
-        set_track_tags(&conn, b, &["compartida".into()]).unwrap();
-
-        delete_track(&conn, a).unwrap();
-
-        let names: Vec<String> = conn
-            .prepare("SELECT name FROM tags")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .collect::<std::result::Result<_, _>>()
-            .unwrap();
-        assert_eq!(names, vec!["compartida".to_string()], "la compartida se queda");
     }
 
     // ------------------------------------------------ escrituras atómicas (#8)

@@ -11,6 +11,38 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Eliminado
 
+- **Las etiquetas.** Eran un segundo eje de clasificación encima de la ocasión:
+  el campo del panel de detalle, «Etiquetar…» en la barra de selección, los
+  chips de filtro de la biblioteca, la tarjeta de Configuración que las
+  renombraba y unía, y las columnas por las que buscaba el buscador.
+
+  **Lo que ya esté escrito no se borra.** Las tablas `tags` y `track_tags` se
+  quedan intactas en tu `cantoral.db`; la app deja de leerlas y de escribirlas,
+  nada más. Una base de datos nueva ya no las crea.
+
+- **El tono.** El campo de la pista, la columna «Tono» de la biblioteca y del
+  culto, la columna de la hoja imprimible y el tono que encabezaba cada hoja de
+  acordes. Desde que dejó de editarse en el panel de detalle no había forma de
+  rellenarlo —el escáner nunca lo ha escrito—, así que era una columna vacía en
+  todas partes.
+
+  La columna `tono` tampoco se toca en las bases que ya la tengan.
+
+- **La transposición del modo culto.** Con el tono fuera, los botones `+` / `−`
+  y sus atajos se quedaban sin la referencia que decidía la armadura: subir dos
+  semitonos desde un tono que nadie sabe cuál es no es transponer, es adivinar.
+  La hoja de acordes se sigue leyendo en el atril, con los acordes tal como los
+  escribió quien la escribió.
+
+  Con ella se van `transponerAcorde`, `transponerTono`, `transponerHoja` y
+  `usaBemoles`. Lo que queda de `chords.ts` solo necesita saber **si** algo
+  entre corchetes es un acorde, así que `parseAcorde` pasa a ser `esAcorde`.
+
+- **Los comandos `tag_tracks`, `rename_tag` y `delete_tag`**, y los parámetros
+  `tono` y `tags` de `update_track`. Un `.cantoral.json` compartido ya no lleva
+  esos dos campos; uno exportado por una versión anterior se sigue abriendo, y
+  esos campos se ignoran.
+
 - **El botón de tema de la barra superior.** Alternaba entre claro y oscuro, y
   ahí quedaba: no podía volver a «Seguir al sistema», que es el tercer modo y
   el que viene puesto. Elegir el tema se hace en Configuración › Apariencia,

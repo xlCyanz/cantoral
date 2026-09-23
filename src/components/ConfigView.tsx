@@ -4,7 +4,6 @@ import { ArrowUpCircle, CircleCheck, Download, Folder, HelpCircle, Plus, Refresh
 import { useStore } from "../store";
 import { ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
-import TagManager from "./TagManager";
 import { getDbInfo, isMacOS, type DbInfo } from "../lib/api";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { ThemeMode } from "../lib/types";
@@ -164,7 +163,7 @@ export default function ConfigView() {
             <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
               Reescanear
             </button>
-            <button onClick={() => relocateFolder(f.id)} title="La carpeta cambió de sitio: apuntarla al nuevo sin perder etiquetas" className="hb-s2" style={botonFila}>
+            <button onClick={() => relocateFolder(f.id)} title="La carpeta cambió de sitio: apuntarla al nuevo sin perder lo que lleven sus pistas" className="hb-s2" style={botonFila}>
               Reapuntar…
             </button>
             <button onClick={() => removeFolder(f.id)} className="hb-danger" style={{ ...botonFila, color: "var(--danger)" }}>
@@ -179,14 +178,12 @@ export default function ConfigView() {
         )}
       </div>
 
-      <TagManager />
-
       <DuplicateGroups />
 
       <div style={tarjeta}>
         <h2 style={h2Style}>Base de datos</h2>
         <p style={{ ...pStyle, marginBottom: 10 }}>
-          Tu catálogo, listas y etiquetas viven en un solo archivo.{" "}
+          Tu catálogo, tus listas y las letras que escribas viven en un solo archivo.{" "}
           {dbInfo ? (
             <span title={dbInfo.path} style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: "10.5px", color: "var(--text-3)" }}>
               {dbInfo.path} · {formatSize(dbInfo.size)}

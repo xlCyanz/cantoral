@@ -21,7 +21,7 @@
 </div>
 
 **Cantoral** es una aplicación de escritorio para **organizar y catalogar la música
-de la iglesia**: carpetas, pistas, listas para cultos, etiquetas propias y los
+de la iglesia**: carpetas, pistas, listas para cultos, letras y acordes, y los
 metadatos del archivo. Corre en **macOS y Windows**, funciona
 **100% local** y **nunca mueve ni copia** tus archivos de audio: solo los indexa.
 
@@ -57,18 +57,16 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 
 ## ✨ Funciones
 
-- ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas, etiquetar o quitar de la biblioteca, de una vez.
+- ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija.
-- 🎼 **Tono, tempo y ocasión** — edítalos desde el panel de detalle, con sugerencias de tonos en notación latina y de ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, la columna Tono y la hoja imprimible.
-- 🏷️ **Etiquetas** — etiqueta cada pista para encontrarla rápido; se conservan al re-escanear, igual que los favoritos. El campo autocompleta con las que ya usas, y **filtras por ellas** con chips propios: elegir dos acota a las pistas que llevan las dos. En Configuración están todas listadas con cuántas pistas llevan, para renombrarlas —o unir dos en una— sin abrir pista por pista.
+- 🎼 **Artista y ocasión** — corrígelos desde el panel de detalle, con sugerencias de las ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, el agrupar por ocasión y la hoja imprimible. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo.
 - 📋 **Listas para cultos** — arma el repertorio de cada culto o ensayo, edita nombre/fecha/ocasión y reproduce toda la lista. Las fechas se eligen en un calendario, así que las listas se ordenan solas y **«Próximos»** te pone arriba el culto que viene. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
 - 🔁 **Duplicar y plantillas** — duplica una lista con su orden, guárdala como plantilla para partir de ella, o repite el culto anterior de una ocasión con un clic.
 - 📤 **Compartir una lista** — mándala a otra instalación de Cantoral en un `.cantoral.json` y ábrela allí. No viaja el audio ni la ruta de tu disco, solo lo justo para volver a encontrar cada pista; al importar, una pantalla dice qué se encontró y qué falta antes de crear nada.
 - 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
-- 🎚️ **Transposición** — sube o baja medio tono y la hoja entera se reescribe en el tono en que canta el grupo esta semana, con la armadura correcta: en un tono con bemoles verás `Lab`, no `Sol#`.
-- 🖨️ **Imprimir** — la hoja de la lista (título, artista, ocasión, tono, BPM, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». Eliges entre solo el repertorio o con las letras y acordes detrás, una canción por página; y puedes guardar el `.html` si prefieres mandarla por correo.
+- 🖨️ **Imprimir** — la hoja de la lista (título, artista, ocasión, BPM, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». Eliges entre solo el repertorio o con las letras y acordes detrás, una canción por página; y puedes guardar el `.html` si prefieres mandarla por correo.
 - ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
-- 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder sus etiquetas, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
+- 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder lo que lleva escrito, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. Cantoral **no hace ni una petición de red**: hasta las tipografías van dentro del paquete, así que funciona igual en un equipo sin conexión.
@@ -444,12 +442,6 @@ vuelve a escanear la carpeta.
 Con `.ogg`, `.opus`, `.aiff` y `.mov` depende del sistema —Windows y macOS no
 coinciden—, así que sí se indexan; si alguno no suena, la app lo dice al
 intentarlo.
-</details>
-
-<details>
-<summary><b>La columna «Tono» y el filtro por ocasión están siempre vacíos</b></summary>
-
-Todavía no hay editor para esos campos ([#16](https://github.com/xlCyanz/cantoral/issues/16)). El backend ya los guarda; falta la interfaz.
 </details>
 
 <details>

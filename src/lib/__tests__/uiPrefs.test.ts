@@ -218,13 +218,13 @@ describe("guardar los cambios", () => {
   it("recoge el cambio venga de donde venga", async () => {
     useStore.getState().toggleShuffle();
     useStore.getState().onGroupBy("album");
-    useStore.getState().onSortHeader("tono");
+    useStore.getState().onSortHeader("ocasion");
     await vi.advanceTimersByTimeAsync(400);
 
     const g = ultimoGuardado();
     expect(g.shuffle).toBe(true);
     expect(g.groupBy).toBe("album");
-    expect(g.sortKey).toBe("tono");
+    expect(g.sortKey).toBe("ocasion");
   });
 
   it("recuerda la densidad: se elige una vez y vale para siempre", async () => {
