@@ -1,9 +1,11 @@
-import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Moon, Rows3, Rows4, Search, Sun, Tag, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search, Tag, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { useRef } from "react";
 import { applyFilters, etiquetas, ocasiones, seleccionVigente, useStore } from "../store";
 import SelectionBar from "./SelectionBar";
 import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
 import { encabezadoBiblioteca } from "../lib/encabezado";
+import { useArrastrarFila } from "../lib/arrastrarFila";
 import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
@@ -21,7 +23,6 @@ export default function TopBar() {
   const groupBy = useStore((s) => s.groupBy);
   const libState = useStore((s) => s.libState);
   const scanning = useStore((s) => s.scanning);
-  const theme = useStore((s) => s.theme);
   const listaTitulo = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist)?.nombre ?? "");
   // `applyFilters` and `ocasiones` remember their last result, so calling them
   // here costs nothing beyond what the library view already paid.
@@ -36,13 +37,15 @@ export default function TopBar() {
   const onQuery = useStore((s) => s.onQuery);
   const clearQuery = useStore((s) => s.clearQuery);
   const showColecciones = useStore((s) => s.showColecciones);
-  const toggleTheme = useStore((s) => s.toggleTheme);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const onOcasion = useStore((s) => s.onOcasion);
   const onTagFilter = useStore((s) => s.onTagFilter);
   const onGroupBy = useStore((s) => s.onGroupBy);
   const densidad = useStore((s) => s.densidad);
   const setDensidad = useStore((s) => s.setDensidad);
+
+  const filaFiltros = useRef<HTMLDivElement>(null);
+  useArrastrarFila(filaFiltros);
 
   const showSearch = view === "biblioteca";
   // La biblioteca es la única vista cuyo nombre no cabía en la barra: ese
@@ -127,16 +130,6 @@ export default function TopBar() {
 
         <div style={{ flex: 1 }} />
 
-        {/* theme toggle */}
-        <button
-          onClick={toggleTheme}
-          title="Cambiar tema"
-          className="hb-s2t"
-          style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", display: "grid", placeItems: "center", color: "var(--text-2)", transition: "background .14s,color .14s" }}
-        >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-
         {/* add folder */}
         <button
           onClick={openAddFolder}
@@ -173,7 +166,7 @@ export default function TopBar() {
         <div style={{ height: 52, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderTop: "1px solid var(--border)" }}>
           {haySeleccion && <SelectionBar />}
           {!haySeleccion && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
+          <div ref={filaFiltros} className="fila-arrastrable" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
             {chips.map((c) => {
               const active = c.value ? ocasion === c.value : !ocasion;
               return (

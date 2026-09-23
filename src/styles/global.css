@@ -73,6 +73,12 @@ button:focus:not(:focus-visible) { outline: none; }
 *::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 9px; border: 3px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 *::-webkit-scrollbar-corner { background: transparent; }
+
+/* Una fila que se recorre con la rueda o arrastrándola, sin barra a la vista.
+   La barra horizontal se comía tres píxeles de la fila y tapaba el borde de
+   los chips, y en Windows sale siempre — no se esconde sola como en macOS. */
+.fila-arrastrable { scrollbar-width: none; -ms-overflow-style: none; }
+.fila-arrastrable::-webkit-scrollbar { width: 0; height: 0; }
 /* Los títulos del rediseño: una sola clase con los tres valores que el
    documento repite en cada encabezado. */
 .display { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 600; letter-spacing: -0.025em; }
