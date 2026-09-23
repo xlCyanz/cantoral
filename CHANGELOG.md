@@ -11,6 +11,18 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **Una sola forma de agregar a un culto.** Había tres, y cada una era un
+  desplegable distinto: el del panel de detalle agregaba **una** pista, el de
+  la barra de selección y el del menú contextual agregaban **la selección**.
+  Tres implementaciones del mismo menú, dos comportamientos y ninguna forma de
+  saber cuál te iba a tocar. Ahora los tres abren el mismo diálogo, que antes
+  de que elijas a dónde dice cuántas pistas va a mover y en qué cultos ya
+  estaban. Se abre también con la tecla `A`, que es lo que más se repite
+  armando un domingo.
+
+  De paso, agregar algo que ya estaba deja de decir «0 pistas agregadas»
+  —que se lee como que algo falló— y dice que ya estaban.
+
 - **Las pantallas de estado dicen lo que hace falta.** La biblioteca vacía
   dejaba la promesa —«sin mover ni copiar tus archivos»— al final de un párrafo
   largo. Ahora es la frase, enumerada y en negrita: **no mueve, no renombra y

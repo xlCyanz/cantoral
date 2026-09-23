@@ -74,10 +74,9 @@ const opcion: CSSProperties = {
  */
 export default function SelectionBar() {
   const ids = useStore(seleccionVigente);
-  const lists = useStore((s) => s.playlists);
   const tags = useStore(etiquetas);
   const clearSelection = useStore((s) => s.clearSelection);
-  const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
+  const openAddToList = useStore((s) => s.openAddToList);
   const bulkFav = useStore((s) => s.bulkFav);
   const bulkTag = useStore((s) => s.bulkTag);
   const bulkDelete = useStore((s) => s.bulkDelete);
@@ -120,35 +119,13 @@ export default function SelectionBar() {
         {ids.length === 1 ? "1 pista seleccionada" : `${ids.length} pistas seleccionadas`}
       </span>
 
-      <div style={{ position: "relative", flex: "0 0 auto" }}>
-        <button onClick={() => setAbierto(abierto === "lista" ? null : "lista")} className="hb-primary" style={botonPrincipal}>
-          <ListPlus size={13} />Agregar a lista…
-        </button>
-        {abierto === "lista" && (
-          <>
-            <div onClick={cerrar} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
-            <div style={menu}>
-              {lists.length === 0 ? (
-                <p style={{ ...opcion, color: "var(--text-3)", fontWeight: 500 }}>Todavía no hay listas.</p>
-              ) : (
-                lists.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      bulkAddToPlaylist(p.id);
-                      cerrar();
-                    }}
-                    className="hb-s2"
-                    style={opcion}
-                  >
-                    {p.nombre}
-                  </button>
-                ))
-              )}
-            </div>
-          </>
-        )}
-      </div>
+      {/* Un botón, no un desplegable: el mismo diálogo que se abre desde el
+          panel de detalle y desde el menú contextual, y que dice cuántas
+          pistas va a mover antes de elegir a dónde. El atajo va escrito
+          porque el diálogo se abre igual con `A`. */}
+      <button onClick={openAddToList} className="hb-primary" style={botonPrincipal}>
+        <ListPlus size={13} />Agregar a un culto… <span style={{ opacity: 0.7 }}>A</span>
+      </button>
 
       <button onClick={() => bulkFav(true)} title="Marcar como favoritas" aria-label="Marcar la selección como favoritas" className="hb-s2" style={boton}>
         <Heart size={13} />

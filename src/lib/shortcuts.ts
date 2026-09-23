@@ -17,6 +17,7 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘/Ctrl + F", label: "Buscar en la biblioteca" },
   { keys: "⌘/Ctrl + N", label: "Nueva lista para culto" },
   { keys: "⌘/Ctrl + A", label: "Seleccionar todo lo que muestra la biblioteca" },
+  { keys: "A", label: "Agregar a un culto lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
   { keys: "Esc", label: "Cerrar diálogo, panel o modo culto" },
   { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
@@ -120,6 +121,17 @@ export function registerShortcuts(): () => void {
         s.transposeService(-1);
         return;
       }
+    }
+
+    // `A` a secas abre el único sitio desde el que se agrega a un culto. Sin
+    // modificador porque es lo que más se repite armando un domingo, y la
+    // acción no decide nada por su cuenta: abre el diálogo, que dice cuántas
+    // pistas va a mover antes de que se elija a dónde. Si no hay nada elegido
+    // ni nada abierto en el panel, `openAddToList` no hace nada.
+    if (e.key === "a" || e.key === "A") {
+      e.preventDefault();
+      s.openAddToList();
+      return;
     }
 
     // `code` is layout-independent and survives input methods that leave
