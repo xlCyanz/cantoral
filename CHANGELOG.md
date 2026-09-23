@@ -83,6 +83,16 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   Y proyectar calla el reproductor del portátil: hay una sola salida de audio, y
   dos cosas a la vez por los altavoces del culto no las quiere nadie.
 
+- **Proyectar un culto entero sin nadie al ratón.** En Proyección, «Cuando un
+  elemento se acaba»: *Negro y esperar* —lo de siempre, y lo que sigue viniendo
+  puesto— o *Pasar al siguiente*, y la proyección sigue sola.
+
+  El avance automático lleva la transición que tengas puesta, igual que pulsar
+  «Siguiente» a mano. Al final del culto no avanza: no hay adónde, y que la
+  última canción arranque otra vez sola delante de todos es lo que no puede
+  pasar. Recorrer la letra sigue siendo manual — nadie sabe a qué velocidad
+  canta la congregación.
+
 ### Eliminado
 
 - **El desvío al reproductor del sistema.** Cantoral ya no le pasa ningún

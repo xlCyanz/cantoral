@@ -7,7 +7,7 @@
 // field is checked on its own and whatever does not hold up is dropped, leaving
 // that preference at its default instead of poisoning the whole load.
 
-import type { Densidad, GroupBy, SalidaDeAudio, SortDir, SortKey, TransicionProyeccion, View } from "./types";
+import type { AvanceProyeccion, Densidad, GroupBy, SalidaDeAudio, SortDir, SortKey, TransicionProyeccion, View } from "./types";
 
 /** What is remembered between sessions. */
 export interface UiPrefs {
@@ -34,6 +34,14 @@ export interface UiPrefs {
    */
   salidaDeAudio: SalidaDeAudio;
   transicionProyeccion: TransicionProyeccion;
+  /**
+   * Si la proyección pasa sola al siguiente elemento del culto.
+   *
+   * Se recuerda como los otros dos: una iglesia que proyecta el culto entero
+   * seguido lo elige una vez, y otra que corta entre canción y canción para
+   * que alguien hable también.
+   */
+  avanceProyeccion: AvanceProyeccion;
 }
 
 /** The settings key it is stored under. */
@@ -50,6 +58,7 @@ const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
 const DENSIDADES: Densidad[] = ["comoda", "compacta"];
 const SALIDAS_DE_AUDIO: SalidaDeAudio[] = ["negro", "portada", "letra"];
 const TRANSICIONES: TransicionProyeccion[] = ["negro", "cuenta"];
+const AVANCES: AvanceProyeccion[] = ["negro", "siguiente"];
 
 /** The fields worth writing back, in one place so a new one cannot be missed. */
 export const PREF_FIELDS = [
@@ -66,6 +75,7 @@ export const PREF_FIELDS = [
   "densidad",
   "salidaDeAudio",
   "transicionProyeccion",
+  "avanceProyeccion",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -83,6 +93,7 @@ export function serialisePrefs(s: UiPrefs): string {
     densidad: s.densidad,
     salidaDeAudio: s.salidaDeAudio,
     transicionProyeccion: s.transicionProyeccion,
+    avanceProyeccion: s.avanceProyeccion,
   };
   return JSON.stringify(limpio);
 }
@@ -131,6 +142,9 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   }
   if (TRANSICIONES.includes(o.transicionProyeccion as TransicionProyeccion)) {
     out.transicionProyeccion = o.transicionProyeccion as TransicionProyeccion;
+  }
+  if (AVANCES.includes(o.avanceProyeccion as AvanceProyeccion)) {
+    out.avanceProyeccion = o.avanceProyeccion as AvanceProyeccion;
   }
   return out;
 }

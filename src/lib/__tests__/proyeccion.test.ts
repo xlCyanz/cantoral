@@ -833,3 +833,72 @@ describe("la transición entre elementos", () => {
     expect(ultimo().transicion).toBeUndefined();
   });
 });
+
+
+describe("avanzar solo al acabarse un elemento", () => {
+  it("con «Pasar al siguiente», la proyección sigue sola", async () => {
+    // Lo que quiere quien proyecta un culto de principio a fin sin nadie al
+    // ratón.
+    culto();
+    useStore.setState({ avanceProyeccion: "siguiente" });
+    await useStore.getState().escucharProyeccion();
+    useStore.getState().proyectarElemento(0);
+
+    contestar!({ src: "/m/a.mp3", pos: 180, dur: 180, fin: true });
+
+    expect(useStore.getState().proyeccionIdx).toBe(1);
+    expect(useStore.getState().proyeccionEnNegro).toBe(false);
+    expect(ultimo().vista).toMatchObject({ src: "/m/b.mp4", reproduciendo: true });
+  });
+
+  it("y lleva la transición, como cualquier cambio de elemento", async () => {
+    culto();
+    useStore.setState({ avanceProyeccion: "siguiente", transicionProyeccion: "cuenta" });
+    await useStore.getState().escucharProyeccion();
+    useStore.getState().proyectarElemento(0);
+
+    contestar!({ src: "/m/a.mp3", pos: 180, dur: 180, fin: true });
+
+    expect(ultimo().transicion).toBe("cuenta");
+  });
+
+  it("al final del culto se queda en negro, no vuelve al principio", async () => {
+    // No hay adónde avanzar, y que la última canción arranque otra vez sola
+    // delante de todos es lo que no puede pasar en ninguno de los dos modos.
+    culto();
+    useStore.setState({ avanceProyeccion: "siguiente" });
+    await useStore.getState().escucharProyeccion();
+    useStore.getState().proyectarElemento(2);
+
+    contestar!({ src: "/m/c.mp3", pos: 180, dur: 180, fin: true });
+
+    expect(ultimo().vista).toEqual({ modo: "negro" });
+    expect(useStore.getState().proyeccionIdx).toBe(2);
+  });
+
+  it("con el ajuste por defecto sigue sin avanzar", async () => {
+    culto();
+    await useStore.getState().escucharProyeccion();
+    useStore.getState().proyectarElemento(0);
+
+    contestar!({ src: "/m/a.mp3", pos: 180, dur: 180, fin: true });
+
+    expect(useStore.getState().proyeccionIdx).toBe(0);
+    expect(ultimo().vista).toEqual({ modo: "negro" });
+  });
+
+  it("el tiempo se deja donde acabó, no a cero", async () => {
+    // La ventana de mandos enseña «3:00 de 3:00» un instante antes de saltar,
+    // que es lo que se acaba de ver.
+    culto();
+    useStore.setState({ avanceProyeccion: "siguiente", proyeccionDur: 180 });
+    await useStore.getState().escucharProyeccion();
+    useStore.getState().proyectarElemento(0);
+    useStore.setState({ proyeccionDur: 180 });
+
+    contestar!({ src: "/m/a.mp3", pos: 180, dur: 0, fin: true });
+
+    // Y al entrar en el elemento nuevo se pone a cero, como siempre.
+    expect(useStore.getState().proyeccionPos).toBe(0);
+  });
+});

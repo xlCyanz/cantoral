@@ -40,6 +40,7 @@ const GUARDADAS: UiPrefs = {
   densidad: "compacta",
   salidaDeAudio: "portada",
   transicionProyeccion: "cuenta",
+  avanceProyeccion: "siguiente",
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -74,6 +75,7 @@ describe("parsePrefs", () => {
       densidad: "apretadísima",
       salidaDeAudio: "fuegos artificiales",
       transicionProyeccion: "fundido",
+      avanceProyeccion: "a lo loco",
       shuffle: true,
     });
 
@@ -87,6 +89,11 @@ describe("parsePrefs", () => {
     const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
 
     expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+  });
+
+  it("y recuerda si la proyección avanza sola", () => {
+    expect(parsePrefs(JSON.stringify({ avanceProyeccion: "siguiente" }))).toEqual({ avanceProyeccion: "siguiente" });
+    expect(parsePrefs(JSON.stringify({ avanceProyeccion: "negro" }))).toEqual({ avanceProyeccion: "negro" });
   });
 
   it("y acepta los tres modos de salida de audio", () => {
@@ -189,10 +196,23 @@ describe("guardar los cambios", () => {
     // volvería a estar en negro.
     useStore.getState().setSalidaDeAudio("negro");
     useStore.getState().setTransicionProyeccion("cuenta");
+    useStore.getState().setAvanceProyeccion("siguiente");
     await vi.advanceTimersByTimeAsync(400);
 
     expect(ultimoGuardado().salidaDeAudio).toBe("negro");
     expect(ultimoGuardado().transicionProyeccion).toBe("cuenta");
+    expect(ultimoGuardado().avanceProyeccion).toBe("siguiente");
+  });
+
+  it("y el avance solo, aunque no cambie nada más", async () => {
+    // A solas: si no estuviera en la lista de campos vigilados, cambiarlo no
+    // dispararía ninguna escritura y solo se guardaría de rebote, cuando se
+    // tocara otra cosa.
+    useStore.getState().setAvanceProyeccion("siguiente");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(1);
+    expect(ultimoGuardado().avanceProyeccion).toBe("siguiente");
   });
 
   it("recoge el cambio venga de donde venga", async () => {

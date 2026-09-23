@@ -6,6 +6,7 @@ import type {
   LibState,
   Playlist,
   QuickFilter,
+  AvanceProyeccion,
   SalidaDeAudio,
   SortKey,
   Theme,
@@ -386,6 +387,16 @@ export interface CantoralState {
   salidaDeAudio: SalidaDeAudio;
   /** Qué pasa entre un elemento del culto y el siguiente. Se recuerda. */
   transicionProyeccion: TransicionProyeccion;
+  /**
+   * Qué hace la proyección cuando un elemento se termina. Se recuerda.
+   *
+   * Por defecto, negro: en un culto el video se acaba mientras alguien está
+   * hablando, y arrancar la canción de después por su cuenta delante de la
+   * congregación no es algo que la app deba decidir sin que se lo pidan. Quien
+   * proyecta un culto seguido —una lista entera de principio a fin— lo pone en
+   * «siguiente» una vez y se olvida.
+   */
+  avanceProyeccion: AvanceProyeccion;
   /** Por dónde va lo que se está proyectando, en segundos. Lo dice la salida. */
   proyeccionPos: number;
   proyeccionDur: number;
@@ -566,6 +577,7 @@ export interface CantoralState {
   proyeccionNegro: () => void;
   setSalidaDeAudio: (v: SalidaDeAudio) => void;
   setTransicionProyeccion: (v: TransicionProyeccion) => void;
+  setAvanceProyeccion: (v: AvanceProyeccion) => void;
   /** Volver a mandar a la salida lo que ya está en pantalla. */
   reproyectar: () => void;
   /** Empezar a escuchar lo que devuelve la salida. Devuelve cómo dejar de hacerlo. */
@@ -974,6 +986,7 @@ export const useStore = create<CantoralState>((set, get) => {
     proyeccionEstrofa: 0,
     salidaDeAudio: "letra",
     transicionProyeccion: "negro",
+    avanceProyeccion: "negro",
     proyeccionPos: 0,
     proyeccionDur: 0,
     proyeccionFallos: {},
@@ -1207,6 +1220,8 @@ export const useStore = create<CantoralState>((set, get) => {
 
     setTransicionProyeccion: (v) => set({ transicionProyeccion: v }),
 
+    setAvanceProyeccion: (v) => set({ avanceProyeccion: v }),
+
     /** Volver a mandar lo que ya está en pantalla, con lo que haya cambiado. */
     reproyectar: () => {
       const st = get();
@@ -1242,11 +1257,22 @@ export const useStore = create<CantoralState>((set, get) => {
         // canción anterior debajo de la que acaba de empezar.
         if (!actual || !st.proyectando || rutaProyectable(actual) !== e.src) return;
         if (e.fin) {
-          // Se acabó lo que había en pantalla. Negro, y no pasar solo al
-          // siguiente: en un culto el video se termina mientras alguien está
-          // hablando, y arrancar la canción de después por su cuenta delante
-          // de la congregación no lo puede decidir la app. Lo siguiente queda
-          // cargado y en pausa, a un botón de distancia.
+          // Se acabó lo que había en pantalla.
+          //
+          // Con «Pasar al siguiente» puesto, la proyección sigue sola: es lo
+          // que quiere quien proyecta un culto de principio a fin sin que nadie
+          // esté al ratón. Con el ajuste por defecto se queda en negro, porque
+          // un video se termina mientras alguien está hablando y arrancar la
+          // canción de después por su cuenta delante de la congregación no lo
+          // puede decidir la app sin que se lo hayan pedido.
+          //
+          // Al final del culto no avanza en ninguno de los dos casos: no hay
+          // adónde, y `proyeccionSiguiente` deja el negro.
+          if (st.avanceProyeccion === "siguiente") {
+            set({ proyeccionPos: e.dur || get().proyeccionDur });
+            get().proyeccionSiguiente();
+            return;
+          }
           set({ proyeccionEnNegro: true, proyeccionPos: e.dur || get().proyeccionDur });
           get().proyectar({ vista: { modo: "negro" }, precarga: precargaDe(get(), get().proyeccionIdx) });
           return;
