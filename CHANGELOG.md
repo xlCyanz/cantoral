@@ -164,6 +164,17 @@ en tu base se quedan donde están; esta versión deja de leerlos.
 
 ### Cambiado
 
+- **Logo nuevo.** Un libro abierto: la página izquierda con una corchea calada
+  y la derecha con cuatro líneas de letra, en el índigo de la app. Está en el
+  icono de la app de macOS y de Windows, en la barra de título —símbolo y
+  nombre en Bricolage Grotesque—, en el pie de Configuración, en el favicon y
+  en el banner del README.
+
+  El icono de macOS lleva el margen de la plantilla de Apple, y los tamaños
+  chicos usan las versiones simplificadas del manual: tres líneas a 32 y 48 px,
+  dos y sin nota a 16 y 24, donde la corchea sería una mancha. En modo oscuro
+  el símbolo pasa al gris frío claro de la marca.
+
 - **Los cultos ya no tienen fecha.** Un culto es una lista preparada: se arma
   una vez, se le da a proyectar y corre entero. La fecha lo convertía en otra
   cosa —un evento del calendario— y era lo que decidía el orden, las secciones

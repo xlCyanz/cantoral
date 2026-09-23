@@ -5,8 +5,8 @@
 <p>
   <a href="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml"><img src="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/xlCyanz/cantoral/actions/workflows/build.yml"><img src="https://github.com/xlCyanz/cantoral/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
-  <a href="https://github.com/xlCyanz/cantoral/releases/latest"><img src="https://img.shields.io/github/v/release/xlCyanz/cantoral?display_name=tag&sort=semver&label=versión&color=A9502E" alt="Última versión" /></a>
-  <a href="https://github.com/xlCyanz/cantoral/releases"><img src="https://img.shields.io/github/downloads/xlCyanz/cantoral/total?label=descargas&color=A9502E" alt="Descargas" /></a>
+  <a href="https://github.com/xlCyanz/cantoral/releases/latest"><img src="https://img.shields.io/github/v/release/xlCyanz/cantoral?display_name=tag&sort=semver&label=versión&color=3A4D8F" alt="Última versión" /></a>
+  <a href="https://github.com/xlCyanz/cantoral/releases"><img src="https://img.shields.io/github/downloads/xlCyanz/cantoral/total?label=descargas&color=3A4D8F" alt="Descargas" /></a>
 </p>
 <p>
   <img src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white" alt="macOS" />
@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white" alt="Rust" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-A9502E" alt="MIT" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3A4D8F" alt="MIT" /></a>
 </p>
 
 </div>

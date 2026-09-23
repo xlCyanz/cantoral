@@ -30,6 +30,10 @@
   --success: #2f7a55; --success-soft: #e3efe9; --warning: #8a6410; --warning-soft: #f5ecd6;
   --danger: #b33b2c; --danger-soft: #f7e3df; --danger-fill: #b33b2c; --on-danger: #ffffff;
   --brand-grad: linear-gradient(150deg, #3a4d8f, #2b3a6e);
+  /* El color del logo, del manual de marca: índigo en claro, gris frío claro
+     en oscuro. No es `--primary`: ese se aclara en oscuro para leerse como
+     texto, y el logo tiene sus dos colores fijos. */
+  --logo: #3a4d8f;
   --ring: rgba(58, 77, 143, 0.3);
   --sh-sm: 0 1px 2px rgba(25, 28, 33, 0.06);
   --sh-md: 0 1px 2px rgba(25, 28, 33, 0.06), 0 8px 24px rgba(25, 28, 33, 0.09);
@@ -37,6 +41,7 @@
   color-scheme: light;
 }
 [data-theme="dark"] {
+  --logo: #e6e8ee;
   --bg: #14171c; --bg-2: #0f1216; --surface: #1c2027; --surface-2: #23272f; --surface-3: #2b3038;
   --border: #2c313a; --border-2: #3e4552;
   --text: #eef1f5; --text-2: #a2abb9; --text-3: #6e7784;
