@@ -522,6 +522,30 @@ pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
     std::fs::write(&dest, html.as_bytes()).map_err(e)
 }
 
+/// Las pantallas conectadas, para elegir por cuál sale la proyección.
+#[tauri::command]
+pub fn projection_monitors(app: AppHandle) -> CmdResult<Vec<crate::proyeccion::Monitor>> {
+    crate::proyeccion::monitores(&app)
+}
+
+/// Abre la salida a pantalla completa en la pantalla pedida, o la mueve allí.
+#[tauri::command]
+pub fn open_projection(app: AppHandle, monitor: usize) -> CmdResult<()> {
+    crate::proyeccion::abrir(&app, monitor)
+}
+
+/// Cierra la salida.
+#[tauri::command]
+pub fn close_projection(app: AppHandle) -> CmdResult<()> {
+    crate::proyeccion::cerrar(&app)
+}
+
+/// Manda a la salida lo que tiene que mostrar.
+#[tauri::command]
+pub fn set_projection(app: AppHandle, contenido: serde_json::Value) -> CmdResult<()> {
+    crate::proyeccion::emitir(&app, contenido)
+}
+
 /// Is there a newer Cantoral published?
 ///
 /// Desktop only: on mobile the store does this, and the plugin is not even

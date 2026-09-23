@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "proyeccion",
+  "description": "La ventana que sale por el proyector. Solo escucha eventos: no abre diálogos, no abre URLs, no toca ventanas y no habla con la base de datos. Todo lo que muestra se lo manda la ventana principal, así que no necesita nada más — y lo que no se le da aquí no se puede usar desde una pantalla que cuelga delante de una congregación.",
+  "windows": ["proyeccion"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

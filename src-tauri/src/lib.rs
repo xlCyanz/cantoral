@@ -4,6 +4,7 @@ mod commands;
 mod compartir;
 mod db;
 mod models;
+mod proyeccion;
 mod scanner;
 #[cfg(desktop)]
 mod updates;
@@ -87,6 +88,10 @@ pub fn run() {
             commands::set_track_fav,
             commands::update_track,
             commands::check_for_update,
+            commands::projection_monitors,
+            commands::open_projection,
+            commands::close_projection,
+            commands::set_projection,
             commands::install_update,
             commands::create_playlist,
             commands::duplicate_playlist,

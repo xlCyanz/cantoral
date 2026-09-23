@@ -28,6 +28,7 @@ import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
 import { ultimaPorOcasion } from "./lib/repetir";
 import { partirPorFecha } from "./lib/fechas";
+import type { MonitorInfo, SalidaProyeccion } from "./lib/api";
 import { carpetaReal } from "./lib/carpetas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
@@ -41,6 +42,10 @@ import {
   cancelScanCmd,
   backupDatabase,
   checkForUpdateCmd,
+  closeProjectionCmd,
+  openProjectionCmd,
+  projectionMonitors,
+  setProjectionCmd,
   createPlaylistCmd,
   deletePlaylistCmd,
   duplicatePlaylistCmd,
@@ -201,6 +206,14 @@ export interface CantoralState {
    * decisión que valga la pena recordar hasta la semana que viene.
    */
   gruposColapsados: string[];
+  /** Las pantallas conectadas, leídas al entrar en Proyección. */
+  monitores: MonitorInfo[];
+  /** Por cuál sale. Vive en la sesión: el índice de una pantalla cambia al
+   *  enchufar o desenchufar una, así que recordarlo entre arranques apuntaría
+   *  a la de al lado. */
+  monitorSalida: number;
+  /** Si la ventana de salida está abierta. */
+  proyectando: boolean;
   /**
    * Si la tarjeta de escaneo de la esquina está escondida.
    *
@@ -345,6 +358,11 @@ export interface CantoralState {
   onGroupBy: (g: GroupBy) => void;
   setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
+  showProyeccion: () => void;
+  cargarMonitores: () => Promise<void>;
+  elegirMonitor: (indice: number) => void;
+  alternarProyeccion: () => void;
+  proyectar: (salida: SalidaProyeccion) => void;
   ocultarTarjetaEscaneo: () => void;
   onSortHeader: (k: SortKey) => void;
 
@@ -729,6 +747,9 @@ export const useStore = create<CantoralState>((set, get) => {
     groupBy: "none",
     densidad: "comoda",
     gruposColapsados: [],
+    monitores: [],
+    monitorSalida: 0,
+    proyectando: false,
     tarjetaEscaneoOculta: false,
     sortKey: "titulo",
     sortDir: "asc",
@@ -824,6 +845,60 @@ export const useStore = create<CantoralState>((set, get) => {
     onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
     setDensidad: (d) => set({ densidad: d }),
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
+
+    showProyeccion: () => {
+      set({ view: "proyeccion" });
+      void get().cargarMonitores();
+    },
+
+    cargarMonitores: async () => {
+      const lista = await projectionMonitors().catch((err) => {
+        console.error("projection_monitors failed", err);
+        return [] as MonitorInfo[];
+      });
+      set((st) => ({
+        monitores: lista,
+        // Por defecto, la primera pantalla que no sea en la que está la
+        // ventana: en un culto el proyector es siempre la otra. Si solo hay
+        // una, se queda esa y quien opera verá la salida encima — que es lo
+        // que pasa cuando se prepara sin el proyector conectado.
+        monitorSalida:
+          lista.some((m) => m.indice === st.monitorSalida) && st.proyectando
+            ? st.monitorSalida
+            : (lista.find((m) => !m.principal) ?? lista[0])?.indice ?? 0,
+      }));
+    },
+
+    elegirMonitor: (indice) => {
+      set({ monitorSalida: indice });
+      // En marcha, elegir otra pantalla la mueve: pedir que se cierre y se
+      // vuelva a abrir sería un parpadeo delante de la congregación.
+      if (get().proyectando) {
+        void openProjectionCmd(indice).catch((err) => {
+          console.error("open_projection failed", err);
+          toast("No se pudo mover la proyección a esa pantalla", "error");
+        });
+      }
+    },
+
+    alternarProyeccion: () => {
+      if (get().proyectando) {
+        set({ proyectando: false });
+        void closeProjectionCmd().catch(console.error);
+        return;
+      }
+      void openProjectionCmd(get().monitorSalida)
+        .then(() => set({ proyectando: true }))
+        .catch((err) => {
+          console.error("open_projection failed", err);
+          toast("No se pudo abrir la proyección", "error");
+        });
+    },
+
+    proyectar: (salida) => {
+      if (!get().proyectando) return;
+      void setProjectionCmd(salida).catch((err) => console.error("set_projection failed", err));
+    },
     toggleGrupo: (clave) =>
       set((st) => ({
         gruposColapsados: st.gruposColapsados.includes(clave)

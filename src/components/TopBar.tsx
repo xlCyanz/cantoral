@@ -8,6 +8,7 @@ import type { Densidad, GroupBy } from "../lib/types";
 const titleMap: Record<string, string> = {
   colecciones: "Listas para cultos",
   config: "Configuración",
+  proyeccion: "Proyección",
 };
 
 export default function TopBar() {

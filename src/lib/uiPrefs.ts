@@ -32,6 +32,10 @@ export const UI_PREFS_KEY = "ui";
 const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "tono", "bpm", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
+// «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde
+// en la pantalla de proyectar, sin proyector conectado, no es donde nadie
+// quiere aterrizar. Se recuerda dónde se estaba trabajando, no lo que se
+// estaba haciendo en vivo.
 const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
 const DENSIDADES: Densidad[] = ["comoda", "compacta"];
 
