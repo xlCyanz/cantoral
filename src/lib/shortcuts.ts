@@ -49,7 +49,9 @@ export function registerShortcuts(): () => void {
       } else if (s.dialog) {
         e.preventDefault();
         s.closeDialog();
-      } else if (s.detailOpen) {
+      } else if (s.detailOpen && !s.detailFijado) {
+        // Fijado, el panel aguanta el Esc. Etiquetando pista por pista, que se
+        // cierre al pulsar Esc para salir de un campo es perder el sitio.
         e.preventDefault();
         s.closeDetail();
       } else if (s.rowMenu) {

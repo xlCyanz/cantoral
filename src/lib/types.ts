@@ -84,4 +84,4 @@ export interface Playlist {
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */
-export type TrackEdit = Partial<Pick<Track, "tono" | "bpm" | "ocasion" | "tags">>;
+export type TrackEdit = Partial<Pick<Track, "artista" | "tono" | "bpm" | "ocasion" | "tags">>;

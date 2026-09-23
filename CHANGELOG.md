@@ -129,7 +129,37 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   lo que viene. Pasar de estrofa o cortar a negro no la llevan: serían medio
   segundo de negro en mitad de una canción.
 
+- **El artista se puede corregir.** En el panel de detalle, junto al tono y la
+  ocasión. En una biblioteca de iglesia media viene mal en las etiquetas del
+  archivo —«Track 03», «Unknown Artist»— y hasta ahora se leía y no había
+  dónde arreglarlo sin tocar el MP3.
+
+  La corrección **sobrevive a los escaneos**: la pista queda marcada y el
+  escáner deja de pisarle el artista con lo que diga el archivo. Sin eso se
+  arreglaría el domingo y estaría mal otra vez el jueves.
+
+- **Fijar el panel de detalle.** Fijado, `Esc` deja de cerrarlo. Etiquetando
+  pista por pista, que se cierre al pulsar Esc para salir de un campo es perder
+  el sitio.
+
 ### Cambiado
+
+- **La barra del reproductor baja de 88 px a 60.** Es la medida del rediseño, y
+  el sitio que suelta se lo queda la lista que tiene encima — que es donde se
+  arma el culto. Entran dos filas más de biblioteca sin tocar nada.
+
+  A la derecha dice ahora **de dónde sale lo que suena**: «Cola: culto» o
+  «Cola: biblioteca». Poner una canción suelta en mitad de un culto deja el
+  transporte siguiendo la biblioteca, y sin decirlo nadie se enteraba hasta que
+  sonaba lo que no tocaba.
+
+- **El panel de detalle, más apretado.** De 360 px a 300, y a 272 cuando la
+  ventana se queda corta. La carátula va al lado del título en vez de encima
+  —apilados se comían un tercio del panel antes del primer dato editable—, y
+  «Reproducir» y «Agregar a culto…» comparten fila. El bloque del archivo deja
+  de ser una ficha técnica: formato, álbum y ruta, que es lo que hace falta
+  para encontrarlo; el álbum y la duración ya están en la tabla de al lado.
+
 
 - **La biblioteca solo indexa lo que se puede reproducir.** Salen `.wma`,
   `.mkv`, `.avi` y `.wmv`, que no decodifica ningún motor de los que usa la

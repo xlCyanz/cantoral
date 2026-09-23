@@ -173,3 +173,33 @@ describe("el aviso de lo que el escaneo no indexó", () => {
     expect(avisoDeOmitidos(3)).toBe(" · 3 archivos en formatos que Cantoral no reproduce");
   });
 });
+
+describe("de dónde sale lo que suena", () => {
+  it("dar a play en la biblioteca deja la cola de la biblioteca", () => {
+    // La barra lo dice, y hace falta: poner una canción suelta en mitad de un
+    // culto deja el transporte siguiendo la biblioteca, y sin decirlo nadie se
+    // enteraría hasta que sonara lo que no tocaba.
+    useStore.setState({ view: "biblioteca" });
+
+    useStore.getState().play("a");
+
+    expect(useStore.getState().queueOrigen).toBe("biblioteca");
+  });
+
+  it("y darle desde un culto abierto deja la del culto", () => {
+    useStore.setState({ view: "lista" });
+
+    useStore.getState().play("a");
+
+    expect(useStore.getState().queueOrigen).toBe("culto");
+  });
+
+  it("pasar de pista no cambia de dónde salió la cola", () => {
+    useStore.setState({ view: "lista" });
+    useStore.getState().play("a");
+
+    useStore.getState().next();
+
+    expect(useStore.getState().queueOrigen).toBe("culto");
+  });
+});
