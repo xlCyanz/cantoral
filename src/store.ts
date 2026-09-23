@@ -14,6 +14,58 @@ import type {
   View,
 } from "./lib/types";
 
+/**
+ * La URL `asset://` de una pista, o cadena vacía si no hay nada que proyectar.
+ *
+ * Una sola función para las dos cosas que necesitan coincidir: lo que se manda
+ * a la salida y lo que se compara cuando la salida contesta. Si fueran dos,
+ * cualquier diferencia entre ellas tiraría los informes de progreso a la
+ * basura sin que se notara.
+ */
+function rutaProyectable(t: Track | undefined): string {
+  if (!t || motivoNoProyectable(t)) return "";
+  return assetUrl(t.path!);
+}
+
+/**
+ * Las pistas que se están proyectando, en su orden.
+ *
+ * `filasDeLista` mira la lista *abierta*; esta mira la que está en el aire, que
+ * no tienen por qué ser la misma.
+ */
+export const filasProyectadas = recordar(
+  (s: CantoralState): Track[] =>
+    (s.plOrder[s.proyeccionLista] || [])
+      .map((id) => s.tracks.find((t) => t.id === id))
+      .filter((t): t is Track => !!t),
+  (s: CantoralState) => [s.proyeccionLista, s.plOrder[s.proyeccionLista], s.tracks],
+);
+
+/** Lo que hay que ir cargando en silencio estando en `idx`: el siguiente. */
+function precargaDe(s: CantoralState, idx: number): string | undefined {
+  return rutaProyectable(filasProyectadas(s)[idx + 1]) || undefined;
+}
+
+/**
+ * El mensaje para la salida con el elemento `idx` del culto abierto.
+ *
+ * Una pista sin archivo reproducible sale como su título sobre el negro, no
+ * como un negro a secas: por el proyector se canta esa canción igual, y una
+ * pantalla vacía no dice nada. El motivo se queda en la ventana de mandos —a
+ * la congregación no le importa que falte un archivo.
+ */
+function salidaDelCulto(s: CantoralState, idx: number, reproduciendo: boolean): SalidaProyeccion {
+  const t = filasProyectadas(s)[idx];
+  const precarga = precargaDe(s, idx);
+  if (!t) return { vista: { modo: "negro" }, precarga };
+  const src = rutaProyectable(t);
+  if (!src) return { vista: { modo: "titulo", titulo: t.titulo, sub: t.artista || undefined }, precarga };
+  return {
+    vista: { modo: "media", src, video: !!t.video, titulo: t.titulo, sub: t.artista || undefined, reproduciendo },
+    precarga,
+  };
+}
+
 function osPrefersDark(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -29,6 +81,7 @@ import type { UpdateCheck, UpdateProgress } from "./lib/api";
 import { ultimaPorOcasion } from "./lib/repetir";
 import { partirPorFecha } from "./lib/fechas";
 import type { MonitorInfo, SalidaProyeccion } from "./lib/api";
+import { motivoDeError, motivoNoProyectable } from "./lib/formatos";
 import { carpetaReal } from "./lib/carpetas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
@@ -43,6 +96,8 @@ import {
   backupDatabase,
   checkForUpdateCmd,
   closeProjectionCmd,
+  onProjectionReady,
+  onProjectionState,
   openProjectionCmd,
   projectionMonitors,
   setProjectionCmd,
@@ -215,6 +270,51 @@ export interface CantoralState {
   /** Si la ventana de salida está abierta. */
   proyectando: boolean;
   /**
+   * Qué elemento del culto está en pantalla. `-1` es nada: el proyector en
+   * negro con la salida abierta, que es como empieza y como se queda entre una
+   * cosa y otra.
+   *
+   * Un índice en el orden del culto y no un id de pista: la cola es la lista
+   * abierta en su orden, y la misma pista puede estar dos veces en un culto
+   * —una canción que se repite al final— sin que sean el mismo momento.
+   */
+  proyeccionIdx: number;
+  /**
+   * De qué lista es ese índice.
+   *
+   * No es siempre la lista abierta. En pleno culto se abre otra para buscar
+   * algo, y si «Siguiente» avanzara por la que se está mirando sacaría por el
+   * proyector una pista de una lista que nadie pidió. Lo que está en el aire
+   * sigue siendo de la lista con la que se empezó hasta que se proyecte otra
+   * cosa a propósito.
+   */
+  proyeccionLista: string;
+  /**
+   * Si el proyector está en negro aunque haya un elemento apuntado.
+   *
+   * Dos cosas distintas: «no hay nada elegido» es `proyeccionIdx === -1`, y
+   * «hay algo elegido pero no se está viendo» es esto. Pasa al cortar la
+   * imagen a mano y al terminarse un elemento, y en los dos casos lo elegido
+   * sigue ahí para volver.
+   */
+  proyeccionEnNegro: boolean;
+  /** Por dónde va lo que se está proyectando, en segundos. Lo dice la salida. */
+  proyeccionPos: number;
+  proyeccionDur: number;
+  /**
+   * Lo último que falló al proyectar, por `src`.
+   *
+   * Por id de pista y no un solo mensaje porque lo que interesa es *qué
+   * elemento* de la cola no se puede proyectar: marcarlo en su fila se ve antes
+   * de empezar el culto, y un aviso suelto se pierde.
+   *
+   * Sólo se apunta lo que falla estando en pantalla. Lo que falle mientras se
+   * precarga se calla hasta que le toque, porque el elemento que precarga no
+   * informa: si lo hiciera, un archivo roto al final del culto escribiría un
+   * aviso rojo en la cola mientras suena tranquilamente el primero.
+   */
+  proyeccionFallos: Record<string, string>;
+  /**
    * Si la tarjeta de escaneo de la esquina está escondida.
    *
    * Esconderla no cancela nada: son dos cosas distintas —quiero seguir
@@ -358,11 +458,19 @@ export interface CantoralState {
   onGroupBy: (g: GroupBy) => void;
   setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
-  showProyeccion: () => void;
+  showProyeccion: (playlistId?: string) => void;
   cargarMonitores: () => Promise<void>;
   elegirMonitor: (indice: number) => void;
   alternarProyeccion: () => void;
   proyectar: (salida: SalidaProyeccion) => void;
+  /** Poner en pantalla el elemento `idx` del culto abierto. */
+  proyectarElemento: (idx: number) => void;
+  /** Pasar al siguiente del culto. */
+  proyeccionSiguiente: () => void;
+  /** Dejar el proyector en negro sin perder por dónde iba el culto. */
+  proyeccionNegro: () => void;
+  /** Empezar a escuchar lo que devuelve la salida. Devuelve cómo dejar de hacerlo. */
+  escucharProyeccion: () => Promise<() => void>;
   ocultarTarjetaEscaneo: () => void;
   onSortHeader: (k: SortKey) => void;
 
@@ -750,6 +858,12 @@ export const useStore = create<CantoralState>((set, get) => {
     monitores: [],
     monitorSalida: 0,
     proyectando: false,
+    proyeccionIdx: -1,
+    proyeccionLista: "",
+    proyeccionEnNegro: true,
+    proyeccionPos: 0,
+    proyeccionDur: 0,
+    proyeccionFallos: {},
     tarjetaEscaneoOculta: false,
     sortKey: "titulo",
     sortDir: "asc",
@@ -846,8 +960,12 @@ export const useStore = create<CantoralState>((set, get) => {
     setDensidad: (d) => set({ densidad: d }),
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
 
-    showProyeccion: () => {
-      set({ view: "proyeccion" });
+    showProyeccion: (playlistId) => {
+      // La tarjeta «En vivo» nombra un culto concreto, así que su «Proyectar»
+      // abre ese y no el que estuviera abierto de antes: proyectar una lista
+      // distinta de la que se acaba de leer en el botón sería lo último que
+      // quien opera va a revisar antes de empezar.
+      set(playlistId ? { view: "proyeccion", curPlaylist: playlistId } : { view: "proyeccion" });
       void get().cargarMonitores();
     },
 
@@ -883,12 +1001,29 @@ export const useStore = create<CantoralState>((set, get) => {
 
     alternarProyeccion: () => {
       if (get().proyectando) {
-        set({ proyectando: false });
+        // Cortar deja la cola donde estaba. Quien corta suele cortar para
+        // arreglar algo —el proyector, el cable, un archivo— y volver al
+        // mismo sitio, no para empezar el culto otra vez.
+        set({ proyectando: false, proyeccionPos: 0, proyeccionDur: 0 });
         void closeProjectionCmd().catch(console.error);
         return;
       }
       void openProjectionCmd(get().monitorSalida)
-        .then(() => set({ proyectando: true }))
+        .then(() => {
+          set({ proyectando: true });
+          // Salir al aire es salir con algo. Con un culto a medias vuelve a
+          // donde estaba —y a la lista en la que estaba—; si no, empieza por
+          // el principio del que esté abierto.
+          const st = get();
+          if (st.proyeccionIdx >= 0 && filasProyectadas(st).length > st.proyeccionIdx) {
+            set({ proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
+            get().proyectar(salidaDelCulto(get(), st.proyeccionIdx, true));
+          } else if (filasDeLista(st).length > 0) {
+            get().proyectarElemento(0);
+          } else {
+            get().proyeccionNegro();
+          }
+        })
         .catch((err) => {
           console.error("open_projection failed", err);
           toast("No se pudo abrir la proyección", "error");
@@ -898,6 +1033,86 @@ export const useStore = create<CantoralState>((set, get) => {
     proyectar: (salida) => {
       if (!get().proyectando) return;
       void setProjectionCmd(salida).catch((err) => console.error("set_projection failed", err));
+    },
+
+    proyectarElemento: (idx) => {
+      // Se proyecta desde la lista abierta, y a partir de aquí esa pasa a ser
+      // la que está en el aire.
+      if (idx < 0 || idx >= filasDeLista(get()).length) return;
+      set({ proyeccionIdx: idx, proyeccionLista: get().curPlaylist, proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
+      get().proyectar(salidaDelCulto(get(), idx, true));
+    },
+
+    proyeccionSiguiente: () => {
+      const st = get();
+      const filas = filasProyectadas(st);
+      const siguiente = st.proyeccionIdx + 1;
+      if (siguiente >= filas.length) {
+        // Se acabó el culto. Negro y no volver al principio: nadie quiere que
+        // la última canción arranque otra vez sola delante de todos.
+        get().proyeccionNegro();
+        return;
+      }
+      set({ proyeccionIdx: siguiente, proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
+      get().proyectar(salidaDelCulto(get(), siguiente, true));
+    },
+
+    proyeccionNegro: () => {
+      set({ proyeccionEnNegro: true, proyeccionPos: 0, proyeccionDur: 0 });
+      // El negro se lleva la precarga del siguiente: volver del negro tiene
+      // que ser inmediato, y lo que venga después ya está cargado.
+      get().proyectar({ vista: { modo: "negro" }, precarga: precargaDe(get(), get().proyeccionIdx) });
+    },
+
+    escucharProyeccion: async () => {
+      // La salida acaba de engancharse: se le manda lo que debería estar
+      // viendo. Sin esto, lo primero del culto se pierde en el arranque.
+      // `proyectar` ya no manda nada con la salida cortada, así que un aviso
+      // que llegue tarde no hace falta filtrarlo aquí también.
+      const soltarLista = await onProjectionReady(() => {
+        const st = get();
+        get().proyectar(
+          st.proyeccionIdx >= 0 && filasProyectadas(st).length > st.proyeccionIdx
+            ? salidaDelCulto(st, st.proyeccionIdx, true)
+            : { vista: { modo: "negro" } },
+        );
+      });
+      const soltarEstado = await onProjectionState((e) => {
+        const st = get();
+        const actual = filasProyectadas(st)[st.proyeccionIdx];
+        // Lo que llega de un archivo que ya no está en pantalla es de antes de
+        // pasar de elemento y se descarta: escribirlo pondría el tiempo de la
+        // canción anterior debajo de la que acaba de empezar.
+        if (!actual || !st.proyectando || rutaProyectable(actual) !== e.src) return;
+        if (e.fin) {
+          // Se acabó lo que había en pantalla. Negro, y no pasar solo al
+          // siguiente: en un culto el video se termina mientras alguien está
+          // hablando, y arrancar la canción de después por su cuenta delante
+          // de la congregación no lo puede decidir la app. Lo siguiente queda
+          // cargado y en pausa, a un botón de distancia.
+          set({ proyeccionEnNegro: true, proyeccionPos: e.dur || get().proyeccionDur });
+          get().proyectar({ vista: { modo: "negro" }, precarga: precargaDe(get(), get().proyeccionIdx) });
+          return;
+        }
+        if (e.error !== undefined) {
+          const motivo = motivoDeError(e.error, actual.path);
+          set((prev) => ({ proyeccionFallos: { ...prev.proyeccionFallos, [actual.id]: motivo } }));
+          toast(`«${actual.titulo}»: ${motivo.toLocaleLowerCase("es")}`, "error");
+          return;
+        }
+        set((prev) => {
+          // Un archivo que va se quita de la lista de fallos: pasa al
+          // reapuntarlo o al convertirlo sin cerrar la app.
+          const fallos = prev.proyeccionFallos[actual.id]
+            ? Object.fromEntries(Object.entries(prev.proyeccionFallos).filter(([k]) => k !== actual.id))
+            : prev.proyeccionFallos;
+          return { proyeccionPos: e.pos, proyeccionDur: e.dur || prev.proyeccionDur, proyeccionFallos: fallos };
+        });
+      });
+      return () => {
+        soltarLista();
+        soltarEstado();
+      };
     },
     toggleGrupo: (clave) =>
       set((st) => ({

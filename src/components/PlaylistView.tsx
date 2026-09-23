@@ -200,7 +200,7 @@ export default function PlaylistView() {
                 sí. Y hace falta aquí además de en la tarjeta «En vivo»: esa
                 tarjeta solo sale si hay un culto con fecha, así que una
                 iglesia que no les ponga fecha no tendría cómo llegar. */}
-            <button onClick={showProyeccion} className="hb-s2" title="Sacar el culto por el proyector"
+            <button onClick={() => showProyeccion()} className="hb-s2" title="Sacar el culto por el proyector"
               style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <MonitorPlay size={16} />Proyectar
             </button>

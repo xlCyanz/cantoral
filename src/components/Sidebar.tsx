@@ -77,7 +77,7 @@ function EnVivo({ culto }: { culto: Playlist }) {
           Abrir el culto
         </button>
         <button
-          onClick={showProyeccion}
+          onClick={() => showProyeccion(culto.id)}
           className="hb-s3"
           style={{ flex: 1, height: 27, borderRadius: 6, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "11.5px", fontWeight: 600 }}
         >
