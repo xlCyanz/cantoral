@@ -1,9 +1,11 @@
 import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search, Tag, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { useRef } from "react";
 import { applyFilters, etiquetas, ocasiones, seleccionVigente, useStore } from "../store";
 import SelectionBar from "./SelectionBar";
 import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
 import { encabezadoBiblioteca } from "../lib/encabezado";
+import { useArrastrarFila } from "../lib/arrastrarFila";
 import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
@@ -41,6 +43,9 @@ export default function TopBar() {
   const onGroupBy = useStore((s) => s.onGroupBy);
   const densidad = useStore((s) => s.densidad);
   const setDensidad = useStore((s) => s.setDensidad);
+
+  const filaFiltros = useRef<HTMLDivElement>(null);
+  useArrastrarFila(filaFiltros);
 
   const showSearch = view === "biblioteca";
   // La biblioteca es la única vista cuyo nombre no cabía en la barra: ese
@@ -161,7 +166,7 @@ export default function TopBar() {
         <div style={{ height: 52, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderTop: "1px solid var(--border)" }}>
           {haySeleccion && <SelectionBar />}
           {!haySeleccion && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
+          <div ref={filaFiltros} className="fila-arrastrable" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
             {chips.map((c) => {
               const active = c.value ? ocasion === c.value : !ocasion;
               return (

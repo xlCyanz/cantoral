@@ -17,6 +17,19 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   con los tres, y es una decisión de una vez, no un botón que convenga tener
   al lado de «Agregar carpeta».
 
+### Cambiado
+
+- **La fila de filtros se recorre con el ratón, sin barra.** La barra
+  horizontal que salía debajo de los chips se comía tres píxeles de la fila y
+  tapaba el borde de los botones — y en Windows sale siempre, no se esconde
+  sola como en macOS, así que era una raya gris permanente cruzando la
+  interfaz.
+
+  Ahora la fila se recorre girando la rueda encima o arrastrándola. Un clic
+  sigue siendo un clic: hasta que el ratón no se mueve cuatro píxeles no cuenta
+  como arrastre, y el clic que viene detrás de un arrastre no filtra por el
+  chip que quedara debajo al soltar.
+
 ### Corregido
 
 - **«Seguir al sistema» ahora sigue al sistema.** Era el modo que viene puesto
