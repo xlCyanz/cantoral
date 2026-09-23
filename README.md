@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="Cantoral — Música de la iglesia" width="840" />
+<img src="export-logo/github-banner.png" alt="Cantoral — Repertorios, proyección y búsqueda de cantos para el culto" width="100%" />
 
 <p>
   <a href="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml"><img src="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
@@ -20,12 +20,15 @@
 
 </div>
 
-**Cantoral** es una aplicación de escritorio para **organizar y catalogar la música
-de la iglesia**: carpetas, pistas, listas para cultos, letras y acordes, y los
-metadatos del archivo. Corre en **macOS y Windows**, funciona
-**100% local** y **nunca mueve ni copia** tus archivos de audio: solo los indexa.
+**Cantoral** prepara y proyecta el culto. Arma el repertorio una vez, dale a
+proyectar y corre entero en la otra pantalla —el video tal cual, o la letra
+estrofa a estrofa— pasando solo de un canto al siguiente. Detrás, una biblioteca
+con toda la música de la iglesia que se busca, se filtra por ocasión y se agrupa
+por la carpeta del disco.
 
-Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas largas.
+Corre en **macOS y Windows**, funciona **sin conexión** y **nunca mueve ni copia**
+tus archivos: solo los indexa. Pensada para el ministerio de alabanza: tranquila,
+legible con listas largas y sin nada que aprender el domingo por la mañana.
 
 <div align="center">
 
@@ -57,41 +60,55 @@ Pensada para el ministerio de alabanza: cálida, tranquila y legible para listas
 
 ## ✨ Funciones
 
-- ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
+- 📋 **Cultos** — un culto es una lista preparada: se arma una vez, se le da a proyectar y corre entero, pasando solo de un elemento al siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
+- 📽️ **Proyección** — una ventana propia a pantalla completa en la otra pantalla: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El video sale tal cual; una pista de audio saca la letra —las estrofas las pasa quien opera—, la letra sobre la portada o negro. Entre un elemento y otro, medio segundo de negro o una cuenta atrás; al acabar cada uno pasa solo al siguiente, y <kbd>B</kbd> deja la pantalla en negro al instante.
+- 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
+- ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija.
 - 🎼 **Artista y ocasión** — corrígelos desde el panel de detalle, con sugerencias de las ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, el agrupar por ocasión y la hoja imprimible. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo.
-- 📋 **Cultos** — un culto es una lista preparada: se arma una vez, se le da a proyectar y corre entero, pasando solo de un elemento al siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
+- ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
 - 🔁 **Duplicar y plantillas** — duplica un culto con su orden, o guárdalo como plantilla para partir de él.
 - 📤 **Compartir una lista** — mándala a otra instalación de Cantoral en un `.cantoral.json` y ábrela allí. No viaja el audio ni la ruta de tu disco, solo lo justo para volver a encontrar cada pista; al importar, una pantalla dice qué se encontró y qué falta antes de crear nada.
-- 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
 - 🖨️ **Imprimir** — la hoja de la lista (título, artista, ocasión, BPM, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». Eliges entre solo el repertorio o con las letras y acordes detrás, una canción por página; y puedes guardar el `.html` si prefieres mandarla por correo.
-- ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder lo que lleva escrito, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
-- 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. Cantoral **no hace ni una petición de red**: hasta las tipografías van dentro del paquete, así que funciona igual en un equipo sin conexión.
-- 🎨 **Claro y oscuro** — sistema de diseño cálido propio; sigue el tema del sistema o se fija a mano.
+- 🎨 **Claro y oscuro** — sigue el tema de macOS o de Windows, también cuando cambia con la app abierta, o se fija a mano.
+- 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
 - ⌨️ **Teclado** — ver la tabla de atajos abajo.
 
 ### Atajos de teclado
+
+La misma lista está dentro de la app: <kbd>?</kbd>.
 
 | Atajo | Acción |
 |-------|--------|
 | <kbd>Espacio</kbd> | Reproducir o pausar |
 | <kbd>←</kbd> / <kbd>→</kbd> | Pista anterior / siguiente |
-| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>F</kbd> | Buscar en la biblioteca |
-| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>N</kbd> | Nueva lista para culto |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>F</kbd> | Buscar en la biblioteca |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>N</kbd> | Nueva lista para culto |
 | <kbd>Enter</kbd> | Abrir el detalle de la pista enfocada |
-| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Reproducir la pista enfocada |
-| <kbd>Esc</kbd> | Cerrar diálogo o panel |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Reproducir la pista enfocada |
+| <kbd>Mayús</kbd> / <kbd>⌘</kbd> + clic | Elegir un tramo o sumar pistas a la selección |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>A</kbd> | Seleccionar todo lo que muestra la biblioteca |
+| <kbd>A</kbd> | Agregar a un culto lo que esté elegido |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Canción anterior / siguiente en modo culto |
+| <kbd>→</kbd> | Pasar al siguiente elemento proyectado |
+| <kbd>B</kbd> | Dejar el proyector en negro |
+| <kbd>Esc</kbd> | Cerrar diálogo o panel, o cortar la proyección |
 | <kbd>?</kbd> | Mostrar la ayuda |
 
 ### Formatos soportados
 
 | | Extensiones |
 |---|---|
-| **Audio** | `mp3` `flac` `wav` `m4a` `aac` `ogg` `opus` `wma` `aiff` `aif` |
-| **Video** (se abre fuera de la app) | `mp4` `mov` `mkv` `avi` `webm` `m4v` `wmv` |
+| **Audio** | `mp3` `flac` `wav` `m4a` `aac` `ogg` `opus` `aiff` `aif` |
+| **Video** | `mp4` `mov` `webm` `m4v` |
+
+Todo suena y se ve dentro de la app. `ogg`, `opus`, `aiff` y `mov` dependen del
+motor de cada sistema, así que se indexan y, si alguno no suena, la app lo dice.
+`wma`, `mkv`, `avi` y `wmv` no los abre ninguno y se quedan fuera: ver
+[problemas frecuentes](#-problemas-frecuentes).
 
 ## ⬇️ Instalación
 
@@ -112,7 +129,7 @@ xattr -dr com.apple.quarantine /Applications/Cantoral.app
 
 ## ⚠️ Limitaciones conocidas
 
-Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
+Lo que hoy no hace, y por qué.
 
 - **Sin firma de código** mientras no haya certificados (ver
   [Firma de código](#-firma-de-código)). Las actualizaciones automáticas van
@@ -139,7 +156,7 @@ Cada una tiene su issue abierto; los enlaces llevan al detalle y al plan.
 | Interfaz | React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · lucide-react |
 | Tipografías | Public Sans (interfaz) · Bricolage Grotesque (títulos) — SIL OFL 1.1, incluidas en `src/assets/fonts/` |
 | Núcleo | Tauri v2 (Rust) · SQLite (`rusqlite`, bundled) · `walkdir` · `lofty` |
-| Plugins | `opener` (abrir en app externa) · `dialog` (selector de carpeta) · `log` · `updater` |
+| Plugins | `opener` (mostrar en el Finder o el Explorador, abrir la hoja exportada) · `dialog` (selector de carpeta) · `log` · `updater` |
 | Pruebas | Vitest (frontend) · `cargo test` (backend) |
 | Calidad | ESLint · `cargo clippy` · `cargo audit` · CodeQL |
 
@@ -202,10 +219,10 @@ llama a los comandos de Rust y opera sobre la base local.
 ```bash
 pnpm lint                                         # ESLint (0 errores y 0 avisos)
 pnpm exec tsc --noEmit                            # tipos
-pnpm test                                         # selectores del store y hoja de exportación
+pnpm test                                         # interfaz: store, proyección, formatos, hojas…
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml   # esquema, consultas SQLite y escáner
+cargo test --manifest-path src-tauri/Cargo.toml   # esquema, migraciones, consultas y escáner
 cargo audit --file src-tauri/Cargo.lock           # vulnerabilidades en dependencias
 ```
 
@@ -252,16 +269,18 @@ Produce, según el sistema:
 
 ## 🏷️ Publicar una versión
 
-1. Anota los cambios en [`CHANGELOG.md`](CHANGELOG.md), moviendo lo de `Unreleased`
-   a una sección con la versión y la fecha.
-2. Sube el número en `package.json` **y** en `src-tauri/tauri.conf.json`
-   (hoy hay que tocar los dos: [#11](https://github.com/xlCyanz/cantoral/issues/11)).
-3. Haz commit y etiqueta:
+1. En [`CHANGELOG.md`](CHANGELOG.md), pasa lo de «Sin publicar» a una sección con
+   la versión y la fecha. Es literalmente el texto del GitHub Release: un
+   encabezado por tipo (Añadido, Cambiado, Eliminado, Corregido) y contado como
+   el paso desde la versión anterior.
+2. Sube el número en `package.json` y en `src-tauri/Cargo.toml`.
+   `tauri.conf.json` lo lee de `package.json`, así que no se toca.
+3. Fusiona en `main` y etiqueta desde ahí:
 
    ```bash
-   git commit -am "chore(release): v0.2.0"
-   git tag v0.2.0
-   git push origin main --tags
+   git checkout main && git pull
+   git tag v0.3.0
+   git push origin v0.3.0
    ```
 
 El workflow `build.yml` verifica que la etiqueta coincida con `package.json`, corre
@@ -354,20 +373,25 @@ cantoral/
 │   ├── workflows/          # ci.yml (lint, pruebas, auditoría) · codeql.yml
 │   │                       # (seguridad) · build.yml (instaladores + release)
 │   └── PULL_REQUEST_TEMPLATE.md
-├── assets/                 # Logo, icono y banner
 ├── design/                 # Diseño de referencia (Cantoral.dc.html)
+├── export-logo/            # Logo: símbolos, iconos, banner y su manual (README)
 ├── src/                    # Interfaz (React)
 │   ├── components/         # TitleBar, Sidebar, TopBar, LibraryView, DetailPanel,
-│   │                       # PlayerBar, Collections/Playlist, Config, diálogos, …
-│   ├── lib/                # types · seed (mock) · covers · styles · exportSheet
-│   │                       # · shortcuts · api (seam Tauri) · __tests__/
+│   │                       # PlayerBar, ProjectionView, ProjectionOutput (la
+│   │                       # ventana del proyector), ServiceView, diálogos, …
+│   ├── lib/                # api (puente con Tauri) · seed (datos de ejemplo) ·
+│   │                       # estrofas · chords · formatos · media · compartir ·
+│   │                       # exportSheet · shortcuts · … · __tests__/
 │   ├── store.ts            # Estado global (Zustand) + selectores derivados
 │   └── styles/global.css   # Tokens de diseño (claro/oscuro), fuentes, keyframes
 └── src-tauri/src/          # Núcleo (Rust)
-    ├── models.rs           # Structs (Track, Folder, Playlist)
-    ├── db.rs               # Esquema/migraciones y consultas SQLite
-    ├── scanner.rs          # Escaneo recursivo + lofty + eventos de progreso
-    ├── commands.rs         # Comandos IPC (biblioteca, listas, ajustes, respaldo)
+    ├── models.rs           # Structs (Track, Folder, Playlist, …)
+    ├── db.rs               # Esquema, migraciones y consultas SQLite
+    ├── scanner.rs          # Escaneo incremental + lofty + eventos de progreso
+    ├── proyeccion.rs       # La ventana de salida del proyector
+    ├── compartir.rs        # Leer y escribir un .cantoral.json
+    ├── updates.rs          # Buscar e instalar versiones nuevas
+    ├── commands.rs         # Comandos IPC
     └── lib.rs              # Plugins, estado y handlers
 ```
 
@@ -381,7 +405,9 @@ La base local `cantoral.db` (SQLite) se crea en el directorio de datos del app:
 | Windows | `%APPDATA%\com.cantoral.desktop\` |
 
 El esquema se migra solo al abrir. Tablas: `folders`, `tracks`, `playlists`,
-`playlist_tracks`, `tags`, `track_tags`, `settings`. Respalda desde
+`playlist_tracks`, `settings` y `duplicate_dismissals`. Una base de una versión
+anterior conserva además `tags` y `track_tags`, y las columnas de tono y fecha:
+la app ya no las lee, pero lo escrito no se borra. Respalda desde
 **Configuración → Base de datos → Crear copia**.
 
 Los re-escaneos son incrementales: solo se vuelve a leer la metadata de los archivos
@@ -427,8 +453,11 @@ no descuadrar los contadores.
 <summary><b>Muchas pistas aparecen como «Sin archivo»</b></summary>
 
 Los archivos se movieron o la unidad externa no está conectada. Conecta la unidad y
-vuelve a abrir la app: al arrancar se re-verifica todo el catálogo. Reubicar pistas
-una a una todavía no se puede ([#17](https://github.com/xlCyanz/cantoral/issues/17)).
+vuelve a abrir la app: al arrancar se re-verifica todo el catálogo. Si los
+archivos cambiaron de sitio, **Localizar…** en el panel de detalle apunta la pista
+a su archivo nuevo, y en Configuración cada carpeta se puede apuntar entera a su
+nueva ubicación —cuando el disco cambia de letra, por ejemplo—. Las dos cosas
+conservan favoritos, letras y el sitio en los cultos.
 </details>
 
 <details>
@@ -445,6 +474,17 @@ intentarlo.
 </details>
 
 <details>
+<summary><b>¿Cómo saco un culto por el proyector?</b></summary>
+
+Conecta el proyector, abre el culto y pulsa **Proyectar**: llegas a la vista de
+Proyección, con la cola del culto. Ahí, **Proyectar** otra vez sale al aire por
+el primer elemento, en la pantalla que no es la tuya —si hay varias, la eliges
+ahí mismo—. Desde ese momento el culto corre entero: cada elemento pasa solo al
+siguiente al acabarse. <kbd>B</kbd> deja la pantalla en negro y <kbd>Esc</kbd>
+corta la salida.
+</details>
+
+<details>
 <summary><b>¿Dónde están mis datos y cómo los muevo a otro equipo?</b></summary>
 
 En `cantoral.db` (ver [Datos](#-datos)). **Configuración → Base de datos → Crear copia**
@@ -454,56 +494,20 @@ restaurar **reemplaza** toda la biblioteca actual.
 
 ## 🗺️ Hoja de ruta
 
-El trabajo está repartido en cinco fases, cada una un
-[milestone](https://github.com/xlCyanz/cantoral/milestones). El orden no es
-arbitrario: cada fase supone la anterior resuelta.
+Las cinco fases con las que arrancó el proyecto están cerradas, cada una en su
+[milestone](https://github.com/xlCyanz/cantoral/milestones):
 
-### [Fase 1 · No perder datos](https://github.com/xlCyanz/cantoral/milestone/1)
+| Fase | Qué resolvió |
+|---|---|
+| [1 · No perder datos](https://github.com/xlCyanz/cantoral/milestone/1) | Confirmar lo destructivo, escrituras transaccionales, restaurar sin arriesgar la base actual y reubicar pistas perdidas |
+| [2 · Que la app haga lo que promete](https://github.com/xlCyanz/cantoral/milestone/2) | Ediciones que se guardan de verdad, rutas reales, avisos honestos y preferencias que se recuerdan |
+| [3 · Aguantar una biblioteca real](https://github.com/xlCyanz/cantoral/milestone/3) | Miles de pistas sin que la tabla se arrastre, escaneos que no se pisan ni bloquean, y duplicados |
+| [4 · El flujo del culto](https://github.com/xlCyanz/cantoral/milestone/4) | Letra y acordes con modo culto, selección múltiple, plantillas, compartir e imprimir |
+| [5 · Llegar a la iglesia](https://github.com/xlCyanz/cantoral/milestone/5) | Actualizaciones automáticas firmadas, CI, seguridad endurecida y una sola versión |
 
-La app no puede destruir el trabajo del usuario. Va primero porque nada de lo demás
-importa si una biblioteca etiquetada a mano durante meses se pierde con un clic: no
-hay nube, no hay historial, y el único seguro es una copia manual.
-
-Confirmaciones en las acciones destructivas ([#2](https://github.com/xlCyanz/cantoral/issues/2)),
-escrituras transaccionales ([#8](https://github.com/xlCyanz/cantoral/issues/8)),
-etiquetas que no se corrompen al releerlas ([#9](https://github.com/xlCyanz/cantoral/issues/9)) y
-reubicar pistas sin tener que borrar la carpeta entera ([#17](https://github.com/xlCyanz/cantoral/issues/17)).
-
-### [Fase 2 · Que la app haga lo que promete](https://github.com/xlCyanz/cantoral/milestone/2)
-
-Cerrar la brecha entre lo que este README anuncia y lo que la app hace de verdad.
-Hoy hay columnas que siempre salen vacías y un filtro que nunca muestra nada.
-
-Es la fase con más retorno por esfuerzo, porque casi todo el backend ya existe y
-falta la interfaz que lo use. El editor de tono, BPM y ocasión
-([#16](https://github.com/xlCyanz/cantoral/issues/16)) por sí solo desbloquea el
-filtro por ocasión, la columna Tono, el agrupar por ocasión y tres columnas de la
-hoja imprimible.
-
-### [Fase 3 · Aguantar una biblioteca real](https://github.com/xlCyanz/cantoral/milestone/3)
-
-Miles de pistas repartidas en discos externos, sin que la interfaz se arrastre
-([#5](https://github.com/xlCyanz/cantoral/issues/5)) ni dos escaneos se pisen
-([#6](https://github.com/xlCyanz/cantoral/issues/6)). Va después de la fase 2 a
-propósito: optimizar una interfaz que todavía va a cambiar es trabajo que se tira.
-
-### [Fase 4 · El flujo del culto](https://github.com/xlCyanz/cantoral/milestone/4)
-
-Lo que un equipo de alabanza hace cada semana y hoy la app resuelve a medias.
-La pieza grande —**letras y acordes con transposición**
-([#21](https://github.com/xlCyanz/cantoral/issues/21))— ya está: es lo que hace
-que alguien use Cantoral **durante** el culto y no solo antes. Quedan la
-selección múltiple ([#20](https://github.com/xlCyanz/cantoral/issues/20)), las
-etiquetas gestionables ([#22](https://github.com/xlCyanz/cantoral/issues/22)) y
-poder compartir una lista con el equipo
-([#26](https://github.com/xlCyanz/cantoral/issues/26)).
-
-### [Fase 5 · Llegar a la iglesia](https://github.com/xlCyanz/cantoral/milestone/5)
-
-Que las versiones nuevas lleguen a un PC de iglesia sin que nadie técnico intervenga
-([#19](https://github.com/xlCyanz/cantoral/issues/19)). Mientras actualizar siga
-siendo entrar a GitHub y acordarse del rodeo de `xattr`, los arreglos de las fases 1
-a 4 no llegan a quien los necesita.
+La 0.3.0 añadió encima el rediseño completo y la proyección. Lo que venga se
+decide en los issues: si echas algo en falta,
+[propónlo](https://github.com/xlCyanz/cantoral/issues/new?template=feature_request.yml).
 
 ---
 
