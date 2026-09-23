@@ -7,6 +7,7 @@ import DuplicateGroups from "./DuplicateGroups";
 import { getDbInfo, isMacOS, type DbInfo } from "../lib/api";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { ThemeMode } from "../lib/types";
+import { Logotipo } from "./Logo";
 
 // El rediseño pone cada cosa en su tarjeta en vez de encadenar secciones con
 // títulos sueltos y 30 px de aire entre ellas. Configuración se mira entera de
@@ -227,8 +228,11 @@ export default function ConfigView() {
         ))}
       </div>
 
-      <div style={{ textAlign: "center", color: "var(--text-3)", fontSize: 11, paddingTop: 4 }}>
-        Cantoral {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza
+      {/* Lo más parecido a un «Acerca de» que tiene la app: el manual pone aquí
+          el logotipo con el símbolo a 64 px. */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: "var(--text-3)", fontSize: 11, padding: "14px 0 4px" }}>
+        <Logotipo cuerpo={64 / (1.14 * (244 / 200))} />
+        <span>Versión {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza</span>
       </div>
     </div>
   );
