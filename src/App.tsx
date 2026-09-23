@@ -57,6 +57,13 @@ export default function App() {
     return () => un?.();
   }, []);
 
+  // Escuchar por dónde va lo que está proyectando la ventana de salida.
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    void useStore.getState().escucharProyeccion().then((u) => (un = u));
+    return () => un?.();
+  }, []);
+
   // Follow the OS appearance while the theme mode is "Sistema".
   useEffect(() => {
     if (!window.matchMedia) return;

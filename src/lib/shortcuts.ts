@@ -19,9 +19,11 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘/Ctrl + A", label: "Seleccionar todo lo que muestra la biblioteca" },
   { keys: "A", label: "Agregar a un culto lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
-  { keys: "Esc", label: "Cerrar diálogo, panel o modo culto" },
+  { keys: "Esc", label: "Cerrar diálogo o panel, o cortar la proyección" },
   { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
   { keys: "+ / −", label: "Subir o bajar el tono en modo culto" },
+  { keys: "B", label: "Dejar el proyector en negro" },
+  { keys: "→", label: "Pasar al siguiente elemento proyectado" },
   { keys: "?", label: "Mostrar esta ayuda" },
 ];
 
@@ -53,6 +55,13 @@ export function registerShortcuts(): () => void {
       } else if (s.rowMenu) {
         e.preventDefault();
         s.closeRowMenu();
+      } else if (s.proyectando) {
+        // Con la salida abierta, Esc la corta. Va aquí y no antes porque un
+        // diálogo encima sigue siendo lo más interno; y va antes que la
+        // selección y la búsqueda porque, en medio de un culto, Esc quiere
+        // decir «quita eso de la pantalla grande» y no «deselecciona».
+        e.preventDefault();
+        s.alternarProyeccion();
       } else if (s.selection.length) {
         e.preventDefault();
         s.clearSelection();
@@ -119,6 +128,24 @@ export function registerShortcuts(): () => void {
       if (e.key === "-") {
         e.preventDefault();
         s.transposeService(-1);
+        return;
+      }
+    }
+
+    // La vista de proyección se queda con las teclas de la barra de abajo
+    // mientras está delante: `B` para el negro y `→` para pasar al siguiente
+    // del culto. `→` a secas significaría «siguiente pista de la cola de
+    // reproducción», que no es lo que ve la congregación y sería la peor
+    // sorpresa posible estando en vivo.
+    if (s.view === "proyeccion" && s.proyectando) {
+      if (e.key === "b" || e.key === "B") {
+        e.preventDefault();
+        s.proyeccionNegro();
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "PageDown") {
+        e.preventDefault();
+        s.proyeccionSiguiente();
         return;
       }
     }

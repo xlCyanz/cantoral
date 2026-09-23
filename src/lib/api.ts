@@ -518,9 +518,44 @@ export interface MonitorInfo {
 }
 
 /** Lo que la ventana de salida está mostrando. */
-export type SalidaProyeccion =
+export type VistaProyeccion =
   | { modo: "negro" }
-  | { modo: "titulo"; titulo: string; sub?: string };
+  | { modo: "titulo"; titulo: string; sub?: string }
+  | {
+      modo: "media";
+      /** URL `asset://` del archivo. */
+      src: string;
+      /** Si trae imagen. Un audio se proyecta con su título sobre el negro. */
+      video: boolean;
+      titulo: string;
+      sub?: string;
+      reproduciendo: boolean;
+    };
+
+/**
+ * El mensaje completo que recibe la salida.
+ *
+ * `precarga` no se ve: es el archivo siguiente del culto, que la salida carga
+ * en silencio y deja en pausa. Sin eso, pasar de un elemento a otro deja la
+ * pantalla grande en negro el tiempo que tarde el disco — medio segundo en un
+ * SSD, varios en un pendrive, que es de donde sale la música en muchas
+ * iglesias.
+ */
+export interface SalidaProyeccion {
+  vista: VistaProyeccion;
+  precarga?: string;
+}
+
+/** Lo que la salida devuelve sobre lo que está reproduciendo. */
+export interface EstadoProyeccion {
+  /** La `src` a la que se refiere, para descartar lo que llega tarde. */
+  src: string;
+  pos: number;
+  dur: number;
+  fin: boolean;
+  /** Código de `MediaError` si falló. */
+  error?: number;
+}
 
 /**
  * Las pantallas conectadas.
@@ -547,4 +582,30 @@ export async function closeProjectionCmd(): Promise<void> {
 export async function setProjectionCmd(contenido: SalidaProyeccion): Promise<void> {
   if (!isTauri()) return;
   await inv<void>("set_projection", { contenido });
+}
+
+/**
+ * Avisa cuando la ventana de salida termina de suscribirse.
+ *
+ * Hace falta porque abrir la ventana y mandarle lo primero son dos cosas
+ * seguidas, y entre una y otra el webview todavía está arrancando: el primer
+ * mensaje se perdía entero y el proyector se quedaba en negro justo al empezar
+ * el culto. En vez de adivinar cuánto tarda, la salida lo dice. Vale igual
+ * para cuando la ventana se recarga sola a mitad de un culto.
+ */
+export async function onProjectionReady(cb: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen("proyeccion-lista", () => cb());
+}
+
+/**
+ * Sigue lo que la salida está reproduciendo. Devuelve cómo dejar de seguirlo.
+ *
+ * La salida emite y la principal escucha, no al revés: el tiempo que lleva el
+ * video lo sabe el elemento que lo está reproduciendo, y preguntárselo desde
+ * fuera cada décima sería pasar por el núcleo mil veces por culto.
+ */
+export async function onProjectionState(cb: (e: EstadoProyeccion) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen<EstadoProyeccion>("proyeccion-estado", (e) => cb(e.payload));
 }

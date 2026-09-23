@@ -35,6 +35,45 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   Todavía no reproduce video: eso es lo siguiente. Esta parte es la ventana,
   elegir pantalla y sacarla en negro o con un título.
 
+- **La proyección reproduce el culto.** Segunda parte de la etapa 7. La cola
+  del culto abierto está a la izquierda de la pantalla de Proyección: pulsa un
+  elemento para sacarlo, «Siguiente» para pasar al de después y «Pantalla en
+  negro» para cortar la imagen sin perder el sitio. Con teclado, `→` y `B`; y
+  `Esc` corta la salida entera.
+
+  **El siguiente va cargado y en pausa.** Mientras suena uno, el que viene
+  detrás ya se está leyendo del disco en un segundo reproductor que no se ve.
+  Pasar de uno a otro es enseñarlo y darle al play, sin el negro que tardaría
+  el disco en responder — que en un pendrive, que es de donde sale la música en
+  muchas iglesias, son varios segundos delante de la congregación.
+
+  **Lo que sigue en pantalla es lo que se empezó.** Abrir otro culto a mitad
+  para buscar algo no cambia lo que está en el aire ni a dónde va «Siguiente».
+
+  **Una pista que no se pueda reproducir sale como su título sobre el negro**,
+  no como un negro a secas: esa canción se canta igual. El motivo —falta el
+  archivo, no está indexado, o el formato no lo entiende ningún reproductor— se
+  queda en la ventana de mandos, marcado en su fila de la cola. A la
+  congregación no le importa que falte un archivo.
+
+  Se avisa de `.mkv`, `.avi`, `.wmv` y `.wma` antes de intentarlo, porque no
+  los decodifica ningún motor. De `.mov`, `.ogg`, `.opus` o `.aiff` no se
+  avisa: dependen del sistema, y decir que no sirven donde sí sirven sería
+  peor. Si alguno falla de verdad, el fallo aparece en la cola con lo que dijo
+  el reproductor.
+
+  **Cuando un elemento se acaba, el proyector se pone en negro** y ahí se
+  queda. No pasa solo al siguiente: un video se termina mientras alguien está
+  hablando, y arrancar la canción de después por su cuenta delante de la
+  congregación no lo puede decidir la app. Lo siguiente queda cargado y en
+  pausa, a un botón de distancia.
+
+  Debajo del título, el tiempo real de lo que está sonando: lo cuenta la
+  ventana de salida y se lo devuelve a la de mandos.
+
+  «Proyectar» en la tarjeta «En vivo» ahora abre el culto que la tarjeta
+  nombra. Antes proyectaba el que estuviera abierto, que podía ser otro.
+
 ### Cambiado
 
 - **Una sola forma de agregar a un culto.** Había tres, y cada una era un
