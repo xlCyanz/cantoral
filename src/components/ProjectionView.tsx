@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { MonitorX, Pause, Presentation, Square } from "lucide-react";
 import type { CSSProperties } from "react";
-import { filasDeLista, useStore } from "../store";
+import { estrofasEnPantalla, filasDeLista, useStore } from "../store";
 import { motivoNoProyectable } from "../lib/formatos";
 import { fmt } from "../lib/covers";
 
@@ -47,6 +47,30 @@ const botonBarra: CSSProperties = {
   fontWeight: 600,
 };
 
+/** Un botón de ajuste, encendido o apagado. */
+const mini = (activo: boolean): CSSProperties => ({
+  height: 25,
+  padding: "0 9px",
+  border: `1px solid ${activo ? "var(--primary)" : "var(--border-2)"}`,
+  borderRadius: 7,
+  background: activo ? "var(--primary-soft)" : "var(--surface-2)",
+  color: activo ? "var(--primary)" : "var(--text-2)",
+  fontSize: 11,
+  fontWeight: activo ? 600 : 400,
+  whiteSpace: "nowrap",
+});
+
+const OPCIONES_AUDIO = [
+  { valor: "negro" as const, etiqueta: "Negro", ayuda: "La pantalla se queda apagada mientras suena." },
+  { valor: "portada" as const, etiqueta: "Portada y letra", ayuda: "La letra sobre la carátula de la pista, apagada de fondo." },
+  { valor: "letra" as const, etiqueta: "Solo la letra", ayuda: "La letra sobre el negro." },
+];
+
+const OPCIONES_TRANSICION = [
+  { valor: "negro" as const, etiqueta: "Negro 0,5 s", ayuda: "Medio segundo de negro antes de que arranque lo siguiente." },
+  { valor: "cuenta" as const, etiqueta: "Cuenta atrás 3 s", ayuda: "Tres, dos, uno en la pantalla grande antes de arrancar." },
+];
+
 export default function ProjectionView() {
   const monitores = useStore((s) => s.monitores);
   const monitorSalida = useStore((s) => s.monitorSalida);
@@ -64,6 +88,13 @@ export default function ProjectionView() {
   const proyectarElemento = useStore((s) => s.proyectarElemento);
   const proyeccionSiguiente = useStore((s) => s.proyeccionSiguiente);
   const proyeccionNegro = useStore((s) => s.proyeccionNegro);
+  const salidaDeAudio = useStore((s) => s.salidaDeAudio);
+  const transicionProyeccion = useStore((s) => s.transicionProyeccion);
+  const setSalidaDeAudio = useStore((s) => s.setSalidaDeAudio);
+  const setTransicionProyeccion = useStore((s) => s.setTransicionProyeccion);
+  const estrofa = useStore((s) => s.proyeccionEstrofa);
+  const estrofas = useStore(estrofasEnPantalla);
+  const loadSheets = useStore((s) => s.loadSheets);
   const openPlaylist = useStore((s) => s.openPlaylist);
   const curPlaylist = useStore((s) => s.curPlaylist);
 
@@ -72,6 +103,14 @@ export default function ProjectionView() {
   useEffect(() => {
     void cargarMonitores();
   }, [cargarMonitores]);
+
+  // Las letras no viajan con el catálogo —serían megabytes en cada refresco—,
+  // así que se piden al entrar aquí: sin ellas, proyectar la letra no tendría
+  // nada que proyectar.
+  const ids = filas.map((t) => t.id).join(",");
+  useEffect(() => {
+    if (ids) void loadSheets(ids.split(","));
+  }, [ids, loadSheets]);
 
   const activo = monitores.find((m) => m.indice === monitorSalida);
   // El índice sólo señala una fila de esta cola si lo que está en el aire sale
@@ -187,6 +226,11 @@ export default function ProjectionView() {
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 8 }}>
                     {enPantalla ? `${enPantalla.video ? "video" : "audio"} · ${fmt(pos)} de ${dur > 0 ? fmt(dur) : enPantalla.dur}` : ""}
                   </div>
+                  {enPantalla && estrofas.length > 1 && (
+                    <div style={{ fontSize: "10.5px", color: "rgba(255,255,255,.4)", marginTop: 4 }}>
+                      Estrofa {Math.min(estrofa + 1, estrofas.length)} de {estrofas.length}
+                    </div>
+                  )}
                 </div>
                 <div style={{ position: "absolute", left: 8, bottom: 7, fontSize: "9.5px", color: "rgba(255,255,255,.4)", fontFamily: "ui-monospace, Menlo, monospace" }}>
                   {activo ? `${activo.ancho} × ${activo.alto} · sin controles ni barra de título` : "sin pantalla de salida"}
@@ -214,7 +258,8 @@ export default function ProjectionView() {
             </div>
           </div>
 
-          <div style={{ ...tarjeta, flex: "0 0 auto" }}>
+          <div style={{ flex: "0 0 auto", display: "flex", gap: 10 }}>
+          <div style={{ ...tarjeta, flex: 1, minWidth: 0 }}>
             <div style={{ ...rotulo, marginBottom: 7 }}>Pantalla de salida</div>
             {monitores.length === 0 ? (
               <p style={{ margin: 0, fontSize: "11.5px", color: "var(--text-2)", lineHeight: 1.55 }}>
@@ -245,6 +290,26 @@ export default function ProjectionView() {
                 );
               })
             )}
+          </div>
+
+          <div style={{ ...tarjeta, flex: 1, minWidth: 0 }}>
+            <div style={{ ...rotulo, marginBottom: 7 }}>Si la pista es solo audio</div>
+            <div style={{ display: "flex", gap: 5, marginBottom: 11, flexWrap: "wrap" }}>
+              {OPCIONES_AUDIO.map((o) => (
+                <button key={o.valor} onClick={() => setSalidaDeAudio(o.valor)} aria-pressed={salidaDeAudio === o.valor} title={o.ayuda} style={mini(salidaDeAudio === o.valor)}>
+                  {o.etiqueta}
+                </button>
+              ))}
+            </div>
+            <div style={{ ...rotulo, marginBottom: 7 }}>Entre un elemento y otro</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {OPCIONES_TRANSICION.map((o) => (
+                <button key={o.valor} onClick={() => setTransicionProyeccion(o.valor)} aria-pressed={transicionProyeccion === o.valor} title={o.ayuda} style={mini(transicionProyeccion === o.valor)}>
+                  {o.etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
           </div>
         </div>
       </div>
@@ -277,6 +342,15 @@ export default function ProjectionView() {
         <button
           onClick={proyeccionSiguiente}
           disabled={!proyectando || filas.length === 0}
+          // «Siguiente» es un solo botón porque desde el atril no se quiere
+          // elegir entre dos; el título dice a qué va a saltar esta vez.
+          title={
+            proyectando && estrofa + 1 < estrofas.length
+              ? `Pasar a la estrofa ${estrofa + 2} de ${estrofas.length}`
+              : siguiente
+                ? `Pasar a «${siguiente.titulo}»`
+                : "Cerrar el culto y dejar el proyector en negro"
+          }
           className="hb-s2"
           style={{ ...botonBarra, opacity: proyectando && filas.length > 0 ? 1 : 0.45, cursor: proyectando && filas.length > 0 ? "pointer" : "not-allowed" }}
         >

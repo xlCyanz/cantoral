@@ -7,7 +7,7 @@
 // field is checked on its own and whatever does not hold up is dropped, leaving
 // that preference at its default instead of poisoning the whole load.
 
-import type { Densidad, GroupBy, SortDir, SortKey, View } from "./types";
+import type { Densidad, GroupBy, SalidaDeAudio, SortDir, SortKey, TransicionProyeccion, View } from "./types";
 
 /** What is remembered between sessions. */
 export interface UiPrefs {
@@ -24,6 +24,16 @@ export interface UiPrefs {
   printWithLyrics: boolean;
   /** How tall the library rows are. */
   densidad: Densidad;
+  /**
+   * Qué sale por el proyector con una pista de solo audio, y qué pasa entre
+   * un elemento y el siguiente.
+   *
+   * Se recuerdan, al contrario que el resto del estado de proyección: una
+   * iglesia elige una vez si proyecta la letra o deja el negro, y no quiere
+   * volver a decidirlo cada domingo antes de empezar.
+   */
+  salidaDeAudio: SalidaDeAudio;
+  transicionProyeccion: TransicionProyeccion;
 }
 
 /** The settings key it is stored under. */
@@ -38,6 +48,8 @@ const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
 // estaba haciendo en vivo.
 const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
 const DENSIDADES: Densidad[] = ["comoda", "compacta"];
+const SALIDAS_DE_AUDIO: SalidaDeAudio[] = ["negro", "portada", "letra"];
+const TRANSICIONES: TransicionProyeccion[] = ["negro", "cuenta"];
 
 /** The fields worth writing back, in one place so a new one cannot be missed. */
 export const PREF_FIELDS = [
@@ -52,6 +64,8 @@ export const PREF_FIELDS = [
   "curPlaylist",
   "printWithLyrics",
   "densidad",
+  "salidaDeAudio",
+  "transicionProyeccion",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -67,6 +81,8 @@ export function serialisePrefs(s: UiPrefs): string {
     curPlaylist: s.curPlaylist,
     printWithLyrics: s.printWithLyrics,
     densidad: s.densidad,
+    salidaDeAudio: s.salidaDeAudio,
+    transicionProyeccion: s.transicionProyeccion,
   };
   return JSON.stringify(limpio);
 }
@@ -110,6 +126,12 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (typeof o.curPlaylist === "string") out.curPlaylist = o.curPlaylist;
   if (esBooleano(o.printWithLyrics)) out.printWithLyrics = o.printWithLyrics;
   if (DENSIDADES.includes(o.densidad as Densidad)) out.densidad = o.densidad as Densidad;
+  if (SALIDAS_DE_AUDIO.includes(o.salidaDeAudio as SalidaDeAudio)) {
+    out.salidaDeAudio = o.salidaDeAudio as SalidaDeAudio;
+  }
+  if (TRANSICIONES.includes(o.transicionProyeccion as TransicionProyeccion)) {
+    out.transicionProyeccion = o.transicionProyeccion as TransicionProyeccion;
+  }
   return out;
 }
 
