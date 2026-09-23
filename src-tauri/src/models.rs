@@ -61,11 +61,12 @@ pub struct Folder {
 pub struct Playlist {
     pub id: String,
     pub nombre: String,
-    pub fecha: String,
     pub ocasion: String,
     pub ids: Vec<String>,
     /// A list kept as a starting point rather than as a service of its own.
     pub plantilla: bool,
+    /// RFC3339, UTC: la última vez que se abrió o se cambió. Lo que ordena.
+    pub tocada: String,
 }
 
 /// One track inside a group of suspected duplicates.

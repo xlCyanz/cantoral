@@ -1,6 +1,5 @@
 import { Check, FileInput, Search, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
-import { formatearFecha } from "../lib/fechas";
 import type { PistaCompartida } from "../lib/compartir";
 import Modal from "./Modal";
 
@@ -61,7 +60,6 @@ export default function ImportListDialog() {
   const { encontradas, faltantes } = resultado;
   const total = archivo.pistas.length;
   const nada = encontradas.length === 0;
-  const fecha = formatearFecha(archivo.lista.fecha);
 
   return (
     <Modal labelledBy="import-dialog-title" onClose={closeDialog} maxWidth={540}>
@@ -76,7 +74,6 @@ export default function ImportListDialog() {
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
             {encontradas.length} de {total} {total === 1 ? "pista está" : "pistas están"} en esta biblioteca
             {archivo.lista.ocasion && ` · ${archivo.lista.ocasion}`}
-            {fecha && ` · ${fecha}`}
           </p>
         </div>
       </div>

@@ -413,7 +413,6 @@ pub fn update_track(
 pub fn create_playlist(
     db: State<Db>,
     nombre: String,
-    fecha: String,
     ocasion: String,
     desde: Option<String>,
 ) -> CmdResult<String> {
@@ -421,7 +420,7 @@ pub fn create_playlist(
     // An unparseable id means «no template», not an error: the list is what the
     // user asked for, and creating it empty beats refusing to create it.
     let origen = desde.and_then(|d| d.parse::<i64>().ok());
-    let id = db::create_playlist(&conn, &nombre, &fecha, &ocasion, origen).map_err(e)?;
+    let id = db::create_playlist(&conn, &nombre, &ocasion, origen).map_err(e)?;
     Ok(id.to_string())
 }
 
@@ -469,13 +468,19 @@ pub fn update_playlist(
     db: State<Db>,
     playlist: String,
     nombre: String,
-    fecha: String,
     ocasion: String,
 ) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
-    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &fecha, &ocasion)
+    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &ocasion)
         .map_err(e)?;
     snapshot(&conn).map_err(e)
+}
+
+/// Apuntar que un culto se acaba de abrir o de cambiar. Ver `db::touch_playlist`.
+#[tauri::command]
+pub fn touch_playlist(db: State<Db>, playlist: String) -> CmdResult<()> {
+    let conn = db.0.lock().map_err(e)?;
+    db::touch_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)
 }
 
 /// Write a printable playlist sheet. The frontend renders the HTML; this only

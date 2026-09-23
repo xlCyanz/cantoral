@@ -173,7 +173,6 @@ import { nombreDeCopia } from "./lib/copias";
 import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "./lib/compartir";
 import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
-import { ultimaPorOcasion } from "./lib/repetir";
 import type { MonitorInfo, SalidaProyeccion, VistaProyeccion } from "./lib/api";
 import { motivoDeError, motivoNoProyectable } from "./lib/formatos";
 import { carpetaReal } from "./lib/carpetas";
@@ -241,6 +240,7 @@ import {
   setTracksFavCmd,
   deleteTracksCmd,
   updatePlaylistCmd,
+  touchPlaylistCmd,
   updateTrackCmd,
   updateTrackSheet,
   type DuplicateGroup,
@@ -699,9 +699,9 @@ export interface CantoralState {
   setPrintWithLyrics: (con: boolean) => void;
   newList: () => void;
   /** `desde` is the id of the template whose order the new list starts from. */
-  createList: (nombre: string, fecha: string, ocasion: string, desde?: string) => void;
+  createList: (nombre: string, ocasion: string, desde?: string) => void;
   editCurrentList: () => void;
-  updateList: (nombre: string, fecha: string, ocasion: string) => void;
+  updateList: (nombre: string, ocasion: string) => void;
   openAddToList: () => void;
   addToListConfirm: (playlistId: string) => void;
   deleteCurrentList: () => void;
@@ -974,11 +974,30 @@ export const useStore = create<CantoralState>((set, get) => {
    */
   const saveOrder = (playlistId: string, next: string[], prev: string[]) => {
     set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: next } }));
+    tocarCulto(playlistId);
     setPlaylistOrderCmd(playlistId, next).catch((err) => {
       console.error("set_playlist_order failed", err);
       set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: prev } }));
       get().showToast("No se pudo guardar el orden de la lista", { tipo: "error" });
     });
+  };
+
+  /**
+   * Apuntar que alguien acaba de abrir o cambiar un culto.
+   *
+   * Es lo que ordena la lista de cultos, que no tienen fecha: lo que se está
+   * preparando es lo último que se tocó. Sube arriba en el acto y se guarda
+   * para la próxima vez.
+   *
+   * Donde la acción devuelve una instantánea del núcleo, esto va **después** de
+   * aplicarla: la instantánea sale antes de que el toque se escriba, y
+   * aplicarla después lo devolvería a su sitio.
+   */
+  const tocarCulto = (id: string) => {
+    if (!id) return;
+    const ahora = new Date().toISOString();
+    set((st) => ({ playlists: st.playlists.map((p) => (p.id === id ? { ...p, tocada: ahora } : p)) }));
+    touchPlaylistCmd(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
   return {
@@ -1014,7 +1033,10 @@ export const useStore = create<CantoralState>((set, get) => {
     proyeccionEstrofa: 0,
     salidaDeAudio: "letra",
     transicionProyeccion: "negro",
-    avanceProyeccion: "negro",
+    // Un culto es una lista preparada para darle y que corra entera: pasar
+    // solo al siguiente es lo que se espera, y el negro entre elementos, la
+    // excepción que se elige.
+    avanceProyeccion: "siguiente",
     proyeccionPos: 0,
     proyeccionDur: 0,
     proyeccionFallos: {},
@@ -1093,7 +1115,10 @@ export const useStore = create<CantoralState>((set, get) => {
     showConfig: () => set({ view: "config" }),
     onFolderClick: () =>
       set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null, ocasion: null })),
-    openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
+    openPlaylist: (id) => {
+      set({ view: "lista", curPlaylist: id });
+      tocarCulto(id);
+    },
     setThemeMode: (m) => {
       const theme = resolveTheme(m, get().temaSistema);
       set({ themeMode: m, theme });
@@ -1402,18 +1427,17 @@ export const useStore = create<CantoralState>((set, get) => {
           toast(ids.length === 1 ? `Ya estaba en «${nombre}»` : `Ya estaban todas en «${nombre}»`, { tipo: "info" });
           return;
         }
+        tocarCulto(playlistId);
         toast(`Agregadas a «${nombre}»`, {
           detalle: n === 1 ? "1 pista, al final del culto." : `${n} pistas, al final del culto.`,
         });
       };
       if (!isTauri()) {
         // Browser stand-in: the same outcome, minus what is already on the list.
-        set((st) => {
-          const ya = st.plOrder[playlistId] || [];
-          const nuevas = ids.filter((id) => !ya.includes(id));
-          hecho(nuevas.length);
-          return { plOrder: { ...st.plOrder, [playlistId]: [...ya, ...nuevas] } };
-        });
+        const ya = get().plOrder[playlistId] || [];
+        const nuevas = ids.filter((id) => !ya.includes(id));
+        set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: [...ya, ...nuevas] } }));
+        hecho(nuevas.length);
         return;
       }
       const yaEstaban = (get().plOrder[playlistId] || []).length;
@@ -1859,11 +1883,11 @@ export const useStore = create<CantoralState>((set, get) => {
         });
     },
     newList: () => set({ dialog: "newList" }),
-    createList: (nombre, fecha, ocasion, desde) => {
+    createList: (nombre, ocasion, desde) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
       if (isTauri()) {
-        createPlaylistCmd(name, fecha, ocasion, desde)
+        createPlaylistCmd(name, ocasion, desde)
           .then(async (id) => {
             const snap = await getLibrary();
             if (snap) applySnapshot(snap);
@@ -1878,7 +1902,7 @@ export const useStore = create<CantoralState>((set, get) => {
         const id = "new-" + Date.now();
         const base = desde ? get().plOrder[desde] ?? [] : [];
         const ids = base.slice();
-        const pl: Playlist = { id, nombre: name, fecha, ocasion, ids, plantilla: false };
+        const pl: Playlist = { id, nombre: name, ocasion, ids, plantilla: false, tocada: new Date().toISOString() };
         set((s) => ({
           playlists: [...s.playlists, pl],
           plOrder: { ...s.plOrder, [id]: ids },
@@ -1910,11 +1934,10 @@ export const useStore = create<CantoralState>((set, get) => {
         const copia: Playlist = {
           id: nuevo,
           nombre: nombreDeCopia(pl.nombre, st.playlists.map((p) => p.nombre)),
-          // No date: a copy is the *next* service, not the one it came from.
-          fecha: "",
           ocasion: pl.ocasion,
           ids,
           plantilla: false,
+          tocada: new Date().toISOString(),
         };
         set((s) => ({
           playlists: [...s.playlists, copia],
@@ -1993,7 +2016,7 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!previo) return;
       const ids = idsParaLaLista(previo.resultado.encontradas);
       if (ids.length === 0) return;
-      const { nombre, fecha, ocasion } = previo.archivo.lista;
+      const { nombre, ocasion } = previo.archivo.lista;
       set({ dialog: null, importPreview: null });
       const aviso = () => {
         const faltan = previo.resultado.faltantes.length;
@@ -2006,7 +2029,7 @@ export const useStore = create<CantoralState>((set, get) => {
         });
       };
       if (isTauri()) {
-        createPlaylistCmd(nombre, fecha, ocasion)
+        createPlaylistCmd(nombre, ocasion)
           .then(async (id) => {
             await setPlaylistOrderCmd(id, ids);
             const snap = await getLibrary();
@@ -2020,7 +2043,7 @@ export const useStore = create<CantoralState>((set, get) => {
           });
       } else {
         const id = "imp-" + Date.now();
-        const pl: Playlist = { id, nombre, fecha, ocasion, ids, plantilla: false };
+        const pl: Playlist = { id, nombre, ocasion, ids, plantilla: false, tocada: new Date().toISOString() };
         set((st) => ({
           playlists: [...st.playlists, pl],
           plOrder: { ...st.plOrder, [id]: ids },
@@ -2055,14 +2078,15 @@ export const useStore = create<CantoralState>((set, get) => {
       }
     },
     editCurrentList: () => set({ dialog: "editList" }),
-    updateList: (nombre, fecha, ocasion) => {
+    updateList: (nombre, ocasion) => {
       const id = get().curPlaylist;
       const name = nombre.trim() || "Lista sin título";
       set({ dialog: null });
       if (isTauri()) {
-        updatePlaylistCmd(id, name, fecha, ocasion)
+        updatePlaylistCmd(id, name, ocasion)
           .then((snap) => {
             applySnapshot(snap);
+            tocarCulto(id);
             toast("Lista actualizada");
           })
           .catch((err) => {
@@ -2072,9 +2096,10 @@ export const useStore = create<CantoralState>((set, get) => {
       } else {
         set((st) => ({
           playlists: st.playlists.map((p) =>
-            p.id === id ? { ...p, nombre: name, fecha, ocasion } : p,
+            p.id === id ? { ...p, nombre: name, ocasion } : p,
           ),
         }));
+        tocarCulto(id);
         toast("Lista actualizada");
       }
     },
@@ -2815,15 +2840,24 @@ export const plantillas = recordar(
   (s: CantoralState) => [s.playlists],
 );
 
+/** Cuándo se tocó un culto, en milisegundos; `0` si no lo dice. */
+function cuandoSeToco(p: Playlist): number {
+  const t = Date.parse(p.tocada);
+  return Number.isNaN(t) ? 0 : t;
+}
+
 /**
- * The last service held, per occasion — what «repetir el culto anterior»
- * offers. Templates and undated lists are left out; see `ultimaPorOcasion`.
+ * Los cultos, el último que se tocó arriba. Las plantillas, fuera.
+ *
+ * Se compara el instante y no el texto: el núcleo escribe `+00:00` y el
+ * navegador `Z`, y como texto esas dos formas del mismo momento no ordenan
+ * igual. El orden es estable, así que un empate conserva el que trajo el
+ * núcleo.
  */
-export const repetibles = recordar(
-  (s: CantoralState) => ultimaPorOcasion(s.playlists),
-  // The day is a dependency: «anterior» means «before today», so an app left
-  // open overnight would otherwise keep offering yesterday's answer.
-  (s: CantoralState) => [s.playlists, new Date().toDateString()],
+export const cultos = recordar(
+  (s: CantoralState): Playlist[] =>
+    s.playlists.filter((p) => !p.plantilla).sort((a, b) => cuandoSeToco(b) - cuandoSeToco(a)),
+  (s: CantoralState) => [s.playlists],
 );
 
 /** Ids that form the play queue for the view the user pressed play in. */

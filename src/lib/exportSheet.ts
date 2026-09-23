@@ -3,7 +3,6 @@
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
 import { parseHoja } from "./chords";
-import { formatearFecha } from "./fechas";
 import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 
@@ -117,9 +116,7 @@ export function playlistSheetHtml(
     .join("\n");
 
   const lyrics = lyricsHtml(tracks, sheets);
-  // Since the date became ISO it is what SQLite can sort, not what a person
-  // reads: printed raw, the sheet handed round at the service said «2026-09-25».
-  const meta = [formatearFecha(pl.fecha), pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
+  const meta = [pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
     .filter(Boolean)
     .map(esc)
     .join(" · ");

@@ -1,7 +1,6 @@
 import { CalendarDays, Clock, Heart, Library, Plus, Settings } from "lucide-react";
 import { useState } from "react";
-import { useStore } from "../store";
-import { partirPorFecha } from "../lib/fechas";
+import { cultos as cultosPorUso, useStore } from "../store";
 import { navBtn, navCount, subBtn } from "../lib/styles";
 import type { CSSProperties } from "react";
 
@@ -32,7 +31,6 @@ export default function Sidebar() {
   const qf = useStore((s) => s.qf);
   const ocasion = useStore((s) => s.ocasion);
   const tracks = useStore((s) => s.tracks);
-  const playlists = useStore((s) => s.playlists);
   const plOrder = useStore((s) => s.plOrder);
   const folders = useStore((s) => s.folders);
   const curPlaylist = useStore((s) => s.curPlaylist);
@@ -61,10 +59,9 @@ export default function Sidebar() {
   // primeras, así que con una etiqueta puesta decía que estaban todas.
   const todasActive = libActive && !qf && !ocasion && !query.trim();
 
-  // El mismo orden en que se lee la vista de listas: primero lo que viene,
-  // después lo que ya pasó. Una plantilla no es un culto y se queda fuera.
-  const { proximos, pasados, sinFecha } = partirPorFecha(playlists.filter((p) => !p.plantilla));
-  const cultos = [...proximos, ...pasados, ...sinFecha];
+  // El mismo orden que la vista de listas: el último que se abrió o se cambió,
+  // arriba. Una plantilla no es un culto y se queda fuera.
+  const cultos = useStore(cultosPorUso);
 
   const resumen = [
     folders.length

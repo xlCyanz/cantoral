@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView, repetibles } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -327,19 +327,17 @@ describe("lo que los selectores recuerdan", () => {
     expect(filasDeLista(s)).toBe(filasDeLista(s));
   });
 
-  it("remembers the templates and the services worth repeating", () => {
-    // Both feed views the player is sitting under, so a fresh array each read
+  it("remembers the templates", () => {
+    // It feeds views the player is sitting under, so a fresh array each read
     // would re-render them once a second for nothing.
     const listas = [
-      { id: "p1", nombre: "Culto", fecha: "2020-01-05", ocasion: "Servicio dominical", ids: [], plantilla: false },
-      { id: "p2", nombre: "Dominical", fecha: "", ocasion: "Servicio dominical", ids: [], plantilla: true },
+      { id: "p1", nombre: "Culto", tocada: "", ocasion: "Servicio dominical", ids: [], plantilla: false },
+      { id: "p2", nombre: "Dominical", tocada: "", ocasion: "Servicio dominical", ids: [], plantilla: true },
     ];
     const s = state({ playlists: listas });
 
     expect(plantillas(s)).toBe(plantillas(s));
     expect(plantillas(s).map((p) => p.id)).toEqual(["p2"]);
-    expect(repetibles(s)).toBe(repetibles(s));
-    expect(repetibles(s).map((r) => r.lista.id)).toEqual(["p1"]);
     expect(plantillas(state({ playlists: [...listas] }))).not.toBe(plantillas(s));
   });
 

@@ -23,7 +23,6 @@ export interface PistaCompartida {
 
 export interface ListaCompartida {
   nombre: string;
-  fecha: string;
   ocasion: string;
   plantilla: boolean;
 }
@@ -52,7 +51,6 @@ export function armarArchivo(
     cantoral: VERSION,
     lista: {
       nombre: lista.nombre,
-      fecha: lista.fecha,
       ocasion: lista.ocasion,
       plantilla: lista.plantilla,
     },
@@ -230,7 +228,6 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
     cantoral: v,
     lista: {
       nombre,
-      fecha: texto_(lista.fecha),
       ocasion: texto_(lista.ocasion),
       plantilla: lista.plantilla === true,
     },

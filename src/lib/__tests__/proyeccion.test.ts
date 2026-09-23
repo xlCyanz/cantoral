@@ -563,11 +563,12 @@ describe("el arranque de la ventana de salida", () => {
   });
 });
 
-describe("cuando se acaba un elemento", () => {
+describe("cuando se acaba un elemento, con «Negro y esperar»", () => {
   it("el proyector se queda en negro, sin arrancar el siguiente por su cuenta", async () => {
-    // El video se termina mientras alguien está hablando. Arrancar la canción
-    // de después solo, delante de la congregación, no lo decide la app.
+    // Quien lo elige es porque el video se termina mientras alguien está
+    // hablando, y arrancar la canción de después sola no le toca a la app.
     culto();
+    useStore.setState({ avanceProyeccion: "negro" });
     await useStore.getState().escucharProyeccion();
     useStore.getState().proyectarElemento(0);
 
@@ -580,6 +581,7 @@ describe("cuando se acaba un elemento", () => {
 
   it("y lo siguiente se queda cargado, a un botón de distancia", async () => {
     culto();
+    useStore.setState({ avanceProyeccion: "negro" });
     await useStore.getState().escucharProyeccion();
     useStore.getState().proyectarElemento(0);
 
@@ -864,15 +866,16 @@ describe("avanzar solo al acabarse un elemento", () => {
     expect(useStore.getState().proyeccionIdx).toBe(2);
   });
 
-  it("con el ajuste por defecto sigue sin avanzar", async () => {
+  it("es lo que hace sin tocar nada: un culto se le da y corre entero", async () => {
     culto();
     await useStore.getState().escucharProyeccion();
     useStore.getState().proyectarElemento(0);
 
     contestar!({ src: "/m/a.mp3", pos: 180, dur: 180, fin: true });
 
-    expect(useStore.getState().proyeccionIdx).toBe(0);
-    expect(ultimo().vista).toEqual({ modo: "negro" });
+    expect(useStore.getState().avanceProyeccion).toBe("siguiente");
+    expect(useStore.getState().proyeccionIdx).toBe(1);
+    expect(ultimo().vista).toMatchObject({ src: "/m/b.mp4" });
   });
 
   it("el tiempo se deja donde acabó, no a cero", async () => {

@@ -26,7 +26,7 @@ function track(over: Partial<Track> = {}): Track {
 const pl: Playlist = {
   id: "p1",
   nombre: "Culto Domingo",
-  fecha: "Domingo 13 de julio",
+  tocada: "",
   ocasion: "Servicio dominical",
   ids: ["1"],
   plantilla: false,
@@ -62,7 +62,7 @@ describe("playlistSheetHtml", () => {
   it("puts the playlist metadata in the header", () => {
     const html = playlistSheetHtml(pl, [track()], "24 min");
     expect(html).toContain("Culto Domingo");
-    expect(html).toContain("Domingo 13 de julio · Servicio dominical · 1 pista · 24 min");
+    expect(html).toContain("Servicio dominical · 1 pista · 24 min");
   });
 
   it("pluralises the track count", () => {
@@ -71,7 +71,7 @@ describe("playlistSheetHtml", () => {
   });
 
   it("omits empty metadata fields instead of leaving stray separators", () => {
-    const html = playlistSheetHtml({ ...pl, fecha: "", ocasion: "" }, [track()], "4 min");
+    const html = playlistSheetHtml({ ...pl, tocada: "", ocasion: "" }, [track()], "4 min");
     expect(html).toContain("1 pista · 4 min");
     expect(html).not.toContain("· ·");
   });
@@ -203,26 +203,21 @@ describe("hayLetras", () => {
   });
 });
 
-describe("la fecha impresa", () => {
-  it("se escribe como se lee, no como se guarda", () => {
-    // Desde que la fecha es ISO, imprimirla en crudo dejaba «2026-09-25» en la
-    // hoja que se reparte en el culto.
-    const html = playlistSheetHtml({ ...pl, fecha: "2026-09-25" }, [track()], "4 min");
+describe("la cabecera de la hoja", () => {
+  it("no lleva fecha: un culto no la tiene", () => {
+    // Cuándo se tocó por última vez es cosa de la app, no de la hoja que se
+    // reparte en el culto.
+    const html = playlistSheetHtml({ ...pl, tocada: "2026-09-25T10:00:00.000Z" }, [track()], "4 min");
 
-    expect(html).toContain("septiembre");
-    expect(html).not.toContain("2026-09-25");
+    expect(html).not.toContain("2026");
+    expect(html).not.toContain("septiembre");
   });
 
-  it("lo que no es una fecha se imprime tal cual", () => {
-    const html = playlistSheetHtml({ ...pl, fecha: "el domingo después de Pascua" }, [track()], "4 min");
-
-    expect(html).toContain("el domingo después de Pascua");
-  });
-
-  it("sin fecha no se imprime un hueco", () => {
-    const html = playlistSheetHtml({ ...pl, fecha: "" }, [track()], "4 min");
+  it("sin ocasión no se imprime un hueco", () => {
+    const html = playlistSheetHtml({ ...pl, ocasion: "" }, [track()], "4 min");
 
     expect(html).toContain("Culto Domingo");
     expect(html).not.toContain("· ·");
+    expect(html).toContain("1 pista · 4 min");
   });
 });

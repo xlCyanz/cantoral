@@ -13,7 +13,7 @@ const pickShareExportPath = vi.fn<(nombre: string) => Promise<string | null>>();
 const pickPlaylistFile = vi.fn<() => Promise<string | null>>();
 const readPlaylistFileCmd = vi.fn<(src: string) => Promise<ArchivoDeLista>>();
 const leerArchivoDelNavegador = vi.fn<() => Promise<ArchivoDeLista | null>>();
-const createPlaylistCmd = vi.fn<(n: string, f: string, o: string) => Promise<string>>();
+const createPlaylistCmd = vi.fn<(n: string, o: string) => Promise<string>>();
 const setPlaylistOrderCmd = vi.fn<(pl: string, ids: string[]) => Promise<void>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -24,7 +24,7 @@ vi.mock("../api", async (importOriginal) => ({
   pickPlaylistFile: () => pickPlaylistFile(),
   readPlaylistFileCmd: (src: string) => readPlaylistFileCmd(src),
   leerArchivoDelNavegador: () => leerArchivoDelNavegador(),
-  createPlaylistCmd: (n: string, f: string, o: string) => createPlaylistCmd(n, f, o),
+  createPlaylistCmd: (n: string, o: string) => createPlaylistCmd(n, o),
   setPlaylistOrderCmd: (pl: string, ids: string[]) => setPlaylistOrderCmd(pl, ids),
   getLibrary: () => Promise.resolve(null),
 }));
@@ -56,7 +56,7 @@ function pista(id: string, over: Partial<Track> = {}): Track {
 const lista: Playlist = {
   id: "p1",
   nombre: "Culto 4 Ene",
-  fecha: "2026-01-04",
+  tocada: "",
   ocasion: "Servicio dominical",
   ids: ["a", "b"],
   plantilla: false,
@@ -76,7 +76,7 @@ function conLista() {
 function archivoDe(titulos: string[], nombre = "Culto de otra iglesia"): ArchivoDeLista {
   return {
     cantoral: 1,
-    lista: { nombre, fecha: "2026-02-01", ocasion: "Comunión", plantilla: false },
+    lista: { nombre, ocasion: "Comunión", plantilla: false },
     pistas: titulos.map((t) => ({
       titulo: t,
       artista: "Coro",
@@ -239,7 +239,7 @@ describe("importar: crear la lista", () => {
     useStore.getState().confirmImport();
 
     await vi.waitFor(() => expect(setPlaylistOrderCmd).toHaveBeenCalled());
-    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto de otra iglesia", "2026-02-01", "Comunión");
+    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto de otra iglesia", "Comunión");
     expect(setPlaylistOrderCmd).toHaveBeenCalledWith("77", ["c", "a"]);
   });
 
@@ -327,7 +327,7 @@ describe("la vuelta entera", () => {
     useStore.getState().confirmImport();
 
     await vi.waitFor(() => expect(setPlaylistOrderCmd).toHaveBeenCalled());
-    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto 4 Ene", "2026-01-04", "Servicio dominical");
+    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto 4 Ene", "Servicio dominical");
     expect(setPlaylistOrderCmd).toHaveBeenCalledWith("77", ["b", "a"]);
   });
 });

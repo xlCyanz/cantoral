@@ -54,7 +54,7 @@ beforeEach(() => {
   }
   useStore.setState({
     tracks: CINCO,
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids: [], plantilla: false }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids: [], plantilla: false }],
     plOrder: { p1: [] },
     curPlaylist: "p1",
     selection: [],
@@ -154,7 +154,7 @@ describe("agregar a una lista", () => {
   const conLaLista = (ids: string[]): Snapshot => ({
     tracks: CINCO,
     folders: [],
-    playlists: [{ id: "p1", nombre: "Culto", fecha: "", ocasion: "", ids, plantilla: false }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids, plantilla: false }],
   });
 
   it("al agregarlas, el titular dice a dónde y el detalle cuántas", () => {
@@ -292,8 +292,8 @@ describe("quitar en bloque", () => {
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
-        { id: "p1", nombre: "Domingo de alabanza", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Reunión de jóvenes", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Domingo de alabanza", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Reunión de jóvenes", tocada: "", ocasion: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["b"] },
     });
@@ -310,8 +310,8 @@ describe("quitar en bloque", () => {
     useStore.setState({
       selection: ["a"],
       playlists: [
-        { id: "p1", nombre: "Con la pista", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Sin nada suyo", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Con la pista", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Sin nada suyo", tocada: "", ocasion: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["z"] },
     });
@@ -329,9 +329,9 @@ describe("quitar en bloque", () => {
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
-        { id: "p1", nombre: "Uno", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", fecha: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p3", nombre: "Tres", fecha: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Uno", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p3", nombre: "Tres", tocada: "", ocasion: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["a"], p3: ["a", "b"] },
     });

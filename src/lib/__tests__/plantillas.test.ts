@@ -10,8 +10,7 @@ import type { Snapshot } from "../api";
 let enTauri = false;
 const duplicatePlaylistCmd = vi.fn<(playlist: string) => Promise<string>>();
 const setPlaylistTemplateCmd = vi.fn<(playlist: string, plantilla: boolean) => Promise<Snapshot>>();
-const createPlaylistCmd =
-  vi.fn<(n: string, f: string, o: string, desde?: string) => Promise<string>>();
+const createPlaylistCmd = vi.fn<(n: string, o: string, desde?: string) => Promise<string>>();
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -20,8 +19,7 @@ vi.mock("../api", async (importOriginal) => ({
   duplicatePlaylistCmd: (playlist: string) => duplicatePlaylistCmd(playlist),
   setPlaylistTemplateCmd: (playlist: string, plantilla: boolean) =>
     setPlaylistTemplateCmd(playlist, plantilla),
-  createPlaylistCmd: (n: string, f: string, o: string, desde?: string) =>
-    createPlaylistCmd(n, f, o, desde),
+  createPlaylistCmd: (n: string, o: string, desde?: string) => createPlaylistCmd(n, o, desde),
   getLibrary: () => getLibrary(),
 }));
 
@@ -29,14 +27,14 @@ const { useStore } = await import("../../store");
 const initial = useStore.getState();
 
 function lista(id: string, over: Partial<Playlist> = {}): Playlist {
-  return { id, nombre: `Lista ${id}`, fecha: "", ocasion: "", ids: [], plantilla: false, ...over };
+  return { id, nombre: `Lista ${id}`, tocada: "", ocasion: "", ids: [], plantilla: false, ...over };
 }
 
 /** A library with one past service and one template. */
 function conListas() {
   const culto = lista("p1", {
     nombre: "Culto",
-    fecha: "2026-01-04",
+    tocada: "",
     ocasion: "Servicio dominical",
     ids: ["a", "b", "c"],
   });
@@ -70,15 +68,13 @@ beforeEach(() => {
 });
 
 describe("duplicar una lista, en el navegador", () => {
-  it("copia el orden y la ocasión, pero no la fecha", () => {
+  it("copia el orden y la ocasión", () => {
     useStore.getState().duplicateList("p1");
 
     const copia = abierta();
     expect(copia.id).not.toBe("p1");
     expect(copia.nombre).toBe("Culto (copia)");
     expect(copia.ocasion).toBe("Servicio dominical");
-    // Heredar la fecha pondría la copia en el culto que ya pasó.
-    expect(copia.fecha).toBe("");
     expect(useStore.getState().plOrder[copia.id]).toEqual(["a", "b", "c"]);
   });
 
@@ -137,7 +133,7 @@ describe("duplicar una lista, en la app", () => {
 
 describe("partir de una plantilla", () => {
   it("la lista nueva empieza con el repertorio de la plantilla", () => {
-    useStore.getState().createList("Culto 11 Ene", "2026-01-11", "Servicio dominical", "p9");
+    useStore.getState().createList("Culto 11 Ene", "Servicio dominical", "p9");
 
     const nueva = abierta();
     expect(useStore.getState().plOrder[nueva.id]).toEqual(["b", "a"]);
@@ -146,13 +142,13 @@ describe("partir de una plantilla", () => {
   });
 
   it("sin plantilla la lista nace vacía", () => {
-    useStore.getState().createList("Culto 11 Ene", "2026-01-11", "Servicio dominical");
+    useStore.getState().createList("Culto 11 Ene", "Servicio dominical");
 
     expect(useStore.getState().plOrder[abierta().id]).toEqual([]);
   });
 
   it("copiar la plantilla no la vacía ni comparte su arreglo", () => {
-    useStore.getState().createList("Culto 11 Ene", "", "", "p9");
+    useStore.getState().createList("Culto 11 Ene", "", "p9");
 
     const { plOrder, curPlaylist } = useStore.getState();
     expect(plOrder.p9).toEqual(["b", "a"]);
@@ -163,10 +159,10 @@ describe("partir de una plantilla", () => {
     enTauri = true;
     createPlaylistCmd.mockResolvedValue("77");
 
-    useStore.getState().createList("Culto", "2026-01-11", "Servicio dominical", "p9");
+    useStore.getState().createList("Culto", "Servicio dominical", "p9");
 
     await vi.waitFor(() => expect(useStore.getState().curPlaylist).toBe("77"));
-    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto", "2026-01-11", "Servicio dominical", "p9");
+    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto", "Servicio dominical", "p9");
   });
 });
 
