@@ -93,3 +93,52 @@ export function carpetaReal(t: Track, folders: readonly Folder[]): CarpetaDeLaPi
     ruta: carpetaDe(ruta),
   };
 }
+
+
+/**
+ * La línea de debajo de la ruta en Configuración: cuántas pistas, cuándo se
+ * leyó y qué falta.
+ *
+ * `cuando` viene ya escrito desde fuera porque el formato de la fecha es cosa
+ * de la vista —«hoy a las 9:12», «ayer»— y esto solo lo encadena.
+ */
+export function metaDeCarpeta(
+  f: { count: number; lastScan?: string },
+  faltantes: number,
+  cuando: string,
+): string {
+  const partes = [`${f.count} ${f.count === 1 ? "pista" : "pistas"}`];
+  partes.push(f.lastScan ? `actualizada ${cuando}` : "aún sin escanear");
+  if (faltantes > 0) {
+    partes.push(`${faltantes} ${faltantes === 1 ? "archivo no encontrado" : "archivos no encontrados"}`);
+  }
+  return partes.join(" · ");
+}
+
+/**
+ * Cuántos archivos no se encuentran, por carpeta.
+ *
+ * Se dicen por carpeta y no solo en el total de la barra lateral: cuando un
+ * disco externo se queda sin enchufar, lo que hace falta saber es *qué*
+ * carpeta se ha quedado a oscuras.
+ *
+ * Gana la carpeta más profunda que contenga la pista, igual que en
+ * `carpetaReal`: con «Música» y «Música/Coros» indexadas las dos, una pista de
+ * Coros cuenta para Coros.
+ */
+export function faltantesPorCarpetaDe(
+  pistas: readonly Track[],
+  carpetas: readonly Folder[],
+): Record<string, number> {
+  const fuera: Record<string, number> = {};
+  for (const t of pistas) {
+    if (!t.missing) continue;
+    let elegida: Folder | null = null;
+    for (const f of carpetas) {
+      if (!dentroDe(t.path ?? "", f.ruta)) continue;
+      if (!elegida || normalizar(f.ruta).length > normalizar(elegida.ruta).length) elegida = f;
+    }
+    if (elegida) fuera[elegida.id] = (fuera[elegida.id] ?? 0) + 1;
+  }
+  return fuera;
+}
