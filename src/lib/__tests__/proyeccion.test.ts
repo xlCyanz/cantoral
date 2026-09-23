@@ -504,24 +504,14 @@ describe("proyectar una lista y mirar otra", () => {
     expect(ultimo().vista).toMatchObject({ src: "/m/b.mp3" });
   });
 
-  it("«Proyectar» de la tarjeta En vivo abre el culto que la tarjeta nombra", () => {
-    // La tarjeta nombra un culto concreto; proyectar otro sería lo último que
-    // quien opera va a revisar antes de empezar.
-    dosCultos();
-    useStore.setState({ curPlaylist: "enVivo" });
-
-    useStore.getState().showProyeccion("otra");
-
-    expect(useStore.getState().curPlaylist).toBe("otra");
-    expect(useStore.getState().view).toBe("proyeccion");
-  });
-
-  it("y sin decir cuál, deja abierto el que ya lo estaba", () => {
+  it("«Proyectar» saca el culto que está abierto", () => {
+    // Es el único que puede querer decir: quien opera acaba de repasarlo.
     dosCultos();
 
     useStore.getState().showProyeccion();
 
     expect(useStore.getState().curPlaylist).toBe("enVivo");
+    expect(useStore.getState().view).toBe("proyeccion");
   });
 });
 

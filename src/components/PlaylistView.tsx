@@ -194,11 +194,10 @@ export default function PlaylistView() {
             <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
             </button>
-            {/* El documento pone «Proyectar» aquí, entre reproducir e imprimir.
-                En la etapa 4 se quedó fuera porque no había a dónde ir; ahora
-                sí. Y hace falta aquí además de en la tarjeta «En vivo»: esa
-                tarjeta solo sale si hay un culto con fecha, así que una
-                iglesia que no les ponga fecha no tendría cómo llegar. */}
+            {/* El documento pone «Proyectar» aquí, entre reproducir e
+                imprimir. En la etapa 4 se quedó fuera porque no había a dónde
+                ir; ahora sí, y es la única puerta: se proyecta el culto que
+                está abierto. */}
             <button onClick={() => showProyeccion()} className="hb-s2" title="Sacar el culto por el proyector"
               style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
               <MonitorPlay size={16} />Proyectar
