@@ -9,6 +9,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Eliminado
+
+- **El botón de tema de la barra superior.** Alternaba entre claro y oscuro, y
+  ahí quedaba: no podía volver a «Seguir al sistema», que es el tercer modo y
+  el que viene puesto. Elegir el tema se hace en Configuración › Apariencia,
+  con los tres, y es una decisión de una vez, no un botón que convenga tener
+  al lado de «Agregar carpeta».
+
 ### Corregido
 
 - **«Todas» en la barra lateral no hacía nada.** Estando ya en la biblioteca

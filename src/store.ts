@@ -576,7 +576,6 @@ export interface CantoralState {
   showConfig: () => void;
   onFolderClick: () => void;
   openPlaylist: (id: string) => void;
-  toggleTheme: () => void;
   setThemeMode: (m: ThemeMode) => void;
   applySystemTheme: () => void;
 
@@ -1101,9 +1100,6 @@ export const useStore = create<CantoralState>((set, get) => {
     onFolderClick: () =>
       set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null, ocasion: null })),
     openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
-    toggleTheme: () => {
-      get().setThemeMode(get().theme === "dark" ? "light" : "dark");
-    },
     setThemeMode: (m) => {
       const theme = resolveTheme(m);
       set({ themeMode: m, theme });
