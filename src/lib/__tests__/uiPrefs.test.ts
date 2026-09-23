@@ -38,6 +38,8 @@ const GUARDADAS: UiPrefs = {
   curPlaylist: "p2",
   printWithLyrics: true,
   densidad: "compacta",
+  salidaDeAudio: "portada",
+  transicionProyeccion: "cuenta",
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -70,11 +72,27 @@ describe("parsePrefs", () => {
       volume: "alto",
       curPlaylist: 7,
       densidad: "apretadísima",
+      salidaDeAudio: "fuegos artificiales",
+      transicionProyeccion: "fundido",
       shuffle: true,
     });
 
     // Only the one field that held up survives; the rest fall back to defaults.
     expect(parsePrefs(raro)).toEqual({ shuffle: true });
+  });
+
+  it("recuerda los ajustes de la proyección", () => {
+    // Una iglesia elige una vez si proyecta la letra o deja el negro, y no
+    // quiere volver a decidirlo cada domingo antes de empezar.
+    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+
+    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+  });
+
+  it("y acepta los tres modos de salida de audio", () => {
+    for (const modo of ["negro", "portada", "letra"] as const) {
+      expect(parsePrefs(JSON.stringify({ salidaDeAudio: modo }))).toEqual({ salidaDeAudio: modo });
+    }
   });
 
   it("clamps a volume outside the range instead of dropping it", () => {
@@ -163,6 +181,18 @@ describe("guardar los cambios", () => {
 
     expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(1);
     expect(ultimoGuardado().volume).toBe(0.3);
+  });
+
+  it("y también los ajustes de la proyección", async () => {
+    // Van por el mismo vigilante que el resto: si no estuvieran en la lista de
+    // campos observados, se elegiría «Solo la letra» un domingo y el siguiente
+    // volvería a estar en negro.
+    useStore.getState().setSalidaDeAudio("negro");
+    useStore.getState().setTransicionProyeccion("cuenta");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(ultimoGuardado().salidaDeAudio).toBe("negro");
+    expect(ultimoGuardado().transicionProyeccion).toBe("cuenta");
   });
 
   it("recoge el cambio venga de donde venga", async () => {

@@ -18,6 +18,10 @@ export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
  * en la pantalla del atril sin tener que desplazarse a media alabanza.
  */
 export type Densidad = "comoda" | "compacta";
+/** Qué sale por el proyector cuando la pista es solo audio. */
+export type SalidaDeAudio = "negro" | "portada" | "letra";
+/** Qué pasa por el proyector entre un elemento del culto y el siguiente. */
+export type TransicionProyeccion = "negro" | "cuenta";
 export type SortKey = "titulo" | "album" | "ocasion" | "tono" | "bpm" | "dur";
 export type SortDir = "asc" | "desc";
 

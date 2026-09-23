@@ -100,6 +100,35 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   cualquier otra cosa. Un comando que puede abrir menos vale menos para lo que
   consiga llamarlo.
 
+- **La letra por el proyector.** Tercera y última parte de la etapa 7. Con una
+  pista de solo audio, la pantalla grande deja de enseñar el título y pasa a
+  enseñar lo que la congregación está cantando, una estrofa cada vez.
+
+  Se elige en Proyección, en **«Si la pista es solo audio»**: *Solo la letra*
+  sobre el negro, *Portada y letra* con la carátula de fondo —apagada y
+  desenfocada, para que la letra se lea encima—, o *Negro* si lo que se quiere
+  mientras suena la ofrenda es una pantalla apagada. Se recuerda entre
+  sesiones: una iglesia lo elige una vez, no cada domingo antes de empezar.
+
+  La letra se parte donde ya la partió quien escribió la hoja: por las líneas
+  en blanco y por los encabezados de sección (`{coro}`), que además salen
+  rotulados en la pantalla. Una estrofa muy larga se parte en trozos de ocho
+  líneas — una hoja escrita de corrido saldría entera en un tamaño que no se
+  lee desde la última fila. Los acordes no salen: por el proyector va la letra,
+  y los acordes son para el atril.
+
+  **«Siguiente» recorre la letra antes de cambiar de canción**, con el mismo
+  botón y la misma tecla `→`. Desde el atril no se quiere elegir entre dos
+  cosas: se quiere pasar a lo que viene, sea la estrofa de abajo o la canción
+  de después. Los mandos dicen por cuál se va y a cuál se pasa.
+
+- **Qué pasa entre un elemento y el siguiente.** También en Proyección, en
+  **«Entre un elemento y otro»**: medio segundo de negro, o una cuenta atrás de
+  tres segundos en la pantalla grande. La lleva la ventana de salida, que es la
+  que tiene el fotograma delante, y mientras corre no se ve ni lo que se va ni
+  lo que viene. Pasar de estrofa o cortar a negro no la llevan: serían medio
+  segundo de negro en mitad de una canción.
+
 ### Cambiado
 
 - **La biblioteca solo indexa lo que se puede reproducir.** Salen `.wma`,

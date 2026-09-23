@@ -6,11 +6,13 @@ import type {
   LibState,
   Playlist,
   QuickFilter,
+  SalidaDeAudio,
   SortKey,
   Theme,
   ThemeMode,
   Track,
   TrackEdit,
+  TransicionProyeccion,
   View,
 } from "./lib/types";
 
@@ -61,10 +63,60 @@ function salidaDelCulto(s: CantoralState, idx: number, reproduciendo: boolean): 
   const src = rutaProyectable(t);
   if (!src) return { vista: { modo: "titulo", titulo: t.titulo, sub: t.artista || undefined }, precarga };
   return {
-    vista: { modo: "media", src, video: !!t.video, titulo: t.titulo, sub: t.artista || undefined, reproduciendo },
+    vista: {
+      modo: "media",
+      src,
+      video: !!t.video,
+      titulo: t.titulo,
+      sub: t.artista || undefined,
+      reproduciendo,
+      // Un video ya llena la pantalla; lo de abajo es para el audio, que por
+      // sí solo no pone nada delante de la congregación.
+      ...(t.video ? {} : { audio: fondoDeAudio(s, t) }),
+    },
     precarga,
   };
 }
+
+/** Lo que se dibuja mientras suena una pista sin imagen. */
+function fondoDeAudio(s: CantoralState, t: Track): NonNullable<Extract<VistaProyeccion, { modo: "media" }>["audio"]> {
+  const tipo = s.salidaDeAudio;
+  if (tipo === "negro") return { tipo };
+  const trozos = estrofasDeLaPista(s, t.id);
+  const actual = trozos[Math.min(s.proyeccionEstrofa, Math.max(0, trozos.length - 1))];
+  return {
+    tipo,
+    etiqueta: actual?.etiqueta || undefined,
+    lineas: actual?.lineas,
+    // La carátula ya viene como `asset://` del catálogo.
+    portada: tipo === "portada" ? t.cover : undefined,
+  };
+}
+
+/**
+ * La letra de una pista, partida en estrofas.
+ *
+ * Recordada porque la mira cada mensaje que sale a la salida —y sale uno por
+ * cada cambio de ajuste, de estrofa y de elemento—, y volver a leer la hoja
+ * entera cada vez no hace falta.
+ */
+const estrofasDeLaPista = recordar(
+  (s: CantoralState, id: string): Estrofa[] => {
+    const hoja = s.sheets[id];
+    return estrofasDe(hoja?.letra, hoja?.acordes);
+  },
+  (s: CantoralState, id: string) => [s.sheets[id], id],
+);
+
+/** Cuántas estrofas tiene lo que está en pantalla, o 0 si no se proyecta letra. */
+export function estrofasEnPantalla(s: CantoralState): Estrofa[] {
+  if (s.salidaDeAudio === "negro" || s.proyeccionIdx < 0) return VACIO_ESTROFAS;
+  const t = filasProyectadas(s)[s.proyeccionIdx];
+  if (!t || t.video) return VACIO_ESTROFAS;
+  return estrofasDeLaPista(s, t.id);
+}
+
+const VACIO_ESTROFAS: Estrofa[] = [];
 
 /**
  * La coletilla del aviso de escaneo, o cadena vacía.
@@ -93,9 +145,11 @@ import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
 import { ultimaPorOcasion } from "./lib/repetir";
 import { partirPorFecha } from "./lib/fechas";
-import type { MonitorInfo, SalidaProyeccion } from "./lib/api";
+import type { MonitorInfo, SalidaProyeccion, VistaProyeccion } from "./lib/api";
 import { motivoDeError, motivoNoProyectable } from "./lib/formatos";
 import { carpetaReal } from "./lib/carpetas";
+import { estrofasDe } from "./lib/estrofas";
+import type { Estrofa } from "./lib/estrofas";
 import { playlistSheetHtml, sheetFileName } from "./lib/exportSheet";
 import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "./lib/uiPrefs";
 import { etiquetaEquivalente, normalizarEtiqueta } from "./lib/tags";
@@ -311,6 +365,17 @@ export interface CantoralState {
    * sigue ahí para volver.
    */
   proyeccionEnNegro: boolean;
+  /**
+   * En qué estrofa de la letra va lo que está en pantalla.
+   *
+   * Solo cuenta con una pista de audio proyectada como letra. `0` es la
+   * primera; una pista sin letra tiene cero estrofas y se queda en `0`.
+   */
+  proyeccionEstrofa: number;
+  /** Qué sale por el proyector con una pista de solo audio. Se recuerda. */
+  salidaDeAudio: SalidaDeAudio;
+  /** Qué pasa entre un elemento del culto y el siguiente. Se recuerda. */
+  transicionProyeccion: TransicionProyeccion;
   /** Por dónde va lo que se está proyectando, en segundos. Lo dice la salida. */
   proyeccionPos: number;
   proyeccionDur: number;
@@ -489,6 +554,10 @@ export interface CantoralState {
   proyeccionSiguiente: () => void;
   /** Dejar el proyector en negro sin perder por dónde iba el culto. */
   proyeccionNegro: () => void;
+  setSalidaDeAudio: (v: SalidaDeAudio) => void;
+  setTransicionProyeccion: (v: TransicionProyeccion) => void;
+  /** Volver a mandar a la salida lo que ya está en pantalla. */
+  reproyectar: () => void;
   /** Empezar a escuchar lo que devuelve la salida. Devuelve cómo dejar de hacerlo. */
   escucharProyeccion: () => Promise<() => void>;
   ocultarTarjetaEscaneo: () => void;
@@ -881,6 +950,9 @@ export const useStore = create<CantoralState>((set, get) => {
     proyeccionIdx: -1,
     proyeccionLista: "",
     proyeccionEnNegro: true,
+    proyeccionEstrofa: 0,
+    salidaDeAudio: "letra",
+    transicionProyeccion: "negro",
     proyeccionPos: 0,
     proyeccionDur: 0,
     proyeccionFallos: {},
@@ -1064,12 +1136,35 @@ export const useStore = create<CantoralState>((set, get) => {
       // nadie quiera, y ahora que el video suena dentro de la app es fácil
       // acabar ahí sin darse cuenta.
       if (get().playing) set({ playing: false });
-      set({ proyeccionIdx: idx, proyeccionLista: get().curPlaylist, proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
-      get().proyectar(salidaDelCulto(get(), idx, true));
+      const veniaDeOtro = get().proyeccionIdx !== idx || get().proyeccionEnNegro;
+      set({
+        proyeccionIdx: idx,
+        proyeccionLista: get().curPlaylist,
+        proyeccionEnNegro: false,
+        proyeccionEstrofa: 0,
+        proyeccionPos: 0,
+        proyeccionDur: 0,
+      });
+      get().proyectar({
+        ...salidaDelCulto(get(), idx, true),
+        // Volver a poner lo mismo que ya estaba —pulsar su fila otra vez— no
+        // lleva transición: sería medio segundo de negro sin motivo.
+        ...(veniaDeOtro ? { transicion: get().transicionProyeccion } : {}),
+      });
     },
 
     proyeccionSiguiente: () => {
       const st = get();
+      // Primero la letra, después la cola. «Siguiente» es un solo botón y una
+      // sola tecla porque desde el atril no se quiere elegir entre dos: se
+      // quiere pasar a lo que viene, sea la estrofa de abajo o la canción de
+      // después.
+      const trozos = estrofasEnPantalla(st);
+      if (!st.proyeccionEnNegro && st.proyeccionEstrofa + 1 < trozos.length) {
+        set({ proyeccionEstrofa: st.proyeccionEstrofa + 1 });
+        get().proyectar(salidaDelCulto(get(), st.proyeccionIdx, true));
+        return;
+      }
       const filas = filasProyectadas(st);
       const siguiente = st.proyeccionIdx + 1;
       if (siguiente >= filas.length) {
@@ -1078,8 +1173,24 @@ export const useStore = create<CantoralState>((set, get) => {
         get().proyeccionNegro();
         return;
       }
-      set({ proyeccionIdx: siguiente, proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
-      get().proyectar(salidaDelCulto(get(), siguiente, true));
+      set({ proyeccionIdx: siguiente, proyeccionEnNegro: false, proyeccionEstrofa: 0, proyeccionPos: 0, proyeccionDur: 0 });
+      get().proyectar({ ...salidaDelCulto(get(), siguiente, true), transicion: get().transicionProyeccion });
+    },
+
+    setSalidaDeAudio: (v) => {
+      set({ salidaDeAudio: v });
+      // En marcha, el cambio se ve al momento: quien lo está tocando lo toca
+      // para ver el efecto, no para que se aplique en la siguiente canción.
+      get().reproyectar();
+    },
+
+    setTransicionProyeccion: (v) => set({ transicionProyeccion: v }),
+
+    /** Volver a mandar lo que ya está en pantalla, con lo que haya cambiado. */
+    reproyectar: () => {
+      const st = get();
+      if (!st.proyectando || st.proyeccionEnNegro || st.proyeccionIdx < 0) return;
+      get().proyectar(salidaDelCulto(st, st.proyeccionIdx, true));
     },
 
     proyeccionNegro: () => {

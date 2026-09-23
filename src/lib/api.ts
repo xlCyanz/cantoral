@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import type { Folder, Playlist, Track } from "./types";
+import type { Folder, Playlist, SalidaDeAudio, Track, TransicionProyeccion } from "./types";
 import type { ArchivoDeLista } from "./compartir";
 
 export function isTauri(): boolean {
@@ -521,11 +521,26 @@ export type VistaProyeccion =
       modo: "media";
       /** URL `asset://` del archivo. */
       src: string;
-      /** Si trae imagen. Un audio se proyecta con su título sobre el negro. */
+      /** Si trae imagen. Un audio no llena la pantalla por sí solo. */
       video: boolean;
       titulo: string;
       sub?: string;
       reproduciendo: boolean;
+      /**
+       * Qué dibujar mientras suena, cuando el archivo no trae imagen.
+       *
+       * Ausente en un video: ahí la pantalla ya está llena. Sin `lineas` —una
+       * pista sin letra escrita— la salida cae al título, que es mejor que un
+       * negro con el que nadie sabe si la app se colgó.
+       */
+      audio?: {
+        tipo: SalidaDeAudio;
+        /** «Coro», «Puente»… de la estrofa que está en pantalla. */
+        etiqueta?: string;
+        lineas?: string[];
+        /** URL `asset://` de la carátula, para el fondo. */
+        portada?: string;
+      };
     };
 
 /**
@@ -540,6 +555,18 @@ export type VistaProyeccion =
 export interface SalidaProyeccion {
   vista: VistaProyeccion;
   precarga?: string;
+  /**
+   * Qué hacer antes de enseñar esto.
+   *
+   * Solo viene al cambiar de elemento del culto. Pasar de una estrofa a otra,
+   * cortar a negro o cambiar un ajuste en marcha no llevan transición: serían
+   * medio segundo de negro en mitad de una canción.
+   *
+   * La cuenta la lleva la ventana de salida y no esta: es la que tiene el
+   * fotograma delante, y un temporizador que viaje entre ventanas llegaría
+   * tarde de forma distinta cada vez.
+   */
+  transicion?: TransicionProyeccion;
 }
 
 /** Lo que la salida devuelve sobre lo que está reproduciendo. */
