@@ -133,6 +133,21 @@ export function detalleDeOmitidos(n: number): string | undefined {
     : `${n} archivos se quedaron fuera: Cantoral no reproduce su formato.`;
 }
 
+/**
+ * En qué estado dejar la biblioteca al volver a ella desde un filtro.
+ *
+ * Sirve para salir de la pantalla de error sin tener que volver a escanear.
+ * Se mira el catálogo en vez de poner «content» a secas: sobre una biblioteca
+ * sin nada indexado, «content» enseñaría una tabla vacía en lugar de la
+ * pantalla que explica cómo empezar.
+ */
+function estadoDeLaBiblioteca(s: CantoralState): LibState {
+  return s.tracks.length ? "content" : "empty";
+}
+
+/** Una sola lista vacía, para no romper la identidad que memorizan los selectores. */
+const VACIO_ETIQUETAS: string[] = [];
+
 function osPrefersDark(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -553,7 +568,10 @@ export interface CantoralState {
   duplicatesState: "idle" | "buscando" | "listo";
 
   // ---- actions ----
+  /** Ir a la biblioteca, sin tocar lo que la esté filtrando. */
   showBiblioteca: () => void;
+  /** Ir a la biblioteca y soltar todo lo que la esté estrechando. */
+  verTodaLaBiblioteca: () => void;
   showColecciones: () => void;
   showConfig: () => void;
   onFolderClick: () => void;
@@ -1063,10 +1081,25 @@ export const useStore = create<CantoralState>((set, get) => {
 
     // ---------- nav ----------
     showBiblioteca: () => set({ view: "biblioteca" }),
+
+    // «Todas» y el propio «Biblioteca» de la barra lateral. No basta con
+    // cambiar de vista: estando ya en la biblioteca con un filtro puesto, eso
+    // no hacía absolutamente nada —ni se encendía el botón ni cambiaba la
+    // tabla—, que es como se lee un botón roto. Suelta también la búsqueda y
+    // las etiquetas, porque «todas» quiere decir todas.
+    verTodaLaBiblioteca: () =>
+      set((s) => ({
+        view: "biblioteca",
+        libState: estadoDeLaBiblioteca(s),
+        qf: null,
+        ocasion: null,
+        tagFilter: VACIO_ETIQUETAS,
+        query: "",
+      })),
     showColecciones: () => set({ view: "colecciones" }),
     showConfig: () => set({ view: "config" }),
     onFolderClick: () =>
-      set({ view: "biblioteca", libState: "content", qf: null, ocasion: null }),
+      set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null, ocasion: null })),
     openPlaylist: (id) => set({ view: "lista", curPlaylist: id }),
     toggleTheme: () => {
       get().setThemeMode(get().theme === "dark" ? "light" : "dark");
@@ -1084,7 +1117,7 @@ export const useStore = create<CantoralState>((set, get) => {
     onQuery: (v) => set({ query: v }),
     clearQuery: () => set({ query: "" }),
     onQuickFilter: (q) =>
-      set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: "content" })),
+      set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: estadoDeLaBiblioteca(s) })),
     onOcasion: (o) => set((s) => ({ ocasion: s.ocasion === o ? null : o || null })),
     onTagFilter: (tag) =>
       set((st) => ({

@@ -99,7 +99,9 @@ export default function Sidebar() {
   const curPlaylist = useStore((s) => s.curPlaylist);
   const culto = useStore(proximoCulto);
 
-  const showBiblioteca = useStore((s) => s.showBiblioteca);
+  const verTodaLaBiblioteca = useStore((s) => s.verTodaLaBiblioteca);
+  const tagFilter = useStore((s) => s.tagFilter);
+  const query = useStore((s) => s.query);
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
   const onQuickFilter = useStore((s) => s.onQuickFilter);
@@ -117,9 +119,10 @@ export default function Sidebar() {
   const libActive = view === "biblioteca";
   const colActive = view === "colecciones" || view === "lista";
   const cfgActive = view === "config";
-  // «Todas» es la biblioteca sin nada que la estreche, que es justo lo que deja
-  // `showBiblioteca`: por eso se enciende con el mismo estado.
-  const todasActive = libActive && !qf && !ocasion;
+  // «Todas» está encendida cuando de verdad se están viendo todas: sin filtro
+  // rápido, sin ocasión, sin etiquetas y sin búsqueda. Contaba solo las dos
+  // primeras, así que con una etiqueta puesta decía que estaban todas.
+  const todasActive = libActive && !qf && !ocasion && tagFilter.length === 0 && !query.trim();
 
   // El mismo orden en que se lee la vista de listas: primero lo que viene,
   // después lo que ya pasó. Una plantilla no es un culto y se queda fuera.
@@ -157,7 +160,7 @@ export default function Sidebar() {
         aria-label="Secciones"
         style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2, paddingTop: culto ? 6 : 0 }}
       >
-        <button onClick={showBiblioteca} aria-current={libActive ? "page" : undefined} className={libActive ? undefined : "hb-s2"} style={navBtn(libActive)}>
+        <button onClick={verTodaLaBiblioteca} aria-current={libActive ? "page" : undefined} className={libActive ? undefined : "hb-s2"} style={navBtn(libActive)}>
           <span style={etiquetaFila}>
             <Library size={14} style={{ flex: "0 0 auto" }} />
             Biblioteca
@@ -166,7 +169,7 @@ export default function Sidebar() {
         </button>
 
         <div style={seccion}>
-          <button onClick={showBiblioteca} aria-pressed={todasActive} className={todasActive ? undefined : "hb-s2"} style={subBtn(todasActive)}>
+          <button onClick={verTodaLaBiblioteca} aria-pressed={todasActive} className={todasActive ? undefined : "hb-s2"} style={subBtn(todasActive)}>
             <span style={{ ...etiquetaFila, ...recorta }}>Todas</span>
             <span style={navCount(true)}>{tracks.length}</span>
           </button>

@@ -9,6 +9,22 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Corregido
+
+- **«Todas» en la barra lateral no hacía nada.** Estando ya en la biblioteca
+  con un filtro puesto —Favoritas, una ocasión, una etiqueta o una búsqueda—,
+  pulsarlo no encendía el botón ni cambiaba la tabla: solo cambiaba de vista, y
+  la vista ya era esa.
+
+  Ahora suelta todo lo que estreche la biblioteca, que es lo que «todas»
+  quiere decir. Y el botón se apaga mientras haya cualquier filtro puesto:
+  antes se quedaba encendido con una etiqueta o una búsqueda activa, diciendo
+  que se estaban viendo todas cuando no.
+
+  De paso, volver a la biblioteca desde un filtro ya no finge que hay contenido
+  cuando no hay nada indexado: enseñaba una tabla vacía en vez de la pantalla
+  que explica cómo empezar.
+
 ### Añadido
 
 - **La proyección sale por su propia ventana.** Primera parte de la etapa 7.
