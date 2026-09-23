@@ -11,6 +11,21 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Eliminado
 
+- **La tarjeta «En vivo» de la barra lateral.** Decidía sola cuál era «el
+  culto»: el de fecha más cercana, y solo si tenía fecha. Una iglesia que
+  prepare dos cultos la misma semana, o que ensaye el sábado lo del domingo,
+  tenía arriba el que la app había elegido y no el que estaba usando — y el
+  «Proyectar» de esa tarjeta sacaba ese, no el que estuviera abierto.
+
+  El culto se abre ahora desde la lista de la barra lateral, que están todos
+  ahí, y se proyecta desde la fila de acciones del culto abierto. Lo que se
+  proyecta es lo que quien opera acaba de repasar, que es la única lectura que
+  no hay que adivinar.
+
+  Con ella se va el selector `proximoCulto`, y `showProyeccion` deja de recibir
+  un culto: ya no hay quien le pase uno distinto del abierto. La sección
+  **«Próximos»** de la vista de listas se queda como estaba.
+
 - **Las etiquetas.** Eran un segundo eje de clasificación encima de la ocasión:
   el campo del panel de detalle, «Etiquetar…» en la barra de selección, los
   chips de filtro de la biblioteca, la tarjeta de Configuración que las

@@ -1,26 +1,24 @@
 import { CalendarDays, Clock, Heart, Library, Plus, Settings } from "lucide-react";
 import { useState } from "react";
-import { proximoCulto, useStore } from "../store";
-import { formatearFechaCorta, partirPorFecha } from "../lib/fechas";
+import { useStore } from "../store";
+import { partirPorFecha } from "../lib/fechas";
 import { navBtn, navCount, subBtn } from "../lib/styles";
 import type { CSSProperties } from "react";
-import type { Playlist } from "../lib/types";
 
 /**
- * La barra lateral, en tres zonas.
+ * La barra lateral, en dos zonas.
  *
- * Arriba, lo que está pasando: el culto que viene y el botón que lo abre. En
- * medio, a dónde se va, con los filtros y las listas sangrados bajo la sección
- * a la que pertenecen —la sangría es la que lleva la jerarquía que una fila de
- * botones iguales no podía llevar—. Abajo, la máquina: la configuración y una
- * línea que dice de qué se ha enterado Cantoral.
+ * Arriba, a dónde se va, con los filtros y las listas sangrados bajo la
+ * sección a la que pertenecen —la sangría es la que lleva la jerarquía que una
+ * fila de botones iguales no podía llevar—. Abajo, la máquina: la
+ * configuración y una línea que dice de qué se ha enterado Cantoral.
  *
  * Las carpetas indexadas vivían aquí. Se fueron a Configuración: una carpeta
  * se elige una vez, no es un sitio al que se navega, y tenerlas aquí hacía que
  * la barra pareciera un árbol de archivos que responde a clics que no responde.
  */
 
-/** El punto delante de «En vivo» y el de un filtro que pide atención. */
+/** El punto de un filtro que pide atención. */
 function punto(color: string, size = 6): CSSProperties {
   return { width: size, height: size, borderRadius: "50%", background: color, flex: "0 0 auto" };
 }
@@ -28,65 +26,6 @@ function punto(color: string, size = 6): CSSProperties {
 const seccion: CSSProperties = { display: "flex", flexDirection: "column", gap: 2 };
 const etiquetaFila: CSSProperties = { display: "flex", alignItems: "center", gap: 6, minWidth: 0 };
 const recorta: CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
-
-/** La tarjeta de arriba: el culto que viene y la forma de entrar en él. */
-function EnVivo({ culto }: { culto: Playlist }) {
-  const openPlaylist = useStore((s) => s.openPlaylist);
-  const showProyeccion = useStore((s) => s.showProyeccion);
-  const tracks = useStore((s) => s.tracks);
-  const guardado = useStore((s) => s.plOrder[culto.id]);
-  const orden = guardado ?? culto.ids;
-
-  const total = orden.reduce((a, id) => a + (tracks.find((t) => t.id === id)?.durSec ?? 0), 0);
-  const resumen = [
-    `${orden.length} ${orden.length === 1 ? "pista" : "pistas"}`,
-    total ? `${Math.round(total / 60)} min` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  return (
-    <div
-      style={{
-        flex: "0 0 auto",
-        border: "1px solid var(--border-2)",
-        borderRadius: 9,
-        background: "var(--surface)",
-        padding: "9px 10px 10px",
-        boxShadow: "0 1px 0 var(--border)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-        <span style={punto("var(--primary)")} />
-        <span style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--primary)" }}>
-          En vivo
-        </span>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.25, marginBottom: 1, ...recorta }} title={culto.nombre}>
-        {culto.nombre}
-      </div>
-      <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 8, ...recorta }}>
-        {[formatearFechaCorta(culto.fecha), resumen].filter(Boolean).join(" · ")}
-      </div>
-      <div style={{ display: "flex", gap: 5 }}>
-        <button
-          onClick={() => openPlaylist(culto.id)}
-          className="hb-primary"
-          style={{ flex: 1, height: 27, borderRadius: 6, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "11.5px", fontWeight: 600 }}
-        >
-          Abrir el culto
-        </button>
-        <button
-          onClick={() => showProyeccion(culto.id)}
-          className="hb-s3"
-          style={{ flex: 1, height: 27, borderRadius: 6, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "11.5px", fontWeight: 600 }}
-        >
-          Proyectar
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function Sidebar() {
   const view = useStore((s) => s.view);
@@ -97,7 +36,6 @@ export default function Sidebar() {
   const plOrder = useStore((s) => s.plOrder);
   const folders = useStore((s) => s.folders);
   const curPlaylist = useStore((s) => s.curPlaylist);
-  const culto = useStore(proximoCulto);
 
   const verTodaLaBiblioteca = useStore((s) => s.verTodaLaBiblioteca);
   const query = useStore((s) => s.query);
@@ -151,13 +89,11 @@ export default function Sidebar() {
         gap: 4,
       }}
     >
-      {culto && <EnVivo culto={culto} />}
-
       {/* La zona de en medio se desplaza sola, para que una iglesia con
           cuarenta cultos deje Configuración donde siempre está. */}
       <nav
         aria-label="Secciones"
-        style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2, paddingTop: culto ? 6 : 0 }}
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}
       >
         <button onClick={verTodaLaBiblioteca} aria-current={libActive ? "page" : undefined} className={libActive ? undefined : "hb-s2"} style={navBtn(libActive)}>
           <span style={etiquetaFila}>

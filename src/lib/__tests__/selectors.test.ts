@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, proximoCulto, queueForView, repetibles } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView, repetibles } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -368,70 +368,5 @@ describe("filasDeLista", () => {
 
   it("is empty for a list that has no order yet", () => {
     expect(filasDeLista(state({ curPlaylist: "p9" }))).toEqual([]);
-  });
-});
-
-describe("proximoCulto", () => {
-  /** An ISO date `n` days from today, so «upcoming» never depends on the calendar. */
-  function enDias(n: number): string {
-    const d = new Date();
-    d.setDate(d.getDate() + n);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }
-
-  function lista(over: Partial<Playlist> & { id: string }): Playlist {
-    return { nombre: `Culto ${over.id}`, fecha: "", ocasion: "", ids: [], plantilla: false, ...over };
-  }
-
-  it("se queda con el más cercano, no con el primero de la lista", () => {
-    const playlists = [
-      lista({ id: "lejos", fecha: enDias(30) }),
-      lista({ id: "cerca", fecha: enDias(2) }),
-      lista({ id: "medio", fecha: enDias(9) }),
-    ];
-
-    expect(proximoCulto(state({ playlists }))?.id).toBe("cerca");
-  });
-
-  it("hoy cuenta como que viene: el domingo por la mañana el culto es hoy", () => {
-    const playlists = [lista({ id: "hoy", fecha: enDias(0) }), lista({ id: "manana", fecha: enDias(1) })];
-
-    expect(proximoCulto(state({ playlists }))?.id).toBe("hoy");
-  });
-
-  it("una plantilla no es un culto, aunque le pongan fecha de mañana", () => {
-    const playlists = [
-      lista({ id: "plantilla", fecha: enDias(1), plantilla: true }),
-      lista({ id: "culto", fecha: enDias(5) }),
-    ];
-
-    expect(proximoCulto(state({ playlists }))?.id).toBe("culto");
-  });
-
-  it("si todo ya pasó no inventa uno", () => {
-    const playlists = [lista({ id: "ayer", fecha: enDias(-1) }), lista({ id: "mes", fecha: enDias(-30) })];
-
-    expect(proximoCulto(state({ playlists }))).toBeNull();
-  });
-
-  it("una lista sin fecha tampoco es el culto que viene", () => {
-    // Sin fecha no se puede decir que venga: la tarjeta diría «En vivo» sobre
-    // algo que a lo mejor fue hace un año.
-    expect(proximoCulto(state({ playlists: [lista({ id: "suelta" })] }))).toBeNull();
-    expect(proximoCulto(state({ playlists: [lista({ id: "rara", fecha: "el domingo de Pascua" })] }))).toBeNull();
-  });
-
-  it("no hay nada que abrir en una biblioteca sin listas", () => {
-    expect(proximoCulto(state())).toBeNull();
-  });
-
-  it("recuerda la respuesta mientras las listas no cambian", () => {
-    const playlists = [lista({ id: "a", fecha: enDias(3) })];
-    const s = state({ playlists });
-
-    expect(proximoCulto(s)).toBe(proximoCulto(s));
-
-    const otras = [...playlists, lista({ id: "b", fecha: enDias(1) })];
-    expect(proximoCulto(state({ playlists: otras }))?.id).toBe("b");
   });
 });
