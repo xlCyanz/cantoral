@@ -36,7 +36,6 @@ import { alHacerClic, enOrden, vigentes } from "./lib/selection";
 import type { Modificadores } from "./lib/selection";
 import {
   addAndScanFolder,
-  addToPlaylistCmd,
   addTracksToPlaylistCmd,
   assetUrl,
   cancelScanCmd,
@@ -237,7 +236,7 @@ export interface CantoralState {
   saveState: SaveState;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | "addToList" | null;
   /**
    * A shared playlist file that has been read and matched, waiting for the
    * user to look at what was found before anything is created.
@@ -360,6 +359,7 @@ export interface CantoralState {
   endLibraryDrag: () => void;
 
   /** Append the selection to a list, in the order it is shown. */
+  agregarPistas: (playlistId: string, ids: readonly string[]) => void;
   bulkAddToPlaylist: (playlistId: string) => void;
   /** Mark or unmark the selection as favourites. */
   bulkFav: (fav: boolean) => void;
@@ -429,7 +429,8 @@ export interface CantoralState {
   createList: (nombre: string, fecha: string, ocasion: string, desde?: string) => void;
   editCurrentList: () => void;
   updateList: (nombre: string, fecha: string, ocasion: string) => void;
-  addToList: (playlistId: string, trackId: string) => void;
+  openAddToList: () => void;
+  addToListConfirm: (playlistId: string) => void;
   deleteCurrentList: () => void;
   /** Copy a list with its whole order and open the copy. */
   duplicateList: (id: string) => void;
@@ -869,12 +870,22 @@ export const useStore = create<CantoralState>((set, get) => {
     endLibraryDrag: () => set({ dragFromLibrary: [] }),
 
     // ---------- bulk actions ----------
-    bulkAddToPlaylist: (playlistId) => {
-      const ids = seleccionVigente(get());
+    // Todo lo que agrega pistas a una lista pasa por aquí: el diálogo, y los
+    // dos sitios donde se puede soltar un arrastre. Antes había dos acciones
+    // con dos comportamientos —una para una pista, otra para la selección— y
+    // la de una pista decía «Ya está en la lista» mientras la otra se callaba.
+    agregarPistas: (playlistId, ids) => {
       if (ids.length === 0) return;
       const nombre = get().playlists.find((p) => p.id === playlistId)?.nombre ?? "la lista";
       const hecho = (n: number) => {
         set({ rowMenu: null });
+        // Cero es un resultado, no un fallo: significa que ya estaban todas, y
+        // decir «0 pistas agregadas» sería contarlo como si algo hubiera ido
+        // mal.
+        if (n === 0) {
+          toast(ids.length === 1 ? `Ya estaba en «${nombre}»` : `Ya estaban todas en «${nombre}»`, "info");
+          return;
+        }
         toast(n === 1 ? `1 pista agregada a «${nombre}»` : `${n} pistas agregadas a «${nombre}»`);
       };
       if (!isTauri()) {
@@ -888,7 +899,7 @@ export const useStore = create<CantoralState>((set, get) => {
         return;
       }
       const yaEstaban = (get().plOrder[playlistId] || []).length;
-      addTracksToPlaylistCmd(playlistId, ids)
+      addTracksToPlaylistCmd(playlistId, [...ids])
         .then((snap) => {
           if (snap) applySnapshot(snap);
           hecho((get().plOrder[playlistId] || []).length - yaEstaban);
@@ -897,6 +908,28 @@ export const useStore = create<CantoralState>((set, get) => {
           console.error("add_tracks_to_playlist failed", err);
           toast("No se pudieron agregar las pistas", "error");
         });
+    },
+
+    bulkAddToPlaylist: (playlistId) => get().agregarPistas(playlistId, seleccionVigente(get())),
+
+    /**
+     * Abre el único sitio desde el que se agrega a un culto.
+     *
+     * No abre nada si no hay qué agregar: un diálogo vacío con un «Cancelar»
+     * es peor que no responder al atajo.
+     */
+    openAddToList: () => {
+      if (pistasParaAgregar(get()).length === 0) return;
+      set({ dialog: "addToList", rowMenu: null });
+    },
+
+    addToListConfirm: (playlistId) => {
+      const ids = pistasParaAgregar(get());
+      get().agregarPistas(playlistId, ids);
+      // La selección se deshace al terminar: lo que se quería hacer con ella
+      // ya está hecho, y dejarla puesta deja la fila de herramientas ocupada
+      // por una barra que ya no tiene trabajo.
+      set({ dialog: null, selection: [], selAnchor: null });
     },
 
     bulkFav: (fav) => {
@@ -1575,18 +1608,6 @@ export const useStore = create<CantoralState>((set, get) => {
         }));
         toast("Lista actualizada");
       }
-    },
-    addToList: (playlistId, trackId) => {
-      const cur = get().plOrder[playlistId] || [];
-      if (cur.includes(trackId)) {
-        toast("Ya está en la lista", "info");
-        return;
-      }
-      const next = [...cur, trackId];
-      set((s) => ({ plOrder: { ...s.plOrder, [playlistId]: next } }));
-      const pl = get().playlists.find((p) => p.id === playlistId);
-      toast(`Agregada a «${pl?.nombre ?? "lista"}»`);
-      if (isTauri()) void addToPlaylistCmd(playlistId, trackId).then(applySnapshot).catch(console.error);
     },
     deleteCurrentList: () => {
       const st = get();
@@ -2359,6 +2380,26 @@ export const filasDeLista = recordar(
       .filter((t): t is Track => !!t),
   (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks],
 );
+
+/**
+ * Las pistas sobre las que actúa «Agregar a un culto».
+ *
+ * La selección si hay una; si no, la pista que el panel de detalle tiene
+ * abierta. En ese orden, porque una selección es explícita y el panel puede
+ * llevar abierto desde hace rato. El menú contextual no hace falta mirarlo:
+ * `openRowMenu` ya deja la selección apuntando a la fila sobre la que se abrió.
+ */
+export const pistasParaAgregar = recordar(
+  (s: CantoralState): readonly string[] => {
+    const elegidas = seleccionVigente(s);
+    if (elegidas.length > 0) return elegidas;
+    return s.detailOpen && s.selId ? [s.selId] : VACIO;
+  },
+  (s: CantoralState) => [seleccionVigente(s), s.detailOpen, s.selId],
+);
+
+/** Una sola instancia, para que el memo de arriba conserve su identidad. */
+const VACIO: readonly string[] = [];
 
 /**
  * The selection, pruned to what is on screen and put in display order.

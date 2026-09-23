@@ -14,6 +14,7 @@ import DetailPanel from "./components/DetailPanel";
 import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
 import NewListDialog from "./components/NewListDialog";
+import AddToListDialog from "./components/AddToListDialog";
 import ImportListDialog from "./components/ImportListDialog";
 import PrintPreview from "./components/PrintPreview";
 import HelpDialog from "./components/HelpDialog";
@@ -118,6 +119,7 @@ export default function App() {
       <PlayerBar />
       <AddFolderDialog />
       <NewListDialog />
+      <AddToListDialog />
       <ImportListDialog />
       <PrintPreview />
       <HelpDialog />

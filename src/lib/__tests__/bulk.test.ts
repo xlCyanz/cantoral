@@ -22,7 +22,7 @@ vi.mock("../api", async (importOriginal) => ({
   deleteTracksCmd: (ids: string[]) => deleteTracksCmd(ids),
 }));
 
-const { useStore, seleccionVigente } = await import("../../store");
+const { useStore, pistasParaAgregar, seleccionVigente } = await import("../../store");
 const initial = useStore.getState();
 
 function track(id: string, over: Partial<Track> = {}): Track {
@@ -138,6 +138,93 @@ describe("agregar a una lista", () => {
     useStore.getState().bulkAddToPlaylist("p1");
 
     expect(addTracksToPlaylistCmd).not.toHaveBeenCalled();
+  });
+
+  it("si ya estaban todas lo dice, en vez de contar cero agregadas", () => {
+    // «0 pistas agregadas» se lee como que algo falló. Ya estaban, que es un
+    // resultado y no un fallo.
+    useStore.setState({ plOrder: { p1: ["a", "b"] }, selection: ["a", "b"] });
+    addTracksToPlaylistCmd.mockResolvedValue(null);
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => {
+      expect(useStore.getState().toast?.message).toContain("Ya estaban todas");
+      expect(useStore.getState().toast?.type).toBe("info");
+    });
+  });
+
+  it("y con una sola pista lo dice en singular", () => {
+    useStore.setState({ plOrder: { p1: ["a"] }, selection: ["a"] });
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    return vi.waitFor(() => expect(useStore.getState().toast?.message).toContain("Ya estaba en"));
+  });
+});
+
+describe("una sola forma de agregar a un culto", () => {
+  it("con selección, actúa sobre la selección", () => {
+    useStore.setState({ selection: ["b", "a"] });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual(["a", "b"]);
+  });
+
+  it("sin selección, sobre lo que el panel de detalle tiene abierto", () => {
+    useStore.setState({ selection: [], selId: "c", detailOpen: true });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual(["c"]);
+  });
+
+  it("la selección manda sobre el panel, que puede llevar abierto desde hace rato", () => {
+    useStore.setState({ selection: ["d"], selId: "c", detailOpen: true });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual(["d"]);
+  });
+
+  it("un panel cerrado no cuenta aunque recuerde una pista", () => {
+    useStore.setState({ selection: [], selId: "c", detailOpen: false });
+
+    expect(pistasParaAgregar(useStore.getState())).toEqual([]);
+  });
+
+  it("no abre un diálogo que no tendría nada que agregar", () => {
+    // Un diálogo vacío con un «Cancelar» es peor que no responder al atajo.
+    useStore.setState({ selection: [], detailOpen: false });
+
+    useStore.getState().openAddToList();
+
+    expect(useStore.getState().dialog).toBeNull();
+  });
+
+  it("y al abrirlo cierra el menú contextual, que es desde donde se pudo pedir", () => {
+    useStore.setState({ selection: ["a"], rowMenu: { id: "a", x: 0, y: 0 } });
+
+    useStore.getState().openAddToList();
+
+    expect(useStore.getState().dialog).toBe("addToList");
+    expect(useStore.getState().rowMenu).toBeNull();
+  });
+
+  it("al elegir el culto agrega, cierra y deshace la selección", () => {
+    useStore.setState({ selection: ["a", "b"] });
+    useStore.getState().openAddToList();
+
+    useStore.getState().addToListConfirm("p1");
+
+    expect(addTracksToPlaylistCmd).toHaveBeenCalledWith("p1", ["a", "b"]);
+    expect(useStore.getState().dialog).toBeNull();
+    // Lo que se quería hacer con ella ya está hecho; dejarla puesta deja la
+    // fila de herramientas ocupada por una barra sin trabajo.
+    expect(useStore.getState().selection).toEqual([]);
+  });
+
+  it("también agrega la pista del panel cuando no hay selección", () => {
+    useStore.setState({ selection: [], selId: "e", detailOpen: true });
+
+    useStore.getState().addToListConfirm("p1");
+
+    expect(addTracksToPlaylistCmd).toHaveBeenCalledWith("p1", ["e"]);
   });
 });
 

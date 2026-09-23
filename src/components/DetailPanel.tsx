@@ -1,10 +1,10 @@
-import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, ChevronDown, FileText, FolderOpen, ListMusic, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, FileText, FolderOpen, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
 import { etiquetas, ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
+import { AddToListButton } from "./AddToListDialog";
 import type { Track } from "../lib/types";
 
 const labelStyle: CSSProperties = { display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 5 };
@@ -39,13 +39,11 @@ function BigCoverInner({ t }: { t: Track }) {
 }
 
 export default function DetailPanel() {
-  const [listMenu, setListMenu] = useState(false);
   // Field by field: the panel sits beside a player that writes `posSec`
   // several times a second, and none of what it shows changes with it.
   const detailOpen = useStore((s) => s.detailOpen);
   const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
   const playlists = useStore((s) => s.playlists);
-  const plOrder = useStore((s) => s.plOrder);
   const tagDraft = useStore((s) => s.tagDraft);
   const saveState = useStore((s) => s.saveState);
   const ocasionesDelCatalogo = useStore(ocasiones);
@@ -56,7 +54,6 @@ export default function DetailPanel() {
   const deleteTrack = useStore((s) => s.deleteTrack);
   const play = useStore((s) => s.play);
   const onOpenExternal = useStore((s) => s.onOpenExternal);
-  const addToList = useStore((s) => s.addToList);
   const setEdit = useStore((s) => s.setEdit);
   const onTagDraft = useStore((s) => s.onTagDraft);
   const addTag = useStore((s) => s.addTag);
@@ -137,40 +134,18 @@ export default function DetailPanel() {
           </div>
         </div>
 
-        {/* add to a playlist */}
+        {/* Agregar a un culto: un botón, no un desplegable propio. Los tres
+            sitios desde los que se agregaba tenían cada uno su menú y dos
+            comportamientos distintos; ahora los tres abren el mismo diálogo,
+            que además dice cuántas pistas va a mover. */}
         {playlists.length > 0 && (
-          <div style={{ marginBottom: 16, position: "relative" }}>
-            <label style={labelStyle}>Agregar a una lista</label>
-            <button
-              onClick={() => setListMenu((v) => !v)}
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Agregar a un culto</label>
+            <AddToListButton
               className="hb-s3"
-              style={{ ...fieldStyle, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", cursor: "pointer", color: "var(--text-2)" }}
-            >
-              <span>Elegir lista…</span>
-              <ChevronDown size={14} style={{ color: "var(--text-3)", transform: listMenu ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
-            </button>
-            {listMenu && (
-              <>
-                <div onClick={() => setListMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
-                <div style={{ position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4, zIndex: 21, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, boxShadow: "var(--sh-md)", padding: 5, maxHeight: 220, overflowY: "auto" }}>
-                  {playlists.map((p) => {
-                    const inList = (plOrder[p.id] || []).includes(sel.id);
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => { addToList(p.id, sel.id); setListMenu(false); }}
-                        className="hb-s2"
-                        style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500, textAlign: "left", color: "var(--text)" }}
-                      >
-                        <ListMusic size={15} style={{ color: "var(--text-3)", flex: "0 0 auto" }} />
-                        <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</span>
-                        {inList && <Check size={14} strokeWidth={2.4} style={{ color: "var(--primary)", flex: "0 0 auto" }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+              style={{ ...fieldStyle, display: "flex", alignItems: "center", gap: 8, justifyContent: "center", fontWeight: 600, cursor: "pointer", color: "var(--text)" }}
+              label="Elegir culto…"
+            />
           </div>
         )}
 

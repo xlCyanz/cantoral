@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { CSSProperties } from "react";
 import { Heart, HeartOff, ListPlus, Play, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import { seleccionVigente, useStore } from "../store";
@@ -40,14 +40,12 @@ const encabezado: CSSProperties = {
 export default function RowMenu() {
   const menu = useStore((s) => s.rowMenu);
   const ids = useStore(seleccionVigente);
-  const lists = useStore((s) => s.playlists);
   const closeRowMenu = useStore((s) => s.closeRowMenu);
-  const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
+  const openAddToList = useStore((s) => s.openAddToList);
   const bulkFav = useStore((s) => s.bulkFav);
   const bulkDelete = useStore((s) => s.bulkDelete);
   const play = useStore((s) => s.play);
   const onOpenExternal = useStore((s) => s.onOpenExternal);
-  const [submenu, setSubmenu] = useState(false);
 
   // Esc belongs to the global shortcuts for dialogs; this is a lighter layer
   // that closes on its own.
@@ -93,31 +91,13 @@ export default function RowMenu() {
           </>
         )}
 
-        <div style={{ position: "relative" }}>
-          <button
-            role="menuitem"
-            aria-haspopup="true"
-            aria-expanded={submenu}
-            onClick={() => setSubmenu((v) => !v)}
-            className="hb-s2"
-            style={opcion}
-          >
-            <ListPlus size={15} />Agregar a lista…
-          </button>
-          {submenu && (
-            <div style={{ marginTop: 2, marginLeft: 8, borderLeft: "1px solid var(--border)", paddingLeft: 4, maxHeight: 160, overflowY: "auto" }}>
-              {lists.length === 0 ? (
-                <p style={{ ...opcion, color: "var(--text-3)", fontWeight: 500 }}>No hay listas todavía.</p>
-              ) : (
-                lists.map((p) => (
-                  <button key={p.id} role="menuitem" onClick={hacer(() => bulkAddToPlaylist(p.id))} className="hb-s2" style={opcion}>
-                    {p.nombre}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+        {/* Abre el mismo diálogo que la barra de selección y el panel de
+            detalle, en vez del submenú que tenía su propia lista. El atajo va
+            escrito: hace exactamente esto. */}
+        <button role="menuitem" onClick={hacer(openAddToList)} className="hb-s2" style={opcion}>
+          <ListPlus size={15} />Agregar a un culto…
+          <span style={{ marginLeft: "auto", fontSize: "10.5px", color: "var(--text-3)" }}>A</span>
+        </button>
 
         <button role="menuitem" onClick={hacer(() => bulkFav(true))} className="hb-s2" style={opcion}>
           <Heart size={15} />Marcar como favorita{varias ? "s" : ""}
