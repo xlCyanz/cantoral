@@ -154,6 +154,10 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   Con varias pistas elegidas solo salen las que tienen sentido en plural: «ver
   el detalle» de doce pistas no quiere decir nada.
 
+  Y se van las dos de favoritas: el corazón está en cada fila y en la barra de
+  selección, que es la que sale al elegir varias. Una tercera puerta a lo mismo
+  solo alargaba el menú.
+
 - **Quitar pistas dice de qué cultos se van, por su nombre.** Antes decía
   cuántas estaban en alguna lista. Un número no deja decidir: quitar una pista
   del culto del domingo que viene no es lo mismo que quitarla de una plantilla

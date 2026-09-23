@@ -39,6 +39,10 @@ const atajo: CSSProperties = { fontSize: "10.5px", color: "var(--text-3)", margi
  * Con una sola pista ofrece todo lo que se le puede hacer; con varias, solo lo
  * que tiene sentido en plural — «ver el detalle» de doce pistas no quiere
  * decir nada, y ofrecerlo sería ofrecer una decepción.
+ *
+ * Sin «favoritas»: el corazón está en cada fila y en la barra de selección,
+ * que es la que sale al elegir varias. Una tercera puerta a lo mismo solo
+ * alarga el menú.
  */
 export default function RowMenu() {
   const menu = useStore((s) => s.rowMenu);
@@ -50,7 +54,6 @@ export default function RowMenu() {
   const openDetail = useStore((s) => s.onRowClick);
   const openSheetEditor = useStore((s) => s.openSheetEditor);
   const revealTrack = useStore((s) => s.revealTrack);
-  const bulkFav = useStore((s) => s.bulkFav);
   const bulkDelete = useStore((s) => s.bulkDelete);
   const play = useStore((s) => s.play);
 
@@ -116,17 +119,6 @@ export default function RowMenu() {
             <button role="menuitem" onClick={hacer(() => openSheetEditor(menu.id))} className="hb-s2" style={opcion()}>
               <span>Letra y acordes</span>
               <span style={atajo}>{pista?.tieneHoja ? "escrita" : ""}</span>
-            </button>
-          </>
-        )}
-
-        {varias && (
-          <>
-            <button role="menuitem" onClick={hacer(() => bulkFav(true))} className="hb-s2" style={opcion()}>
-              <span>Marcar como favoritas</span>
-            </button>
-            <button role="menuitem" onClick={hacer(() => bulkFav(false))} className="hb-s2" style={opcion()}>
-              <span>Quitar de favoritas</span>
             </button>
           </>
         )}
