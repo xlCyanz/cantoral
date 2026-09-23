@@ -168,6 +168,17 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **La biblioteca dice cómo se llama y cuánto estás viendo.** Era la única
+  vista sin título: su sitio en la barra lo ocupa el buscador. Pero es donde
+  más falta hacía, porque «Biblioteca», «Favoritas» y «Archivos faltantes» son
+  la misma tabla filtrada y desde la tabla no se distinguen — la única pista
+  era cuál de los botones de la barra lateral estaba encendido.
+
+  Debajo, el recuento: «4 de 19 pistas · agrupadas por carpeta». El «19
+  canciones» de antes no decía si eran todas o si un filtro se estaba comiendo
+  la mitad. Y en «Archivos faltantes» no va un número sino qué hacer con ellos,
+  que es a lo que se entra ahí.
+
 - **El aviso de la esquina dice dos cosas.** Pasa de una píldora centrada con
   una línea a una tarjeta abajo a la derecha con **titular y detalle**, y con
   una ✕ para quitarla.

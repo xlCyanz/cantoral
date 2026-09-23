@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { applyFilters, etiquetas, ocasiones, seleccionVigente, useStore } from "../store";
 import SelectionBar from "./SelectionBar";
 import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
+import { encabezadoBiblioteca } from "../lib/encabezado";
 import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
@@ -25,6 +26,8 @@ export default function TopBar() {
   // `applyFilters` and `ocasiones` remember their last result, so calling them
   // here costs nothing beyond what the library view already paid.
   const total = useStore((s) => applyFilters(s).length);
+  const indexadas = useStore((s) => s.tracks.length);
+  const qf = useStore((s) => s.qf);
   const ocs = useStore(ocasiones);
   const tags = useStore(etiquetas);
   const tagFilter = useStore((s) => s.tagFilter);
@@ -42,6 +45,9 @@ export default function TopBar() {
   const setDensidad = useStore((s) => s.setDensidad);
 
   const showSearch = view === "biblioteca";
+  // La biblioteca es la única vista cuyo nombre no cabía en la barra: ese
+  // hueco lo ocupa el buscador. Va en su propia fila, con el recuento debajo.
+  const encabezado = encabezadoBiblioteca(qf, total, indexadas, groupBy, !!query.trim());
   const isLista = view === "lista";
   const pageTitle = isLista ? listaTitulo : titleMap[view] || "";
   const showFilterBar = view === "biblioteca" && libState === "content";
@@ -60,6 +66,15 @@ export default function TopBar() {
         zIndex: 5,
       }}
     >
+      {showSearch && (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 12, padding: "16px 20px 0" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 className="display" style={{ fontSize: 26, lineHeight: 1.1, margin: "0 0 2px" }}>{encabezado.titulo}</h1>
+            <div style={{ fontSize: "11.5px", color: "var(--text-2)" }}>{encabezado.subtitulo}</div>
+          </div>
+        </div>
+      )}
+
       <div style={{ height: 60, display: "flex", alignItems: "center", gap: 14, padding: "0 20px" }}>
         {showSearch ? (
           <div style={{ flex: "1 1 0", minWidth: 0, maxWidth: 440, position: "relative", display: "flex", alignItems: "center" }}>
@@ -228,9 +243,6 @@ export default function TopBar() {
                   {d.icono}
                 </button>
               ))}
-            </div>
-            <div style={{ fontSize: "12.5px", color: "var(--text-3)", fontWeight: 500, whiteSpace: "nowrap", paddingLeft: 2 }}>
-              {total + (total === 1 ? " canción" : " canciones")}
             </div>
           </div>
           )}
