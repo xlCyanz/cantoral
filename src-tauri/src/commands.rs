@@ -424,6 +424,7 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 pub fn update_track(
     db: State<Db>,
     id: String,
+    artista: String,
     tono: String,
     bpm: i64,
     ocasion: String,
@@ -431,7 +432,7 @@ pub fn update_track(
 ) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &tono, bpm, &ocasion).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista, &tono, bpm, &ocasion).map_err(e)?;
     db::set_track_tags(&conn, tid, &tags).map_err(e)?;
     Ok(())
 }

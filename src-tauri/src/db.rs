@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS tracks (
   path      TEXT NOT NULL UNIQUE,
   titulo    TEXT NOT NULL DEFAULT '',
   artista   TEXT NOT NULL DEFAULT '',
+  -- 1 cuando alguien corrigió el artista a mano: ver `update_track_meta`.
+  artista_manual INTEGER NOT NULL DEFAULT 0,
   album     TEXT NOT NULL DEFAULT '',
   dur_sec   INTEGER NOT NULL DEFAULT 0,
   formato   TEXT NOT NULL DEFAULT '',
@@ -108,6 +110,8 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN acordes TEXT NOT NULL DEFAULT ''", []);
     let _ = conn
         .execute("ALTER TABLE playlists ADD COLUMN es_plantilla INTEGER NOT NULL DEFAULT 0", []);
+    let _ =
+        conn.execute("ALTER TABLE tracks ADD COLUMN artista_manual INTEGER NOT NULL DEFAULT 0", []);
 
     // Dates used to be free text. Whatever can be read becomes ISO so it can be
     // sorted; whatever cannot is left alone. Runs on every open and is a no-op
@@ -195,16 +199,31 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
     Ok(rows.collect::<std::result::Result<_, _>>()?)
 }
 
+/// Guardar lo que se edita de una pista desde el panel de detalle.
+///
+/// Corregir el artista levanta `artista_manual`, y con él el escaneo deja de
+/// pisarlo. En una biblioteca de iglesia media el artista viene mal en las
+/// etiquetas del archivo —«Track 03», «Unknown Artist»—, y sin esta marca la
+/// corrección duraría hasta el siguiente escaneo de la carpeta: se arreglaría
+/// el domingo y estaría mal otra vez el jueves.
+///
+/// Sólo el artista la lleva. El tono, el tempo y la ocasión no salen de las
+/// etiquetas del archivo, así que no hay nada que los pise.
 pub fn update_track_meta(
     conn: &Connection,
     id: i64,
+    artista: &str,
     tono: &str,
     bpm: i64,
     ocasion: &str,
 ) -> Result<()> {
     conn.execute(
-        "UPDATE tracks SET tono=?1, bpm=?2, ocasion=?3 WHERE id=?4",
-        params![tono, bpm, ocasion, id],
+        "UPDATE tracks
+            SET artista=?1,
+                artista_manual = CASE WHEN artista=?1 THEN artista_manual ELSE 1 END,
+                tono=?2, bpm=?3, ocasion=?4
+          WHERE id=?5",
+        params![artista, tono, bpm, ocasion, id],
     )?;
     Ok(())
 }
@@ -272,7 +291,8 @@ pub fn upsert_track(
         "INSERT INTO tracks (folder_id, path, titulo, artista, album, dur_sec, formato, video, missing, added_at, mtime, fsize)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,0,?9,?10,?11)
          ON CONFLICT(path) DO UPDATE SET
-           folder_id=excluded.folder_id, titulo=excluded.titulo, artista=excluded.artista,
+           folder_id=excluded.folder_id, titulo=excluded.titulo,
+           artista=CASE WHEN tracks.artista_manual=1 THEN tracks.artista ELSE excluded.artista END,
            album=excluded.album, dur_sec=excluded.dur_sec, formato=excluded.formato,
            video=excluded.video, missing=0, mtime=excluded.mtime, fsize=excluded.fsize",
         params![folder_id, path, titulo, artista, album, dur_sec, formato, video as i64, now(), mtime, fsize],
@@ -2314,8 +2334,8 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        update_track_meta(&conn, queda, "Sol", 0, "").unwrap();
-        update_track_meta(&conn, copia, "Re", 96, "Adoración").unwrap();
+        update_track_meta(&conn, queda, "Coro", "Sol", 0, "").unwrap();
+        update_track_meta(&conn, copia, "Coro", "Re", 96, "Adoración").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
@@ -2388,12 +2408,43 @@ mod tests {
     }
 
     #[test]
+    fn a_corrected_artist_survives_a_rescan() {
+        // En una biblioteca de iglesia media el artista viene mal en las
+        // etiquetas del archivo. Sin la marca, la corrección duraría hasta el
+        // siguiente escaneo: se arreglaría el domingo y estaría mal el jueves.
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
+
+        update_track_meta(&conn, id, "Coro Congregacional", "", 0, "").unwrap();
+        // El escaneo vuelve a leer las etiquetas del archivo, que siguen mal.
+        pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
+
+        assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Coro Congregacional");
+    }
+
+    #[test]
+    fn an_artist_nobody_touched_still_follows_the_file() {
+        // La marca sólo la levanta corregirlo. Guardar el tono sin tocar el
+        // artista no puede congelar lo que diga el archivo.
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Viejo", 300, "MP3", 4_000);
+
+        update_track_meta(&conn, id, "Viejo", "Sol", 72, "Adoración").unwrap();
+        pista(&conn, fid, "/m/a.mp3", "Santo", "Corregido en el archivo", 300, "MP3", 4_000);
+
+        assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Corregido en el archivo");
+        assert_eq!(list_tracks(&conn).unwrap()[0].tono, "Sol");
+    }
+
+    #[test]
     fn upsert_preserves_user_edited_fields_on_rescan() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = add_track(&conn, fid, "/m/a.mp3", "A");
 
-        update_track_meta(&conn, id, "Sol", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "", "Sol", 72, "Adoración").unwrap();
         set_fav(&conn, id, true).unwrap();
         set_track_tags(&conn, id, &["lento".into()]).unwrap();
 
@@ -2822,7 +2873,7 @@ mod tests {
         let conn = mem();
         let fid = add_folder(&conn, &files.s("Himnos"), "Himnos", true).unwrap();
         let id = add_track(&conn, fid, &files.s("Himnos/viejo.mp3"), "Sublime Gracia");
-        update_track_meta(&conn, id, "Sol", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "", "Sol", 72, "Adoración").unwrap();
         set_fav(&conn, id, true).unwrap();
         set_track_tags(&conn, id, &["lento".into()]).unwrap();
         conn.execute("UPDATE tracks SET missing=1", []).unwrap();

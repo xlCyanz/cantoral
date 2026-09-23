@@ -299,6 +299,15 @@ export interface CantoralState {
   plOrder: Record<string, string[]>;
   /** Ordered track ids the transport walks through (a culto list, or the library). */
   queue: string[];
+  /**
+   * De dónde salió la cola que está sonando.
+   *
+   * No se puede deducir mirándola: una cola de culto y una de biblioteca son
+   * las dos una lista de ids, y el culto puede haber cambiado desde que se
+   * puso a sonar. Se apunta al ponerla, que es el único momento en que se
+   * sabe con seguridad.
+   */
+  queueOrigen: "biblioteca" | "culto";
 
   // ---- ui / navigation ----
   theme: Theme;
@@ -604,6 +613,15 @@ export interface CantoralState {
   addTag: (v: string) => void;
   removeTag: (tag: string) => void;
   closeDetail: () => void;
+  /**
+   * Si el panel de detalle aguanta un `Esc`.
+   *
+   * Vive en la sesión: es un modo de trabajo de un rato —estoy etiquetando
+   * pista por pista y no quiero que se me cierre el panel— y no una decisión
+   * que valga la pena recordar hasta la semana que viene.
+   */
+  detailFijado: boolean;
+  toggleDetailFijado: () => void;
   /** Write an edit still waiting out the debounce, right now. */
   flushEdit: () => void;
 
@@ -878,7 +896,7 @@ export const useStore = create<CantoralState>((set, get) => {
     const t = get().tracks.find((x) => x.id === id);
     if (!t) return;
 
-    updateTrackCmd(t.id, t.tono, t.bpm, t.ocasion, t.tags || [])
+    updateTrackCmd(t.id, t.artista, t.tono, t.bpm, t.ocasion, t.tags || [])
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.
@@ -931,6 +949,8 @@ export const useStore = create<CantoralState>((set, get) => {
     playlists: MOCK ? SEED_PLAYLISTS : [],
     plOrder: MOCK ? initialPlOrder : {},
     queue: [],
+    queueOrigen: "biblioteca",
+    detailFijado: false,
 
     themeMode: "system",
     theme: resolveTheme("system"),
@@ -1464,7 +1484,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // pasaba al reproductor del sistema, que en mitad de un culto significaba
       // otra ventana encima de la proyección, otro volumen y otra cola — con la
       // lista del culto quedándose atrás.
-      set({ queue: queue ?? queueForView(s), playing: true });
+      set({ queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true });
       get().irAPista(id);
     },
     togglePlay: () => set((s) => ({ playing: !s.playing })),
@@ -1550,6 +1570,8 @@ export const useStore = create<CantoralState>((set, get) => {
       const curT = s.tracks.find((x) => x.id === s.selId);
       s.setEdit("tags", (curT?.tags || []).filter((t) => t !== tag));
     },
+    toggleDetailFijado: () => set((st) => ({ detailFijado: !st.detailFijado })),
+
     closeDetail: () => {
       // Nothing may stay waiting out the debounce once the panel is gone.
       get().flushEdit();
@@ -1661,7 +1683,7 @@ export const useStore = create<CantoralState>((set, get) => {
       // Belt and braces: `MOCK` is decided at module-eval time. If that ever ran
       // before Tauri injected its globals, drop the seed before the real
       // catalogue lands so demo rows can never reach the screen.
-      if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], playerId: "", curPlaylist: "", posSec: 0 });
+      if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], queueOrigen: "biblioteca", playerId: "", curPlaylist: "", posSec: 0 });
       try {
         const snap = await getLibrary();
         if (snap) {
