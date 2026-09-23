@@ -22,6 +22,8 @@ export type Densidad = "comoda" | "compacta";
 export type SalidaDeAudio = "negro" | "portada" | "letra";
 /** Qué pasa por el proyector entre un elemento del culto y el siguiente. */
 export type TransicionProyeccion = "negro" | "cuenta";
+/** Qué hace la proyección cuando un elemento del culto se termina. */
+export type AvanceProyeccion = "negro" | "siguiente";
 export type SortKey = "titulo" | "album" | "ocasion" | "tono" | "bpm" | "dur";
 export type SortDir = "asc" | "desc";
 

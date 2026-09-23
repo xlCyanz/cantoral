@@ -66,6 +66,11 @@ const OPCIONES_AUDIO = [
   { valor: "letra" as const, etiqueta: "Solo la letra", ayuda: "La letra sobre el negro." },
 ];
 
+const OPCIONES_AVANCE = [
+  { valor: "negro" as const, etiqueta: "Negro y esperar", ayuda: "Al acabarse un elemento, el proyector se queda en negro hasta que pulses «Siguiente»." },
+  { valor: "siguiente" as const, etiqueta: "Pasar al siguiente", ayuda: "Al acabarse un elemento, arranca solo el de después. Para proyectar un culto entero sin nadie al ratón." },
+];
+
 const OPCIONES_TRANSICION = [
   { valor: "negro" as const, etiqueta: "Negro 0,5 s", ayuda: "Medio segundo de negro antes de que arranque lo siguiente." },
   { valor: "cuenta" as const, etiqueta: "Cuenta atrás 3 s", ayuda: "Tres, dos, uno en la pantalla grande antes de arrancar." },
@@ -92,6 +97,8 @@ export default function ProjectionView() {
   const transicionProyeccion = useStore((s) => s.transicionProyeccion);
   const setSalidaDeAudio = useStore((s) => s.setSalidaDeAudio);
   const setTransicionProyeccion = useStore((s) => s.setTransicionProyeccion);
+  const avanceProyeccion = useStore((s) => s.avanceProyeccion);
+  const setAvanceProyeccion = useStore((s) => s.setAvanceProyeccion);
   const estrofa = useStore((s) => s.proyeccionEstrofa);
   const estrofas = useStore(estrofasEnPantalla);
   const loadSheets = useStore((s) => s.loadSheets);
@@ -302,9 +309,17 @@ export default function ProjectionView() {
               ))}
             </div>
             <div style={{ ...rotulo, marginBottom: 7 }}>Entre un elemento y otro</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 11 }}>
               {OPCIONES_TRANSICION.map((o) => (
                 <button key={o.valor} onClick={() => setTransicionProyeccion(o.valor)} aria-pressed={transicionProyeccion === o.valor} title={o.ayuda} style={mini(transicionProyeccion === o.valor)}>
+                  {o.etiqueta}
+                </button>
+              ))}
+            </div>
+            <div style={{ ...rotulo, marginBottom: 7 }}>Cuando un elemento se acaba</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {OPCIONES_AVANCE.map((o) => (
+                <button key={o.valor} onClick={() => setAvanceProyeccion(o.valor)} aria-pressed={avanceProyeccion === o.valor} title={o.ayuda} style={mini(avanceProyeccion === o.valor)}>
                   {o.etiqueta}
                 </button>
               ))}
