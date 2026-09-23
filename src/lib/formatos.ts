@@ -1,4 +1,4 @@
-// Qué puede reproducir la proyección, y qué no.
+// Qué puede reproducir Cantoral, y qué no.
 //
 // La biblioteca indexa más formatos de los que un webview sabe decodificar.
 // Mientras eso solo afectaba al reproductor de escritorio se notaba poco —una
@@ -44,7 +44,7 @@ export function extensionDe(ruta: string | undefined | null): string {
 }
 
 /**
- * Por qué este archivo no se va a poder proyectar, si se sabe de antemano.
+ * Por qué este archivo no se va a poder reproducir, si se sabe de antemano.
  *
  * `null` no promete que funcione: promete que no hay motivo conocido para que
  * no lo haga. Lo que falle por el códec de dentro del contenedor lo dirá la
@@ -52,7 +52,7 @@ export function extensionDe(ruta: string | undefined | null): string {
  */
 export function avisoDeFormato(ruta: string | undefined | null): string | null {
   const nombre = SIN_SOPORTE[extensionDe(ruta)];
-  return nombre ? `${nombre} no se puede proyectar` : null;
+  return nombre ? `${nombre} no se puede reproducir` : null;
 }
 
 /**
@@ -72,9 +72,9 @@ export function motivoDeError(codigo: number | undefined, ruta?: string): string
     case 2: // MEDIA_ERR_NETWORK
       return "No se pudo leer el archivo";
     case 3: // MEDIA_ERR_DECODE
-      return `El archivo está dañado o usa un códec que no se puede decodificar${marca}`;
+      return `El archivo está dañado o usa un códec que no se puede abrir${marca}`;
     case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-      return `Este formato no se puede proyectar${marca}`;
+      return `Este sistema no reproduce este formato${marca}`;
     case ERROR_AUTOPLAY:
       return "El sistema no dejó arrancar la reproducción";
     default:
@@ -83,7 +83,7 @@ export function motivoDeError(codigo: number | undefined, ruta?: string): string
 }
 
 /**
- * Por qué esta pista no se va a poder proyectar, si se sabe de antemano.
+ * Por qué esta pista no se va a poder reproducir, si se sabe de antemano.
  *
  * Los tres motivos que se pueden saber sin tocar el archivo: que no se haya
  * indexado con ruta, que la ruta ya no exista, y que el contenedor no lo

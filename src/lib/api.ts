@@ -3,7 +3,7 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Track } from "./types";
@@ -27,14 +27,6 @@ export function gestorDeArchivos(): string {
   return "la carpeta";
 }
 
-/** Short OS label for the "open in system player" affordance. */
-export function osShortName(): string {
-  if (typeof navigator === "undefined") return "Sistema";
-  const ua = navigator.userAgent;
-  if (/Mac/i.test(ua)) return "macOS";
-  if (/Win/i.test(ua)) return "Windows";
-  return "Sistema";
-}
 
 async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
@@ -66,16 +58,17 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 // ---------------------------------------------------------------- os / files
 
 /**
- * Open a file/URL in the OS default application (e.g. Windows media player).
+ * Abre en el navegador la hoja que la app acaba de exportar, para imprimirla.
  *
- * Files go through the backend rather than the opener plugin: the webview is
- * no longer allowed to ask the system to open an arbitrary path, and the
- * backend only lets through what the library indexed plus an exported sheet.
+ * Va por el núcleo y no por el plugin del abridor: el webview no puede pedirle
+ * al sistema que abra una ruta cualquiera, y el núcleo solo deja pasar la hoja
+ * —comprueba la extensión—. Antes esto también abría pistas, para el desvío al
+ * reproductor del sistema; ese desvío ya no existe (#81) y la regla se
+ * estrechó con él.
  */
-export async function openExternalPath(target: string): Promise<void> {
-  if (!isTauri() || !target) return;
-  if (/^https?:\/\//.test(target)) await openUrl(target);
-  else await inv("open_media_path", { path: target });
+export async function openExportedSheet(path: string): Promise<void> {
+  if (!isTauri() || !path) return;
+  await inv("open_exported_sheet", { path });
 }
 
 /** Native picker for a single media file, used when relocating a track. */
@@ -183,6 +176,9 @@ export interface ScanProgressEvent {
   file: string;
   done: boolean;
   added: number;
+  /** Archivos de medios que se reconocieron y no se indexaron porque ningún
+   *  motor de webview los decodifica. */
+  omitidos: number;
 }
 
 /** Append a whole selection to a list, in one transaction and one snapshot. */

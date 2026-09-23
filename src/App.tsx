@@ -52,7 +52,7 @@ export default function App() {
   useEffect(() => {
     let un: (() => void) | undefined;
     void onScanProgress((p) => {
-      useStore.setState({ scanPct: p.pct, scanFile: p.file });
+      useStore.setState({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos });
     }).then((u) => (un = u));
     return () => un?.();
   }, []);

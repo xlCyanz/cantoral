@@ -1,11 +1,43 @@
+import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, FileText, FolderOpen, Play, Save, Search, SquareArrowOutUpRight, Tag, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, FileText, FolderOpen, Play, Save, Search, Tag, Trash2, TriangleAlert, X } from "lucide-react";
 import { etiquetas, ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
+import { useReproductor } from "../lib/media";
+import { motivoNoProyectable } from "../lib/formatos";
 import { AddToListButton } from "./AddToListDialog";
 import type { Track } from "../lib/types";
+
+/**
+ * El video de la pista, donde va la carátula de un audio.
+ *
+ * Aquí y no en la barra del reproductor: un 16:9 no cabe en una barra de 88
+ * píxeles, y el panel ya es el sitio donde se mira una pista de cerca. Es
+ * además para lo que de verdad se usa entre semana — comprobar que el clip es
+ * el correcto antes del domingo—, no para proyectarlo: eso lo hace la ventana
+ * de salida, que sí ocupa la pantalla entera.
+ *
+ * Sin `controls`: el transporte es el de la barra de abajo, el mismo que el
+ * del audio. Dos juegos de controles para una sola pista serían dos sitios
+ * donde mirar en qué segundo va.
+ */
+function VideoDeLaPista({ t }: { t: Track }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const esLaQueSuena = useStore((s) => s.playerId) === t.id;
+  const manejadores = useReproductor(ref, t, esLaQueSuena);
+
+  return (
+    <video
+      ref={ref}
+      preload="metadata"
+      playsInline
+      {...manejadores}
+      style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 12, background: "#000", objectFit: "contain", border: "1px solid var(--border)" }}
+    />
+  );
+}
 
 const labelStyle: CSSProperties = { display: "block", fontSize: "11.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 5 };
 const fieldStyle: CSSProperties = { width: "100%", height: 38, border: "1px solid var(--border-2)", background: "var(--surface-2)", borderRadius: 9, fontSize: "13.5px", fontWeight: 600, color: "var(--text)", outline: "none" };
@@ -53,7 +85,6 @@ export default function DetailPanel() {
   const relocateTrack = useStore((s) => s.relocateTrack);
   const deleteTrack = useStore((s) => s.deleteTrack);
   const play = useStore((s) => s.play);
-  const onOpenExternal = useStore((s) => s.onOpenExternal);
   const setEdit = useStore((s) => s.setEdit);
   const onTagDraft = useStore((s) => s.onTagDraft);
   const addTag = useStore((s) => s.addTag);
@@ -88,7 +119,7 @@ export default function DetailPanel() {
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 18px 22px" }}>
         {/* cover + primary meta */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 20 }}>
-          <div style={coverStyle(sel, 96)}><BigCoverInner t={sel} /></div>
+          {sel.video ? <VideoDeLaPista t={sel} /> : <div style={coverStyle(sel, 96)}><BigCoverInner t={sel} /></div>}
           <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.2px", margin: "16px 0 3px", textWrap: "balance" } as CSSProperties}>{sel.titulo}</h2>
           <p style={{ fontSize: "13.5px", color: "var(--text-2)", margin: 0 }}>{sel.artista}</p>
 
@@ -116,20 +147,21 @@ export default function DetailPanel() {
               </div>
             </div>
           )}
-          {sel.video && !sel.missing && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 9, background: "var(--surface-2)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35, border: "1px solid var(--border)" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26, flex: "0 0 auto" }}><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>
-              Los videos se abren en el reproductor predeterminado del sistema, no dentro de la app.
+          {/* Un archivo que está en el disco y que la app no puede abrir. Ya no
+              hay reproductor del sistema al que mandarlo, así que decirlo aquí
+              —con el formato, que es lo que hay que convertir— es todo lo que
+              se puede hacer por quien lo tiene en un culto del domingo. */}
+          {!sel.missing && motivoNoProyectable(sel) && (
+            <div style={{ marginTop: 12, width: "100%", display: "flex", alignItems: "center", gap: 9, background: "var(--surface-2)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35, border: "1px solid var(--border)" }}>
+              <TriangleAlert size={18} strokeWidth={2} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
+              {motivoNoProyectable(sel)}. Conviértelo a MP3 o MP4 y vuelve a escanear la carpeta.
             </div>
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16, width: "100%" }}>
             <button onClick={() => play(sel.id)} className="hb-primary" style={{ flex: 1, height: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
-              {sel.video ? <SquareArrowOutUpRight size={15} /> : <Play size={15} fill="currentColor" stroke="none" />}
-              {sel.video ? "Abrir video" : "Reproducir"}
-            </button>
-            <button onClick={() => onOpenExternal(sel.id)} title="Abrir en el reproductor del sistema" className="hb-s2t" style={{ width: 44, height: 40, display: "grid", placeItems: "center", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
-              <SquareArrowOutUpRight size={16} />
+              <Play size={15} fill="currentColor" stroke="none" />
+              Reproducir
             </button>
           </div>
         </div>

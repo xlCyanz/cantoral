@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
-import { Heart, HeartOff, ListPlus, Play, SquareArrowOutUpRight, Trash2 } from "lucide-react";
+import { Heart, HeartOff, ListPlus, Play, Trash2 } from "lucide-react";
 import { seleccionVigente, useStore } from "../store";
 
 const ANCHO = 230;
@@ -45,7 +45,6 @@ export default function RowMenu() {
   const bulkFav = useStore((s) => s.bulkFav);
   const bulkDelete = useStore((s) => s.bulkDelete);
   const play = useStore((s) => s.play);
-  const onOpenExternal = useStore((s) => s.onOpenExternal);
 
   // Esc belongs to the global shortcuts for dialogs; this is a lighter layer
   // that closes on its own.
@@ -84,9 +83,6 @@ export default function RowMenu() {
           <>
             <button role="menuitem" onClick={hacer(() => play(menu.id))} className="hb-s2" style={opcion}>
               <Play size={15} />Reproducir
-            </button>
-            <button role="menuitem" onClick={hacer(() => onOpenExternal(menu.id))} className="hb-s2" style={opcion}>
-              <SquareArrowOutUpRight size={15} />Abrir en el sistema
             </button>
           </>
         )}

@@ -414,7 +414,7 @@ describe("lo que devuelve la salida", () => {
 
     contestar!({ src: "/m/a.mp3", pos: 0, dur: 0, fin: false, error: 4 });
 
-    expect(useStore.getState().proyeccionFallos.a).toContain("no se puede proyectar");
+    expect(useStore.getState().proyeccionFallos.a).toContain("no reproduce este formato");
     expect(useStore.getState().proyeccionFallos.b).toBeUndefined();
     expect(useStore.getState().toast?.type).toBe("error");
   });
