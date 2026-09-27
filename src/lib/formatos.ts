@@ -25,8 +25,26 @@
  */
 export const ERROR_AUTOPLAY = -1;
 
-/** Contenedores que no decodifica ningún motor de webview. */
-const SIN_SOPORTE: Record<string, string> = {
+/**
+ * Lo que el escáner mete en la biblioteca, espejo de `AUDIO_EXTS` y
+ * `VIDEO_EXTS` en `src-tauri/src/scanner.rs`.
+ *
+ * Es la lista que ofrece «Localizar…»: dejar elegir ahí un archivo que el
+ * escáner no indexaría era apuntar la pista a algo que luego no suena (#130).
+ * Un test compara estas listas con las de Rust para que no vuelvan a separarse.
+ */
+export const EXTENSIONES_AUDIO: readonly string[] = [
+  "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif",
+];
+export const EXTENSIONES_VIDEO: readonly string[] = ["mp4", "mov", "webm", "m4v"];
+
+/**
+ * Contenedores que no decodifica ningún motor de webview.
+ *
+ * Las mismas extensiones que `SIN_SOPORTE` en `scanner.rs`: el escáner las
+ * cuenta como omitidas y aquí se les pone nombre.
+ */
+export const SIN_SOPORTE: Readonly<Record<string, string>> = {
   mkv: "Matroska (.mkv)",
   avi: "AVI (.avi)",
   wmv: "Windows Media (.wmv)",

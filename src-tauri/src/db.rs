@@ -304,9 +304,16 @@ fn folder_containing(conn: &Connection, path: &Path) -> Result<Option<i64>> {
 /// The file stamp is taken from the new file, so the next scan sees it as
 /// unchanged and does not re-read its metadata. If the new location falls inside
 /// another indexed folder, the track moves to it.
+///
+/// Only formats the scanner indexes are accepted (#130): the native dialog
+/// filters them, but IPC does not go through the dialog, and a track pointed at
+/// a `.wma` looks healthy in the list and stays silent in the service.
 pub fn relocate_track(conn: &Connection, id: i64, new_path: &Path) -> Result<()> {
     if !new_path.is_file() {
         bail!("«{}» no es un archivo.", new_path.display());
+    }
+    if let Some(motivo) = crate::scanner::motivo_no_indexable(new_path) {
+        bail!(motivo);
     }
     let new_str = new_path.to_string_lossy().to_string();
 
@@ -2489,6 +2496,28 @@ mod tests {
         assert!(relocate_track(&conn, a, &files.0.join("no-existe.mp3")).is_err());
         assert!(relocate_track(&conn, a, &files.dir("m")).is_err(), "una carpeta no es un archivo");
         assert!(relocate_track(&conn, a, &ocupado).is_err(), "ya es otra pista");
+    }
+
+    #[test]
+    fn relocating_refuses_a_format_the_scanner_does_not_index_and_leaves_the_track_alone() {
+        // #130: «Localizar…» ofrecía `.wma`, y por IPC se puede mandar cualquier ruta.
+        let files = Files::new("track-format");
+        let conn = mem();
+        let fid = add_folder(&conn, &files.s("m"), "m", true).unwrap();
+        let viejo = files.s("m/a.mp3");
+        let id = add_track(&conn, fid, &viejo, "A");
+        conn.execute("UPDATE tracks SET missing=1", []).unwrap();
+
+        let err = relocate_track(&conn, id, &files.file("m/a.wma")).unwrap_err().to_string();
+        assert!(err.contains(".wma no se pueden reproducir"), "{err}");
+        assert!(err.contains("Conviértelo a MP3 o MP4"), "{err}");
+        for otro in ["m/a.mkv", "m/a.AVI", "m/a.wmv", "m/letra.txt", "m/sin-extension"] {
+            assert!(relocate_track(&conn, id, &files.file(otro)).is_err(), "{otro}");
+        }
+
+        let t = &list_tracks(&conn).unwrap()[0];
+        assert_eq!(t.path, viejo, "la pista sigue apuntando a donde estaba");
+        assert!(t.missing, "y sigue marcada como faltante");
     }
 
     #[test]
