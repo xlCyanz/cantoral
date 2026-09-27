@@ -201,3 +201,69 @@ describe("de dónde sale lo que suena", () => {
     expect(useStore.getState().queueOrigen).toBe("culto");
   });
 });
+
+describe("el video y el panel que lo muestra (#125)", () => {
+  it("con un video real en Tauri, tick no mueve posSec", () => {
+    // El `<video>` manda con su `timeupdate`; un segundo reloj escribiendo
+    // encima avanzaba la barra aunque el video ya no sonara.
+    useStore.getState().play("v");
+    useStore.setState({ posSec: 10 });
+
+    useStore.getState().tick();
+
+    expect(useStore.getState().posSec).toBe(10);
+  });
+
+  it("ni pasa a la siguiente por su cuenta: eso lo dice `onEnded`", () => {
+    useStore.getState().play("v");
+    useStore.setState({ posSec: 179 });
+
+    useStore.getState().tick();
+
+    expect(useStore.getState().playerId).toBe("v");
+  });
+
+  it("cerrar el panel con el video sonando lo pausa, y lo dice", () => {
+    useStore.getState().play("v");
+
+    useStore.getState().closeDetail();
+
+    const s = useStore.getState();
+    expect(s.detailOpen).toBe(false);
+    expect(s.playing).toBe(false);
+    expect(s.toast?.titulo).toBe("El video se pausa al cerrar el panel");
+  });
+
+  it("cerrar el panel con una canción sonando no la toca", () => {
+    useStore.getState().play("a");
+    useStore.setState({ selId: "v", detailOpen: true });
+
+    useStore.getState().closeDetail();
+
+    expect(useStore.getState().playing).toBe(true);
+  });
+
+  it("abrir otra pista en el panel también pausa el video", () => {
+    // El panel enseña `selId`, no lo que suena: al cambiar de fila el `<video>`
+    // se queda sin su pista y se calla.
+    useStore.getState().play("v");
+
+    useStore.getState().onRowClick("a");
+
+    const s = useStore.getState();
+    expect(s.selId).toBe("a");
+    expect(s.playing).toBe(false);
+  });
+
+  it("volver a darle a play reabre el panel en el video", () => {
+    useStore.getState().play("v");
+    useStore.getState().closeDetail();
+
+    useStore.getState().togglePlay();
+
+    const s = useStore.getState();
+    expect(s.playing).toBe(true);
+    expect(s.detailOpen).toBe(true);
+    expect(s.selId).toBe("v");
+  });
+});
