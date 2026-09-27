@@ -244,6 +244,7 @@ import {
   updateTrackCmd,
   updateTrackSheet,
   type DuplicateGroup,
+  type DuplicateTrack,
   type Sheet,
   type Snapshot,
 } from "./lib/api";
@@ -2589,12 +2590,30 @@ export const useStore = create<CantoralState>((set, get) => {
       const copias = grupo.tracks.filter((t) => t.id !== keepId);
       if (copias.length === 0) return;
 
+      // The core hands a sheetless survivor the sheet of the first copy that has
+      // one (lowest id) and never overwrites the survivor's own. Any other copy
+      // with a sheet loses it, and hand-written lyrics are the one thing here
+      // the disk cannot give back — so it is said before, copy by copy (#126).
+      // The duplicate report does not carry the flag; the catalogue does.
+      const conHoja = (id: string) => get().tracks.find((t) => t.id === id)?.tieneHoja ?? false;
+      const copiasConHoja = copias.filter((c) => conHoja(c.id)).sort((a, b) => Number(a.id) - Number(b.id));
+      const heredada = conHoja(keepId) ? undefined : copiasConHoja[0];
+      // By file name: the copies often share title, format and folder.
+      const cual = (c: DuplicateTrack) => `«${c.path.split(/[\\/]/).pop()}» (${c.formato} · ${c.carpeta})`;
+      const avisoHojas = copiasConHoja
+        .filter((c) => c !== heredada)
+        .map(
+          (c) =>
+            `La copia ${cual(c)} tiene una letra escrita que se perderá: ` +
+            (heredada ? `se queda la de ${cual(heredada)}.` : "la que se queda ya tiene la suya."),
+        );
+
       get().askConfirm({
         title: "¿Fusionar estas copias?",
         message: `Se queda «${queda.titulo}» (${queda.formato}, ${queda.carpeta}). Las demás salen de la biblioteca.`,
-        detail: copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`).join("\n\n"),
+        detail: [...copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`), ...avisoHojas].join("\n\n"),
         safe:
-          "Su favorito y su sitio en las listas para culto pasan a la que se queda. " +
+          "Su favorito, la letra y los acordes, y su sitio en las listas para culto pasan a la que se queda. " +
           "Los archivos de audio no se borran del disco.",
         confirmLabel: "Fusionar",
         onConfirm: () => {
@@ -2621,10 +2640,15 @@ export const useStore = create<CantoralState>((set, get) => {
                 });
                 plOrder[pid] = nuevo;
               });
+              // A sheetless survivor takes the copy's sheet, as the core does.
+              const sheets = { ...st.sheets };
+              const hoja = heredada && (st.sheets[heredada.id] ?? SEED_SHEETS[heredada.id]);
+              if (hoja) sheets[keepId] = { ...hoja, trackId: keepId };
               return {
                 tracks: st.tracks
                   .filter((t) => !fuera.has(t.id))
-                  .map((t) => (t.id === keepId ? { ...t, fav } : t)),
+                  .map((t) => (t.id === keepId ? { ...t, fav, tieneHoja: t.tieneHoja || !!heredada } : t)),
+                sheets,
                 plOrder,
                 duplicates: st.duplicates.filter((g) => g.signature !== signature),
               };
