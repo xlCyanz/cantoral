@@ -727,20 +727,34 @@ pub fn set_setting(db: State<Db>, key: String, value: String) -> CmdResult<()> {
 pub struct DbInfo {
     pub path: String,
     pub size: u64,
+    /// RFC3339 time of the last backup that was actually written, if any.
+    pub ultima_copia: Option<String>,
 }
 
-/// Real location and size of the local database file.
-#[tauri::command]
-pub fn get_db_info(db_path: State<DbPath>) -> CmdResult<DbInfo> {
+/// Where `backup_database` notes the last backup that succeeded.
+const ULTIMA_COPIA: &str = "ultimaCopia";
+
+/// Real location and size of the local database file, and when it was last
+/// backed up — what a shared church PC needs to know before trusting it.
+#[tauri::command(async)]
+pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
     let path = db_path.0.as_path();
     let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-    Ok(DbInfo { path: path.to_string_lossy().to_string(), size })
+    let ultima_copia = {
+        let conn = db.0.lock().map_err(e)?;
+        db::get_setting(&conn, ULTIMA_COPIA).map_err(e)?
+    };
+    Ok(DbInfo { path: path.to_string_lossy().to_string(), size, ultima_copia })
 }
 
 /// Copy the database to `dest`. The WAL is first checkpointed into the main file
 /// so the copy is complete — a plain copy alone would miss data still in the WAL.
+///
+/// Returns when it happened, and notes it in the settings, only once the copy
+/// is on disk: a date for a copy that failed would be the false reassurance
+/// this exists to avoid (#128).
 #[tauri::command]
-pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<()> {
+pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> {
     fuera_del_hilo_principal(app, move |app| {
         let src = app.state::<DbPath>().0.clone();
         {
@@ -749,7 +763,18 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<()> {
             let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         }
         std::fs::copy(&src, &dest).map_err(e)?;
-        Ok(())
+        let cuando = chrono::Utc::now().to_rfc3339();
+        {
+            let db = app.state::<Db>();
+            let conn = db.0.lock().map_err(e)?;
+            // The copy itself is done; failing to note it is not worth
+            // reporting the backup as failed.
+            if let Err(err) = db::set_setting(&conn, ULTIMA_COPIA, &cuando) {
+                log::error!("could not note the backup time: {err}");
+            }
+        }
+        log::info!("database backed up to {dest}");
+        Ok(cuando)
     })
     .await
 }
