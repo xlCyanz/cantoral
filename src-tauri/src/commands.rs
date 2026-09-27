@@ -274,6 +274,26 @@ fn permitir_asset(app: &AppHandle, ruta: &str) {
     }
 }
 
+/// Every path `asset://` has to reach for this database: its indexed folders.
+///
+/// Split from [`conceder_alcance`] so the decision can be tested without an
+/// `AppHandle`, which these tests have no way to build.
+fn rutas_con_alcance(conn: &Connection) -> anyhow::Result<Vec<String>> {
+    Ok(db::list_folders(conn)?.into_iter().map(|carpeta| carpeta.ruta).collect())
+}
+
+/// Open `asset://` to every folder of the database behind `conn`.
+///
+/// Run at startup and again after a restore: a backup brings folders of its
+/// own, usually from another PC, and without this their covers and audio stay
+/// out of the webview's reach until the app is restarted (#124).
+pub fn conceder_alcance(app: &AppHandle, conn: &Connection) {
+    match rutas_con_alcance(conn) {
+        Ok(rutas) => rutas.iter().for_each(|ruta| permitir_asset(app, ruta)),
+        Err(err) => log::error!("could not list the folders to grant asset access to: {err}"),
+    }
+}
+
 /// Hand the sheet the app just exported to the system's default application.
 ///
 /// The webview no longer holds `opener:allow-open-path`, so this is the only
@@ -654,6 +674,13 @@ pub fn inspect_backup(src: String) -> CmdResult<db::BackupInfo> {
     db::inspect_backup(std::path::Path::new(&src)).map_err(e)
 }
 
+/// What a failed restore answers when the previous database could not be
+/// reopened either. The frontend recognises it by this exact text (the same
+/// constant lives in `src/lib/api.ts`) and shows it as the library's error
+/// state rather than as a toast that is gone in five seconds (#124).
+pub const BIBLIOTECA_SIN_ABRIR: &str =
+    "La biblioteca no se pudo reabrir. Cierra y vuelve a abrir Cantoral.";
+
 /// Replace the live database with a backup file, then return the fresh snapshot.
 ///
 /// Nothing on disk is touched until the backup has been read and confirmed to be
@@ -692,6 +719,7 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
     match db::restore_from_backup(live, src) {
         Ok(conn) => {
             let snap = snapshot(&conn).map_err(e)?;
+            conceder_alcance(app, &conn);
             *guard = conn;
             log::info!("database restored from {}", src.display());
             Ok(snap)
@@ -700,12 +728,20 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
             // `restore_from_backup` already put the previous database back; all
             // that is left is to reopen it, so the app stays usable.
             match db::open_and_migrate(live) {
-                Ok(conn) => *guard = conn,
+                Ok(conn) => {
+                    *guard = conn;
+                    Err(e(err))
+                }
                 Err(reopen) => {
-                    log::error!("could not reopen the database after a failed restore: {reopen}")
+                    // The mutex is left holding the blank in-memory database:
+                    // anything edited from here on would be lost on close. Only
+                    // a restart gets the file back, so say that instead of the
+                    // restore's own error (#124).
+                    log::error!("restore failed: {err}");
+                    log::error!("could not reopen the database after a failed restore: {reopen}");
+                    Err(BIBLIOTECA_SIN_ABRIR.into())
                 }
             }
-            Err(e(err))
         }
     }
 }
@@ -781,7 +817,8 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{abrible, export_playlist, export_playlist_json};
+    use super::{abrible, export_playlist, export_playlist_json, rutas_con_alcance};
+    use crate::db;
     use std::path::Path;
 
     #[test]
@@ -916,5 +953,30 @@ mod tests {
             let dest = dir.path(ok);
             assert!(export_playlist(dest.clone(), "x".into()).is_ok(), "{ok} should be accepted");
         }
+    }
+
+    #[test]
+    fn after_a_restore_every_folder_of_the_database_is_granted() {
+        // The invariant behind #124: the paths granted after a restore are the
+        // restored database's folders — including the ones the installation
+        // never had, which is the whole point of moving a library between PCs.
+        let dir = Dir::new("alcance-restaurado");
+        let live = std::path::PathBuf::from(dir.path("cantoral.db"));
+        let backup = std::path::PathBuf::from(dir.path("respaldo.db"));
+
+        let conn = db::open_and_migrate(&live).unwrap();
+        db::add_folder(&conn, "/musica/local", "Local", true).unwrap();
+        drop(conn);
+        let conn = db::open_and_migrate(&backup).unwrap();
+        db::add_folder(&conn, "/otro-pc/Himnos", "Himnos", true).unwrap();
+        db::add_folder(&conn, "/otro-pc/Coros", "Coros", false).unwrap();
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+        drop(conn);
+
+        let restaurada = db::restore_from_backup(&live, &backup).unwrap();
+
+        let mut rutas = rutas_con_alcance(&restaurada).unwrap();
+        rutas.sort();
+        assert_eq!(rutas, ["/otro-pc/Coros", "/otro-pc/Himnos"]);
     }
 }

@@ -50,11 +50,7 @@ pub fn run() {
             if let Err(err) = scope.allow_directory(&dir, true) {
                 log::error!("could not grant asset access to the app data directory: {err}");
             }
-            for carpeta in db::list_folders(&conn).unwrap_or_default() {
-                if let Err(err) = scope.allow_directory(&carpeta.ruta, true) {
-                    log::error!("could not grant asset access to «{}»: {err}", carpeta.ruta);
-                }
-            }
+            commands::conceder_alcance(app.handle(), &conn);
 
             app.manage(db::Db(Mutex::new(conn)));
             app.manage(commands::DbPath(db_path));
