@@ -9,6 +9,51 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.3.1] - 2026-09-27
+
+**Fiabilidad en vivo.** Una versión solo de arreglos, salidos de la auditoría de
+septiembre: que la ventana no se congele mientras indexa, que nada destructivo
+corra encima de un escaneo, y que lo que falla lo diga en vez de callarse.
+
+### Corregido
+
+- **Escanear una carpeta grande ya no congela la ventana.** El escaneo, la
+  restauración, la copia de seguridad, la búsqueda de duplicados y la revisión
+  de archivos del arranque corrían en el hilo de la interfaz: mientras duraban,
+  «Cancelar» no respondía, las pistas no iban apareciendo y el sistema podía
+  marcar la app como «no responde». Ahora corren aparte, y se puede seguir
+  usando la app, cancelar el escaneo y ver crecer la biblioteca mientras indexa.
+- **Quitar, reapuntar o restaurar ya no se cruzan con un escaneo.** Restaurar
+  debajo de un escaneo podía perder las pistas que estaba indexando, quitar la
+  carpeta que se escaneaba acababa en una pantalla de error que culpaba a la
+  unidad, y reapuntarla dejaba rutas viejas y nuevas mezcladas. Mientras
+  escanea, esos botones se desactivan y dicen por qué; y la pantalla de error de
+  la biblioteca enseña el motivo real cuando lo hay.
+- **Una copia de seguridad que falla lo dice.** Con el destino sin permisos, el
+  disco lleno o el USB desconectado, antes no salía ni el aviso de éxito ni uno
+  de error, y uno se iba creyendo que tenía copia. Ahora sale el motivo, el
+  aviso de éxito dice dónde quedó la copia, y Configuración muestra cuándo se
+  hizo la última.
+- **Marcar favorita vuelve atrás si no se pudo guardar**, en vez de dejar el
+  corazón encendido en pantalla y apagado en la base. Y cerrar la proyección
+  avisa si la ventana no se cerró: seguiría en el proyector.
+- **Restaurar un respaldo de otro PC suena sin reiniciar.** Las carátulas y el
+  audio de las carpetas que traía el respaldo quedaban bloqueados hasta cerrar
+  y abrir la app, con un error que culpaba al formato. Y si una restauración
+  fallara sin poder reabrir la biblioteca anterior, la app lo dice y pide
+  reiniciar, en vez de seguir trabajando sobre una base que no se guarda.
+- **Cerrar el panel de detalle pausa el video, y la barra lo refleja.** El video
+  se callaba pero el transporte seguía diciendo «reproduciendo» y la barra
+  avanzaba sola hasta saltar a la siguiente pista. Ahora se pausa y se avisa, y
+  darle a reproducir vuelve a abrir el panel en ese video.
+- **Fusionar duplicados conserva la letra y el artista corregido.** La letra y
+  los acordes escritos en la copia que se borraba se perdían con ella, igual que
+  el artista corregido a mano. Ahora pasan a la que se queda; y si las dos
+  tienen letra, el diálogo avisa antes de cuál se perderá.
+- **«Localizar…» solo ofrece formatos que la app reproduce.** Dejaba elegir un
+  `.wma`, `.mkv`, `.avi` o `.wmv`, que luego no sonaba. Ya no los ofrece, y el
+  núcleo los rechaza también.
+
 ## [0.3.0] - 2026-09-23
 
 **El rediseño, y una app que proyecta el culto entero.** Cantoral estrena piel
@@ -983,7 +1028,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.3.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/xlCyanz/cantoral/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/xlCyanz/cantoral/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/xlCyanz/cantoral/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/xlCyanz/cantoral/releases/tag/v0.2.0
