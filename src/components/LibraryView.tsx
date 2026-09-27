@@ -387,20 +387,22 @@ function ErrorState() {
         <div style={{ width: 44, height: 44, margin: "0 auto 14px", borderRadius: "50%", background: "var(--danger-soft)", display: "grid", placeItems: "center", color: "var(--danger)" }}>
           <TriangleAlert size={22} strokeWidth={2} />
         </div>
-        <h2 className="display" style={{ fontSize: 22, margin: "0 0 6px" }}>No pudimos leer esta carpeta</h2>
-        <p style={{ margin: "0 0 6px", fontSize: "12.5px", lineHeight: 1.6, color: "var(--text-2)" }}>
-          La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
-        </p>
+        {/* El motivo que dio el núcleo, cuando lo dio, va de titular. El texto
+            fijo sobre la unidad desconectada era un diagnóstico falso cada vez
+            que el fallo venía de otra parte (#127). */}
+        <h2 className="display" style={{ fontSize: scanError ? 17 : 22, lineHeight: 1.35, margin: "0 0 6px", overflowWrap: "anywhere" }}>
+          {scanError || "No pudimos leer esta carpeta"}
+        </h2>
+        {!scanError && (
+          <p style={{ margin: "0 0 6px", fontSize: "12.5px", lineHeight: 1.6, color: "var(--text-2)" }}>
+            La unidad puede estar desconectada o la carpeta fue movida. Verifica que esté disponible e inténtalo otra vez.
+          </p>
+        )}
         {/* Nada se ha perdido, y decirlo aquí importa: quien ve un error rojo
             sobre su biblioteca asume lo peor. */}
         <p style={{ margin: "0 0 16px", fontSize: "11.5px", lineHeight: 1.6, color: "var(--text-3)" }}>
-          Tus pistas y tus cultos siguen donde estaban: esto solo es la carpeta que no se pudo abrir.
+          Tus pistas y tus cultos siguen donde estaban: nada de la biblioteca se ha perdido.
         </p>
-        {scanError && (
-          <code style={{ display: "block", fontSize: 11, color: "var(--text-3)", background: "var(--surface-2)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 7, marginBottom: 16, textAlign: "left", overflowWrap: "anywhere" }}>
-            {scanError}
-          </code>
-        )}
         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
           <button onClick={retryError} className="hb-primary" style={btnEstado}>
             <RefreshCw size={15} strokeWidth={2.2} />Volver a intentarlo

@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::compartir;
 use crate::db::{self, Db};
 use crate::models::{DuplicateGroup, Folder, Playlist, Sheet, Track};
-use crate::scanner::{self, ScanSlot};
+use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
 
 /// Everything the frontend needs to hydrate its store.
 #[derive(Serialize)]
@@ -82,22 +82,28 @@ pub fn get_library(db: State<Db>) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
+/// Take the scan slot for `tarea`, or explain to the user what holds it.
+///
+/// One task at a time among scans, restores and the folder changes a scan
+/// would trip over (#127). The core is where the rule lives: the buttons are
+/// disabled too, but anything reaching the command by IPC gets the same answer.
+fn tomar(slot: &ScanSlot, tarea: Tarea) -> CmdResult<ScanClaim<'_>> {
+    slot.tomar(tarea).map_err(|ocupante| scanner::mensaje_ocupado(ocupante, tarea))
+}
+
 /// Run a scan on its own connection, so the main mutex is held only for the
 /// short setup and snapshot steps rather than for the whole walk.
+///
+/// Takes the claim by value: it is released when it goes out of scope at the
+/// end of this function, whichever way the scan ends.
 fn run_scan(
     app: &AppHandle,
     db_path: &std::path::Path,
-    slot: &ScanSlot,
+    claim: ScanClaim<'_>,
     folder_id: i64,
     path: &str,
     recursive: bool,
 ) -> CmdResult<()> {
-    // One scan at a time. The claim is released when it goes out of scope at
-    // the end of this function, whichever way the scan ends.
-    let claim = slot.claim().ok_or_else(|| {
-        "Ya hay un escaneo en curso. Espera a que termine, o cancélalo, antes de empezar otro."
-            .to_string()
-    })?;
     let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
     let scan_conn = db::open_secondary(db_path).map_err(e)?;
     log::info!("scan start: {path} (recursive={recursive})");
@@ -136,6 +142,9 @@ fn add_and_scan_folder_bloqueante(
     let db = app.state::<Db>();
     let db_path = app.state::<DbPath>();
     let slot = app.state::<ScanSlot>();
+    // Taken before the folder row goes in, so nothing can remove or move the
+    // folder between adding it and walking it.
+    let claim = tomar(&slot, Tarea::Escaneo)?;
     // Whether the folder was already indexed decides what happens if the scan
     // fails below: a re-scan keeps its folder, a first scan must not leave one.
     let (fid, ya_estaba) = {
@@ -157,7 +166,7 @@ fn add_and_scan_folder_bloqueante(
 
     permitir_asset(app, &path);
 
-    if let Err(err) = run_scan(app, &db_path.0, &slot, fid, &path, recursive) {
+    if let Err(err) = run_scan(app, &db_path.0, claim, fid, &path, recursive) {
         // The row went in before the walk started, so a scan that fails — an
         // unplugged drive, a folder that cannot be read — used to leave a
         // folder with zero tracks sitting in Configuración for the user to
@@ -185,13 +194,14 @@ fn rescan_folder_bloqueante(app: &AppHandle, id: String) -> CmdResult<Snapshot> 
     let db_path = app.state::<DbPath>();
     let slot = app.state::<ScanSlot>();
     let fid = id.parse::<i64>().map_err(e)?;
+    let claim = tomar(&slot, Tarea::Escaneo)?;
     // Re-use the «include subfolders» choice made when the folder was added.
     let (path, recursive) = {
         let conn = db.0.lock().map_err(e)?;
         db::folder_scan_target(&conn, fid).map_err(e)?
     };
 
-    run_scan(app, &db_path.0, &slot, fid, &path, recursive)?;
+    run_scan(app, &db_path.0, claim, fid, &path, recursive)?;
 
     let conn = db.0.lock().map_err(e)?;
     snapshot(&conn).map_err(e)
@@ -384,7 +394,8 @@ pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
 }
 
 #[tauri::command(async)]
-pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
+pub fn remove_folder(db: State<Db>, slot: State<ScanSlot>, id: String) -> CmdResult<Snapshot> {
+    let _claim = tomar(&slot, Tarea::QuitarCarpeta)?;
     let conn = db.0.lock().map_err(e)?;
     db::remove_folder(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
     snapshot(&conn).map_err(e)
@@ -424,9 +435,11 @@ pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Snapshot> {
 pub fn relocate_folder(
     app: AppHandle,
     db: State<Db>,
+    slot: State<ScanSlot>,
     id: String,
     path: String,
 ) -> CmdResult<Snapshot> {
+    let _claim = tomar(&slot, Tarea::ReapuntarCarpeta)?;
     let conn = db.0.lock().map_err(e)?;
     let n = db::relocate_folder(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
         .map_err(e)?;
@@ -654,8 +667,12 @@ pub async fn restore_database(app: AppHandle, src: String) -> CmdResult<Snapshot
 fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapshot> {
     let db = app.state::<Db>();
     let db_path = app.state::<DbPath>();
+    let slot = app.state::<ScanSlot>();
     let live = db_path.0.as_path();
     let src = std::path::Path::new(&src);
+
+    // A scan holds its own connection to the file this is about to move aside.
+    let _claim = tomar(&slot, Tarea::Restaurar)?;
 
     // Validated first, while the live connection is still open: a file picked by
     // mistake is rejected without the app having given anything up.
