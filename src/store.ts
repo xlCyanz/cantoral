@@ -231,6 +231,7 @@ import {
   relocateTrackCmd,
   removeFolderCmd,
   rescanFolderCmd,
+  BIBLIOTECA_SIN_ABRIR,
   restoreDatabaseCmd,
   setPlaylistOrderCmd,
   setPlaylistTemplateCmd,
@@ -2440,6 +2441,20 @@ export const useStore = create<CantoralState>((set, get) => {
               })
               .catch((err) => {
                 console.error(err);
+                // The previous database could not be reopened either: the core
+                // is running on a blank one and only a restart brings the file
+                // back. A five-second toast is not enough for that, so it takes
+                // over the library (#124). «Volver a intentarlo» would reload
+                // that blank database and show an empty library, so it keeps
+                // repeating the message instead.
+                if (String(err) === BIBLIOTECA_SIN_ABRIR) {
+                  const sinBiblioteca = () => {
+                    lastFailedAction = sinBiblioteca;
+                    set({ libState: "error", scanError: BIBLIOTECA_SIN_ABRIR });
+                  };
+                  sinBiblioteca();
+                  return;
+                }
                 toast("No se pudo restaurar la base de datos", { tipo: "error", detalle: String(err) });
               });
           },
