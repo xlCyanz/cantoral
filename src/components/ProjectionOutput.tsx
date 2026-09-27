@@ -127,6 +127,7 @@ export default function ProjectionOutput() {
       else poner(activo, src);
       if (cual !== activo) setActivo(cual);
 
+      ref(otro(cual)).current?.pause();
       const el = ref(cual).current;
       if (el) {
         if (reproduciendo) {
@@ -149,7 +150,8 @@ export default function ProjectionOutput() {
     } else {
       // Negro o un título: se para lo que hubiera sonando, pero no se descarga
       // — volver de un negro a lo mismo tiene que ser instantáneo.
-      ref(activo).current?.pause();
+      refA.current?.pause();
+      refB.current?.pause();
     }
 
     // La precarga va siempre al que no se ve.

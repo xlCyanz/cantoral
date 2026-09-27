@@ -488,6 +488,15 @@ pub fn update_track(
     Ok(())
 }
 
+#[tauri::command]
+pub fn update_track_duration(db: State<Db>, id: String, path: String, duration: i64) -> CmdResult<()> {
+    if duration <= 0 {
+        return Err("La duración debe ser mayor que cero".into());
+    }
+    let conn = db.0.lock().map_err(e)?;
+    db::update_track_duration(&conn, id.parse::<i64>().map_err(e)?, &path, duration).map_err(e)
+}
+
 /// Create a playlist, optionally with the track order of `desde` (a template).
 #[tauri::command(async)]
 pub fn create_playlist(
@@ -587,7 +596,7 @@ pub fn projection_monitors(app: AppHandle) -> CmdResult<Vec<crate::proyeccion::M
 
 /// Abre la salida a pantalla completa en la pantalla pedida, o la mueve allí.
 #[tauri::command]
-pub fn open_projection(app: AppHandle, monitor: usize) -> CmdResult<()> {
+pub async fn open_projection(app: AppHandle, monitor: usize) -> CmdResult<()> {
     crate::proyeccion::abrir(&app, monitor)
 }
 

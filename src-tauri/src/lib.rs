@@ -80,6 +80,7 @@ pub fn run() {
             commands::relocate_folder,
             commands::set_track_fav,
             commands::update_track,
+            commands::update_track_duration,
             commands::check_for_update,
             commands::projection_monitors,
             commands::open_projection,

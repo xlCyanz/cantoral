@@ -194,6 +194,14 @@ pub fn set_fav(conn: &Connection, id: i64, fav: bool) -> Result<()> {
     Ok(())
 }
 
+pub fn update_track_duration(conn: &Connection, id: i64, path: &str, duration: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE tracks SET dur_sec=?1 WHERE id=?2 AND path=?3 AND video=1",
+        params![duration, id, path],
+    )?;
+    Ok(())
+}
+
 /// Insert or update a scanned track by path. Preserves user-edited church
 /// fields (bpm/ocasion/fav) on re-scan. Returns the track row id.
 #[allow(clippy::too_many_arguments)]
@@ -1349,6 +1357,26 @@ mod tests {
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
         upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100)
             .unwrap()
+    }
+
+    #[test]
+    fn decoded_video_duration_is_returned_on_catalogue_reload() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = upsert_track(&conn, fid, "/m/video.mp4", "Video", "", "", 0, "MP4", true, 10, 100).unwrap();
+        update_track_duration(&conn, id, "/m/video.mp4", 76).unwrap();
+        let tracks = list_tracks(&conn).unwrap();
+        assert_eq!(tracks[0].dur_sec, 76);
+        assert_eq!(tracks[0].dur, "1:16");
+    }
+
+    #[test]
+    fn stale_video_metadata_cannot_update_a_relocated_file() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = upsert_track(&conn, fid, "/m/new.mp4", "Video", "", "", 0, "MP4", true, 10, 100).unwrap();
+        update_track_duration(&conn, id, "/m/old.mp4", 76).unwrap();
+        assert_eq!(list_tracks(&conn).unwrap()[0].dur_sec, 0);
     }
 
     // ---- bulk edits ----

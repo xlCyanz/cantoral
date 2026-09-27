@@ -12,7 +12,7 @@
 
 import { useEffect } from "react";
 import type { RefObject } from "react";
-import { isTauri, toAssetUrl } from "./api";
+import { isTauri, toAssetUrl, updateTrackDuration } from "./api";
 import { fmt } from "./covers";
 import { motivoDeError } from "./formatos";
 import { useStore } from "../store";
@@ -51,6 +51,8 @@ export function useReproductor(
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    el.pause();
+    el.removeAttribute("src");
     if (isTauri() && track && cargableId) {
       let cancelado = false;
       void toAssetUrl(track.path!).then((url) => {
@@ -62,9 +64,10 @@ export function useReproductor(
       });
       return () => {
         cancelado = true;
+        el.pause();
+        el.removeAttribute("src");
       };
     }
-    el.removeAttribute("src");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargableId]);
 
@@ -93,11 +96,16 @@ export function useReproductor(
   return {
     onTimeUpdate: (e) => useStore.setState({ posSec: Math.floor(e.currentTarget.currentTime) }),
     onLoadedMetadata: (e) => {
+      if (!activo || !track || useStore.getState().playerId !== track.id) return;
       // La duración real del archivo manda sobre la que dijeron las etiquetas.
       const d = Math.round(e.currentTarget.duration);
       if (Number.isFinite(d) && d > 0) {
+        if (track.video && track.path && track.durSec !== d) {
+          void updateTrackDuration(track.id, track.path, d)
+            .catch((error) => console.error("video duration failed", error));
+        }
         useStore.setState((st) => ({
-          tracks: st.tracks.map((t) => (t.id === st.playerId ? { ...t, durSec: d, dur: fmt(d) } : t)),
+          tracks: st.tracks.map((t) => (t.id === track.id ? { ...t, durSec: d, dur: fmt(d) } : t)),
         }));
       }
     },
