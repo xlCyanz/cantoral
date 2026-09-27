@@ -489,7 +489,12 @@ pub fn update_track(
 }
 
 #[tauri::command]
-pub fn update_track_duration(db: State<Db>, id: String, path: String, duration: i64) -> CmdResult<()> {
+pub fn update_track_duration(
+    db: State<Db>,
+    id: String,
+    path: String,
+    duration: i64,
+) -> CmdResult<()> {
     if duration <= 0 {
         return Err("La duración debe ser mayor que cero".into());
     }

@@ -1363,7 +1363,8 @@ mod tests {
     fn decoded_video_duration_is_returned_on_catalogue_reload() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = upsert_track(&conn, fid, "/m/video.mp4", "Video", "", "", 0, "MP4", true, 10, 100).unwrap();
+        let id = upsert_track(&conn, fid, "/m/video.mp4", "Video", "", "", 0, "MP4", true, 10, 100)
+            .unwrap();
         update_track_duration(&conn, id, "/m/video.mp4", 76).unwrap();
         let tracks = list_tracks(&conn).unwrap();
         assert_eq!(tracks[0].dur_sec, 76);
@@ -1374,7 +1375,8 @@ mod tests {
     fn stale_video_metadata_cannot_update_a_relocated_file() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = upsert_track(&conn, fid, "/m/new.mp4", "Video", "", "", 0, "MP4", true, 10, 100).unwrap();
+        let id = upsert_track(&conn, fid, "/m/new.mp4", "Video", "", "", 0, "MP4", true, 10, 100)
+            .unwrap();
         update_track_duration(&conn, id, "/m/old.mp4", 76).unwrap();
         assert_eq!(list_tracks(&conn).unwrap()[0].dur_sec, 0);
     }
