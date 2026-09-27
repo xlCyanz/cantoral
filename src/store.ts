@@ -2265,6 +2265,13 @@ export const useStore = create<CantoralState>((set, get) => {
     relocateFolder: (id) => {
       const f = get().folders.find((x) => x.id === id);
       if (!f) return;
+      // Relocating rewrites the paths a running scan is still inserting, and
+      // the folder would end up half old paths, half new (#127). The core
+      // refuses it too; this is the friendly version of that answer.
+      if (get().scanning) {
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
+        return;
+      }
       if (!isTauri()) {
         toast("Mover carpetas solo funciona en la app de escritorio", { tipo: "info" });
         return;
@@ -2287,6 +2294,12 @@ export const useStore = create<CantoralState>((set, get) => {
     removeFolder: (id) => {
       const f = get().folders.find((x) => x.id === id);
       if (!f) return;
+      // Removing the folder being scanned used to break the scan's next insert
+      // and land the library on an error screen blaming the drive (#127).
+      if (get().scanning) {
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
+        return;
+      }
       const n = f.count;
       get().askConfirm({
         title: "¿Quitar esta carpeta?",
@@ -2304,7 +2317,7 @@ export const useStore = create<CantoralState>((set, get) => {
               .then(() => toast("Carpeta quitada de la biblioteca"))
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo quitar la carpeta", { tipo: "error" });
+                toast("No se pudo quitar la carpeta", { tipo: "error", detalle: String(err) });
               });
           } else {
             set((s) => ({ folders: s.folders.filter((x) => x.id !== id) }));
@@ -2350,6 +2363,12 @@ export const useStore = create<CantoralState>((set, get) => {
       }
     },
     restore: () => {
+      // A scan holds its own connection to the database a restore moves
+      // aside, so its work would vanish with the old file (#127).
+      if (get().scanning) {
+        toast("Espera a que termine el escaneo en curso", { tipo: "info" });
+        return;
+      }
       if (!isTauri()) {
         toast("Selecciona un archivo de respaldo…", { tipo: "info" });
         return;
@@ -2389,7 +2408,7 @@ export const useStore = create<CantoralState>((set, get) => {
               })
               .catch((err) => {
                 console.error(err);
-                toast("No se pudo restaurar la base de datos", { tipo: "error" });
+                toast("No se pudo restaurar la base de datos", { tipo: "error", detalle: String(err) });
               });
           },
         });

@@ -164,10 +164,10 @@ export default function ConfigView() {
             <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
               Reescanear
             </button>
-            <button onClick={() => relocateFolder(f.id)} title="La carpeta cambió de sitio: apuntarla al nuevo sin perder lo que lleven sus pistas" className="hb-s2" style={botonFila}>
+            <button onClick={() => relocateFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "La carpeta cambió de sitio: apuntarla al nuevo sin perder lo que lleven sus pistas"} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
               Reapuntar…
             </button>
-            <button onClick={() => removeFolder(f.id)} className="hb-danger" style={{ ...botonFila, color: "var(--danger)" }}>
+            <button onClick={() => removeFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-danger" style={{ ...botonFila, color: "var(--danger)", ...ocupadoStyle(scanning) }}>
               Quitar…
             </button>
           </div>
@@ -197,7 +197,7 @@ export default function ConfigView() {
           <button onClick={backup} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
             <Download size={13} />Crear copia de seguridad
           </button>
-          <button onClick={restore} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12 }}>
+          <button onClick={restore} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, ...ocupadoStyle(scanning) }}>
             Restaurar una copia…
           </button>
         </div>

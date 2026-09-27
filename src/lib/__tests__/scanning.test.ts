@@ -12,6 +12,11 @@ const addAndScanFolder = vi.fn<(path: string, recursive: boolean) => Promise<Sna
 const rescanFolderCmd = vi.fn<(id: string) => Promise<Snapshot>>();
 const cancelScanCmd = vi.fn<() => Promise<void>>();
 const updateTrackCmd = vi.fn<() => Promise<void>>();
+const removeFolderCmd = vi.fn<(id: string) => Promise<Snapshot>>();
+const relocateFolderCmd = vi.fn<(id: string, path: string) => Promise<Snapshot>>();
+const restoreDatabaseCmd = vi.fn<(src: string) => Promise<Snapshot>>();
+const pickFolder = vi.fn<() => Promise<string | null>>();
+const pickDbFile = vi.fn<() => Promise<string | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
@@ -23,6 +28,11 @@ vi.mock("../api", async (importOriginal) => ({
   rescanFolderCmd: (id: string) => rescanFolderCmd(id),
   cancelScanCmd: () => cancelScanCmd(),
   updateTrackCmd: () => updateTrackCmd(),
+  removeFolderCmd: (id: string) => removeFolderCmd(id),
+  relocateFolderCmd: (id: string, path: string) => relocateFolderCmd(id, path),
+  restoreDatabaseCmd: (src: string) => restoreDatabaseCmd(src),
+  pickFolder: () => pickFolder(),
+  pickDbFile: () => pickDbFile(),
   assetUrl: (p: string) => p,
 }));
 
@@ -62,7 +72,18 @@ function diferida<T>() {
 beforeEach(() => {
   vi.useFakeTimers();
   useStore.setState(initial, true);
-  for (const m of [getLibrary, addAndScanFolder, rescanFolderCmd, cancelScanCmd, updateTrackCmd]) {
+  for (const m of [
+    getLibrary,
+    addAndScanFolder,
+    rescanFolderCmd,
+    cancelScanCmd,
+    updateTrackCmd,
+    removeFolderCmd,
+    relocateFolderCmd,
+    restoreDatabaseCmd,
+    pickFolder,
+    pickDbFile,
+  ]) {
     m.mockReset();
   }
   getLibrary.mockResolvedValue(null);
@@ -322,5 +343,51 @@ describe("un solo escaneo a la vez", () => {
 
     useStore.getState().openAddFolder();
     expect(useStore.getState().dialog).toBe("addFolder");
+  });
+});
+
+describe("nada reescribe lo que un escaneo está escribiendo", () => {
+  // Quitar o reapuntar la carpeta que se escanea, o restaurar la base debajo
+  // del escaneo, acababa en pistas perdidas o en una pantalla de error que
+  // culpaba a la unidad (#127). El núcleo lo rechaza igual; esto evita que el
+  // usuario llegue a pedirlo.
+  beforeEach(() => {
+    useStore.setState({
+      tracks: [track("vieja")],
+      folders: [{ id: "f1", nombre: "Himnos", ruta: "/musica", count: 1 }],
+      libState: "content",
+    });
+    addAndScanFolder.mockReturnValue(diferida<Snapshot>().promesa);
+    pickFolder.mockResolvedValue("/nueva");
+    pickDbFile.mockResolvedValue("/copia.db");
+    useStore.getState().indexFolder("/musica", true);
+  });
+
+  it("no deja quitar una carpeta", () => {
+    useStore.getState().removeFolder("f1");
+
+    expect(useStore.getState().confirm).toBeFalsy();
+    expect(removeFolderCmd).not.toHaveBeenCalled();
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
+  });
+
+  it("no deja reapuntar una carpeta", async () => {
+    useStore.getState().relocateFolder("f1");
+    // Before the timers run: the toast dismisses itself on one of them.
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(pickFolder).not.toHaveBeenCalled();
+    expect(relocateFolderCmd).not.toHaveBeenCalled();
+  });
+
+  it("no deja restaurar una copia", async () => {
+    useStore.getState().restore();
+    // Before the timers run: the toast dismisses itself on one of them.
+    expect(useStore.getState().toast?.titulo).toMatch(/escaneo en curso/i);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(pickDbFile).not.toHaveBeenCalled();
+    expect(restoreDatabaseCmd).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ use lofty::picture::PictureType;
 use lofty::probe::Probe;
 use lofty::tag::Accessor;
 use rusqlite::Connection;
+use std::cell::Cell;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -12,7 +13,61 @@ use walkdir::WalkDir;
 use crate::db;
 use crate::models::ScanProgress;
 
-/// The cancel flag of the scan that is running, if there is one.
+/// What is holding the scan slot.
+///
+/// Not only scans take it. Restoring a backup, removing a folder and pointing
+/// one somewhere else all rewrite what a running scan is writing into, so they
+/// take the slot too, for as long as they run (#127):
+///
+/// - a restore moves `cantoral.db` aside while the scan's own connection still
+///   has it open, so the scan commits into a file that is then deleted — or, on
+///   Windows, the move fails with a message that says nothing about the scan;
+/// - removing the folder being scanned makes the scan's next insert break a
+///   foreign key, and the library lands on an error screen blaming the drive;
+/// - relocating it leaves the folder half old paths, half new.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tarea {
+    Escaneo,
+    Restaurar,
+    QuitarCarpeta,
+    ReapuntarCarpeta,
+}
+
+impl Tarea {
+    /// «Hay … en curso».
+    fn en_curso(self) -> &'static str {
+        match self {
+            Tarea::Escaneo => "un escaneo",
+            Tarea::Restaurar => "una restauración",
+            Tarea::QuitarCarpeta => "una carpeta quitándose",
+            Tarea::ReapuntarCarpeta => "una carpeta cambiando de ubicación",
+        }
+    }
+
+    /// «… antes de …».
+    fn accion(self) -> &'static str {
+        match self {
+            Tarea::Escaneo => "escanear",
+            Tarea::Restaurar => "restaurar una copia",
+            Tarea::QuitarCarpeta => "quitar una carpeta",
+            Tarea::ReapuntarCarpeta => "reapuntar una carpeta",
+        }
+    }
+}
+
+/// Why `quiero` could not take the slot while `ocupante` holds it, worded for
+/// the person who clicked.
+pub fn mensaje_ocupado(ocupante: Tarea, quiero: Tarea) -> String {
+    let cancelable = if ocupante == Tarea::Escaneo { ", o cancélalo," } else { "" };
+    format!(
+        "Hay {} en curso. Espera a que termine{} antes de {}.",
+        ocupante.en_curso(),
+        cancelable,
+        quiero.accion()
+    )
+}
+
+/// Who holds the slot, with the cancel flag of the scan if it is one.
 ///
 /// A flag per scan rather than one shared flag. A shared one let a starting
 /// scan clear the flag of a scan that was cancelled but had not noticed yet —
@@ -24,9 +79,9 @@ use crate::models::ScanProgress;
 /// events on the single channel the progress bar listens to, and each finish
 /// by taking a snapshot over the other's half-done work.
 #[derive(Default)]
-pub struct ScanSlot(Mutex<Option<Arc<AtomicBool>>>);
+pub struct ScanSlot(Mutex<Option<(Tarea, Arc<AtomicBool>)>>);
 
-/// A claim on the scan slot. Releasing it is what lets the next scan start, so
+/// A claim on the scan slot. Releasing it is what lets the next task start, so
 /// it happens when the claim goes out of scope — including on a panic.
 pub struct ScanClaim<'a> {
     slot: &'a ScanSlot,
@@ -38,24 +93,31 @@ impl ScanSlot {
         Self::default()
     }
 
-    /// Take the slot for a new scan. `None` means one is already running.
-    ///
-    /// The new scan always starts with its own flag lowered, so a cancel aimed
-    /// at an earlier scan cannot stop this one before it reads a single file.
+    /// Take the slot for a new scan. `None` means it is already taken.
+    #[cfg(test)]
     pub fn claim(&self) -> Option<ScanClaim<'_>> {
+        self.tomar(Tarea::Escaneo).ok()
+    }
+
+    /// Take the slot for `tarea`, or say who holds it.
+    ///
+    /// Every claim starts with its own flag lowered, so a cancel aimed at an
+    /// earlier scan cannot stop a new one before it reads a single file.
+    pub fn tomar(&self, tarea: Tarea) -> Result<ScanClaim<'_>, Tarea> {
         let mut ocupado = self.lock();
-        if ocupado.is_some() {
-            return None;
+        if let Some((otra, _)) = ocupado.as_ref() {
+            return Err(*otra);
         }
         let cancel = Arc::new(AtomicBool::new(false));
-        *ocupado = Some(cancel.clone());
-        Some(ScanClaim { slot: self, cancel })
+        *ocupado = Some((tarea, cancel.clone()));
+        Ok(ScanClaim { slot: self, cancel })
     }
 
     /// Ask the running scan to stop after the file it is on. Does nothing when
-    /// no scan is running, so a stray cancel cannot poison the next one.
+    /// no scan is running — including while something else holds the slot —
+    /// so a stray cancel cannot poison the next one.
     pub fn cancel(&self) {
-        if let Some(bandera) = self.lock().as_ref() {
+        if let Some((Tarea::Escaneo, bandera)) = self.lock().as_ref() {
             bandera.store(true, Ordering::Relaxed);
         }
     }
@@ -63,7 +125,7 @@ impl ScanSlot {
     /// Nothing but the few instructions above ever runs under this lock, so a
     /// panic cannot realistically poison it — and recovering beats leaving the
     /// app unable to scan for the rest of the session.
-    fn lock(&self) -> std::sync::MutexGuard<'_, Option<Arc<AtomicBool>>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Option<(Tarea, Arc<AtomicBool>)>> {
         self.0.lock().unwrap_or_else(|envenenado| envenenado.into_inner())
     }
 }
@@ -190,6 +252,37 @@ pub fn scan_folder(
     cancel: &AtomicBool,
     on_progress: &dyn Fn(ScanProgress),
 ) -> Result<i64> {
+    // The closing `done: true` goes out whichever way the walk ends. It used
+    // to be reached only on the happy path, so a scan that failed half way
+    // left anything waiting on `done` waiting for good (#127).
+    let hecho = Cell::new((0i64, 0i64));
+    let resultado =
+        recorrer(conn, folder_id, root, cover_dir, recursive, cancel, on_progress, &hecho);
+    let (added, omitidos) = hecho.get();
+    on_progress(ScanProgress {
+        folder_id: folder_id.to_string(),
+        pct: 100.0,
+        file: String::new(),
+        done: true,
+        added,
+        omitidos,
+    });
+    resultado
+}
+
+/// The walk itself. Keeps `hecho` — files indexed, files skipped — up to date
+/// as it goes, so the closing event can report them even when it fails.
+#[allow(clippy::too_many_arguments)]
+fn recorrer(
+    conn: &Connection,
+    folder_id: i64,
+    root: &str,
+    cover_dir: &Path,
+    recursive: bool,
+    cancel: &AtomicBool,
+    on_progress: &dyn Fn(ScanProgress),
+    hecho: &Cell<(i64, i64)>,
+) -> Result<i64> {
     let _ = std::fs::create_dir_all(cover_dir);
 
     // Collect media paths first so progress has a denominator. En la misma
@@ -209,6 +302,8 @@ pub fn scan_folder(
             _ => {}
         }
     }
+
+    hecho.set((0, omitidos));
 
     let total = files.len().max(1);
     let mut count: i64 = 0;
@@ -260,6 +355,7 @@ pub fn scan_folder(
             }
         }
         count += 1;
+        hecho.set((count, omitidos));
 
         if (i + 1) % BATCH == 0 {
             conn.execute_batch("COMMIT; BEGIN;")?;
@@ -286,14 +382,6 @@ pub fn scan_folder(
         db::reconcile_missing(conn, folder_id)?;
         db::touch_folder_scan(conn, folder_id)?;
     }
-    on_progress(ScanProgress {
-        folder_id: folder_id.to_string(),
-        pct: 100.0,
-        file: String::new(),
-        done: true,
-        added: count,
-        omitidos,
-    });
     Ok(count)
 }
 
@@ -542,6 +630,26 @@ mod tests {
         assert_eq!(events.last().unwrap().2, 5, "final count matches the files indexed");
     }
 
+    #[test]
+    fn a_scan_that_fails_still_ends_with_a_done_event() {
+        // The folder row gone from under the scan — what «Quitar…» did in the
+        // middle of one — makes the first insert break its foreign key.
+        let tree = Tree::new("fails-done");
+        let (conn, fid, covers) = setup(&tree);
+        db::remove_folder(&conn, fid).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+
+        let resultado =
+            scan_folder(&conn, fid, &tree.path(), &covers, true, &AtomicBool::new(false), &|p| {
+                seen.borrow_mut().push((p.pct, p.done));
+            });
+
+        assert!(resultado.is_err(), "the scan does fail");
+        let events = seen.borrow();
+        assert_eq!(events.iter().filter(|(_, d)| *d).count(), 1, "one terminal event");
+        assert_eq!(events.last().unwrap(), &(100.0, true), "and it is the last one");
+    }
+
     // ---- the slot that keeps scans from stepping on each other ----
 
     #[test]
@@ -599,6 +707,45 @@ mod tests {
 
         let scan = slot.claim().expect("the slot starts free");
         assert!(!scan.cancel_flag().load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_restore_or_a_folder_change_holds_the_slot_against_a_scan() {
+        let slot = ScanSlot::new();
+        let _restaurando = slot.tomar(Tarea::Restaurar).expect("the slot starts free");
+
+        assert_eq!(slot.tomar(Tarea::Escaneo).err(), Some(Tarea::Restaurar));
+    }
+
+    #[test]
+    fn and_a_scan_holds_it_against_them() {
+        let slot = ScanSlot::new();
+        let _escaneo = slot.claim().expect("the slot starts free");
+
+        for t in [Tarea::Restaurar, Tarea::QuitarCarpeta, Tarea::ReapuntarCarpeta] {
+            assert_eq!(slot.tomar(t).err(), Some(Tarea::Escaneo), "{t:?} must wait");
+        }
+    }
+
+    #[test]
+    fn a_cancel_does_not_reach_whatever_is_not_a_scan() {
+        let slot = ScanSlot::new();
+        let restaurando = slot.tomar(Tarea::Restaurar).unwrap();
+        slot.cancel();
+
+        assert!(!restaurando.cancel_flag().load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn the_refusal_says_what_is_running_and_only_offers_to_cancel_a_scan() {
+        let m = mensaje_ocupado(Tarea::Escaneo, Tarea::QuitarCarpeta);
+        assert!(m.contains("escaneo en curso"), "{m}");
+        assert!(m.contains("cancélalo"), "{m}");
+        assert!(m.contains("quitar una carpeta"), "{m}");
+
+        let m = mensaje_ocupado(Tarea::Restaurar, Tarea::Escaneo);
+        assert!(m.contains("restauración en curso"), "{m}");
+        assert!(!m.contains("cancélalo"), "a restore cannot be cancelled: {m}");
     }
 
     #[test]
