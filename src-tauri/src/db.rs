@@ -1212,8 +1212,9 @@ pub fn dismissed_count(conn: &Connection) -> Result<i64> {
 /// Fold the other copies of a song into the one the user chose to keep.
 ///
 /// Everything the copies carried that the survivor does not moves across before
-/// they go: their favourite, the church fields they had filled in, and their
-/// place in every service list. Deleting the copy outright — which is all the
+/// they go: their favourite, the church fields they had filled in, the sheet
+/// written on them, an artist corrected by hand, and their place in every
+/// service list. Deleting the copy outright — which is all the
 /// user could do until now — would have thrown all of that away.
 ///
 /// One transaction: a merge that applied halfway is a track that lost what its
@@ -1266,6 +1267,40 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
             "UPDATE tracks SET bpm = COALESCE(
                  (SELECT bpm FROM tracks WHERE id IN ({marcador}) AND bpm > 0 ORDER BY id LIMIT 1), bpm)
              WHERE id=?1 AND bpm = 0"
+        ),
+        params![keep_id],
+    )?;
+    // The sheet is the costliest thing in the library to produce, and it tends
+    // to be written on the copy the band plays — the MP3 — while the suggested
+    // survivor is the bigger WAV. A survivor with no sheet takes the first
+    // copy's; one that has its own keeps it, and the dialog warned about the
+    // copy's before getting here (#126). Letra and acordes travel together:
+    // mixing one copy's lyrics with another's chords would be neither sheet.
+    tx.execute(
+        &format!(
+            "UPDATE tracks SET
+                 letra = COALESCE(
+                     (SELECT letra FROM tracks
+                      WHERE id IN ({marcador}) AND {CON_HOJA} ORDER BY id LIMIT 1), letra),
+                 acordes = COALESCE(
+                     (SELECT acordes FROM tracks
+                      WHERE id IN ({marcador}) AND {CON_HOJA} ORDER BY id LIMIT 1), acordes)
+             WHERE id=?1 AND NOT {CON_HOJA}"
+        ),
+        params![keep_id],
+    )?;
+    // An artist corrected by hand on a copy stays corrected, and stays out of
+    // the next scan's reach, instead of going back to «Unknown Artist» (#126).
+    // The survivor's own correction wins.
+    tx.execute(
+        &format!(
+            "UPDATE tracks SET
+                 artista = COALESCE(
+                     (SELECT artista FROM tracks
+                      WHERE id IN ({marcador}) AND artista_manual = 1 ORDER BY id LIMIT 1), artista),
+                 artista_manual = 1
+             WHERE id=?1 AND artista_manual = 0
+               AND EXISTS (SELECT 1 FROM tracks WHERE id IN ({marcador}) AND artista_manual = 1)"
         ),
         params![keep_id],
     )?;
@@ -1840,6 +1875,76 @@ mod tests {
         let t = &list_tracks(&conn).unwrap()[0];
         assert_eq!(t.ocasion, "Adoración", "what the user typed on the copy they keep wins");
         assert_eq!(t.bpm, 96, "and the empty ones are filled from the copy");
+    }
+
+    #[test]
+    fn a_sheet_written_on_the_copy_survives_the_merge() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        // What the editor leaves when opened and closed: not a sheet.
+        set_track_sheet(&conn, queda, "\n\n", "").unwrap();
+        set_track_sheet(&conn, copia, "Santo, santo, santo", "[Re]Santo").unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        let hoja = track_sheet(&conn, queda).unwrap();
+        assert_eq!(hoja.letra, "Santo, santo, santo", "the copy's lyrics move across");
+        assert_eq!(hoja.acordes, "[Re]Santo", "and its chords with them");
+    }
+
+    #[test]
+    fn a_sheet_on_the_survivor_is_not_overwritten() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        set_track_sheet(&conn, queda, "", "[Sol]Santo").unwrap();
+        set_track_sheet(&conn, copia, "Santo, santo, santo", "[Re]Santo").unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        let hoja = track_sheet(&conn, queda).unwrap();
+        assert_eq!(
+            (hoja.letra.as_str(), hoja.acordes.as_str()),
+            ("", "[Sol]Santo"),
+            "the survivor's sheet stays whole, not patched with the copy's lyrics"
+        );
+    }
+
+    #[test]
+    fn an_artist_corrected_on_the_copy_stays_corrected_after_a_rescan() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
+        update_track_meta(&conn, copia, "Coro Emanuel", 0, "").unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+        assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Coro Emanuel");
+
+        // The next scan reads the WAV's tags again.
+        pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
+        assert_eq!(
+            list_tracks(&conn).unwrap()[0].artista,
+            "Coro Emanuel",
+            "the correction came with its mark, so the scan leaves it alone"
+        );
+    }
+
+    #[test]
+    fn an_artist_corrected_on_the_survivor_wins_over_the_copy() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
+        update_track_meta(&conn, queda, "Coro Emanuel", 0, "").unwrap();
+        update_track_meta(&conn, copia, "Coro", 0, "").unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Coro Emanuel");
     }
 
     #[test]

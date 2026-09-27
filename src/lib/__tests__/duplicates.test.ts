@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DuplicateGroup, DuplicateReport, Snapshot } from "../api";
+import { SEED_TRACKS } from "../seed";
 
 const findDuplicatesCmd = vi.fn<() => Promise<DuplicateReport | null>>();
 const mergeDuplicatesCmd = vi.fn<(keep: string, drop: string[]) => Promise<Snapshot | null>>();
@@ -128,6 +129,51 @@ describe("fusionar", () => {
     useStore.getState().acceptConfirm();
 
     await vi.waitFor(() => expect(findDuplicatesCmd).toHaveBeenCalledTimes(2));
+  });
+
+  describe("con hojas escritas (#126)", () => {
+    // The duplicate report does not say which copy has a sheet; the catalogue does.
+    function conHojas(ids: string[]) {
+      useStore.setState({
+        tracks: GRUPO.tracks.map((t) => ({
+          ...SEED_TRACKS[0],
+          id: t.id,
+          titulo: t.titulo,
+          path: t.path,
+          tieneHoja: ids.includes(t.id),
+        })),
+      });
+    }
+
+    it("avisa de la hoja de una copia que se pierde porque la que se queda ya tiene la suya", () => {
+      conHojas(["2", "3"]);
+      useStore.getState().mergeDuplicates("1-2-3", "2");
+
+      const c = useStore.getState().confirm!;
+      expect(c.detail).toContain("La copia «3.ogg» (OGG · Himnos) tiene una letra escrita que se perderá");
+      expect(c.detail).toContain("la que se queda ya tiene la suya");
+      expect(c.detail).not.toContain("«1.wav»");
+    });
+
+    it("si la que se queda no tiene, hereda la de la primera copia y avisa de las demás", () => {
+      conHojas(["1", "3"]);
+      useStore.getState().mergeDuplicates("1-2-3", "2");
+
+      const c = useStore.getState().confirm!;
+      expect(c.detail).toContain(
+        "La copia «3.ogg» (OGG · Himnos) tiene una letra escrita que se perderá: se queda la de «1.wav» (WAV · Himnos).",
+      );
+      expect(c.detail).not.toContain("La copia «1.wav»");
+    });
+
+    it("no avisa de nada cuando ninguna hoja se pierde", () => {
+      conHojas(["3"]);
+      useStore.getState().mergeDuplicates("1-2-3", "2");
+
+      const c = useStore.getState().confirm!;
+      expect(c.detail).not.toContain("se perderá");
+      expect(c.safe).toContain("la letra y los acordes");
+    });
   });
 
   it("ignora un grupo o una pista que ya no están en la lista", () => {
