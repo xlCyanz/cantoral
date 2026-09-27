@@ -396,6 +396,13 @@ export async function touchPlaylistCmd(playlist: string): Promise<void> {
 export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
   return inv<Snapshot>("delete_playlist", { playlist });
 }
+/**
+ * Lo que responde una restauración fallida cuando tampoco se pudo reabrir la
+ * base anterior. Es el texto exacto de `BIBLIOTECA_SIN_ABRIR` en
+ * `src-tauri/src/commands.rs`: el store lo reconoce por él y lo muestra como
+ * error de la biblioteca, no como un aviso que desaparece solo (#124).
+ */
+export const BIBLIOTECA_SIN_ABRIR = "La biblioteca no se pudo reabrir. Cierra y vuelve a abrir Cantoral.";
 export async function restoreDatabaseCmd(src: string): Promise<Snapshot> {
   return inv<Snapshot>("restore_database", { src });
 }
