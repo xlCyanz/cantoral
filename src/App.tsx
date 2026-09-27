@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { flushUiPrefs, useStore } from "./store";
 import { onScanProgress } from "./lib/api";
 import { registerShortcuts } from "./lib/shortcuts";
+import { useVideoDurations } from "./lib/videoDurations";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
@@ -27,6 +28,7 @@ import ServiceView from "./components/ServiceView";
 import Toast from "./components/Toast";
 
 export default function App() {
+  useVideoDurations();
   const theme = useStore((s) => s.theme);
   const view = useStore((s) => s.view);
   const tick = useStore((s) => s.tick);

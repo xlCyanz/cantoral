@@ -372,6 +372,10 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
+export async function updateTrackDuration(id: string, path: string, duration: number): Promise<void> {
+  if (!isTauri()) return;
+  await inv("update_track_duration", { id, path, duration });
+}
 /** `desde` is the template to copy the order from, if the user picked one. */
 export async function createPlaylistCmd(nombre: string, ocasion: string, desde?: string): Promise<string> {
   return inv<string>("create_playlist", { nombre, ocasion, desde: desde ?? null });
