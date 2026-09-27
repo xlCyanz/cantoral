@@ -787,6 +787,22 @@ export const useStore = create<CantoralState>((set, get) => {
   const toast = (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) =>
     get().showToast(titulo, opciones);
 
+  /**
+   * El `<video>` solo existe dentro del panel de detalle y mostrando la pista
+   * que suena (#125). Si un cambio de vista lo deja fuera, el elemento se
+   * desmonta o pierde el `src` y el video se calla — y el transporte no puede
+   * seguir diciendo «reproduciendo». Se pausa y se dice por qué, en vez de
+   * dejar la barra mintiendo sobre un video que ya no suena.
+   */
+  const pausarVideoSiDejaDeVerse = (aviso: string) => {
+    const st = get();
+    const t = cur(st);
+    if (!st.playing || !t?.video) return;
+    if (st.detailOpen && st.selId === st.playerId) return;
+    set({ playing: false });
+    toast(aviso);
+  };
+
   /** Replace the catalogue from a backend snapshot, preserving the player /
    *  playlist selection when the referenced ids still exist. */
   const applySnapshot = (snap: Snapshot) => {
@@ -1397,6 +1413,9 @@ export const useStore = create<CantoralState>((set, get) => {
       // Moving to another track must not leave the previous one's edit in limbo.
       if (st.selId !== id) get().flushEdit();
       set({ selId: id, detailOpen: true, saveState: "idle" });
+      // El panel pasa a mostrar otra pista, y con ella se va el video que
+      // sonaba (#125).
+      pausarVideoSiDejaDeVerse("El video se pausa al abrir otra pista en el panel");
     },
 
     selectAllVisible: () => {
@@ -1582,7 +1601,19 @@ export const useStore = create<CantoralState>((set, get) => {
       set({ queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true });
       get().irAPista(id);
     },
-    togglePlay: () => set((s) => ({ playing: !s.playing })),
+    togglePlay: () => {
+      const s = get();
+      const t = cur(s);
+      // Reanudar un video que se pausó al cerrar el panel (#125): sin el panel
+      // no hay `<video>` que suene, así que se vuelve a abrir en esa pista, como
+      // hace `irAPista` al llegar a un video.
+      if (!s.playing && t?.video && !(s.detailOpen && s.selId === t.id)) {
+        if (s.selId !== t.id) get().flushEdit();
+        set({ playing: true, detailOpen: true, selId: t.id, saveState: "idle" });
+        return;
+      }
+      set({ playing: !s.playing });
+    },
     advance: () => {
       // «Repetir» loops the current track; the queue already wraps by itself.
       if (get().repeat) {
@@ -1647,6 +1678,8 @@ export const useStore = create<CantoralState>((set, get) => {
       // Nothing may stay waiting out the debounce once the panel is gone.
       get().flushEdit();
       set({ detailOpen: false });
+      // Por el botón o por Esc: el video vive en el panel y se va con él (#125).
+      pausarVideoSiDejaDeVerse("El video se pausa al cerrar el panel");
     },
     flushEdit: () => {
       if (saveTimer) clearTimeout(saveTimer);
@@ -2273,6 +2306,9 @@ export const useStore = create<CantoralState>((set, get) => {
             .then((snap) => {
               applySnapshot(snap);
               set({ detailOpen: false, selId: null });
+              // Cerrar el panel aquí también se lleva el video que sonara (#125);
+              // el aviso de la pausa lo tapa el de abajo, que es lo que se pidió.
+              pausarVideoSiDejaDeVerse("El video se pausa al cerrar el panel");
               toast("Pista quitada de la biblioteca");
             })
             .catch((err) => {
@@ -2453,9 +2489,12 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!s.playing) return;
       const t = cur(s);
       if (!t) return;
-      // When a real audio file is loaded (Tauri), the <audio> element drives
-      // posSec via timeupdate — the simulated timer only runs in the browser.
-      if (isTauri() && t.path && !t.video && !t.missing) return;
+      // When a real file is loaded (Tauri), its <audio> or <video> element
+      // drives posSec via timeupdate and the queue via onEnded — the simulated
+      // timer only runs in the browser. Videos used to be left out, so the bar
+      // kept advancing over a video the closed panel had silenced, and two
+      // writers raced on posSec while it was open (#125).
+      if (isTauri() && t.path && !t.missing) return;
       const p = s.posSec + 1;
       if (p >= t.durSec) get().advance();
       else set({ posSec: p });
