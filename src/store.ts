@@ -510,6 +510,8 @@ export interface CantoralState {
   scanFile: string;
   /** Message from the last failed backend call, shown in the error state. */
   scanError: string | null;
+  /** When the last backup made this session was written (RFC3339). */
+  ultimaCopia: string | null;
 
   // ---- player ----
   playerId: string;
@@ -1066,6 +1068,7 @@ export const useStore = create<CantoralState>((set, get) => {
     scanIdx: 0,
     scanFile: "",
     scanError: null,
+    ultimaCopia: null,
 
     playerId: MOCK ? "t1" : "",
     playing: false,
@@ -1122,7 +1125,9 @@ export const useStore = create<CantoralState>((set, get) => {
     setThemeMode: (m) => {
       const theme = resolveTheme(m, get().temaSistema);
       set({ themeMode: m, theme });
-      if (isTauri()) void setSetting("themeMode", m);
+      // Only the log: the theme is already applied, and all a failed save costs
+      // is the choice not surviving a restart.
+      if (isTauri()) void setSetting("themeMode", m).catch((err) => console.error("set_setting failed", err));
     },
     applySystemTheme: () => {
       if (get().themeMode === "system") set((st) => ({ theme: resolveTheme("system", st.temaSistema) }));
@@ -1199,7 +1204,12 @@ export const useStore = create<CantoralState>((set, get) => {
         // arreglar algo —el proyector, el cable, un archivo— y volver al
         // mismo sitio, no para empezar el culto otra vez.
         set({ proyectando: false, proyeccionPos: 0, proyeccionDur: 0 });
-        void closeProjectionCmd().catch(console.error);
+        // Worth saying out loud: a window that failed to close is still on the
+        // projector, in front of everyone, while the app says it is off.
+        void closeProjectionCmd().catch((err) => {
+          console.error("close_projection failed", err);
+          toast("No se pudo cerrar la proyección", { tipo: "error", detalle: String(err) });
+        });
         return;
       }
       void openProjectionCmd(get().monitorSalida)
@@ -1541,7 +1551,17 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!t) return;
       const nf = !t.fav;
       set((s) => ({ tracks: s.tracks.map((x) => (x.id === id ? { ...x, fav: nf } : x)) }));
-      void setTrackFav(id, nf);
+      // The heart changes at once; if the core refuses, it goes back and says
+      // so, rather than staying lit on screen and unlit in the database (#128).
+      void setTrackFav(id, nf).catch((err) => {
+        console.error("set_track_fav failed", err);
+        // Only if nothing has toggled it since: a second click already put it
+        // where the user wants it.
+        set((s) => ({
+          tracks: s.tracks.map((x) => (x.id === id && x.fav === nf ? { ...x, fav: !nf } : x)),
+        }));
+        toast("No se pudo guardar el cambio", { tipo: "error" });
+      });
     },
     // ---------- player ----------
     play: (id, queue) => {
@@ -2354,13 +2374,25 @@ export const useStore = create<CantoralState>((set, get) => {
       }
     },
     backup: () => {
-      if (isTauri()) {
-        void pickSavePath().then((dest) => {
-          if (dest) void backupDatabase(dest).then(() => toast("Copia de seguridad creada correctamente")).catch(console.error);
-        });
-      } else {
+      if (!isTauri()) {
         toast("Copia de seguridad creada correctamente");
+        return;
       }
+      // A backup that fails has to say so. It used to end in a bare
+      // `console.error`, so a full disk or an unplugged USB left the user with
+      // neither the success toast nor an error — and walking away believing
+      // there was a copy (#128).
+      void pickSavePath()
+        .then(async (dest) => {
+          if (!dest) return;
+          const cuando = await backupDatabase(dest);
+          set({ ultimaCopia: cuando });
+          toast("Copia de seguridad creada correctamente", { detalle: dest });
+        })
+        .catch((err) => {
+          console.error("backup_database failed", err);
+          toast("No se pudo crear la copia de seguridad", { tipo: "error", detalle: String(err) });
+        });
     },
     restore: () => {
       // A scan holds its own connection to the database a restore moves

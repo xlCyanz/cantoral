@@ -430,14 +430,17 @@ export async function setSetting(key: string, value: string): Promise<void> {
 export interface DbInfo {
   path: string;
   size: number;
+  /** RFC3339 time of the last backup that was actually written. */
+  ultimaCopia: string | null;
 }
 export async function getDbInfo(): Promise<DbInfo | null> {
   if (!isTauri()) return null;
   return inv<DbInfo>("get_db_info");
 }
-export async function backupDatabase(dest: string): Promise<void> {
-  if (!isTauri()) return;
-  await inv("backup_database", { dest });
+/** Copy the database to `dest`. Resolves with when it happened (RFC3339). */
+export async function backupDatabase(dest: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  return inv<string>("backup_database", { dest });
 }
 
 /** Subscribe to backend scan progress. Returns an unlisten function. */

@@ -41,11 +41,15 @@ function formatSize(bytes: number): string {
   return bytes + " B";
 }
 
-/** RFC3339 → "hoy a las HH:MM" / "ayer…" / "DD/MM/YYYY HH:MM". */
 function formatScan(iso: string | undefined): string {
-  if (!iso) return "aún sin escanear";
+  return formatFecha(iso, "aún sin escanear");
+}
+
+/** RFC3339 → "hoy a las HH:MM" / "ayer…" / "DD/MM/YYYY HH:MM", or `vacio`. */
+function formatFecha(iso: string | null | undefined, vacio: string): string {
+  if (!iso) return vacio;
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "aún sin escanear";
+  if (isNaN(d.getTime())) return vacio;
   const now = new Date();
   const hhmm = d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
   const sameDay = d.toDateString() === now.toDateString();
@@ -111,6 +115,7 @@ export default function ConfigView() {
   const removeFolder = useStore((s) => s.removeFolder);
   const restore = useStore((s) => s.restore);
   const backup = useStore((s) => s.backup);
+  const copiaDeEstaSesion = useStore((s) => s.ultimaCopia);
   const openHelp = useStore((s) => s.openHelp);
 
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
@@ -201,6 +206,13 @@ export default function ConfigView() {
             Restaurar una copia…
           </button>
         </div>
+        {/* Lo que un PC compartido necesita saber antes de fiarse: si hay copia
+            y de cuándo. Solo cuenta la que llegó a escribirse (#128). */}
+        {dbInfo && (
+          <p style={{ ...pStyle, marginTop: 8, fontSize: "10.5px", color: "var(--text-3)" }}>
+            Última copia: {formatFecha(copiaDeEstaSesion ?? dbInfo.ultimaCopia, "todavía ninguna")}
+          </p>
+        )}
       </div>
 
       <div style={tarjeta}>
