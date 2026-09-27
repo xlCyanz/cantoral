@@ -412,7 +412,9 @@ la app ya no las lee, pero lo escrito no se borra. Respalda desde
 
 Los re-escaneos son incrementales: solo se vuelve a leer la metadata de los archivos
 cuyo tamaño o fecha de modificación cambió. El escaneo corre en su propia conexión
-SQLite y hace commit por lotes, así la interfaz sigue respondiendo mientras indexa.
+SQLite y en un hilo aparte, y hace commit por lotes: mientras indexa se puede seguir
+usando la app, cancelar el escaneo y ver cómo las pistas van apareciendo. Lo mismo
+vale para restaurar, respaldar, buscar duplicados y la revisión de archivos del arranque.
 
 Los errores que llegan a la interfaz también quedan en un log rotativo dentro del
 directorio de logs del app:

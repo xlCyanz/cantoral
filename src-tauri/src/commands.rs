@@ -55,7 +55,28 @@ fn e<E: std::fmt::Display>(err: E) -> String {
     msg
 }
 
-#[tauri::command]
+/// Run a long piece of work on a blocking thread of the async runtime.
+///
+/// A command without `async` runs on the main thread — the one the native
+/// event loop and every other IPC request go through — so a scan walked there
+/// froze the window until it finished: «Cancelar» went unanswered and the live
+/// refresh queued up behind it (#123). The work here gets the state it needs
+/// from `app` rather than from `State<…>`, which borrows the request and cannot
+/// travel to another thread.
+async fn fuera_del_hilo_principal<T, F>(app: AppHandle, trabajo: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&AppHandle) -> CmdResult<T> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(move || trabajo(&app)).await.map_err(e)?
+}
+
+// Every other command that takes the main mutex is `#[tauri::command(async)]`.
+// They are short, but one run on the main thread while a long command holds the
+// mutex would wait for it there — and freeze the window exactly as the long
+// command itself used to.
+
+#[tauri::command(async)]
 pub fn get_library(db: State<Db>) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     snapshot(&conn).map_err(e)
@@ -98,14 +119,23 @@ fn run_scan(
 }
 
 #[tauri::command]
-pub fn add_and_scan_folder(
+pub async fn add_and_scan_folder(
     app: AppHandle,
-    db: State<Db>,
-    db_path: State<DbPath>,
-    slot: State<ScanSlot>,
     path: String,
     recursive: bool,
 ) -> CmdResult<Snapshot> {
+    fuera_del_hilo_principal(app, move |app| add_and_scan_folder_bloqueante(app, path, recursive))
+        .await
+}
+
+fn add_and_scan_folder_bloqueante(
+    app: &AppHandle,
+    path: String,
+    recursive: bool,
+) -> CmdResult<Snapshot> {
+    let db = app.state::<Db>();
+    let db_path = app.state::<DbPath>();
+    let slot = app.state::<ScanSlot>();
     // Whether the folder was already indexed decides what happens if the scan
     // fails below: a re-scan keeps its folder, a first scan must not leave one.
     let (fid, ya_estaba) = {
@@ -125,9 +155,9 @@ pub fn add_and_scan_folder(
         (db::add_folder(&conn, &path, &nombre, recursive).map_err(e)?, ya_estaba)
     };
 
-    permitir_asset(&app, &path);
+    permitir_asset(app, &path);
 
-    if let Err(err) = run_scan(&app, &db_path.0, &slot, fid, &path, recursive) {
+    if let Err(err) = run_scan(app, &db_path.0, &slot, fid, &path, recursive) {
         // The row went in before the walk started, so a scan that fails — an
         // unplugged drive, a folder that cannot be read — used to leave a
         // folder with zero tracks sitting in Configuración for the user to
@@ -146,13 +176,14 @@ pub fn add_and_scan_folder(
 }
 
 #[tauri::command]
-pub fn rescan_folder(
-    app: AppHandle,
-    db: State<Db>,
-    db_path: State<DbPath>,
-    slot: State<ScanSlot>,
-    id: String,
-) -> CmdResult<Snapshot> {
+pub async fn rescan_folder(app: AppHandle, id: String) -> CmdResult<Snapshot> {
+    fuera_del_hilo_principal(app, move |app| rescan_folder_bloqueante(app, id)).await
+}
+
+fn rescan_folder_bloqueante(app: &AppHandle, id: String) -> CmdResult<Snapshot> {
+    let db = app.state::<Db>();
+    let db_path = app.state::<DbPath>();
+    let slot = app.state::<ScanSlot>();
     let fid = id.parse::<i64>().map_err(e)?;
     // Re-use the «include subfolders» choice made when the folder was added.
     let (path, recursive) = {
@@ -160,7 +191,7 @@ pub fn rescan_folder(
         db::folder_scan_target(&conn, fid).map_err(e)?
     };
 
-    run_scan(&app, &db_path.0, &slot, fid, &path, recursive)?;
+    run_scan(app, &db_path.0, &slot, fid, &path, recursive)?;
 
     let conn = db.0.lock().map_err(e)?;
     snapshot(&conn).map_err(e)
@@ -178,14 +209,21 @@ pub fn cancel_scan(slot: State<ScanSlot>) -> CmdResult<()> {
 }
 
 /// Tracks that look like the same song, grouped.
+///
+/// Read on a connection of its own, like a scan: grouping a big library takes
+/// a while, and the main mutex held all that time would stall every other
+/// command waiting on it.
 #[tauri::command]
-pub fn find_duplicates(db: State<Db>) -> CmdResult<DuplicateReport> {
-    let conn = db.0.lock().map_err(e)?;
-    duplicate_report(&conn).map_err(e)
+pub async fn find_duplicates(app: AppHandle) -> CmdResult<DuplicateReport> {
+    fuera_del_hilo_principal(app, |app| {
+        let conn = db::open_secondary(&app.state::<DbPath>().0).map_err(e)?;
+        duplicate_report(&conn).map_err(e)
+    })
+    .await
 }
 
 /// Fold the copies into the one the user chose to keep.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdResult<Snapshot> {
     let keep_id = keep.parse::<i64>().map_err(e)?;
     let drop_ids = drop
@@ -200,7 +238,7 @@ pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdRe
 }
 
 /// Remember that a group is not duplicates after all.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn dismiss_duplicates(db: State<Db>, signature: String) -> CmdResult<DuplicateReport> {
     let conn = db.0.lock().map_err(e)?;
     db::dismiss_duplicates(&conn, &signature).map_err(e)?;
@@ -208,7 +246,7 @@ pub fn dismiss_duplicates(db: State<Db>, signature: String) -> CmdResult<Duplica
 }
 
 /// Offer every dismissed group again.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn restore_dismissed_duplicates(db: State<Db>) -> CmdResult<DuplicateReport> {
     let conn = db.0.lock().map_err(e)?;
     db::clear_duplicate_dismissals(&conn).map_err(e)?;
@@ -264,7 +302,7 @@ fn ids_de(ids: &[String]) -> CmdResult<Vec<i64>> {
 }
 
 /// Append a whole selection to a list, in the order given, in one transaction.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_tracks_to_playlist(
     db: State<Db>,
     playlist: String,
@@ -279,7 +317,7 @@ pub fn add_tracks_to_playlist(
 }
 
 /// Mark or unmark a whole selection as favourites.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     db::set_tracks_fav(&conn, &ids_de(&ids)?, fav).map_err(e)?;
@@ -287,7 +325,7 @@ pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<S
 }
 
 /// Drop a whole selection from the catalogue. The audio files are untouched.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     let parsed = ids_de(&ids)?;
@@ -297,14 +335,14 @@ pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
 }
 
 /// The lyrics and chords of one track.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_track_sheet(db: State<Db>, id: String) -> CmdResult<Sheet> {
     let conn = db.0.lock().map_err(e)?;
     db::track_sheet(&conn, id.parse::<i64>().map_err(e)?).map_err(e)
 }
 
 /// The sheets of several tracks at once, for a whole service list.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_sheets(db: State<Db>, ids: Vec<String>) -> CmdResult<Vec<Sheet>> {
     let parsed = ids
         .iter()
@@ -316,7 +354,7 @@ pub fn get_sheets(db: State<Db>, ids: Vec<String>) -> CmdResult<Vec<Sheet>> {
 }
 
 /// Write a track's lyrics and chords.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_track_sheet(
     db: State<Db>,
     id: String,
@@ -329,14 +367,23 @@ pub fn update_track_sheet(
 
 /// Re-check every indexed file on disk. Called after startup so tracks deleted
 /// while the app was closed show up as missing without a full rescan.
+///
+/// One `stat` per track, so on its own connection: the main mutex is taken only
+/// for the snapshot at the end.
 #[tauri::command]
-pub fn reconcile_library(db: State<Db>) -> CmdResult<Snapshot> {
-    let conn = db.0.lock().map_err(e)?;
-    db::reconcile_all(&conn).map_err(e)?;
-    snapshot(&conn).map_err(e)
+pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
+    fuera_del_hilo_principal(app, |app| {
+        let propia = db::open_secondary(&app.state::<DbPath>().0).map_err(e)?;
+        db::reconcile_all(&propia).map_err(e)?;
+        drop(propia);
+        let db = app.state::<Db>();
+        let conn = db.0.lock().map_err(e)?;
+        snapshot(&conn).map_err(e)
+    })
+    .await
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     db::remove_folder(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
@@ -344,7 +391,7 @@ pub fn remove_folder(db: State<Db>, id: String) -> CmdResult<Snapshot> {
 }
 
 /// Point a track at the file's new location, keeping what it carries.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn relocate_track(
     app: AppHandle,
     db: State<Db>,
@@ -364,7 +411,7 @@ pub fn relocate_track(
 }
 
 /// Remove one track from the catalogue. The audio file itself is never touched.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     db::delete_track(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
@@ -373,7 +420,7 @@ pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Snapshot> {
 
 /// Point a whole indexed folder at its new location, rewriting every track under
 /// it. For the case that actually happens: the music moved to another drive.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn relocate_folder(
     app: AppHandle,
     db: State<Db>,
@@ -388,13 +435,13 @@ pub fn relocate_folder(
     snapshot(&conn).map_err(e)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     db::set_fav(&conn, id.parse::<i64>().map_err(e)?, fav).map_err(e)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_track(
     db: State<Db>,
     id: String,
@@ -409,7 +456,7 @@ pub fn update_track(
 }
 
 /// Create a playlist, optionally with the track order of `desde` (a template).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_playlist(
     db: State<Db>,
     nombre: String,
@@ -425,14 +472,14 @@ pub fn create_playlist(
 }
 
 /// Copy a playlist with its order. Returns the new id so the UI can open it.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn duplicate_playlist(db: State<Db>, playlist: String) -> CmdResult<String> {
     let conn = db.0.lock().map_err(e)?;
     let id = db::duplicate_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)?;
     Ok(id.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_playlist_template(
     db: State<Db>,
     playlist: String,
@@ -443,7 +490,7 @@ pub fn set_playlist_template(
     snapshot(&conn).map_err(e)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let pid = playlist.parse::<i64>().map_err(e)?;
@@ -451,7 +498,7 @@ pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> 
     db::set_playlist_order(&conn, pid, &numeric).map_err(e)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     db::add_to_playlist(
@@ -463,7 +510,7 @@ pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdRes
     snapshot(&conn).map_err(e)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_playlist(
     db: State<Db>,
     playlist: String,
@@ -477,7 +524,7 @@ pub fn update_playlist(
 }
 
 /// Apuntar que un culto se acaba de abrir o de cambiar. Ver `db::touch_playlist`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn touch_playlist(db: State<Db>, playlist: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     db::touch_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)
@@ -580,7 +627,7 @@ pub fn read_playlist_file(src: String) -> CmdResult<compartir::PlaylistFile> {
     compartir::leer(std::path::Path::new(&src)).map_err(|err| format!("{err}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Snapshot> {
     let conn = db.0.lock().map_err(e)?;
     db::delete_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)?;
@@ -600,7 +647,13 @@ pub fn inspect_backup(src: String) -> CmdResult<db::BackupInfo> {
 /// a Cantoral database, and the previous file is moved aside rather than deleted,
 /// so a restore that fails half way leaves the library exactly as it was.
 #[tauri::command]
-pub fn restore_database(db: State<Db>, db_path: State<DbPath>, src: String) -> CmdResult<Snapshot> {
+pub async fn restore_database(app: AppHandle, src: String) -> CmdResult<Snapshot> {
+    fuera_del_hilo_principal(app, move |app| restore_database_bloqueante(app, src)).await
+}
+
+fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapshot> {
+    let db = app.state::<Db>();
+    let db_path = app.state::<DbPath>();
     let live = db_path.0.as_path();
     let src = std::path::Path::new(&src);
 
@@ -608,18 +661,21 @@ pub fn restore_database(db: State<Db>, db_path: State<DbPath>, src: String) -> C
     // mistake is rejected without the app having given anything up.
     db::inspect_backup(src).map_err(e)?;
 
+    // Held until the restore is over. While it runs the mutex holds a blank
+    // in-memory database, and with the window no longer frozen for the length
+    // of the restore, a command let in meanwhile would read an empty library
+    // or write into nothing. It waits here instead.
+    let mut guard = db.0.lock().map_err(e)?;
+
     // Fold the WAL back into the main file and release it, so the restore can
     // move it aside (an open handle makes that fail on Windows).
-    {
-        let mut guard = db.0.lock().map_err(e)?;
-        let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-        *guard = rusqlite::Connection::open_in_memory().map_err(e)?;
-    }
+    let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+    *guard = rusqlite::Connection::open_in_memory().map_err(e)?;
 
     match db::restore_from_backup(live, src) {
         Ok(conn) => {
             let snap = snapshot(&conn).map_err(e)?;
-            *db.0.lock().map_err(e)? = conn;
+            *guard = conn;
             log::info!("database restored from {}", src.display());
             Ok(snap)
         }
@@ -627,7 +683,7 @@ pub fn restore_database(db: State<Db>, db_path: State<DbPath>, src: String) -> C
             // `restore_from_backup` already put the previous database back; all
             // that is left is to reopen it, so the app stays usable.
             match db::open_and_migrate(live) {
-                Ok(conn) => *db.0.lock().map_err(e)? = conn,
+                Ok(conn) => *guard = conn,
                 Err(reopen) => {
                     log::error!("could not reopen the database after a failed restore: {reopen}")
                 }
@@ -637,13 +693,13 @@ pub fn restore_database(db: State<Db>, db_path: State<DbPath>, src: String) -> C
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_setting(db: State<Db>, key: String) -> CmdResult<Option<String>> {
     let conn = db.0.lock().map_err(e)?;
     db::get_setting(&conn, &key).map_err(e)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_setting(db: State<Db>, key: String, value: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     db::set_setting(&conn, &key, &value).map_err(e)
@@ -667,14 +723,18 @@ pub fn get_db_info(db_path: State<DbPath>) -> CmdResult<DbInfo> {
 /// Copy the database to `dest`. The WAL is first checkpointed into the main file
 /// so the copy is complete — a plain copy alone would miss data still in the WAL.
 #[tauri::command]
-pub fn backup_database(db: State<Db>, db_path: State<DbPath>, dest: String) -> CmdResult<()> {
-    let src = db_path.0.as_path();
-    {
-        let conn = db.0.lock().map_err(e)?;
-        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-    }
-    std::fs::copy(src, &dest).map_err(e)?;
-    Ok(())
+pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<()> {
+    fuera_del_hilo_principal(app, move |app| {
+        let src = app.state::<DbPath>().0.clone();
+        {
+            let db = app.state::<Db>();
+            let conn = db.0.lock().map_err(e)?;
+            let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+        }
+        std::fs::copy(&src, &dest).map_err(e)?;
+        Ok(())
+    })
+    .await
 }
 
 #[cfg(test)]
