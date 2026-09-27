@@ -181,6 +181,31 @@ fn es_sin_soporte(ext: &str) -> bool {
     SIN_SOPORTE.contains(&ext)
 }
 
+/// Si el escáner metería este archivo en la biblioteca, por su extensión.
+///
+/// Lo usa también «Localizar…» (#130): reapuntar una pista a un archivo que el
+/// escáner no indexaría sería colarle a la biblioteca por la puerta de atrás
+/// justo lo que el escaneo deja fuera.
+pub fn es_indexable(path: &Path) -> bool {
+    ext_lower(path).is_some_and(|ext| is_media(&ext))
+}
+
+/// Por qué no se puede apuntar una pista a este archivo, o `None` si se puede.
+///
+/// Dice lo mismo que el panel para un formato sin soporte, con la salida que
+/// tiene quien opera: convertirlo.
+pub fn motivo_no_indexable(path: &Path) -> Option<String> {
+    if es_indexable(path) {
+        return None;
+    }
+    Some(match ext_lower(path) {
+        Some(ext) => {
+            format!("Los archivos .{ext} no se pueden reproducir. Conviértelo a MP3 o MP4.")
+        }
+        None => "Un archivo sin extensión no se puede reproducir. Conviértelo a MP3 o MP4.".into(),
+    })
+}
+
 /// (title, artist, album, dur_sec, cover as (bytes, extension)).
 type Meta = (Option<String>, Option<String>, Option<String>, i64, Option<(Vec<u8>, String)>);
 

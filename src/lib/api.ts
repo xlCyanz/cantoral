@@ -8,6 +8,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
 import type { ArchivoDeLista } from "./compartir";
+import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -79,10 +80,9 @@ export async function pickMediaFile(): Promise<string | null> {
     filters: [
       {
         name: "Audio y video",
-        extensions: [
-          "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma", "aiff", "aif",
-          "mp4", "mov", "mkv", "avi", "webm", "m4v", "wmv",
-        ],
+        // Only what the scanner indexes: offering a `.wma` here pointed the
+        // track at a file the app then refuses to play (#130).
+        extensions: [...EXTENSIONES_AUDIO, ...EXTENSIONES_VIDEO],
       },
     ],
   });
