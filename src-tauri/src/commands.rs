@@ -751,10 +751,12 @@ pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Vec<Playlis
 }
 
 /// Read a candidate backup without touching it, so the confirmation dialog can
-/// say what the user is about to replace their library with.
+/// say what the user is about to replace their library with. A backup from a
+/// newer Cantoral is refused here already, so the question is never posed for
+/// a restore that `restore_database` would turn down anyway.
 #[tauri::command]
 pub fn inspect_backup(src: String) -> CmdResult<db::BackupInfo> {
-    db::inspect_backup(std::path::Path::new(&src)).map_err(e)
+    db::validate_backup(std::path::Path::new(&src)).map_err(e)
 }
 
 /// What a failed restore answers when the previous database could not be
@@ -785,8 +787,9 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
     let _claim = tomar(&slot, Tarea::Restaurar)?;
 
     // Validated first, while the live connection is still open: a file picked by
-    // mistake is rejected without the app having given anything up.
-    db::inspect_backup(src).map_err(e)?;
+    // mistake, or one from a newer Cantoral, is rejected without the app having
+    // given anything up.
+    db::validate_backup(src).map_err(e)?;
 
     // Held until the restore is over. While it runs the mutex holds a blank
     // in-memory database, and with the window no longer frozen for the length
