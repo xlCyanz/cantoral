@@ -9,6 +9,63 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.3.2] - 2026-09-28
+
+**Windows más estable, y una app que dice lo que pasa.** Arreglos que salieron
+de probar en PCs de iglesia con Windows —la app pegada al abrir con muchos
+videos, la barra de título—, un registro para diagnosticar lo que no se puede
+reproducir en otra máquina, y el pulido de textos y avisos de la auditoría.
+
+### Añadido
+
+- **Configuración → Diagnóstico → «Mostrar el registro».** Abre el archivo de
+  registro en el Explorador o el Finder, listo para mandarlo cuando algo falla.
+  El registro anota la versión y el sistema al arrancar, cuánto tarda cada
+  paso, cuándo la ventana deja de responder y cada acción de la barra de
+  título, con su resultado.
+- **La tarjeta de escaneo dice cuántos archivos lleva** («120 de 3.400
+  archivos»), no solo el porcentaje.
+
+### Cambiado
+
+- **«Recién agregadas» es lo que trajo el último escaneo**, todo, y el
+  subtítulo lo dice. Antes eran siempre las 8 últimas sin explicarlo. Si el
+  último escaneo no trajo nada nuevo, también lo dice.
+- **Esc solo corta la proyección desde la vista de Proyección**, como B y →.
+  Desde la biblioteca, Esc borra la búsqueda o la selección y el proyector
+  sigue encendido.
+- **La barra del reproductor dice qué está sonando**: «Suena: el culto» o
+  «Suena: la biblioteca», resaltado cuando hay un culto abierto y lo que suena
+  sigue la biblioteca.
+- **Las ocasiones sugeridas son las mismas en todas partes**: primero las que
+  ya usa tu iglesia en sus pistas y sus cultos, también al crear una lista.
+- **Agregar a un culto y marcar favoritas son rápidos con bibliotecas grandes.**
+  Antes cada clic reenviaba el catálogo entero; con 5.000 pistas, más de un
+  megabyte por clic.
+
+### Corregido
+
+- **La app ya no se queda pegada al abrir con muchos videos (Windows).** Leer
+  la duración de los videos que no la traían podía volver a empezar una y otra
+  vez y ocupar la ventana durante minutos. Ahora cada video se intenta una sola
+  vez, sin bloquear la ventana.
+- **Las duraciones de video que salían en 0:00** se leen del archivo y se
+  guardan.
+- **Una canción y un video ya no suenan a la vez** al pasar de uno a otro, y la
+  pantalla en negro detiene lo que se proyectaba.
+- **El doble clic en la barra de título maximiza (Windows)**; antes maximizaba y
+  restauraba en el mismo gesto.
+- **Un escaneo cancelado lo dice**, con cuántos archivos se guardaron, en vez de
+  «Biblioteca actualizada».
+- **La tarjeta de escaneo ya no muestra nombres de canciones de ejemplo** que no
+  están en tu disco.
+- **Un respaldo de una versión más nueva de Cantoral se rechaza** antes de tocar
+  tu biblioteca, y un fallo al actualizar la base al abrirla se dice al
+  momento en vez de aparecer después como un error sin relación.
+- **Textos**: la barra de selección dice «Quitar selección» (no «Cancelar»), y
+  al importar una lista se avisa cuántas canciones coincidieron solo por
+  título y duración.
+
 ## [0.3.1] - 2026-09-27
 
 **Fiabilidad en vivo.** Una versión solo de arreglos, salidos de la auditoría de
@@ -1028,7 +1085,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.3.1...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/xlCyanz/cantoral/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/xlCyanz/cantoral/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/xlCyanz/cantoral/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/xlCyanz/cantoral/compare/v0.2.0...v0.2.1
