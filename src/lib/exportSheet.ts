@@ -3,8 +3,8 @@
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import HojaAcordes from "../components/HojaAcordes";
+import { aHtml } from "./aHtml";
 import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 
@@ -77,11 +77,12 @@ export function hayLetras(tracks: readonly Track[], sheets: Record<string, Sheet
  * One ChordPro sheet as chords stacked over the words they fall on.
  *
  * Drawn by the same component as the editor preview and modo culto, so the
- * three cannot drift apart. React escapes every piece of text it renders,
- * which keeps what the user typed from being read as markup here too.
+ * three cannot drift apart, and written out by `aHtml`, which escapes every
+ * piece of text the way React does — what the user typed is never read as
+ * markup here either.
  */
 function lineasHtml(acordes: string): string {
-  return `    ${renderToStaticMarkup(createElement(HojaAcordes, { acordes, tamano: "impresion" }))}`;
+  return `    ${aHtml(createElement(HojaAcordes, { acordes, tamano: "impresion" }))}`;
 }
 
 export function playlistSheetHtml(

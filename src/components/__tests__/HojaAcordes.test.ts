@@ -65,3 +65,27 @@ describe("HojaAcordes", () => {
     expect(html).toContain("&lt;i&gt;x&lt;/i&gt; &amp; más");
   });
 });
+
+describe("la hoja impresa, sin el renderizador de servidor", () => {
+  // `aHtml` sustituye a `renderToStaticMarkup` para no cargar este en la app.
+  // Si el componente empieza a usar algo que `aHtml` no escribe igual, se nota
+  // aquí, en todos los tamaños.
+  const hojas = [
+    "{Estrofa}\nQue [Do]dulce es [Sol7/Si]tu nombre\n\n[N.C.]Santo\n{Coro}\n[Re]Aleluya",
+    'Te <b>adoro</b> & "canto" [La]\'amén\'',
+    "",
+    "Sin acordes en toda la línea",
+  ];
+  const casos = hojas.flatMap((acordes) =>
+    (["editor", "atril", "impresion"] as const).flatMap((tamano) => [
+      { acordes, tamano },
+      { acordes, tamano, escala: 1.6 },
+    ]),
+  );
+
+  it.each(casos)("escribe lo mismo que React (%o)", async (props) => {
+    const { aHtml } = await import("../../lib/aHtml");
+    const el = createElement(HojaAcordes, props);
+    expect(aHtml(el)).toBe(renderToStaticMarkup(el));
+  });
+});

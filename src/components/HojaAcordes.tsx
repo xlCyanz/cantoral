@@ -78,10 +78,11 @@ export type Tamano = keyof typeof MEDIDAS;
  * A ChordPro sheet as chords stacked over the words they fall on.
  *
  * The one place `parseHoja` becomes something to look at: the editor preview,
- * modo culto and the printed sheet (through `renderToStaticMarkup`) all draw
+ * modo culto and the printed sheet (through `aHtml`) all draw
  * with this, so a change in how a chord or a heading is shown lands in all
- * three at once. Text goes through React, which escapes it — the printed sheet
- * relies on that, since the sheet is text the user typed.
+ * three at once. Text is escaped on the way out — the printed sheet relies on
+ * that, since the sheet is text the user typed. Keep it free of hooks: the
+ * printed sheet calls it as a plain function.
  *
  * `escala` multiplies every length; it is the size control of modo culto.
  */
