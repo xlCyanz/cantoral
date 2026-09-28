@@ -2261,7 +2261,12 @@ export const useStore = create<CantoralState>((set, get) => {
               `${plural(st.playlists.length, "lista", "listas")}.\n` +
               `Respaldo: ${plural(info.tracks, "pista", "pistas")}, ` +
               `${plural(info.folders, "carpeta", "carpetas")} y ` +
-              `${plural(info.playlists, "lista", "listas")}.`,
+              `${plural(info.playlists, "lista", "listas")}.` +
+              // A newer backup was already refused by `inspectBackup`; an older
+              // one is brought up to date on restore, which is worth saying.
+              (info.version < info.appVersion
+                ? "\nEl respaldo es de una versión anterior de Cantoral: se actualizará al restaurarlo."
+                : ""),
             safe: "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta.",
             confirmLabel: "Restaurar",
             onConfirm: () => {
