@@ -1,7 +1,8 @@
 import { FileInput, Layers, ListMusic, Plus } from "lucide-react";
 import { cultos as cultosPorUso, plantillas as plantillasDe, plDur, useStore } from "../store";
 import { gradientFor, inicialDe } from "../lib/covers";
-import Empty, { emptyBtnPrimary, emptyBtnSecondary } from "./Empty";
+import { botonPrimario, botonSecundario, emptyBtnPrimary, emptyBtnSecondary } from "../lib/styles";
+import Empty from "./Empty";
 
 export default function CollectionsView() {
   const playlists = useStore((s) => s.playlists);
@@ -54,10 +55,10 @@ export default function CollectionsView() {
           Arma el repertorio de cada culto o ensayo. Reordena arrastrando, reproduce toda la lista y expórtala para el equipo.
         </p>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={importList} className="hb-s2" title="Abrir una lista exportada desde otra instalación" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+          <button onClick={importList} className="hb-s2" title="Abrir una lista exportada desde otra instalación" style={botonSecundario(38)}>
             <FileInput size={16} />Importar lista
           </button>
-          <button onClick={newList} className="hb-primary" style={{ height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 15px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", transition: "background .14s" }}>
+          <button onClick={newList} className="hb-primary" style={botonPrimario(38)}>
             <Plus size={16} strokeWidth={2.2} />Nueva lista
           </button>
         </div>

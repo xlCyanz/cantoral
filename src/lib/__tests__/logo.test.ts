@@ -4,7 +4,7 @@
 // nombra para ese sitio.
 
 import { describe, expect, it } from "vitest";
-import { dibujoPara } from "../../components/Logo";
+import { dibujoPara } from "../logo";
 
 describe("qué dibujo del símbolo va a cada tamaño", () => {
   it("por debajo de 20 px, dos líneas y sin nota", () => {

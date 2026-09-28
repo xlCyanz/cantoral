@@ -3,8 +3,8 @@ import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
 import { coverStyle, hasCover } from "../lib/covers";
-import Empty, { emptyBtnSecondary } from "./Empty";
-import { favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
+import Empty from "./Empty";
+import { emptyBtnSecondary, favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
 import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
 import type { Densidad, SortKey, Track } from "../lib/types";
 

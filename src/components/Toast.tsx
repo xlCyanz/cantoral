@@ -1,15 +1,6 @@
 import { X } from "lucide-react";
-import { useStore, type ToastType } from "../store";
-
-export function toastPresentation(type: ToastType) {
-  if (type === "error") {
-    return { color: "var(--danger)", role: "alert", ariaLive: "assertive" } as const;
-  }
-  if (type === "info") {
-    return { color: "var(--primary)", role: "status", ariaLive: "polite" } as const;
-  }
-  return { color: "var(--success)", role: "status", ariaLive: "polite" } as const;
-}
+import { useStore } from "../store";
+import { toastPresentation } from "../lib/toast";
 
 /**
  * El aviso de la esquina.

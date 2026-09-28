@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Folder, FolderPlus, Search } from "lucide-react";
 import { useStore } from "../store";
 import { pickFolder } from "../lib/api";
+import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
 /**
@@ -68,8 +69,8 @@ function AddFolderForm() {
       </div>
 
       <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
-        <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>Cancelar</button>
-        <button onClick={() => indexFolder(path, subfolders)} disabled={!path} className="hb-primary" style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, boxShadow: "var(--sh-sm)", opacity: path ? 1 : 0.55, cursor: path ? "pointer" : "not-allowed" }}>
+        <button onClick={closeDialog} className="hb-s3" style={botonDialogoSecundario}>Cancelar</button>
+        <button onClick={() => indexFolder(path, subfolders)} disabled={!path} className="hb-primary" style={{ ...botonDialogoPrimario, display: "flex", alignItems: "center", gap: 8, opacity: path ? 1 : 0.55, cursor: path ? "pointer" : "not-allowed" }}>
           <Search size={16} strokeWidth={2.2} />Indexar carpeta
         </button>
       </div>

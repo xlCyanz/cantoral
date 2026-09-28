@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpCircle, CircleCheck, Download, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
-import { ocupadoStyle } from "../lib/styles";
+import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
 import { getDbInfo, isMacOS, type DbInfo } from "../lib/api";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
@@ -22,17 +22,6 @@ const tarjeta: CSSProperties = {
 };
 const h2Style: CSSProperties = { fontSize: "12.5px", fontWeight: 600, margin: "0 0 2px" };
 const pStyle: CSSProperties = { fontSize: 11, color: "var(--text-2)", margin: 0, lineHeight: 1.55 };
-/** Un botón de acción de los pequeños, los de las filas de carpeta. */
-const botonFila: CSSProperties = {
-  height: 25,
-  padding: "0 9px",
-  borderRadius: 6,
-  border: "1px solid var(--border-2)",
-  background: "var(--surface-2)",
-  color: "var(--text)",
-  fontSize: 11,
-  flex: "0 0 auto",
-};
 
 /** Bytes → human-readable size. */
 function formatSize(bytes: number): string {

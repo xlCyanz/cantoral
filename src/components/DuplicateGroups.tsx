@@ -3,20 +3,7 @@ import type { CSSProperties } from "react";
 import { Check, Copy, Heart, Search, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import type { DuplicateGroup } from "../lib/api";
-
-/** Bytes as something a person can compare at a glance. */
-export function tamano(bytes: number): string {
-  if (bytes <= 0) return "—";
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${Math.round(kb)} KB`;
-  const mb = kb / 1024;
-  return mb < 100 ? `${mb.toFixed(1).replace(".", ",")} MB` : `${Math.round(mb)} MB`;
-}
-
-/** Why a group was put together, in words rather than a field name. */
-export function motivoEnPalabras(motivo: string): string {
-  return motivo === "archivo" ? "Mismo archivo" : "Mismo título";
-}
+import { motivoEnPalabras, tamano } from "../lib/duplicados";
 
 const h2Style: CSSProperties = { fontSize: "12.5px", fontWeight: 600, margin: "0 0 2px" };
 const pStyle: CSSProperties = { fontSize: 11, color: "var(--text-2)", margin: 0, lineHeight: 1.55 };
