@@ -379,10 +379,13 @@ cantoral/
 │   ├── components/         # TitleBar, Sidebar, TopBar, LibraryView, DetailPanel,
 │   │                       # PlayerBar, ProjectionView, ProjectionOutput (la
 │   │                       # ventana del proyector), ServiceView, diálogos, …
-│   ├── lib/                # api (puente con Tauri) · seed (datos de ejemplo) ·
+│   ├── lib/                # api (puente con Tauri) · backend (Tauri o en
+│   │                       # memoria) · seed (datos de ejemplo) ·
 │   │                       # estrofas · chords · formatos · media · compartir ·
 │   │                       # exportSheet · shortcuts · … · __tests__/
-│   ├── store.ts            # Estado global (Zustand) + selectores derivados
+│   ├── store/              # Estado global (Zustand), un slice por dominio:
+│   │                       # biblioteca · cultos · reproductor · proyeccion ·
+│   │                       # hojas · … · selectores (puros) · index (los junta)
 │   └── styles/global.css   # Tokens de diseño (claro/oscuro), fuentes, keyframes
 └── src-tauri/src/          # Núcleo (Rust)
     ├── models.rs           # Structs (Track, Folder, Playlist, …)

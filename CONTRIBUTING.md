@@ -85,7 +85,7 @@ registro) siguen en `api.ts`, que ya no hace nada fuera de Tauri.
 | Capa | Dónde | Responsabilidad |
 |---|---|---|
 | Vistas | `src/components/` | Solo presentación; leen del store y llaman acciones |
-| Estado | `src/store.ts` | Estado global (Zustand), acciones y selectores derivados puros |
+| Estado | `src/store/` | Estado global (Zustand) partido en slices por dominio, y los selectores puros |
 | Backend | `src/lib/backend/` | Interfaz `Backend`: Tauri (`tauri.ts`) o en memoria (`memoria.ts`) |
 | Costura | `src/lib/api.ts` | Único punto que habla con Tauri |
 | Tipos | `src/lib/types.ts` | Espejo del esquema SQLite y de los modelos de vista |
@@ -95,7 +95,16 @@ registro) siguen en `api.ts`, que ya no hace nada fuera de Tauri.
 
 Otras convenciones que conviene respetar:
 
-- **Los selectores de `store.ts` son funciones puras** sobre un snapshot del estado
+- **El store está partido por dominios** (`src/store/`). Cada slice —`biblioteca`, `cultos`,
+  `reproductor`, `proyeccion`, `hojas`, `detalle`, `escaneo`, `duplicados`,
+  `actualizaciones`, `interfaz`— tiene su parte del estado, su tipo (`BibliotecaSlice`…)
+  y sus acciones; `index.ts` solo los junta y `CantoralState` es la suma. Lo que
+  comparten varios slices (avisar, aplicar lo que contesta el backend, los guardados con
+  retardo y sus temporizadores) vive en `contexto.ts`; las reglas puras de la proyección,
+  en `src/lib/proyeccion.ts`. Una acción nueva va al slice de su dominio; si ninguno
+  encaja, pregúntate antes si no es un dominio nuevo. Ningún archivo debería pasar de
+  ~600 líneas. Los componentes siguen importando de `../store` como siempre.
+- **Los selectores de `src/store/selectores.ts` son funciones puras** sobre un snapshot del estado
   (`applyFilters`, `buildGroups`, `ocasiones`, `playQueue`…). Son las que se prueban
   en `src/lib/__tests__/selectors.test.ts`; mantenlas sin efectos.
 - **Las migraciones son aditivas**: `db::open_and_migrate` usa `ALTER TABLE … ADD COLUMN`
