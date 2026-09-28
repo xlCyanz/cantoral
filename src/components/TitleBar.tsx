@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Logotipo } from "./Logo";
-import { isMacOS, isTauri, watchMaximized, winClose, winMinimize, winToggleMaximize } from "../lib/api";
+import { isMacOS, isTauri, registrar, watchMaximized, winClose, winMinimize, winToggleMaximize } from "../lib/api";
 
 const ctrlBtn = { width: 46, height: 34, display: "grid", placeItems: "center", color: "var(--text-2)" } as const;
 
@@ -27,6 +27,14 @@ export default function TitleBar() {
     // y en Windows parecía que el doble clic no hacía nada.
     <div
       data-tauri-drag-region
+      // Solo para el log: arrastrar y maximizar los hace Tauri. Si la línea
+      // aparece y la ventana no responde, el clic llegó y lo que falla es el
+      // núcleo.
+      onMouseDown={(e) => {
+        if (nativeMac || e.button !== 0 || e.target !== e.currentTarget) return;
+        if (e.detail === 1) registrar("info", "window: drag requested");
+        else if (e.detail === 2) registrar("info", "window: double-click maximize requested");
+      }}
       style={{
         height: 34,
         flex: "0 0 auto",

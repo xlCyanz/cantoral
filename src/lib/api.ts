@@ -35,17 +35,34 @@ async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 
 // ---------------------------------------------------------------- window
 
-export async function winMinimize(): Promise<void> {
+/**
+ * Una operación sobre la ventana, dejando rastro en el log.
+ *
+ * En Windows la barra es nuestra, y cuando sus botones «no hacen nada» hay
+ * tres causas posibles que desde fuera se ven iguales: el clic no llega, el
+ * núcleo rechaza la orden, o la acepta y la ventana no responde. La línea de
+ * antes y la de después dicen cuál. Nunca falla hacia arriba: quien la llama
+ * lo hace con `void`, y un rechazo ahí solo acabaría en la consola.
+ */
+async function operarVentana(nombre: string, op: () => Promise<void>): Promise<void> {
   if (!isTauri()) return;
-  await getCurrentWindow().minimize();
+  registrar("info", `window: ${nombre} requested`);
+  try {
+    await op();
+    registrar("info", `window: ${nombre} done`);
+  } catch (err) {
+    registrar("error", `window: ${nombre} failed: ${String(err)}`);
+  }
 }
-export async function winToggleMaximize(): Promise<void> {
-  if (!isTauri()) return;
-  await getCurrentWindow().toggleMaximize();
+
+export function winMinimize(): Promise<void> {
+  return operarVentana("minimize", () => getCurrentWindow().minimize());
 }
-export async function winClose(): Promise<void> {
-  if (!isTauri()) return;
-  await getCurrentWindow().close();
+export function winToggleMaximize(): Promise<void> {
+  return operarVentana("toggle maximize", () => getCurrentWindow().toggleMaximize());
+}
+export function winClose(): Promise<void> {
+  return operarVentana("close", () => getCurrentWindow().close());
 }
 
 /** Subscribe to the window's maximized state (for the restore/maximize icon). */
@@ -372,6 +389,22 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
+/**
+ * Una línea en el log de la app, que es lo que se pide cuando algo falla en
+ * otra PC. Nunca falla ni se espera: un diagnóstico no puede ser la causa de
+ * otro problema.
+ */
+export function registrar(nivel: "info" | "warn" | "error", mensaje: string): void {
+  if (!isTauri()) return;
+  void inv<void>("registrar", { nivel, mensaje }).catch(() => {});
+}
+
+/** Full path of the app's log file. */
+export async function rutaDelLog(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return inv<string>("ruta_del_log");
+}
+
 export async function updateTrackDuration(id: string, path: string, duration: number): Promise<void> {
   if (!isTauri()) return;
   await inv("update_track_duration", { id, path, duration });
