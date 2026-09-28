@@ -2,7 +2,6 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
-import { SCAN_FILES } from "../lib/seed";
 import { coverStyle, hasCover } from "../lib/covers";
 import Empty, { emptyBtnSecondary } from "./Empty";
 import { favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
@@ -338,13 +337,13 @@ function EmptyState() {
   );
 }
 
-function ScanningState() {
+/** La biblioteca a pantalla completa mientras un primer escaneo no tiene nada detrás. Exportada para las pruebas. */
+export function ScanningState() {
   const scanPct = useStore((s) => s.scanPct);
-  const scanIdx = useStore((s) => s.scanIdx);
   const scanFile = useStore((s) => s.scanFile);
   const cancelScan = useStore((s) => s.cancelScan);
   const pct = Math.round(scanPct);
-  const archivo = scanFile || SCAN_FILES[scanIdx] || "";
+  const archivo = scanFile;
   return (
     <div style={marcoEstado}>
       <div style={{ width: "100%", maxWidth: 330, textAlign: "center" }}>

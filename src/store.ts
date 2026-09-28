@@ -510,7 +510,6 @@ export interface CantoralState {
    * formato o porque el escaneo se rompió.
    */
   scanOmitidos: number;
-  scanIdx: number;
   scanFile: string;
   /** Message from the last failed backend call, shown in the error state. */
   scanError: string | null;
@@ -1087,7 +1086,6 @@ export const useStore = create<CantoralState>((set, get) => {
     scanning: false,
     scanPct: 0,
     scanOmitidos: 0,
-    scanIdx: 0,
     scanFile: "",
     scanError: null,
     ultimaCopia: null,
@@ -1724,7 +1722,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // The view does move to the library here — the user just asked for a
         // folder from the add dialog, so that is where they expect to land.
         // What it no longer does is *replace* the library with the scan.
-        set({ view: "biblioteca", scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
+        set({ view: "biblioteca", scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
         startLiveRefresh();
         addAndScanFolder(path, recursive)
           .then((snap) => {
@@ -1748,7 +1746,7 @@ export const useStore = create<CantoralState>((set, get) => {
     // first of those has any business moving the user.
     startScan: () => {
       if (scanTimer) clearInterval(scanTimer);
-      set({ scanning: true, scanPct: 0, scanIdx: 0, scanOmitidos: 0, tarjetaEscaneoOculta: false });
+      set({ scanning: true, scanPct: 0, scanFile: SCAN_FILES[0], scanOmitidos: 0, tarjetaEscaneoOculta: false });
       scanTimer = setInterval(() => {
         const p = get().scanPct + Math.random() * 7 + 3;
         if (p >= 100) {
@@ -1757,9 +1755,13 @@ export const useStore = create<CantoralState>((set, get) => {
           set({ scanPct: 100, scanning: false, libState: "content" });
           toast("Biblioteca actualizada");
         } else {
+          // Lo que el núcleo manda en `scan-progress`, inventado: los nombres
+          // de demostración se quedan aquí y la tarjeta nunca los lee por su
+          // cuenta. Antes caía en ellos cada vez que la app real mandaba el
+          // archivo vacío, y enseñaba canciones que no están en el disco.
           set({
             scanPct: p,
-            scanIdx: Math.min(SCAN_FILES.length - 1, Math.floor((p / 100) * SCAN_FILES.length)),
+            scanFile: SCAN_FILES[Math.min(SCAN_FILES.length - 1, Math.floor((p / 100) * SCAN_FILES.length))],
           });
         }
       }, 160);
@@ -2418,7 +2420,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // No `view` here on purpose. A re-scan is started from Configuración,
         // and yanking the user out of the screen they are working on is the
         // whole complaint this change exists to fix.
-        set({ scanning: true, scanPct: 0, scanIdx: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
+        set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
         startLiveRefresh();
         rescanFolderCmd(id)
           .then((snap) => {
