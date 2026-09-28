@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Database, FolderPlus, HelpCircle, ListMusic, Play, Search } from "lucide-react";
 import { useStore } from "../store";
 import { SHORTCUTS } from "../lib/shortcuts";
+import { botonDialogoPrimario } from "../lib/styles";
 import Modal from "./Modal";
 
 const STEPS: { icon: ReactNode; title: string; desc: string }[] = [
@@ -63,7 +64,7 @@ export default function HelpDialog() {
       </div>
 
       <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", background: "var(--surface-2)", flex: "0 0 auto" }}>
-        <button onClick={closeDialog} className="hb-primary" style={{ height: 40, padding: "0 20px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)" }}>Entendido</button>
+        <button onClick={closeDialog} className="hb-primary" style={{ ...botonDialogoPrimario, padding: "0 20px" }}>Entendido</button>
       </div>
     </Modal>
   );

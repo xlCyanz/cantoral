@@ -3,7 +3,7 @@
 // que dar la vuelta en lugar de salirse del diálogo.
 
 import { describe, expect, it } from "vitest";
-import { siguienteFoco } from "../Modal";
+import { siguienteFoco } from "../../lib/foco";
 
 /** Sentinels: the function only ever compares identity and position. */
 const a = {} as HTMLElement;

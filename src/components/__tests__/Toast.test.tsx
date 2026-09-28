@@ -6,7 +6,7 @@
 // a 8 px dice lo mismo sin competir con el titular.
 
 import { describe, expect, it } from "vitest";
-import { toastPresentation } from "../Toast";
+import { toastPresentation } from "../../lib/toast";
 
 describe("Toast", () => {
   it("un error interrumpe, y en rojo", () => {

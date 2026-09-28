@@ -25,12 +25,12 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
 
-      // Off on purpose. It only affects how granular Vite's hot reload is in
-      // development, never correctness, and three files legitimately export a
-      // component next to a shared style constant (Empty.tsx, Toast.tsx). To
-      // turn it back on, move those constants into src/lib/styles.ts, which
-      // already exists for exactly that.
-      "react-refresh/only-export-components": "off",
+      // A file under src/components exports components and nothing else, so
+      // Vite can hot-swap it in place. Shared styles go in src/lib/styles.ts
+      // and helpers a component needs (and its tests import) go in their own
+      // module under src/lib — see foco.ts, toast.ts, logo.ts, duplicados.ts.
+      // Exporting types next to a component is fine; the rule ignores them.
+      "react-refresh/only-export-components": "error",
 
       // `any` defeats the point of the domain types in src/lib/types.ts.
       "@typescript-eslint/no-explicit-any": "error",

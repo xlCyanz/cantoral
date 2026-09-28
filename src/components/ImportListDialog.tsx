@@ -1,6 +1,7 @@
 import { Check, FileInput, Search, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import type { PistaCompartida } from "../lib/compartir";
+import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
 /** `252` → `"4:12"`, for a duration that only exists inside the file. */
@@ -128,14 +129,14 @@ export default function ImportListDialog() {
       </div>
 
       <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-2)" }}>
-        <button onClick={closeDialog} className="hb-s3" style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600 }}>
+        <button onClick={closeDialog} className="hb-s3" style={botonDialogoSecundario}>
           Cancelar
         </button>
         <button
           onClick={confirmImport}
           disabled={nada}
           className="hb-primary"
-          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: "13.5px", fontWeight: 600, boxShadow: "var(--sh-sm)", opacity: nada ? 0.55 : 1, cursor: nada ? "not-allowed" : "pointer" }}
+          style={{ ...botonDialogoPrimario, opacity: nada ? 0.55 : 1, cursor: nada ? "not-allowed" : "pointer" }}
         >
           {faltantes.length > 0 ? `Crear con ${encontradas.length}` : "Crear la lista"}
         </button>

@@ -53,35 +53,3 @@ const circle: CSSProperties = {
   marginBottom: 14,
   color: "var(--text-3)",
 };
-
-/** Secondary (outline) action button used in empty states. */
-export const emptyBtnSecondary: CSSProperties = {
-  height: 42,
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "0 18px",
-  borderRadius: 11,
-  border: "1px solid var(--border-2)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  fontSize: 14,
-  fontWeight: 600,
-  transition: "background .14s",
-};
-
-/** Primary action button used in empty states. */
-export const emptyBtnPrimary: CSSProperties = {
-  height: 42,
-  display: "flex",
-  alignItems: "center",
-  gap: 9,
-  padding: "0 20px",
-  borderRadius: 11,
-  background: "var(--primary-fill)",
-  color: "var(--on-primary)",
-  fontSize: 14,
-  fontWeight: 600,
-  boxShadow: "var(--sh-sm)",
-  transition: "background .14s",
-};

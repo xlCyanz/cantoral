@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { motivoEnPalabras, tamano } from "../DuplicateGroups";
+import { motivoEnPalabras, tamano } from "../../lib/duplicados";
 
 describe("tamano", () => {
   it("uses KB below a megabyte", () => {

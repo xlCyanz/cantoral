@@ -3,9 +3,9 @@ import type { CSSProperties } from "react";
 import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
-import { ocasionBadge, ocupadoStyle } from "../lib/styles";
+import { botonPrimario, botonSecundario, emptyBtnSecondary, ocasionBadge, ocupadoStyle } from "../lib/styles";
 import type { Track } from "../lib/types";
-import Empty, { emptyBtnSecondary } from "./Empty";
+import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
 
 const GRID = "26px 26px minmax(150px,3fr) 116px 58px 86px";
@@ -180,7 +180,7 @@ export default function PlaylistView() {
             <span>{order.length} pistas · {duracion}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
-            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ height: 42, display: "flex", alignItems: "center", gap: 9, padding: "0 20px", borderRadius: 11, background: "var(--primary-fill)", color: "var(--on-primary)", fontSize: 14, fontWeight: 700, boxShadow: "var(--sh-sm)", transition: "background .14s,transform .08s" }}>
+            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ ...botonPrimario(42), fontWeight: 700, transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
             </button>
             {/* El documento pone «Proyectar» aquí, entre reproducir e
@@ -188,17 +188,17 @@ export default function PlaylistView() {
                 ir; ahora sí, y es la única puerta: se proyecta el culto que
                 está abierto. */}
             <button onClick={() => showProyeccion()} className="hb-s2" title="Sacar el culto por el proyector"
-              style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+              style={botonSecundario(42)}>
               <MonitorPlay size={16} />Proyectar
             </button>
-            <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+            <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={botonSecundario(42)}>
               <Presentation size={16} />Modo culto
             </button>
             {/* Era «Exportar», que escribía un .html y lo abría en el
                 navegador para que allí alguien pulsara Cmd/Ctrl+P. Lo que se
                 quería era la hoja; el archivo suelto era el peaje. Guardar el
                 .html sigue estando, dentro de la vista previa. */}
-            <button onClick={openPrintPreview} className="hb-s2" style={{ height: 42, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: "13.5px", fontWeight: 600, transition: "background .14s" }}>
+            <button onClick={openPrintPreview} className="hb-s2" style={botonSecundario(42)}>
               <Printer size={16} />Imprimir
             </button>
             <div style={{ position: "relative" }}>
