@@ -1,15 +1,19 @@
 // The three destructive actions must go through a confirmation, and — the part
 // that matters — must not do anything until it is accepted. These run against
-// the real store in its browser (mock) mode, where the seed catalogue stands in
-// for the backend.
+// the real store over the in-memory backend the browser uses, hydrated from the
+// seed catalogue the way `pnpm dev` is.
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useStore } from "../../store";
+import { usarBackend } from "../backend";
+import { crearMemoria } from "../backend/memoria";
 
 const initial = useStore.getState();
 
-beforeEach(() => {
+beforeEach(async () => {
+  usarBackend(crearMemoria());
   useStore.setState(initial, true);
+  await useStore.getState().hydrate();
 });
 
 describe("quitar una carpeta", () => {
@@ -45,7 +49,7 @@ describe("quitar una carpeta", () => {
     expect(useStore.getState().folders).toHaveLength(before);
   });
 
-  it("solo al aceptar se quita", () => {
+  it("solo al aceptar se quita", async () => {
     const folder = useStore.getState().folders[0];
     const before = useStore.getState().folders.length;
     useStore.getState().removeFolder(folder.id);
@@ -53,7 +57,7 @@ describe("quitar una carpeta", () => {
     useStore.getState().acceptConfirm();
 
     expect(useStore.getState().confirm).toBeNull();
-    expect(useStore.getState().folders).toHaveLength(before - 1);
+    await vi.waitFor(() => expect(useStore.getState().folders).toHaveLength(before - 1));
     expect(useStore.getState().folders.some((f) => f.id === folder.id)).toBe(false);
   });
 
@@ -84,14 +88,14 @@ describe("eliminar una lista", () => {
     expect(useStore.getState().playlists).toHaveLength(before);
   });
 
-  it("solo al aceptar se borra", () => {
+  it("solo al aceptar se borra", async () => {
     const id = useStore.getState().curPlaylist;
     const before = useStore.getState().playlists.length;
     useStore.getState().deleteCurrentList();
 
     useStore.getState().acceptConfirm();
 
-    expect(useStore.getState().playlists).toHaveLength(before - 1);
+    await vi.waitFor(() => expect(useStore.getState().playlists).toHaveLength(before - 1));
     expect(useStore.getState().playlists.some((p) => p.id === id)).toBe(false);
     expect(useStore.getState().view).toBe("colecciones");
   });
@@ -123,14 +127,14 @@ describe("quitar una pista de la biblioteca", () => {
     expect(useStore.getState().tracks).toHaveLength(before);
   });
 
-  it("solo al aceptar se quita", () => {
+  it("solo al aceptar se quita", async () => {
     const t = faltante();
     const before = useStore.getState().tracks.length;
     useStore.getState().deleteTrack(t.id);
 
     useStore.getState().acceptConfirm();
 
-    expect(useStore.getState().tracks).toHaveLength(before - 1);
+    await vi.waitFor(() => expect(useStore.getState().tracks).toHaveLength(before - 1));
     expect(useStore.getState().tracks.some((x) => x.id === t.id)).toBe(false);
   });
 });

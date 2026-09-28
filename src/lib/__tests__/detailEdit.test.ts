@@ -9,16 +9,19 @@ const updateTrackCmd =
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
+  // Dentro de Tauri: el camino que corre en la app, que llega a `api.ts`.
+  isTauri: () => true,
   updateTrackCmd: (id: string, artista: string, bpm: number, ocasion: string) =>
     updateTrackCmd(id, artista, bpm, ocasion),
 }));
 
 const { useStore } = await import("../../store");
+const { estadoDeEjemplo } = await import("./estadoDeEjemplo");
 const initial = useStore.getState();
 
 beforeEach(() => {
   vi.useFakeTimers();
-  useStore.setState(initial, true);
+  useStore.setState({ ...initial, ...estadoDeEjemplo() }, true);
   updateTrackCmd.mockReset();
   updateTrackCmd.mockResolvedValue(undefined);
   useStore.getState().onRowClick(useStore.getState().tracks[0].id);

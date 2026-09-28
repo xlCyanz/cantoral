@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Folder, FolderPlus, Search } from "lucide-react";
 import { useStore } from "../store";
-import { pickFolder } from "../lib/api";
+import { backend } from "../lib/backend";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
@@ -27,7 +27,7 @@ function AddFolderForm() {
   const [subfolders, setSubfolders] = useState(true);
 
   const browse = async () => {
-    const chosen = await pickFolder();
+    const chosen = await backend().pickFolder();
     if (chosen) setPath(chosen);
   };
 

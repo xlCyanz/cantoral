@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus, Type, X } from "lucide-react";
 import { useStore } from "../store";
-import { parseHoja } from "../lib/chords";
+import HojaAcordes from "./HojaAcordes";
 
 const boton: CSSProperties = {
   height: 34,
@@ -43,44 +43,7 @@ function Hoja({ acordes, letra, escala }: {
       <div style={{ fontSize: 20 * escala, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{letra}</div>
     );
   }
-  const lineas = parseHoja(acordes);
-  return (
-    <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 19 * escala, lineHeight: 1.3 }}>
-      {lineas.map((linea, i) => {
-        if (linea.tipo === "vacia") return <div key={i} style={{ height: 20 * escala }} />;
-        if (linea.tipo === "seccion") {
-          return (
-            <div
-              key={i}
-              style={{
-                fontFamily: "inherit",
-                fontSize: 14 * escala,
-                fontWeight: 700,
-                letterSpacing: ".6px",
-                textTransform: "uppercase",
-                color: "var(--primary)",
-                margin: `${22 * escala}px 0 ${6 * escala}px`,
-              }}
-            >
-              {linea.etiqueta}
-            </div>
-          );
-        }
-        return (
-          <div key={i} style={{ display: "flex", flexWrap: "wrap", marginBottom: 4 * escala }}>
-            {linea.segmentos.map((seg, j) => (
-              <span key={j} style={{ display: "inline-block", whiteSpace: "pre" }}>
-                <span style={{ display: "block", fontWeight: 700, color: "var(--primary)", minHeight: "1.25em" }}>
-                  {seg.acorde}
-                </span>
-                <span style={{ display: "block" }}>{seg.texto}</span>
-              </span>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <HojaAcordes acordes={acordes} tamano="atril" escala={escala} />;
 }
 
 /**

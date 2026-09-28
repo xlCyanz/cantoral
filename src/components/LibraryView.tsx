@@ -2,38 +2,14 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
 import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
-import { coverStyle, hasCover } from "../lib/covers";
+import { coverStyle } from "../lib/covers";
 import Empty from "./Empty";
+import GlifoDePista from "./GlifoDePista";
 import { emptyBtnSecondary, favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
 import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
 import type { Densidad, SortKey, Track } from "../lib/types";
 
 const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 62px 72px";
-
-/** White glyph shown inside a cover swatch, keyed by track state. */
-function CoverInner({ t, chico }: { t: Track; chico?: boolean }) {
-  if (hasCover(t)) return null;
-  const g = (n: number) => (chico ? Math.round(n * 0.62) : n);
-  if (t.missing)
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(16), height: g(16) }}>
-        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-        <path d="M12 9v4" /><path d="M12 17h.01" />
-      </svg>
-    );
-  if (t.video)
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(17), height: g(17) }}>
-        <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
-        <rect x="2" y="6" width="14" height="12" rx="2" />
-      </svg>
-    );
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: g(15), height: g(15) }}>
-      <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-    </svg>
-  );
-}
 
 function Equalizer() {
   const bar: CSSProperties = { width: 3, height: 14, background: "var(--primary)", borderRadius: 2, transformOrigin: "bottom" };
@@ -146,7 +122,7 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
 
       {/* title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <div style={coverStyle(t, compacta ? 24 : 40)}><CoverInner t={t} chico={compacta} /></div>
+        <div style={coverStyle(t, compacta ? 24 : 40)}><GlifoDePista t={t} size={compacta ? "compacta" : "fila"} /></div>
         {/* Cómoda pone el artista debajo del título; compacta lo pone al lado,
             porque en 34 px no caben dos líneas y perder el artista para ganar
             filas no es un intercambio que valga la pena. */}

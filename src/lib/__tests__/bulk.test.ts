@@ -49,7 +49,14 @@ const CINCO = ["a", "b", "c", "d", "e"].map((id) => track(id, { titulo: `Pista $
 beforeEach(() => {
   useStore.setState(initial, true);
   for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) m.mockReset();
-  addTracksToPlaylistCmd.mockResolvedValue(null);
+  // Lo que contesta el núcleo: las listas, con lo nuevo al final y sin repetir.
+  addTracksToPlaylistCmd.mockImplementation(async (pl, ids) => {
+    const st = useStore.getState();
+    return st.playlists.map((p) => {
+      const ya = st.plOrder[p.id] ?? [];
+      return { ...p, ids: p.id === pl ? [...ya, ...ids.filter((id) => !ya.includes(id))] : ya };
+    });
+  });
   setTracksFavCmd.mockResolvedValue(undefined);
   deleteTracksCmd.mockResolvedValue(null);
   useStore.setState({
@@ -140,7 +147,6 @@ describe("agregar a una lista", () => {
     // «0 pistas agregadas» se lee como que algo falló. Ya estaban, que es un
     // resultado y no un fallo.
     useStore.setState({ plOrder: { p1: ["a", "b"] }, selection: ["a", "b"] });
-    addTracksToPlaylistCmd.mockResolvedValue(null);
 
     useStore.getState().bulkAddToPlaylist("p1");
 
