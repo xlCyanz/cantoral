@@ -2,7 +2,9 @@
 // no external CSS, fonts or images — that opens in the system browser, where
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
-import { parseHoja } from "./chords";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import HojaAcordes from "../components/HojaAcordes";
 import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 
@@ -71,21 +73,15 @@ export function hayLetras(tracks: readonly Track[], sheets: Record<string, Sheet
   return tracks.some((t) => escrita(sheets[t.id]));
 }
 
-/** One ChordPro sheet as chords stacked over the words they fall on. */
+/**
+ * One ChordPro sheet as chords stacked over the words they fall on.
+ *
+ * Drawn by the same component as the editor preview and modo culto, so the
+ * three cannot drift apart. React escapes every piece of text it renders,
+ * which keeps what the user typed from being read as markup here too.
+ */
 function lineasHtml(acordes: string): string {
-  return parseHoja(acordes)
-    .map((linea) => {
-      if (linea.tipo === "vacia") return '    <div class="blanco"></div>';
-      if (linea.tipo === "seccion") return `    <h3>${esc(linea.etiqueta ?? "")}</h3>`;
-      const trozos = linea.segmentos
-        .map(
-          (seg) =>
-            `<span class="t"><span class="a">${esc(seg.acorde)}</span><span class="w">${esc(seg.texto)}</span></span>`,
-        )
-        .join("");
-      return `    <div class="linea">${trozos}</div>`;
-    })
-    .join("\n");
+  return `    ${renderToStaticMarkup(createElement(HojaAcordes, { acordes, tamano: "impresion" }))}`;
 }
 
 export function playlistSheetHtml(
@@ -156,12 +152,6 @@ export function playlistSheetHtml(
   .hoja { page-break-before: always; margin-top: 34px; }
   .hoja h2 { font-size: 19px; margin: 0 0 2px; }
   .hoja .meta { font-size: 11px; color: #8d95a1; margin: 0 0 14px; }
-  .hoja h3 { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #3a4d8f; margin: 16px 0 4px; }
-  .linea { display: flex; flex-wrap: wrap; margin-bottom: 3px; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 13px; line-height: 1.25; }
-  .linea .t { display: inline-block; white-space: pre; }
-  .linea .a { display: block; font-weight: 700; color: #3a4d8f; min-height: 1.2em; }
-  .linea .w { display: block; }
-  .blanco { height: 12px; }
   pre.letra { font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 0; }
   @media print { body { padding: 0; } }
 </style>
