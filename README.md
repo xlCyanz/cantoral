@@ -95,7 +95,7 @@ La misma lista está dentro de la app: <kbd>?</kbd>.
 | <kbd>↑</kbd> / <kbd>↓</kbd> | Canción anterior / siguiente en modo culto |
 | <kbd>→</kbd> | Pasar al siguiente elemento proyectado |
 | <kbd>B</kbd> | Dejar el proyector en negro |
-| <kbd>Esc</kbd> | Cerrar diálogo o panel, o cortar la proyección |
+| <kbd>Esc</kbd> | Cerrar diálogo o panel; en Proyección, cortar la salida |
 | <kbd>?</kbd> | Mostrar la ayuda |
 
 ### Formatos soportados
@@ -485,8 +485,9 @@ Conecta el proyector, abre el culto y pulsa **Proyectar**: llegas a la vista de
 Proyección, con la cola del culto. Ahí, **Proyectar** otra vez sale al aire por
 el primer elemento, en la pantalla que no es la tuya —si hay varias, la eliges
 ahí mismo—. Desde ese momento el culto corre entero: cada elemento pasa solo al
-siguiente al acabarse. <kbd>B</kbd> deja la pantalla en negro y <kbd>Esc</kbd>
-corta la salida.
+siguiente al acabarse. Desde la vista de Proyección, <kbd>B</kbd> deja la
+pantalla en negro y <kbd>Esc</kbd> corta la salida; en el resto de la app, Esc
+no toca el proyector.
 </details>
 
 <details>

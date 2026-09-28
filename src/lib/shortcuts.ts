@@ -19,7 +19,7 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘/Ctrl + A", label: "Seleccionar todo lo que muestra la biblioteca" },
   { keys: "A", label: "Agregar a un culto lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
-  { keys: "Esc", label: "Cerrar diálogo o panel, o cortar la proyección" },
+  { keys: "Esc", label: "Cerrar diálogo o panel; en Proyección, cortar la salida" },
   { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
   { keys: "B", label: "Dejar el proyector en negro" },
   { keys: "→", label: "Pasar al siguiente elemento proyectado" },
@@ -56,11 +56,15 @@ export function registerShortcuts(): () => void {
       } else if (s.rowMenu) {
         e.preventDefault();
         s.closeRowMenu();
-      } else if (s.proyectando) {
-        // Con la salida abierta, Esc la corta. Va aquí y no antes porque un
-        // diálogo encima sigue siendo lo más interno; y va antes que la
-        // selección y la búsqueda porque, en medio de un culto, Esc quiere
-        // decir «quita eso de la pantalla grande» y no «deselecciona».
+      } else if (s.proyectando && s.view === "proyeccion") {
+        // Con la salida abierta y la vista de Proyección delante, Esc la corta.
+        // Va aquí y no antes porque un diálogo encima sigue siendo lo más
+        // interno; y va antes que la selección y la búsqueda porque, ahí, Esc
+        // quiere decir «quita eso de la pantalla grande».
+        //
+        // Solo ahí, como B y →. Desde la biblioteca, quien pulsa Esc está
+        // borrando lo que buscaba o saliendo del buscador, y cortaba el
+        // proyector delante de la congregación (#129).
         e.preventDefault();
         s.alternarProyeccion();
       } else if (s.selection.length) {
