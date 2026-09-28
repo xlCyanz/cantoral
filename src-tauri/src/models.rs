@@ -31,6 +31,9 @@ pub struct Track {
     /// every refresh, and a few thousand sheets would turn every snapshot into
     /// megabytes of text nothing on that screen is going to read.
     pub tiene_hoja: bool,
+    /// Whether it came in with the latest scan: what «Recién agregadas» shows
+    /// (#139). A rescan that finds nothing new leaves no track marked.
+    pub nueva: bool,
 }
 
 /// The lyrics and chords of one track, fetched only when something shows them.
@@ -118,6 +121,9 @@ pub struct ScanProgress {
     /// Archivos de medios que se reconocieron y no se indexaron porque ningún
     /// motor de webview los decodifica.
     pub omitidos: i64,
+    /// Media files the walk found: what `added` counts up to. «120 de 3 400»
+    /// says more than «4 %» to someone deciding whether to wait (#139).
+    pub total: i64,
 }
 
 /// Format seconds as m:ss.

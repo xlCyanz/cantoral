@@ -184,6 +184,8 @@ describe("escaneo simulado", () => {
 
     expect(avisos.length).toBeGreaterThan(2);
     expect(avisos[avisos.length - 1].done).toBe(true);
+    // Cuenta archivos como el núcleo: hasta el total que encontró.
+    expect(avisos[avisos.length - 1]).toMatchObject({ added: 40, total: 40 });
     expect(snap.folders.some((f) => f.ruta === CARPETA_DE_EJEMPLO && f.lastScan)).toBe(true);
   });
 
@@ -210,5 +212,21 @@ describe("lo que un navegador no sabe hacer", () => {
 
   it("no finge reproducir archivos", () => {
     expect(b.reproduceArchivos).toBe(false);
+  });
+});
+
+describe("recién agregadas", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("el catálogo de ejemplo trae algunas, y un escaneo sin novedades las deja en cero", async () => {
+    const m = crearMemoria();
+    expect((await m.getLibrary()).tracks.some((t) => t.nueva)).toBe(true);
+
+    const fin = m.rescanFolder("f1");
+    await vi.runAllTimersAsync();
+    await fin;
+
+    expect((await m.getLibrary()).tracks.some((t) => t.nueva)).toBe(false);
   });
 });

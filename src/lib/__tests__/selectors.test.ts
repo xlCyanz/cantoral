@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, filasDeLista, ocasiones, pistasPorId, plantillas, plDur, playQueue, queueForView, ultimoId } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, pistasPorId, plantillas, plDur, playQueue, queueForView, sugerenciasDeOcasion, ultimoId } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -96,8 +96,21 @@ describe("applyFilters", () => {
     expect(applyFilters(state({ qf: "missing" })).map((t) => t.id)).toEqual(["3"]);
   });
 
-  it("orders «recientes» by recency and ignores the sort column", () => {
-    expect(applyFilters(state({ qf: "recent" })).map((t) => t.id)).toEqual(["2", "3", "1"]);
+  it("«recientes» shows what the latest scan brought, newest first, ignoring the sort column", () => {
+    const tracks = [
+      ...TRACKS.map((t) => ({ ...t, nueva: t.id !== "1" })),
+      ...Array.from({ length: 12 }, (_, i) => track({ id: `n${i}`, added: 10 + i, nueva: true })),
+    ];
+    const ids = applyFilters(state({ tracks, qf: "recent" })).map((t) => t.id);
+    // Todas las del último escaneo, no las ocho de id más alto (#139).
+    expect(ids).toHaveLength(14);
+    expect(ids.slice(0, 2)).toEqual(["n11", "n10"]);
+    expect(ids.slice(-2)).toEqual(["2", "3"]);
+    expect(ids).not.toContain("1");
+  });
+
+  it("«recientes» is empty after a scan that brought nothing", () => {
+    expect(applyFilters(state({ qf: "recent" }))).toEqual([]);
   });
 
   it("filters by occasion", () => {
@@ -392,5 +405,25 @@ describe("ultimoId", () => {
 
   it("es 0 sin pistas", () => {
     expect(ultimoId([])).toBe(0);
+  });
+});
+
+describe("sugerenciasDeOcasion", () => {
+  it("las de esta iglesia primero, de sus pistas y de sus cultos, y luego las de siempre", () => {
+    const s = state({
+      tracks: [track({ id: "1", ocasion: "Culto de jóvenes" }), track({ id: "2", ocasion: "Adoración" })],
+      playlists: [{ id: "p", nombre: "V", ocasion: "Vigilia", ids: [], plantilla: false, tocada: "" }],
+    });
+    const sugerencias = sugerenciasDeOcasion(s);
+
+    expect(sugerencias.slice(0, 3)).toEqual(["Adoración", "Culto de jóvenes", "Vigilia"]);
+    expect(sugerencias).toContain("Servicio dominical");
+    // Sin repetir la que ya estaba entre las propias.
+    expect(sugerencias.filter((o) => o === "Adoración")).toHaveLength(1);
+  });
+
+  it("sin nada en el catálogo, sugiere las de siempre", () => {
+    const sugerencias = sugerenciasDeOcasion(state({ tracks: [track({ id: "1", ocasion: " " })] }));
+    expect(sugerencias[0]).toBe("Servicio dominical");
   });
 });

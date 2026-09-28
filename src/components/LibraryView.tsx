@@ -5,6 +5,7 @@ import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, 
 import { coverStyle } from "../lib/covers";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
+import { cuentaDeEscaneo } from "../lib/cuentaDeEscaneo";
 import { emptyBtnSecondary, favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
 import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
 import type { Densidad, SortKey, Track } from "../lib/types";
@@ -317,6 +318,7 @@ function EmptyState() {
 export function ScanningState() {
   const scanPct = useStore((s) => s.scanPct);
   const scanFile = useStore((s) => s.scanFile);
+  const cuenta = useStore((s) => cuentaDeEscaneo(s.scanHechos, s.scanTotal));
   const cancelScan = useStore((s) => s.cancelScan);
   const pct = Math.round(scanPct);
   const archivo = scanFile;
@@ -326,7 +328,9 @@ export function ScanningState() {
         <div style={{ width: 34, height: 34, margin: "0 auto 14px", border: "2px solid var(--border-2)", borderTopColor: "var(--primary)", borderRadius: "50%", animation: "canSpin 900ms linear infinite" }} />
         <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>Leyendo tus carpetas</h2>
         <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-2)", lineHeight: 1.55, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-          <span style={{ fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{pct}%</span>
+          <span style={{ fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+            {pct}%{cuenta && ` · ${cuenta}`}
+          </span>
           <span title={archivo} style={{ minWidth: 0, color: "var(--text-3)", fontFamily: "ui-monospace,monospace", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {archivo}
           </span>

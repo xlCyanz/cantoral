@@ -57,6 +57,18 @@ export function encabezadoBiblioteca(
     };
   }
 
+  // Las recién agregadas dicen su criterio: sin él, «8 de 200» no explica por
+  // qué esas y no otras (#139).
+  if (qf === "recent" && !buscando) {
+    return {
+      titulo,
+      subtitulo:
+        mostradas === 0
+          ? "El último escaneo no trajo pistas nuevas."
+          : `${mostradas} ${mostradas === 1 ? "pista llegó" : "pistas llegaron"} con el último escaneo`,
+    };
+  }
+
   const partes: string[] = [];
   // Sin filtro ni búsqueda, «19 de 19» sobra.
   partes.push(

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Layers, ListMusic, Pencil } from "lucide-react";
-import { plantillas as plantillasSel, useStore } from "../store";
+import { plantillas as plantillasSel, sugerenciasDeOcasion, useStore } from "../store";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
@@ -57,6 +57,7 @@ function ListForm({
   const createList = useStore((s) => s.createList);
   const updateList = useStore((s) => s.updateList);
   const plantillas = useStore(plantillasSel);
+  const sugerencias = useStore(sugerenciasDeOcasion);
 
   const [nombre, setNombre] = useState(initialNombre);
   const [ocasion, setOcasion] = useState(initialOcasion);
@@ -148,12 +149,11 @@ function ListForm({
         <div>
           <label style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
           <input value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
+          {/* Las mismas que el panel de detalle: las de esta iglesia primero. */}
           <datalist id="ocasiones-lista">
-            <option value="Servicio dominical" />
-            <option value="Reunión juvenil" />
-            <option value="Comunión" />
-            <option value="Ensayo" />
-            <option value="Adoración especial" />
+            {sugerencias.map((o) => (
+              <option key={o} value={o} />
+            ))}
           </datalist>
         </div>
       </div>

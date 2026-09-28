@@ -1,6 +1,6 @@
 import type { ThemeMode } from "../lib/types";
 import { UI_PREFS_KEY, parsePrefs, resolveView } from "../lib/uiPrefs";
-import { registrar, BIBLIOTECA_SIN_ABRIR } from "../lib/api";
+import { registrar, BIBLIOTECA_SIN_ABRIR, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { CantoralState } from "./tipos";
 import { modulo } from "./contexto";
@@ -38,11 +38,19 @@ export interface EscaneoSlice {
    */
   scanOmitidos: number;
   scanFile: string;
+  /** Archivos que el escaneo en curso ya leyó, y cuántos encontró (#139). */
+  scanHechos: number;
+  scanTotal: number;
   /** Message from the last failed backend call, shown in the error state. */
   scanError: string | null;
   /** When the last backup made this session was written (RFC3339). */
   ultimaCopia: string | null;
   ocultarTarjetaEscaneo: () => void;
+  /**
+   * Seguir el progreso que manda el backend mientras escanea. Devuelve con qué
+   * dejar de escucharlo. Lo llama la app al montarse.
+   */
+  escucharEscaneo: () => Promise<() => void>;
 
   openAddFolder: () => void;
   /** Show the log file in the system file manager, for sending it when something fails. */
@@ -61,15 +69,54 @@ export interface EscaneoSlice {
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
   const { toast, avisarFallo, applySnapshot, startLiveRefresh, stopLiveRefresh } = ctx;
+
+  /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
+  const empezar = () => {
+    modulo.escaneoCancelado = false;
+    set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, scanHechos: 0, scanTotal: 0, tarjetaEscaneoOculta: false });
+    startLiveRefresh();
+  };
+
+  /**
+   * …y al terminar.
+   *
+   * Un escaneo cancelado también acaba aquí, con la biblioteca de ese momento:
+   * lo leído hasta entonces se guardó por lotes. Decía «Biblioteca
+   * actualizada» igual que uno completo, y nadie sabía si lo cancelado se
+   * había quedado (#139).
+   */
+  const terminar = (snap: Snapshot) => {
+    applySnapshot(snap);
+    set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
+    if (modulo.escaneoCancelado) {
+      const { scanHechos: hechos, scanTotal: total } = get();
+      toast("Escaneo cancelado", {
+        tipo: "info",
+        detalle:
+          hechos === 0
+            ? "No llegó a leer ningún archivo."
+            : `Se quedó lo que ya había leído: ${hechos} de ${total} ${total === 1 ? "archivo" : "archivos"}. El resto entra en el próximo escaneo.`,
+      });
+      return;
+    }
+    toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
+  };
+
   return {
     tarjetaEscaneoOculta: false,
     scanning: false,
     scanPct: 0,
     scanOmitidos: 0,
     scanFile: "",
+    scanHechos: 0,
+    scanTotal: 0,
     scanError: null,
     ultimaCopia: null,
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
+    escucharEscaneo: () =>
+      backend().onScanProgress((p) =>
+        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanHechos: p.added, scanTotal: p.total }),
+      ),
 
     openAddFolder: () => {
       // The buttons that get here are disabled while a scan runs, but the
@@ -93,15 +140,11 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
       // The view does move to the library here — the user just asked for a
       // folder from the add dialog, so that is where they expect to land.
       // What it no longer does is *replace* the library with the scan.
-      set({ view: "biblioteca", scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
-      startLiveRefresh();
+      set({ view: "biblioteca" });
+      empezar();
       backend()
         .addAndScanFolder(path, recursive)
-        .then((snap) => {
-          applySnapshot(snap);
-          set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-          toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
-        })
+        .then(terminar)
         .catch((err) => {
           console.error(err);
           modulo.lastFailedAction = () => get().indexFolder(path, recursive);
@@ -110,6 +153,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         .finally(stopLiveRefresh);
     },
     cancelScan: () => {
+      modulo.escaneoCancelado = true;
       stopLiveRefresh();
       void backend().cancelScan().catch(console.error);
       // `libState` is left alone: whatever the library was showing is still
@@ -263,15 +307,10 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
       // No `view` here on purpose. A re-scan is started from Configuración,
       // and yanking the user out of the screen they are working on is the
       // whole complaint this change exists to fix.
-      set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
-      startLiveRefresh();
+      empezar();
       backend()
         .rescanFolder(id)
-        .then((snap) => {
-          applySnapshot(snap);
-          set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-          toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
-        })
+        .then(terminar)
         .catch((err) => {
           console.error(err);
           modulo.lastFailedAction = () => get().rescanFolder(id);

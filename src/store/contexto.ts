@@ -38,6 +38,8 @@ export const modulo = {
   pendingSave: null as string | null,
   /** Debounce for writing the interface preferences back. */
   prefsTimer: null as ReturnType<typeof setTimeout> | null,
+  /** Si el escaneo que está acabando lo canceló el usuario. */
+  escaneoCancelado: false,
 
   /**
    * Deja de escuchar el progreso de la descarga.

@@ -93,9 +93,10 @@ export default function SelectionBar() {
       </button>
 
       {/* El atajo va escrito: Esc ya deshacía la selección antes de que esto
-          existiera, y nadie tenía forma de saberlo. */}
-      <button onClick={clearSelection} aria-label="Deseleccionar todo" className="hb-text" style={{ ...boton, border: 0, background: "transparent", color: "var(--text-2)", fontWeight: 500 }}>
-        Cancelar <span style={{ opacity: 0.65 }}>Esc</span>
+          existiera, y nadie tenía forma de saberlo. «Quitar selección» y no
+          «Cancelar», que en el resto de la app cierra un diálogo (#139). */}
+      <button onClick={clearSelection} aria-label="Quitar la selección" className="hb-text" style={{ ...boton, border: 0, background: "transparent", color: "var(--text-2)", fontWeight: 500 }}>
+        Quitar selección <span style={{ opacity: 0.65 }}>Esc</span>
       </button>
     </div>
   );

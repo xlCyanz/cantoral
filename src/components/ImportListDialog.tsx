@@ -61,6 +61,10 @@ export default function ImportListDialog() {
   const { encontradas, faltantes } = resultado;
   const total = archivo.pistas.length;
   const nada = encontradas.length === 0;
+  // Por el título y la duración es la vía que puede fallar; si alguna vino
+  // por ahí, el resumen lo cuenta para que se sepa si merece mirar (#139).
+  const porTitulo = encontradas.filter((e) => e.por !== "archivo").length;
+  const porArchivo = encontradas.length - porTitulo;
 
   return (
     <Modal labelledBy="import-dialog-title" onClose={closeDialog} maxWidth={540}>
@@ -76,6 +80,12 @@ export default function ImportListDialog() {
             {encontradas.length} de {total} {total === 1 ? "pista está" : "pistas están"} en esta biblioteca
             {archivo.lista.ocasion && ` · ${archivo.lista.ocasion}`}
           </p>
+          {porTitulo > 0 && (
+            <p style={{ fontSize: 12, color: "var(--text-3)", margin: "2px 0 0" }}>
+              {porArchivo > 0 && `${porArchivo} por el mismo archivo, `}
+              {porTitulo} solo por título y duración: revísalas antes de crear la lista.
+            </p>
+          )}
         </div>
       </div>
 

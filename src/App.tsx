@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { flushUiPrefs, useStore } from "./store";
-import { backend } from "./lib/backend";
 import { registerShortcuts } from "./lib/shortcuts";
 import { useVideoDurations } from "./lib/videoDurations";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -45,7 +44,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [tick]);
 
-  // Load the catalogue from the backend (no-op in the browser).
+  // Load the catalogue from the backend: SQLite in the app, the seed in the browser.
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
@@ -53,9 +52,7 @@ export default function App() {
   // Drive the scan progress bar from backend events.
   useEffect(() => {
     let un: (() => void) | undefined;
-    void backend().onScanProgress((p) => {
-      useStore.setState({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos });
-    }).then((u) => (un = u));
+    void useStore.getState().escucharEscaneo().then((u) => (un = u));
     return () => un?.();
   }, []);
 

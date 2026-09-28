@@ -231,6 +231,8 @@ export interface ScanProgressEvent {
   /** Archivos de medios que se reconocieron y no se indexaron porque ningún
    *  motor de webview los decodifica. */
   omitidos: number;
+  /** Archivos de medios que encontró el recorrido: hasta dónde cuenta `added`. */
+  total: number;
 }
 
 /**

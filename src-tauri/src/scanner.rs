@@ -280,10 +280,10 @@ pub fn scan_folder(
     // The closing `done: true` goes out whichever way the walk ends. It used
     // to be reached only on the happy path, so a scan that failed half way
     // left anything waiting on `done` waiting for good (#127).
-    let hecho = Cell::new((0i64, 0i64));
+    let hecho = Cell::new((0i64, 0i64, 0i64));
     let resultado =
         recorrer(conn, folder_id, root, cover_dir, recursive, cancel, on_progress, &hecho);
-    let (added, omitidos) = hecho.get();
+    let (added, omitidos, total) = hecho.get();
     on_progress(ScanProgress {
         folder_id: folder_id.to_string(),
         pct: 100.0,
@@ -291,11 +291,12 @@ pub fn scan_folder(
         done: true,
         added,
         omitidos,
+        total,
     });
     resultado
 }
 
-/// The walk itself. Keeps `hecho` — files indexed, files skipped — up to date
+/// The walk itself. Keeps `hecho` — files indexed, files skipped, files found — up to date
 /// as it goes, so the closing event can report them even when it fails.
 #[allow(clippy::too_many_arguments)]
 fn recorrer(
@@ -306,9 +307,11 @@ fn recorrer(
     recursive: bool,
     cancel: &AtomicBool,
     on_progress: &dyn Fn(ScanProgress),
-    hecho: &Cell<(i64, i64)>,
+    hecho: &Cell<(i64, i64, i64)>,
 ) -> Result<i64> {
     let _ = std::fs::create_dir_all(cover_dir);
+    // Before the first insert: whatever this scan adds is «recién agregada».
+    db::marcar_inicio_de_escaneo(conn)?;
 
     // Collect media paths first so progress has a denominator. En la misma
     // pasada se cuentan los que se reconocen y no se pueden reproducir, para
@@ -328,7 +331,7 @@ fn recorrer(
         }
     }
 
-    hecho.set((0, omitidos));
+    hecho.set((0, omitidos, files.len() as i64));
 
     let total = files.len().max(1);
     let mut count: i64 = 0;
@@ -380,7 +383,7 @@ fn recorrer(
             }
         }
         count += 1;
-        hecho.set((count, omitidos));
+        hecho.set((count, omitidos, files.len() as i64));
 
         if (i + 1) % BATCH == 0 {
             conn.execute_batch("COMMIT; BEGIN;")?;
@@ -398,6 +401,7 @@ fn recorrer(
                 done: false,
                 added: count,
                 omitidos,
+                total: files.len() as i64,
             });
         }
     }
@@ -501,6 +505,49 @@ mod tests {
         })
         .unwrap();
         ultimo.into_inner().unwrap().expect("el escaneo siempre informa del final")
+    }
+
+    fn nuevas(conn: &Connection) -> Vec<String> {
+        let mut t: Vec<String> = db::list_tracks(conn)
+            .unwrap()
+            .into_iter()
+            .filter(|t| t.nueva)
+            .map(|t| t.titulo)
+            .collect();
+        t.sort();
+        t
+    }
+
+    #[test]
+    fn what_came_in_with_the_latest_scan_is_marked_new() {
+        // «Recién agregadas» es lo que trajo el último escaneo (#139): todo lo
+        // del primero, nada de un reescaneo sin novedades, y solo lo nuevo
+        // cuando por fin llega algo.
+        let tree = Tree::new("recien-agregadas");
+        let (conn, fid, covers) = setup(&tree);
+        let go = AtomicBool::new(false);
+
+        scan(&conn, fid, &tree, &covers, true, &go);
+        let todas = db::list_tracks(&conn).unwrap().len();
+        assert_eq!(nuevas(&conn).len(), todas, "the first scan brought everything");
+
+        scan(&conn, fid, &tree, &covers, true, &go);
+        assert!(nuevas(&conn).is_empty(), "a rescan with nothing new leaves nothing new");
+
+        tree.write("recien.wav");
+        scan(&conn, fid, &tree, &covers, true, &go);
+        assert_eq!(nuevas(&conn), vec!["recien".to_string()]);
+    }
+
+    #[test]
+    fn progress_says_how_many_files_the_walk_found() {
+        let tree = Tree::new("total");
+        let (conn, fid, covers) = setup(&tree);
+
+        let resumen = escanear_con_resumen(&conn, fid, &tree, &covers);
+
+        assert_eq!(resumen.total, 5);
+        assert_eq!(resumen.added, resumen.total, "the closing event has done them all");
     }
 
     #[test]
