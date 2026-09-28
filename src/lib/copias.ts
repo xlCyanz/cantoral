@@ -1,9 +1,10 @@
 // Cómo se llama la copia de una lista.
 //
 // La regla vive en Rust (`db::nombre_copia`), que es la que corre en la app.
-// Esto la repite para el modo navegador, igual que el resto del store repite
-// en memoria lo que allí hace SQLite. Las pruebas de los dos lados usan los
-// mismos casos a propósito: si una se mueve, la otra lo dice.
+// Esto la repite solo para el backend en memoria del navegador
+// (`backend/memoria.ts`), que hace en memoria lo que allí hace SQLite. Las
+// pruebas de los dos lados usan los mismos casos a propósito: si una se mueve,
+// la otra lo dice.
 
 /** `«Culto (copia 3)»` → `«Culto»`. Anything else comes back untouched. */
 function raizSinCopia(nombre: string): string {

@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Playlist, Track } from "../types";
 import type { ArchivoDeLista } from "../compartir";
 
-let enTauri = false;
 const exportPlaylistJsonCmd = vi.fn<(dest: string, json: string) => Promise<void>>();
 const pickShareExportPath = vi.fn<(nombre: string) => Promise<string | null>>();
 const pickPlaylistFile = vi.fn<() => Promise<string | null>>();
@@ -15,10 +14,10 @@ const readPlaylistFileCmd = vi.fn<(src: string) => Promise<ArchivoDeLista>>();
 const leerArchivoDelNavegador = vi.fn<() => Promise<ArchivoDeLista | null>>();
 const createPlaylistCmd = vi.fn<(n: string, o: string) => Promise<string>>();
 const setPlaylistOrderCmd = vi.fn<(pl: string, ids: string[]) => Promise<void>>();
+const getPlaylistsCmd = vi.fn<() => Promise<Playlist[]>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
-  isTauri: () => enTauri,
   exportPlaylistJsonCmd: (dest: string, json: string) => exportPlaylistJsonCmd(dest, json),
   pickShareExportPath: (nombre: string) => pickShareExportPath(nombre),
   pickPlaylistFile: () => pickPlaylistFile(),
@@ -26,10 +25,22 @@ vi.mock("../api", async (importOriginal) => ({
   leerArchivoDelNavegador: () => leerArchivoDelNavegador(),
   createPlaylistCmd: (n: string, o: string) => createPlaylistCmd(n, o),
   setPlaylistOrderCmd: (pl: string, ids: string[]) => setPlaylistOrderCmd(pl, ids),
-  getLibrary: () => Promise.resolve(null),
+  getPlaylistsCmd: () => getPlaylistsCmd(),
+  touchPlaylistCmd: async () => {},
 }));
 
 const { useStore } = await import("../../store");
+const { usarBackend } = await import("../backend");
+const { crearMemoria } = await import("../backend/memoria");
+const { tauri } = await import("../backend/tauri");
+
+/** En la app: el backend de Tauri, que llega a los `api` simulados de arriba. */
+const enLaApp = () => usarBackend(tauri);
+/** En el navegador: la base en memoria, con la misma biblioteca que el store. */
+const enElNavegador = () => {
+  const st = useStore.getState();
+  usarBackend(crearMemoria({ tracks: st.tracks, playlists: st.playlists }));
+};
 const initial = useStore.getState();
 
 function pista(id: string, over: Partial<Track> = {}): Track {
@@ -92,7 +103,6 @@ function archivoDe(titulos: string[], nombre = "Culto de otra iglesia"): Archivo
 
 beforeEach(() => {
   useStore.setState(initial, true);
-  enTauri = false;
   [
     exportPlaylistJsonCmd,
     pickShareExportPath,
@@ -101,15 +111,22 @@ beforeEach(() => {
     leerArchivoDelNavegador,
     createPlaylistCmd,
     setPlaylistOrderCmd,
+    getPlaylistsCmd,
   ].forEach((m) => m.mockReset());
+  // El núcleo contesta las listas que ya había más la que acaba de crear.
+  getPlaylistsCmd.mockImplementation(async () => [
+    ...useStore.getState().playlists,
+    { id: "77", nombre: "Culto de otra iglesia", ocasion: "Comunión", ids: [], plantilla: false, tocada: "" },
+  ]);
   setPlaylistOrderCmd.mockResolvedValue(undefined);
   exportPlaylistJsonCmd.mockResolvedValue(undefined);
   conLista();
+  enElNavegador();
 });
 
 describe("enviar una lista a otra instalación", () => {
   beforeEach(() => {
-    enTauri = true;
+    enLaApp();
   });
 
   it("escribe el orden del culto, no el de la biblioteca", async () => {
@@ -165,7 +182,7 @@ describe("enviar una lista a otra instalación", () => {
 
 describe("importar: leer no es crear", () => {
   beforeEach(() => {
-    enTauri = true;
+    enLaApp();
     pickPlaylistFile.mockResolvedValue("/tmp/otra.cantoral.json");
   });
 
@@ -213,7 +230,7 @@ describe("importar: leer no es crear", () => {
   });
 
   it("en el navegador entra por el selector del navegador", async () => {
-    enTauri = false;
+    enElNavegador();
     leerArchivoDelNavegador.mockResolvedValue(archivoDe(["Pista a"]));
 
     useStore.getState().importList();
@@ -225,7 +242,7 @@ describe("importar: leer no es crear", () => {
 
 describe("importar: crear la lista", () => {
   async function preparar(titulos: string[]) {
-    enTauri = true;
+    enLaApp();
     pickPlaylistFile.mockResolvedValue("/tmp/otra.cantoral.json");
     readPlaylistFileCmd.mockResolvedValue(archivoDe(titulos));
     createPlaylistCmd.mockResolvedValue("77");
@@ -294,14 +311,16 @@ describe("importar: crear la lista", () => {
   });
 
   it("en el navegador la lista nueva no es una plantilla", async () => {
-    enTauri = false;
+    enElNavegador();
     leerArchivoDelNavegador.mockResolvedValue(archivoDe(["Pista a"]));
     useStore.getState().importList();
     await vi.waitFor(() => expect(useStore.getState().importPreview).not.toBeNull());
 
     useStore.getState().confirmImport();
 
+    await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Lista importada"));
     const s = useStore.getState();
+    expect(s.curPlaylist).not.toBe("p1");
     expect(s.playlists.find((p) => p.id === s.curPlaylist)?.plantilla).toBe(false);
     expect(s.plOrder[s.curPlaylist]).toEqual(["a"]);
   });
@@ -311,7 +330,7 @@ describe("la vuelta entera", () => {
   it("lo que se exporta se vuelve a importar igual", async () => {
     // El caso del issue: el director arma el repertorio en su portátil y lo
     // pasa al PC de la iglesia, que tiene los mismos archivos.
-    enTauri = true;
+    enLaApp();
     pickShareExportPath.mockResolvedValue("/tmp/culto.cantoral.json");
     useStore.getState().shareCurrentList();
     await vi.waitFor(() => expect(exportPlaylistJsonCmd).toHaveBeenCalled());

@@ -8,6 +8,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { useStore } from "../../store";
+import { estadoDeEjemplo } from "./estadoDeEjemplo";
 
 const initial = useStore.getState();
 
@@ -49,7 +50,7 @@ describe("ver toda la biblioteca", () => {
   });
 
   it("saca de la pantalla de error, que es lo que costaba", () => {
-    useStore.setState({ libState: "error", tracks: initial.tracks });
+    useStore.setState({ libState: "error", tracks: estadoDeEjemplo().tracks });
 
     useStore.getState().verTodaLaBiblioteca();
 
