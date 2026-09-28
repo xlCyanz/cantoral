@@ -87,118 +87,29 @@ CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist_id, position);
 "#;
 
-/// The schema changes made since the first release, in the order they
-/// happened. Entry `n` takes a database from `PRAGMA user_version` `n - 1` to
-/// `n`; `open_and_migrate` runs only the ones a database has not seen yet, each
-/// in its own transaction together with the version bump, so a failure leaves
-/// the database at the last migration that went through and says why.
-///
-/// Append only: never edit, reorder or remove an entry that has shipped, or a
-/// database that already ran it would disagree with one that runs it now. The
-/// table definitions in `SCHEMA` must already include whatever these add — a
-/// brand-new database is created from `SCHEMA` and stamped straight to
-/// `SCHEMA_VERSION` without running any of them.
-///
-/// An `ALTER TABLE … ADD COLUMN` goes alone in its entry. Databases from before
-/// `user_version` existed are at 0 yet already have some or all of these
-/// columns (older builds ran every `ALTER` on each launch and ignored the
-/// result), so «duplicate column name» is accepted as «already applied»; any
-/// other error is not. Kept alone, that tolerance cannot also skip a statement
-/// that would have followed the `ALTER` in the same batch.
-const MIGRATIONS: &[(i64, &str)] = &[
-    (1, "ALTER TABLE tracks ADD COLUMN cover_path TEXT"),
-    (2, "ALTER TABLE folders ADD COLUMN recursive INTEGER NOT NULL DEFAULT 1"),
-    (3, "ALTER TABLE tracks ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0"),
-    (4, "ALTER TABLE tracks ADD COLUMN fsize INTEGER NOT NULL DEFAULT 0"),
-    (5, "ALTER TABLE tracks ADD COLUMN letra TEXT NOT NULL DEFAULT ''"),
-    (6, "ALTER TABLE tracks ADD COLUMN acordes TEXT NOT NULL DEFAULT ''"),
-    (7, "ALTER TABLE playlists ADD COLUMN es_plantilla INTEGER NOT NULL DEFAULT 0"),
-    (8, "ALTER TABLE tracks ADD COLUMN artista_manual INTEGER NOT NULL DEFAULT 0"),
-    (9, "ALTER TABLE playlists ADD COLUMN tocada_at TEXT NOT NULL DEFAULT ''"),
+pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.execute_batch(SCHEMA)?;
+    // A scan runs on its own connection, so both sides must wait rather than
+    // fail with SQLITE_BUSY while the other holds the write lock.
+    conn.execute_batch("PRAGMA busy_timeout = 15000;")?;
+    // Migrations for databases created before a column existed (no-op if present).
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_path TEXT", []);
+    let _ = conn.execute("ALTER TABLE folders ADD COLUMN recursive INTEGER NOT NULL DEFAULT 1", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN fsize INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN letra TEXT NOT NULL DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN acordes TEXT NOT NULL DEFAULT ''", []);
+    let _ = conn
+        .execute("ALTER TABLE playlists ADD COLUMN es_plantilla INTEGER NOT NULL DEFAULT 0", []);
+    let _ =
+        conn.execute("ALTER TABLE tracks ADD COLUMN artista_manual INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE playlists ADD COLUMN tocada_at TEXT NOT NULL DEFAULT ''", []);
     // Un culto de antes de la columna nunca se ha «tocado». Se toma su fecha de
     // creación para que la primera vez salgan del más nuevo al más viejo, y no
-    // todos empatados. Una fila nueva siempre llega con valor, así que basta
-    // con hacerlo una vez.
-    (10, "UPDATE playlists SET tocada_at=created_at WHERE tocada_at=''"),
-];
-
-/// The schema version this build writes and understands: the last migration.
-pub const SCHEMA_VERSION: i64 = MIGRATIONS[MIGRATIONS.len() - 1].0;
-
-/// What a restore answers for a backup written by a newer Cantoral. Its schema
-/// may hold things these migrations know nothing about, so it is refused
-/// rather than opened and half understood.
-pub const RESPALDO_MAS_NUEVO: &str =
-    "Este respaldo es de una versión más nueva de Cantoral. Actualiza la app antes de restaurarlo.";
-
-fn user_version(conn: &Connection) -> Result<i64> {
-    Ok(conn.query_row("PRAGMA user_version", [], |r| r.get(0))?)
-}
-
-/// The one failure a migration may shrug off: the column it adds is already
-/// there, because a build from before `user_version` added it.
-fn is_duplicate_column(err: &rusqlite::Error) -> bool {
-    matches!(
-        err,
-        rusqlite::Error::SqliteFailure(e, Some(msg))
-            if e.code == rusqlite::ErrorCode::Unknown && msg.starts_with("duplicate column name")
-    )
-}
-
-pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
-    let mut conn = Connection::open(path)?;
-    // A scan runs on its own connection, so both sides must wait rather than
-    // fail with SQLITE_BUSY while the other holds the write lock. Set before
-    // anything else: the schema and the migrations below write too, and a
-    // connection still finishing its work must not make them fail on sight.
-    conn.execute_batch("PRAGMA busy_timeout = 15000;")?;
-
-    // A file with no tables yet is a new library: `SCHEMA` creates it already
-    // complete, so there is nothing to migrate.
-    let fresh: bool = conn.query_row(
-        "SELECT NOT EXISTS (SELECT 1 FROM sqlite_master WHERE type='table')",
-        [],
-        |r| r.get(0),
-    )?;
-    conn.execute_batch(SCHEMA)?;
-
-    if fresh {
-        conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
-        log::info!("new database created at schema version {SCHEMA_VERSION}");
-        return Ok(conn);
-    }
-    let from = user_version(&conn)?;
-    if from > SCHEMA_VERSION {
-        // Only reachable by running an older build over a library a newer one
-        // already migrated: restoring a newer backup is refused before this.
-        // Migrations are additive, so this build's queries still find their
-        // columns, and refusing to open would lock the user out of the library.
-        log::warn!(
-            "database is at schema version {from}, newer than this build's {SCHEMA_VERSION}"
-        );
-        return Ok(conn);
-    }
-
-    for &(version, sql) in MIGRATIONS.iter().filter(|(v, _)| *v > from) {
-        let tx = conn.transaction()?;
-        match tx.execute_batch(sql) {
-            Ok(()) => {}
-            Err(err) if is_duplicate_column(&err) => {}
-            // The reason goes in the message itself, not as an anyhow context:
-            // commands show errors with `to_string`, which prints only the
-            // outermost layer, and the reason is the part worth reading.
-            Err(err) => {
-                bail!("No se pudo actualizar la base de datos (migración {version}): {err}")
-            }
-        }
-        tx.execute_batch(&format!("PRAGMA user_version = {version};"))?;
-        if let Err(err) = tx.commit() {
-            bail!("No se pudo actualizar la base de datos (migración {version}): {err}");
-        }
-    }
-    if from < SCHEMA_VERSION {
-        log::info!("database schema migrated from version {from} to {SCHEMA_VERSION}");
-    }
+    // todos empatados. Una fila nueva siempre llega con valor, así que esto
+    // solo encuentra algo la primera vez.
+    conn.execute("UPDATE playlists SET tocada_at=created_at WHERE tocada_at=''", [])?;
     Ok(conn)
 }
 
@@ -978,12 +889,6 @@ pub struct BackupInfo {
     pub tracks: i64,
     pub folders: i64,
     pub playlists: i64,
-    /// The backup's `PRAGMA user_version`. 0 for anything written before the
-    /// schema had a version, whatever columns it already holds.
-    pub version: i64,
-    /// `SCHEMA_VERSION` of this build, sent along so the confirmation dialog
-    /// can tell an older backup (migrated on restore) from a current one.
-    pub app_version: i64,
 }
 
 /// Read `path` without modifying it and confirm it is a Cantoral database.
@@ -1022,22 +927,7 @@ pub fn inspect_backup(path: &Path) -> Result<BackupInfo> {
         tracks: count("tracks")?,
         folders: count("folders")?,
         playlists: count("playlists")?,
-        version: user_version(&conn)?,
-        app_version: SCHEMA_VERSION,
     })
-}
-
-/// `inspect_backup`, and refuse a backup this build cannot restore.
-///
-/// A newer Cantoral may have changed the schema in ways these migrations know
-/// nothing about; the five tables `inspect_backup` checks for would still be
-/// there. Every restore path goes through this before anything on disk moves.
-pub fn validate_backup(path: &Path) -> Result<BackupInfo> {
-    let info = inspect_backup(path)?;
-    if info.version > SCHEMA_VERSION {
-        bail!(RESPALDO_MAS_NUEVO);
-    }
-    Ok(info)
 }
 
 /// The sidecar files SQLite keeps beside a database in WAL mode.
@@ -1056,7 +946,7 @@ fn sidecars(live: &Path) -> [std::path::PathBuf; 2] {
 /// is sound is how a failed restore used to take committed data with it.
 pub fn restore_from_backup(live: &Path, src: &Path) -> Result<Connection> {
     // Validate before touching anything on disk.
-    validate_backup(src)?;
+    inspect_backup(src)?;
 
     let rollback = live.with_extension("db.rollback");
     let rollback_sidecars =
@@ -1834,174 +1724,6 @@ mod tests {
         let id: i64 = tracks[0].id.parse().unwrap();
         set_track_sheet(&conn, id, "letra nueva", "").unwrap();
         assert_eq!(track_sheet(&conn, id).unwrap().letra, "letra nueva");
-    }
-
-    // ---- schema version ----
-
-    /// The schema the first release (0.1.0) created, before any migration.
-    const SCHEMA_0_1_0: &str = "
-        PRAGMA journal_mode = WAL;
-        CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL UNIQUE,
-          nombre TEXT NOT NULL, added_at TEXT NOT NULL, last_scan TEXT);
-        CREATE TABLE tracks (id INTEGER PRIMARY KEY AUTOINCREMENT,
-          folder_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
-          path TEXT NOT NULL UNIQUE, titulo TEXT NOT NULL DEFAULT '',
-          artista TEXT NOT NULL DEFAULT '', album TEXT NOT NULL DEFAULT '',
-          dur_sec INTEGER NOT NULL DEFAULT 0, formato TEXT NOT NULL DEFAULT '',
-          tono TEXT NOT NULL DEFAULT '', bpm INTEGER NOT NULL DEFAULT 0,
-          ocasion TEXT NOT NULL DEFAULT '', fav INTEGER NOT NULL DEFAULT 0,
-          missing INTEGER NOT NULL DEFAULT 0, video INTEGER NOT NULL DEFAULT 0,
-          added_at TEXT NOT NULL);
-        CREATE TABLE playlists (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL,
-          fecha TEXT NOT NULL DEFAULT '', ocasion TEXT NOT NULL DEFAULT '',
-          created_at TEXT NOT NULL);
-        CREATE TABLE playlist_tracks (
-          playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
-          track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-          position INTEGER NOT NULL, PRIMARY KEY (playlist_id, track_id));
-        CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE);
-        CREATE TABLE track_tags (
-          track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-          tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-          PRIMARY KEY (track_id, tag_id));
-        CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
-    ";
-
-    fn version_of(path: &Path) -> i64 {
-        user_version(&Connection::open(path).unwrap()).unwrap()
-    }
-
-    fn columns(conn: &Connection, table: &str) -> Vec<String> {
-        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})")).unwrap();
-        let cols = stmt.query_map([], |r| r.get(1)).unwrap();
-        cols.collect::<std::result::Result<_, _>>().unwrap()
-    }
-
-    #[test]
-    fn migrations_are_numbered_one_after_another() {
-        // `user_version` is the index into this list: a gap or a repeat would
-        // skip a migration or run one twice.
-        for (i, (version, _)) in MIGRATIONS.iter().enumerate() {
-            assert_eq!(*version, i as i64 + 1);
-        }
-        assert_eq!(SCHEMA_VERSION, MIGRATIONS.len() as i64);
-    }
-
-    #[test]
-    fn a_new_database_starts_at_the_current_version() {
-        let dir = Dir::new("version-nueva");
-        let path = dir.path("cantoral.db");
-
-        drop(open_and_migrate(&path).unwrap());
-
-        assert_eq!(version_of(&path), SCHEMA_VERSION);
-    }
-
-    #[test]
-    fn a_database_from_0_1_0_migrates_to_the_current_version_once() {
-        let dir = Dir::new("version-0-1-0");
-        let path = dir.path("vieja.db");
-        {
-            let vieja = Connection::open(&path).unwrap();
-            vieja.execute_batch(SCHEMA_0_1_0).unwrap();
-            vieja
-                .execute(
-                    "INSERT INTO playlists(nombre, created_at) VALUES('Domingo', '2020-01-01')",
-                    [],
-                )
-                .unwrap();
-        }
-        assert_eq!(version_of(&path), 0);
-
-        let conn = open_and_migrate(&path).unwrap();
-
-        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
-        // Migrated, it has every column a new database has: `SCHEMA` and the
-        // migrations describe the same tables.
-        let nueva = mem();
-        for table in ["folders", "tracks", "playlists", "playlist_tracks", "settings"] {
-            let tiene = columns(&conn, table);
-            for col in columns(&nueva, table) {
-                assert!(tiene.contains(&col), "{table}.{col} falta tras migrar");
-            }
-        }
-        let tocada: String = conn
-            .query_row("SELECT tocada_at FROM playlists WHERE nombre='Domingo'", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(tocada, "2020-01-01", "the data migration ran");
-
-        // Emptied by hand, the one thing only the data migration would fill:
-        // opening again at the current version must not run it a second time.
-        conn.execute("UPDATE playlists SET tocada_at=''", []).unwrap();
-        drop(conn);
-        let conn = open_and_migrate(&path).unwrap();
-        let tocada: String =
-            conn.query_row("SELECT tocada_at FROM playlists", [], |r| r.get(0)).unwrap();
-        assert_eq!(tocada, "", "nothing was reapplied");
-        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
-    }
-
-    #[test]
-    fn a_database_from_before_versions_with_every_column_upgrades_cleanly() {
-        // What every library in production looks like the first time this
-        // build opens it: all the columns, added by the old tolerant ALTERs,
-        // and `user_version` still 0. Each ALTER now meets «duplicate column
-        // name», which must count as already applied.
-        let dir = Dir::new("version-produccion");
-        let path = dir.path("cantoral.db");
-        {
-            let vieja = Connection::open(&path).unwrap();
-            vieja.execute_batch(SCHEMA).unwrap();
-            vieja
-                .execute(
-                    "INSERT INTO playlists(nombre, created_at, tocada_at)
-                     VALUES('Sin tocar', '2021-05-01', ''), ('Tocada', '2021-01-01', '2026-09-01')",
-                    [],
-                )
-                .unwrap();
-        }
-        assert_eq!(version_of(&path), 0);
-
-        let conn = open_and_migrate(&path).unwrap();
-
-        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
-        let tocadas: Vec<String> = conn
-            .prepare("SELECT tocada_at FROM playlists ORDER BY id")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .collect::<std::result::Result<_, _>>()
-            .unwrap();
-        assert_eq!(tocadas, ["2021-05-01", "2026-09-01"]);
-    }
-
-    #[test]
-    fn a_migration_that_fails_for_another_reason_stops_the_open() {
-        // Any failure other than «duplicate column name» used to be swallowed:
-        // the app opened, and the first query needing the column failed far
-        // from the cause. Here `folders` is a view, so migration 2 cannot add
-        // its column — a stand-in for a read-only file, a full disk or a
-        // damaged schema, none of which can be staged portably in a test.
-        let dir = Dir::new("version-fallo");
-        let path = dir.path("rota.db");
-        {
-            let vieja = Connection::open(&path).unwrap();
-            vieja
-                .execute_batch(
-                    SCHEMA_0_1_0.replace("CREATE TABLE folders", "CREATE TABLE carpetas").as_str(),
-                )
-                .unwrap();
-            vieja.execute_batch("CREATE VIEW folders AS SELECT * FROM carpetas;").unwrap();
-        }
-
-        let err = open_and_migrate(&path).expect_err("a failed migration must not open");
-
-        let msg = err.to_string();
-        assert!(msg.contains("migración 2"), "{msg}");
-        assert!(msg.contains("Cannot add a column to a view"), "{msg}");
-        // The migration before it went through and was kept; the failed one
-        // left no trace, so the next launch retries from there.
-        assert_eq!(version_of(&path), 1);
     }
 
     // ---- duplicates ----
@@ -2815,56 +2537,6 @@ mod tests {
         assert_eq!(info.tracks, 3);
         assert_eq!(info.folders, 1);
         assert_eq!(info.playlists, 0);
-        assert_eq!(info.version, SCHEMA_VERSION);
-        assert_eq!(info.app_version, SCHEMA_VERSION);
-    }
-
-    #[test]
-    fn a_backup_from_a_newer_cantoral_is_refused_before_touching_the_disk() {
-        let dir = Dir::new("restore-futuro");
-        let live = dir.database("cantoral.db", 4);
-        let before = std::fs::read(&live).unwrap();
-        let backup = dir.database("futuro.db", 2);
-        Connection::open(&backup)
-            .unwrap()
-            .execute_batch(&format!("PRAGMA user_version = {};", SCHEMA_VERSION + 1))
-            .unwrap();
-
-        // Readable, and it says what it is…
-        assert_eq!(inspect_backup(&backup).unwrap().version, SCHEMA_VERSION + 1);
-        // …but not restorable by this build.
-        let err = validate_backup(&backup).unwrap_err();
-        assert_eq!(err.to_string(), RESPALDO_MAS_NUEVO);
-        let err = restore_from_backup(&live, &backup).map(|_| ()).unwrap_err();
-        assert_eq!(err.to_string(), RESPALDO_MAS_NUEVO);
-
-        assert_eq!(std::fs::read(&live).unwrap(), before, "el archivo no se tocó");
-        assert!(!live.with_extension("db.rollback").exists(), "nothing was moved aside");
-        assert_eq!(version_of(&live), SCHEMA_VERSION);
-    }
-
-    #[test]
-    fn restoring_a_backup_from_before_versions_migrates_it() {
-        let dir = Dir::new("restore-antiguo");
-        let live = dir.database("cantoral.db", 1);
-        let backup = dir.path("antiguo.db");
-        {
-            let vieja = Connection::open(&backup).unwrap();
-            vieja.execute_batch(SCHEMA_0_1_0).unwrap();
-            vieja
-                .execute(
-                    "INSERT INTO tracks(path, titulo, added_at) VALUES('/m/a.mp3','Vieja','2020')",
-                    [],
-                )
-                .unwrap();
-            vieja.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
-        }
-        assert_eq!(inspect_backup(&backup).unwrap().version, 0);
-
-        let conn = restore_from_backup(&live, &backup).unwrap();
-
-        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
-        assert_eq!(list_tracks(&conn).unwrap().len(), 1);
     }
 
     #[test]

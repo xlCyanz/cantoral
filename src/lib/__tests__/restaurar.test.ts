@@ -62,37 +62,7 @@ beforeEach(() => {
   for (const m of [getLibrary, pickDbFile, inspectBackup, restoreDatabaseCmd]) m.mockReset();
   getLibrary.mockResolvedValue(null);
   pickDbFile.mockResolvedValue("/respaldo.db");
-  inspectBackup.mockResolvedValue({ tracks: 3, folders: 1, playlists: 0, version: 10, appVersion: 10 });
-});
-
-describe("la versión del respaldo en la confirmación", () => {
-  async function confirmacion() {
-    useStore.getState().restore();
-    await vi.waitFor(() => expect(useStore.getState().confirm).toBeTruthy());
-    return useStore.getState().confirm!;
-  }
-
-  it("un respaldo de la versión actual no añade nada", async () => {
-    expect((await confirmacion()).detail).not.toMatch(/versión anterior/);
-  });
-
-  it("uno anterior avisa de que se actualizará al restaurarlo", async () => {
-    inspectBackup.mockResolvedValue({ tracks: 3, folders: 1, playlists: 0, version: 0, appVersion: 10 });
-    expect((await confirmacion()).detail).toMatch(/versión anterior de Cantoral: se actualizará al restaurarlo/);
-  });
-
-  it("uno más nuevo, rechazado al leerlo, no llega a preguntar", async () => {
-    const msg = "Este respaldo es de una versión más nueva de Cantoral. Actualiza la app antes de restaurarlo.";
-    inspectBackup.mockRejectedValue(msg);
-    const silencio = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    useStore.getState().restore();
-
-    await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe(msg));
-    expect(useStore.getState().confirm).toBeFalsy();
-    expect(restoreDatabaseCmd).not.toHaveBeenCalled();
-    silencio.mockRestore();
-  });
+  inspectBackup.mockResolvedValue({ tracks: 3, folders: 1, playlists: 0 });
 });
 
 describe("restaurar un respaldo que falla", () => {

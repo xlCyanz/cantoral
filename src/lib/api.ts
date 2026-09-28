@@ -469,13 +469,6 @@ export interface BackupInfo {
   tracks: number;
   folders: number;
   playlists: number;
-  /** The backup's schema version (`PRAGMA user_version`); 0 before versions existed. */
-  version: number;
-  /**
-   * The schema version this build writes. A backup above it never gets here:
-   * `inspect_backup` already refuses it.
-   */
-  appVersion: number;
 }
 
 /** Read a backup so the user can be told what they are about to replace. */
