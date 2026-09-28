@@ -1,4 +1,5 @@
 import { escaneoAPantallaCompleta, useStore } from "../store";
+import { cuentaDeEscaneo } from "../lib/cuentaDeEscaneo";
 
 /**
  * Scan progress as a card in the corner, so the library stays usable.
@@ -13,6 +14,7 @@ export default function ScanProgress() {
   const oculta = useStore((s) => s.tarjetaEscaneoOculta);
   const scanPct = useStore((s) => s.scanPct);
   const scanFile = useStore((s) => s.scanFile);
+  const cuenta = useStore((s) => cuentaDeEscaneo(s.scanHechos, s.scanTotal));
   const cancelScan = useStore((s) => s.cancelScan);
   const ocultar = useStore((s) => s.ocultarTarjetaEscaneo);
 
@@ -89,6 +91,11 @@ export default function ScanProgress() {
         />
       </div>
 
+      {cuenta && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-2)", fontVariantNumeric: "tabular-nums", marginBottom: 3 }}>
+          {cuenta}
+        </div>
+      )}
       <div
         title={archivo}
         style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "ui-monospace,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 8 }}

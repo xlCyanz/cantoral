@@ -117,6 +117,8 @@ export const SEED_TRACKS: Track[] = PISTAS.map((t) => {
     ...t,
     path: `${carpeta}\\${t.titulo}.${t.formato.toLowerCase()}`,
     tieneHoja: t.id in SEED_SHEETS,
+    // Las de alta más reciente hacen de «último escaneo» en el navegador.
+    nueva: t.added >= 9,
   };
 });
 

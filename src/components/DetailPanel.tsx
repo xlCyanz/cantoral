@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Check, FileText, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
-import { ocasiones, useStore } from "../store";
+import { sugerenciasDeOcasion, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
@@ -58,9 +58,6 @@ const ESTADO: Record<SaveState, { icono: ReactNode; texto: string; color: string
   error: { icono: <TriangleAlert size={15} strokeWidth={2.2} color="var(--danger)" />, texto: "No se pudo guardar", color: "var(--danger)" },
 };
 
-/** Occasions worth suggesting even before any track carries one. */
-const OCASIONES_SUGERIDAS = ["Adoración", "Alabanza", "Comunión", "Ofrenda", "Reflexión", "Navidad", "Resurrección"];
-
 export default function DetailPanel() {
   // Field by field: the panel sits beside a player that writes `posSec`
   // several times a second, and none of what it shows changes with it.
@@ -68,7 +65,7 @@ export default function DetailPanel() {
   const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
   const playlists = useStore((s) => s.playlists);
   const saveState = useStore((s) => s.saveState);
-  const ocasionesDelCatalogo = useStore(ocasiones);
+  const sugerencias = useStore(sugerenciasDeOcasion);
 
   const closeDetail = useStore((s) => s.closeDetail);
   const relocateTrack = useStore((s) => s.relocateTrack);
@@ -82,11 +79,6 @@ export default function DetailPanel() {
   const estrecho = useEstrecho(300);
 
   if (!detailOpen || !sel) return null;
-
-  // The catalogue's own occasions first, then the defaults it has not used yet.
-  const sugerenciasDeOcasion = [
-    ...new Set([...ocasionesDelCatalogo, ...OCASIONES_SUGERIDAS]),
-  ];
 
   // The real path the backend indexed. This used to be assembled from the
   // folder's name, the track's *title tag* and the format — so a file whose tag
@@ -223,7 +215,7 @@ export default function DetailPanel() {
               style={{ ...fieldStyle, padding: "0 8px" }}
             />
             <datalist id="ocasiones-pista">
-              {sugerenciasDeOcasion.map((o) => (
+              {sugerencias.map((o) => (
                 <option key={o} value={o} />
               ))}
             </datalist>

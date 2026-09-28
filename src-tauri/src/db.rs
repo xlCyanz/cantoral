@@ -231,7 +231,8 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
                 t.bpm, t.ocasion, t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
                 t.cover_path,
-                {CON_HOJA}
+                {CON_HOJA},
+                t.added_at >= COALESCE((SELECT value FROM settings WHERE key='{ULTIMO_ESCANEO}'), '~')
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
          WHERE t.id > ?1
          ORDER BY t.id"
@@ -257,6 +258,7 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
             added: id,
             cover: r.get::<_, Option<String>>(13)?,
             tiene_hoja: r.get::<_, i64>(14)? != 0,
+            nueva: r.get::<_, i64>(15)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -1109,6 +1111,17 @@ pub fn restore_from_backup(live: &Path, src: &Path) -> Result<Connection> {
 }
 
 // ---------------------------------------------------------------- settings
+
+/// Setting that holds when the latest scan started (RFC3339). A track whose
+/// `added_at` is at or after it came in with that scan: «Recién agregadas»
+/// (#139). Both are written by `now()`, so they compare as text.
+const ULTIMO_ESCANEO: &str = "ultimo_escaneo";
+
+/// Note that a scan is starting now, so what it adds counts as new and what
+/// earlier scans added no longer does.
+pub fn marcar_inicio_de_escaneo(conn: &Connection) -> Result<()> {
+    set_setting(conn, ULTIMO_ESCANEO, &now())
+}
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>> {
     let v =

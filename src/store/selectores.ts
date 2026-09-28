@@ -77,6 +77,42 @@ export const ocasiones = recordar(
   (s: CantoralState) => [s.tracks, s.ocasion],
 );
 
+/** Ocasiones que vale la pena sugerir aunque nada las lleve todavía. */
+const OCASIONES_DE_SIEMPRE = [
+  "Servicio dominical",
+  "Adoración",
+  "Alabanza",
+  "Comunión",
+  "Ofrenda",
+  "Reflexión",
+  "Navidad",
+  "Resurrección",
+  "Reunión juvenil",
+  "Ensayo",
+];
+
+/**
+ * Lo que se sugiere al escribir una ocasión, en una pista o en un culto.
+ *
+ * Las que ya usa esta iglesia primero —en sus pistas y en sus cultos—, y
+ * después las de siempre que aún no. Antes el panel de detalle y el diálogo
+ * de nueva lista sugerían cosas distintas, y el diálogo ninguna del catálogo:
+ * quien etiquetaba sus pistas «Culto de jóvenes» no lo veía al crear la
+ * lista de ese culto (#139).
+ */
+export const sugerenciasDeOcasion = recordar(
+  (s: CantoralState): string[] => {
+    const propias = new Set<string>();
+    for (const o of [...s.tracks.map((t) => t.ocasion), ...s.playlists.map((p) => p.ocasion)]) {
+      const limpia = o?.trim();
+      if (limpia) propias.add(limpia);
+    }
+    const suyas = [...propias].sort((a, b) => a.localeCompare(b, "es"));
+    return [...suyas, ...OCASIONES_DE_SIEMPRE.filter((o) => !propias.has(o))];
+  },
+  (s: CantoralState) => [s.tracks, s.playlists],
+);
+
 /**
  * Tracks of the open culto list, in its order, skipping ids whose track is gone.
  *
@@ -177,7 +213,9 @@ export const applyFilters = recordar(
     let list = s.tracks.slice();
     if (s.qf === "fav") list = list.filter((t) => t.fav);
     else if (s.qf === "missing") list = list.filter((t) => t.missing);
-    else if (s.qf === "recent") list = list.slice().sort((a, b) => b.added - a.added).slice(0, 8);
+    // Lo que trajo el último escaneo, todo, lo más nuevo arriba. Antes eran las
+    // ocho de id más alto sin decirlo: quien indexaba cuarenta veía ocho (#139).
+    else if (s.qf === "recent") list = list.filter((t) => t.nueva).sort((a, b) => b.added - a.added);
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
     if (s.query) {
       const q = s.query.toLowerCase();

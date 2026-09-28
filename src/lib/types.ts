@@ -58,6 +58,11 @@ export interface Track {
    * screen asking for it is not going to read.
    */
   tieneHoja: boolean;
+  /**
+   * Si entró con el último escaneo: lo que enseña «Recién agregadas» (#139).
+   * Un reescaneo sin novedades no deja ninguna marcada.
+   */
+  nueva?: boolean;
 }
 
 export interface Folder {

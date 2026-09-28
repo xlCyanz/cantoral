@@ -12,10 +12,15 @@ import { tauri } from "../backend/tauri";
 
 const initial = useStore.getState();
 
+let dejarDeEscuchar: () => void = () => {};
+
 beforeEach(async () => {
+  dejarDeEscuchar();
   usarBackend(crearMemoria());
   useStore.setState(initial, true);
   await useStore.getState().hydrate();
+  // Lo que hace la app al montarse.
+  dejarDeEscuchar = await useStore.getState().escucharEscaneo();
 });
 
 /** Una pista de ejemplo que está en algún culto, y ese culto. */
@@ -87,5 +92,30 @@ describe("un escaneo en el navegador", () => {
     await vi.waitFor(() => expect(useStore.getState().scanning).toBe(false), { timeout: 10000 });
     expect(useStore.getState().folders.some((f) => f.ruta === carpeta)).toBe(true);
     expect(useStore.getState().toast?.titulo).toBe("Biblioteca actualizada");
+  });
+});
+
+describe("cancelar un escaneo", () => {
+  it("lo dice, con cuántos archivos quedaron leídos, y no «Biblioteca actualizada»", async () => {
+    const carpeta = await backend().pickFolder();
+    useStore.getState().indexFolder(carpeta!, true);
+    // Que lea algo antes de cancelar.
+    await vi.waitFor(() => expect(useStore.getState().scanHechos).toBeGreaterThan(0), { timeout: 5000 });
+
+    useStore.getState().cancelScan();
+
+    await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Escaneo cancelado"));
+    expect(useStore.getState().toast?.detalle).toMatch(/Se quedó lo que ya había leído: \d+ de 40 archivos/);
+  });
+
+  it("el siguiente escaneo, completo, vuelve a decir «Biblioteca actualizada»", async () => {
+    const carpeta = await backend().pickFolder();
+    useStore.getState().indexFolder(carpeta!, true);
+    await vi.waitFor(() => expect(useStore.getState().scanning).toBe(true));
+    useStore.getState().cancelScan();
+    await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Escaneo cancelado"));
+
+    useStore.getState().indexFolder(carpeta!, true);
+    await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Biblioteca actualizada"), { timeout: 10000 });
   });
 });

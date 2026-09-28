@@ -77,6 +77,10 @@ export default function PlayerBar() {
   const irAnterior = useStore((s) => s.prev);
   const irSiguiente = useStore((s) => s.next);
   const queueOrigen = useStore((s) => s.queueOrigen);
+  // Con un culto delante y el transporte siguiendo la biblioteca, lo que suene
+  // después no es lo que se está mirando: eso es lo que hay que ver de un
+  // vistazo (#139).
+  const otraCola = useStore((s) => s.view === "lista" && s.queueOrigen === "biblioteca");
 
   const durS = track ? track.durSec : 1;
   const progPct = Math.min(100, (posSec / durS) * 100);
@@ -138,12 +142,21 @@ export default function PlayerBar() {
       </div>
 
       {/* de dónde sale lo que suena, y el volumen */}
-      <div style={{ width: 150, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+      <div style={{ width: 215, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
         {/* Qué cola está sonando. Poner una canción desde la biblioteca en
             mitad de un culto deja el transporte siguiendo la biblioteca, y sin
             esto no habría forma de notarlo hasta que sonara lo que no tocaba. */}
-        <span style={{ fontSize: "10.5px", color: "var(--text-3)", whiteSpace: "nowrap" }}>
-          Cola: {queueOrigen}
+        <span
+          title={otraCola ? "Lo que suena sigue el orden de la biblioteca, no el de este culto" : undefined}
+          style={{
+            fontSize: "10.5px",
+            whiteSpace: "nowrap",
+            ...(otraCola
+              ? { color: "var(--warning)", background: "var(--warning-soft)", padding: "1px 6px", borderRadius: 5, fontWeight: 600 }
+              : { color: "var(--text-3)" }),
+          }}
+        >
+          Suena: {queueOrigen === "culto" ? "el culto" : "la biblioteca"}
         </span>
         <button onClick={toggleMute} title="Silenciar" className="hb-s2t" style={{ ...secundarioBtn, color: "var(--text-2)", flex: "0 0 auto" }}>
           {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}

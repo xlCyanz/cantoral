@@ -114,15 +114,21 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     new Promise<Snapshot>((resolve) => {
       cancelar?.();
       let pct = 0;
+      // Un recorrido inventado de 40 archivos, para que la tarjeta tenga qué contar.
+      const total = 40;
       const avisar = (done: boolean) => {
         const file = SCAN_FILES[Math.min(SCAN_FILES.length - 1, Math.floor((pct / 100) * SCAN_FILES.length))];
-        oyentes.forEach((cb) => cb({ folderId, pct, file: done ? "" : file, done, added: 0, omitidos: 0 }));
+        const added = Math.round((pct / 100) * total);
+        oyentes.forEach((cb) => cb({ folderId, pct, file: done ? "" : file, done, added, omitidos: 0, total }));
       };
       const terminar = () => {
         clearInterval(reloj);
         cancelar = null;
         const f = folders.find((x) => x.id === folderId);
         if (f) f.lastScan = ahora();
+        // Como en el núcleo: lo nuevo es lo que trajo este escaneo, y este no
+        // trae nada.
+        tracks.forEach((t) => (t.nueva = false));
         avisar(true);
         resolve(snapshot());
       };

@@ -74,3 +74,21 @@ describe("los archivos que faltan", () => {
     expect(encabezadoBiblioteca("missing", 2, 19, "carpeta", false).subtitulo).not.toContain("agrupadas");
   });
 });
+
+describe("recién agregadas", () => {
+  it("dice su criterio: lo que llegó con el último escaneo", () => {
+    expect(encabezadoBiblioteca("recent", 40, 200, "none", false).subtitulo).toBe(
+      "40 pistas llegaron con el último escaneo",
+    );
+  });
+
+  it("y si no llegó nada, lo dice en vez de enseñar una tabla vacía sin explicación", () => {
+    expect(encabezadoBiblioteca("recent", 0, 200, "none", false).subtitulo).toBe(
+      "El último escaneo no trajo pistas nuevas.",
+    );
+  });
+
+  it("buscando dentro, vuelve a contar como siempre", () => {
+    expect(encabezadoBiblioteca("recent", 2, 200, "none", true).subtitulo).toBe("2 de 200 pistas");
+  });
+});
