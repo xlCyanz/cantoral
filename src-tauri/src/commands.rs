@@ -509,6 +509,17 @@ pub fn registrar(nivel: String, mensaje: String) {
     }
 }
 
+/// Where the app writes its log, for the «Mostrar el registro» button.
+///
+/// The folder differs per system —on Windows it is under `%LOCALAPPDATA%`, not
+/// `%APPDATA%` where the database lives— and nobody at a church PC should have
+/// to know which. Same directory `tauri-plugin-log` writes to in `lib.rs`.
+#[tauri::command(async)]
+pub fn ruta_del_log(app: AppHandle) -> CmdResult<String> {
+    let dir = app.path().app_log_dir().map_err(e)?;
+    Ok(dir.join("cantoral.log").to_string_lossy().to_string())
+}
+
 /// Store the duration the webview read from a video whose tags had none.
 ///
 /// Async like every other command that takes the mutex: at startup the

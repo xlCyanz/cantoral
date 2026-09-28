@@ -227,6 +227,7 @@ import {
   pickSavePath,
   reconcileLibraryCmd,
   registrar,
+  rutaDelLog,
   revealFile,
   relocateFolderCmd,
   relocateTrackCmd,
@@ -671,6 +672,8 @@ export interface CantoralState {
 
   openAddFolder: () => void;
   openHelp: () => void;
+  /** Show the log file in the system file manager, for sending it when something fails. */
+  mostrarRegistro: () => void;
   closeDialog: () => void;
   confirmAddFolder: () => void;
   indexFolder: (path?: string, recursive?: boolean) => void;
@@ -2267,6 +2270,19 @@ export const useStore = create<CantoralState>((set, get) => {
         console.error("revealItemInDir failed", err);
         toast("No se pudo mostrar el archivo", { tipo: "error" });
       });
+    },
+    mostrarRegistro: () => {
+      if (!isTauri()) {
+        toast("El registro solo existe en la app de escritorio", { tipo: "info" });
+        return;
+      }
+      rutaDelLog()
+        .then((ruta) => (ruta ? revealFile(ruta) : undefined))
+        .catch((err) => {
+          console.error("reveal log failed", err);
+          registrar("error", `could not reveal the log: ${String(err)}`);
+          toast("No se pudo mostrar el registro", { tipo: "error" });
+        });
     },
     relocateTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);

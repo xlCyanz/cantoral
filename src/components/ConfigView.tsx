@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpCircle, CircleCheck, Download, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowUpCircle, CircleCheck, Download, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
@@ -117,6 +117,7 @@ export default function ConfigView() {
   const backup = useStore((s) => s.backup);
   const copiaDeEstaSesion = useStore((s) => s.ultimaCopia);
   const openHelp = useStore((s) => s.openHelp);
+  const mostrarRegistro = useStore((s) => s.mostrarRegistro);
 
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
   useEffect(() => {
@@ -213,6 +214,18 @@ export default function ConfigView() {
             Última copia: {formatFecha(copiaDeEstaSesion ?? dbInfo.ultimaCopia, "todavía ninguna")}
           </p>
         )}
+      </div>
+
+      {/* Para cuando algo falla en una PC que quien arregla no tiene delante:
+          el archivo se manda tal cual, sin buscar la carpeta a mano. */}
+      <div style={tarjeta}>
+        <h2 style={h2Style}>Diagnóstico</h2>
+        <p style={{ ...pStyle, marginBottom: 10 }}>
+          Cantoral anota lo que hace en un registro. Si algo falla, envía ese archivo a quien te ayuda con la app.
+        </p>
+        <button onClick={mostrarRegistro} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+          <FileText size={13} />Mostrar el registro
+        </button>
       </div>
 
       <div style={tarjeta}>

@@ -97,6 +97,7 @@ pub fn run() {
             commands::set_track_fav,
             commands::update_track,
             commands::registrar,
+            commands::ruta_del_log,
             commands::update_track_duration,
             commands::check_for_update,
             commands::projection_monitors,

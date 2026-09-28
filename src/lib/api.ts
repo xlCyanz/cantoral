@@ -399,6 +399,12 @@ export function registrar(nivel: "info" | "warn" | "error", mensaje: string): vo
   void inv<void>("registrar", { nivel, mensaje }).catch(() => {});
 }
 
+/** Full path of the app's log file. */
+export async function rutaDelLog(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return inv<string>("ruta_del_log");
+}
+
 export async function updateTrackDuration(id: string, path: string, duration: number): Promise<void> {
   if (!isTauri()) return;
   await inv("update_track_duration", { id, path, duration });
