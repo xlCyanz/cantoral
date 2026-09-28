@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Logotipo } from "./Logo";
-import { isMacOS, isTauri, watchMaximized, winClose, winMinimize, winToggleMaximize } from "../lib/api";
+import { isMacOS, isTauri, registrar, watchMaximized, winClose, winMinimize, winToggleMaximize } from "../lib/api";
 
 const ctrlBtn = { width: 46, height: 34, display: "grid", placeItems: "center", color: "var(--text-2)" } as const;
 
@@ -22,6 +22,11 @@ export default function TitleBar() {
   return (
     <div
       data-tauri-drag-region
+      // Solo para el log: el arrastre lo hace Tauri. Si esta línea aparece y
+      // la ventana no se mueve, el clic llegó y lo que falla es el núcleo.
+      onMouseDown={(e) => {
+        if (!nativeMac && e.button === 0 && e.detail === 1 && e.target === e.currentTarget) registrar("info", "window: drag requested");
+      }}
       onDoubleClick={nativeMac ? undefined : () => void winToggleMaximize()}
       style={{
         height: 34,

@@ -35,17 +35,34 @@ async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 
 // ---------------------------------------------------------------- window
 
-export async function winMinimize(): Promise<void> {
+/**
+ * Una operación sobre la ventana, dejando rastro en el log.
+ *
+ * En Windows la barra es nuestra, y cuando sus botones «no hacen nada» hay
+ * tres causas posibles que desde fuera se ven iguales: el clic no llega, el
+ * núcleo rechaza la orden, o la acepta y la ventana no responde. La línea de
+ * antes y la de después dicen cuál. Nunca falla hacia arriba: quien la llama
+ * lo hace con `void`, y un rechazo ahí solo acabaría en la consola.
+ */
+async function operarVentana(nombre: string, op: () => Promise<void>): Promise<void> {
   if (!isTauri()) return;
-  await getCurrentWindow().minimize();
+  registrar("info", `window: ${nombre} requested`);
+  try {
+    await op();
+    registrar("info", `window: ${nombre} done`);
+  } catch (err) {
+    registrar("error", `window: ${nombre} failed: ${String(err)}`);
+  }
 }
-export async function winToggleMaximize(): Promise<void> {
-  if (!isTauri()) return;
-  await getCurrentWindow().toggleMaximize();
+
+export function winMinimize(): Promise<void> {
+  return operarVentana("minimize", () => getCurrentWindow().minimize());
 }
-export async function winClose(): Promise<void> {
-  if (!isTauri()) return;
-  await getCurrentWindow().close();
+export function winToggleMaximize(): Promise<void> {
+  return operarVentana("toggle maximize", () => getCurrentWindow().toggleMaximize());
+}
+export function winClose(): Promise<void> {
+  return operarVentana("close", () => getCurrentWindow().close());
 }
 
 /** Subscribe to the window's maximized state (for the restore/maximize icon). */
