@@ -4,10 +4,11 @@
 // ya indexadas aparezcan sin esperar al final.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Snapshot } from "../api";
+import type { Novedades, Snapshot } from "../api";
 import type { Track } from "../types";
 
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
+const getTracksSince = vi.fn<(after: string) => Promise<Novedades | null>>();
 const addAndScanFolder = vi.fn<(path: string, recursive: boolean) => Promise<Snapshot>>();
 const rescanFolderCmd = vi.fn<(id: string) => Promise<Snapshot>>();
 const cancelScanCmd = vi.fn<() => Promise<void>>();
@@ -24,6 +25,7 @@ vi.mock("../api", async (importOriginal) => ({
   // without this it would load the browser seed and never call a command.
   isTauri: () => true,
   getLibrary: () => getLibrary(),
+  getTracksSince: (after: string) => getTracksSince(after),
   addAndScanFolder: (path: string, recursive: boolean) => addAndScanFolder(path, recursive),
   rescanFolderCmd: (id: string) => rescanFolderCmd(id),
   cancelScanCmd: () => cancelScanCmd(),
@@ -62,6 +64,10 @@ function snapshot(ids: string[]): Snapshot {
   return { tracks: ids.map(track), folders: [], playlists: [] };
 }
 
+function novedades(ids: string[]): Novedades {
+  return { tracks: ids.map(track), folders: [] };
+}
+
 /** A promise whose resolution this test controls. */
 function diferida<T>() {
   let resolver!: (v: T) => void;
@@ -74,6 +80,7 @@ beforeEach(() => {
   useStore.setState(initial, true);
   for (const m of [
     getLibrary,
+    getTracksSince,
     addAndScanFolder,
     rescanFolderCmd,
     cancelScanCmd,
@@ -182,7 +189,7 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
   it("trae lo ya indexado sin esperar al final", async () => {
     const final = diferida<Snapshot>();
     addAndScanFolder.mockReturnValue(final.promesa);
-    getLibrary.mockResolvedValue(snapshot(["a", "b"]));
+    getTracksSince.mockResolvedValue(novedades(["a", "b"]));
 
     useStore.getState().indexFolder("/musica", true);
     expect(useStore.getState().tracks).toEqual([]);
@@ -204,32 +211,32 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
   it("deja de consultar en cuanto el escaneo termina", async () => {
     const final = diferida<Snapshot>();
     addAndScanFolder.mockReturnValue(final.promesa);
-    getLibrary.mockResolvedValue(snapshot(["a"]));
+    getTracksSince.mockResolvedValue(novedades(["a"]));
 
     useStore.getState().indexFolder("/musica", true);
     await vi.advanceTimersByTimeAsync(4000);
-    const consultas = getLibrary.mock.calls.length;
+    const consultas = getTracksSince.mock.calls.length;
     expect(consultas).toBeGreaterThanOrEqual(2);
 
     final.resolver(snapshot(["a"]));
     await vi.runOnlyPendingTimersAsync();
-    await vi.advanceTimersByTimeAsync(6000);
+    await vi.advanceTimersByTimeAsync(20000);
 
-    expect(getLibrary).toHaveBeenCalledTimes(consultas);
+    expect(getTracksSince).toHaveBeenCalledTimes(consultas);
   });
 
   it("descarta un snapshot que llega tarde, cuando el definitivo ya está", async () => {
-    const tardio = diferida<Snapshot | null>();
+    const tardio = diferida<Novedades | null>();
     const final = diferida<Snapshot>();
     addAndScanFolder.mockReturnValue(final.promesa);
-    getLibrary.mockReturnValue(tardio.promesa);
+    getTracksSince.mockReturnValue(tardio.promesa);
 
     useStore.getState().indexFolder("/musica", true);
     await vi.advanceTimersByTimeAsync(2000);
 
     final.resolver(snapshot(["definitiva"]));
     await vi.runOnlyPendingTimersAsync();
-    tardio.resolver(snapshot(["a", "b", "c"]));
+    tardio.resolver(novedades(["a", "b", "c"]));
     await vi.runOnlyPendingTimersAsync();
 
     expect(useStore.getState().tracks.map((t) => t.id)).toEqual(["definitiva"]);
@@ -238,7 +245,7 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
   it("no pisa una edición que aún se está escribiendo", async () => {
     const final = diferida<Snapshot>();
     addAndScanFolder.mockReturnValue(final.promesa);
-    getLibrary.mockResolvedValue(snapshot(["a"]));
+    getTracksSince.mockResolvedValue(novedades([]));
     useStore.setState({ tracks: [track("a")], libState: "content" });
 
     useStore.getState().indexFolder("/musica", true);
@@ -250,10 +257,92 @@ describe("las pistas aparecen mientras el escaneo avanza", () => {
     // La consulta tocaba ahora; la edición sigue esperando su debounce.
     await vi.advanceTimersByTimeAsync(200);
 
-    expect(getLibrary).not.toHaveBeenCalled();
+    expect(getTracksSince).not.toHaveBeenCalled();
     expect(useStore.getState().tracks[0].ocasion).toBe("Comunión");
 
     final.resolver(snapshot(["a"]));
+    await vi.runOnlyPendingTimersAsync();
+  });
+  it("pide solo lo indexado después de la última pista que ya tiene", async () => {
+    // Con ids numéricos, como los del núcleo: «10» va después de «9».
+    const final = diferida<Snapshot>();
+    addAndScanFolder.mockReturnValue(final.promesa);
+    useStore.setState({ tracks: [track("9"), track("10")], libState: "content" });
+    getTracksSince.mockResolvedValueOnce(novedades(["11", "12"]));
+    getTracksSince.mockResolvedValue(novedades([]));
+
+    useStore.getState().indexFolder("/musica", true);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(getTracksSince).toHaveBeenLastCalledWith("10");
+    expect(useStore.getState().tracks.map((t) => t.id)).toEqual(["9", "10", "11", "12"]);
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(getTracksSince).toHaveBeenLastCalledWith("12");
+
+    final.resolver(snapshot(["9", "10", "11", "12"]));
+    await vi.runOnlyPendingTimersAsync();
+  });
+
+  it("no mete dos veces una pista que ya llegó", async () => {
+    const final = diferida<Snapshot>();
+    addAndScanFolder.mockReturnValue(final.promesa);
+    getTracksSince.mockResolvedValue(novedades(["1", "2"]));
+
+    useStore.getState().indexFolder("/musica", true);
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(useStore.getState().tracks.map((t) => t.id)).toEqual(["1", "2"]);
+
+    final.resolver(snapshot(["1", "2"]));
+    await vi.runOnlyPendingTimersAsync();
+  });
+
+  it("espera más entre consultas mientras no llega nada nuevo", async () => {
+    const final = diferida<Snapshot>();
+    addAndScanFolder.mockReturnValue(final.promesa);
+    getTracksSince.mockResolvedValue(novedades([]));
+
+    useStore.getState().indexFolder("/musica", true);
+    // A los 2 s, 6 s y 14 s (2, 4 y 8 de espera), y de ahí cada 8: en 21 s
+    // son tres consultas, no las diez de antes.
+    await vi.advanceTimersByTimeAsync(21000);
+    expect(getTracksSince).toHaveBeenCalledTimes(3);
+
+    // La cuarta, a los 22 s, trae algo: la siguiente vuelve a ir a los 2 s.
+    getTracksSince.mockResolvedValueOnce(novedades(["1"]));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(getTracksSince).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(getTracksSince).toHaveBeenCalledTimes(5);
+
+    final.resolver(snapshot(["1"]));
+    await vi.runOnlyPendingTimersAsync();
+  });
+
+  it("un escaneo que empieza con una consulta del anterior en vuelo no deja dos relojes", async () => {
+    const primero = diferida<Snapshot>();
+    const enVuelo = diferida<Novedades | null>();
+    addAndScanFolder.mockReturnValueOnce(primero.promesa);
+    getTracksSince.mockReturnValueOnce(enVuelo.promesa);
+    getTracksSince.mockResolvedValue(novedades([]));
+
+    useStore.getState().indexFolder("/musica", true);
+    await vi.advanceTimersByTimeAsync(2000);
+    primero.resolver(snapshot([]));
+    await vi.runOnlyPendingTimersAsync();
+
+    const segundo = diferida<Snapshot>();
+    addAndScanFolder.mockReturnValueOnce(segundo.promesa);
+    useStore.getState().indexFolder("/otra", true);
+    // La consulta del primer escaneo vuelve ahora, con el segundo en marcha.
+    // Vacía, así que la cadena vieja se reprogramaría a 4 s: la ventana tiene
+    // que llegar hasta ahí para verla. La nueva consulta a los 2 s y la
+    // siguiente, también vacía, no llega hasta los 6.
+    enVuelo.resolver(novedades([]));
+    const antes = getTracksSince.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(4500);
+    expect(getTracksSince).toHaveBeenCalledTimes(antes + 1);
+
+    segundo.resolver(snapshot([]));
     await vi.runOnlyPendingTimersAsync();
   });
 });

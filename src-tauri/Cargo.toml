@@ -41,3 +41,8 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[dev-dependencies]
+# Solo para las pruebas: `trace` deja contar las consultas que hace una función
+# (list_playlists tiene que hacer una, no una por culto — #136).
+rusqlite = { version = "0.40", features = ["bundled", "trace"] }

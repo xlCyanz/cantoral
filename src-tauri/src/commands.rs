@@ -82,6 +82,36 @@ pub fn get_library(db: State<Db>) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
+/// Every culto list with its order, and nothing else.
+///
+/// What a change to the lists answers with. It used to be the whole snapshot,
+/// so adding one track to a culto sent back every track of the library (#136).
+#[tauri::command(async)]
+pub fn get_playlists(db: State<Db>) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
+}
+
+/// What a running scan has indexed since the track `after`, plus the folders.
+///
+/// The live refresh asks for this every couple of seconds; the folders ride
+/// along because their counts are what the sidebar shows growing.
+#[derive(Serialize)]
+pub struct Novedades {
+    pub tracks: Vec<Track>,
+    pub folders: Vec<Folder>,
+}
+
+#[tauri::command(async)]
+pub fn get_tracks_since(db: State<Db>, after: String) -> CmdResult<Novedades> {
+    let after = after.parse::<i64>().map_err(e)?;
+    let conn = db.0.lock().map_err(e)?;
+    Ok(Novedades {
+        tracks: db::list_tracks_since(&conn, after).map_err(e)?,
+        folders: db::list_folders(&conn).map_err(e)?,
+    })
+}
+
 /// Take the scan slot for `tarea`, or explain to the user what holds it.
 ///
 /// One task at a time among scans, restores and the folder changes a scan
@@ -341,21 +371,23 @@ pub fn add_tracks_to_playlist(
     db: State<Db>,
     playlist: String,
     tracks: Vec<String>,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
     let n =
         db::add_tracks_to_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &ids_de(&tracks)?)
             .map_err(e)?;
     log::info!("{n} tracks added to playlist {playlist}");
-    snapshot(&conn).map_err(e)
+    db::list_playlists(&conn).map_err(e)
 }
 
 /// Mark or unmark a whole selection as favourites.
+///
+/// Nothing comes back: the store already painted the hearts before asking, and
+/// the only other thing the answer could carry is the whole catalogue (#136).
 #[tauri::command(async)]
-pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<Snapshot> {
+pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
-    db::set_tracks_fav(&conn, &ids_de(&ids)?, fav).map_err(e)?;
-    snapshot(&conn).map_err(e)
+    db::set_tracks_fav(&conn, &ids_de(&ids)?, fav).map_err(e)
 }
 
 /// Drop a whole selection from the catalogue. The audio files are untouched.
@@ -568,10 +600,10 @@ pub fn set_playlist_template(
     db: State<Db>,
     playlist: String,
     plantilla: bool,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
     db::set_playlist_template(&conn, playlist.parse::<i64>().map_err(e)?, plantilla).map_err(e)?;
-    snapshot(&conn).map_err(e)
+    db::list_playlists(&conn).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -583,7 +615,7 @@ pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> 
 }
 
 #[tauri::command(async)]
-pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdResult<Snapshot> {
+pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
     db::add_to_playlist(
         &conn,
@@ -591,7 +623,7 @@ pub fn add_to_playlist(db: State<Db>, playlist: String, track: String) -> CmdRes
         track.parse::<i64>().map_err(e)?,
     )
     .map_err(e)?;
-    snapshot(&conn).map_err(e)
+    db::list_playlists(&conn).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -600,11 +632,11 @@ pub fn update_playlist(
     playlist: String,
     nombre: String,
     ocasion: String,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
     db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &ocasion)
         .map_err(e)?;
-    snapshot(&conn).map_err(e)
+    db::list_playlists(&conn).map_err(e)
 }
 
 /// Apuntar que un culto se acaba de abrir o de cambiar. Ver `db::touch_playlist`.
@@ -712,10 +744,10 @@ pub fn read_playlist_file(src: String) -> CmdResult<compartir::PlaylistFile> {
 }
 
 #[tauri::command(async)]
-pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Snapshot> {
+pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
     db::delete_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)?;
-    snapshot(&conn).map_err(e)
+    db::list_playlists(&conn).map_err(e)
 }
 
 /// Read a candidate backup without touching it, so the confirmation dialog can

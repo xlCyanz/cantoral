@@ -5,10 +5,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Snapshot } from "../api";
-import type { Track } from "../types";
+import type { Playlist, Track } from "../types";
 
-const addTracksToPlaylistCmd = vi.fn<(pl: string, ids: string[]) => Promise<Snapshot | null>>();
-const setTracksFavCmd = vi.fn<(ids: string[], fav: boolean) => Promise<Snapshot | null>>();
+const addTracksToPlaylistCmd = vi.fn<(pl: string, ids: string[]) => Promise<Playlist[] | null>>();
+const setTracksFavCmd = vi.fn<(ids: string[], fav: boolean) => Promise<void>>();
 const deleteTracksCmd = vi.fn<(ids: string[]) => Promise<Snapshot | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -49,9 +49,9 @@ const CINCO = ["a", "b", "c", "d", "e"].map((id) => track(id, { titulo: `Pista $
 beforeEach(() => {
   useStore.setState(initial, true);
   for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) m.mockReset();
-  for (const m of [addTracksToPlaylistCmd, setTracksFavCmd, deleteTracksCmd]) {
-    m.mockResolvedValue(null);
-  }
+  addTracksToPlaylistCmd.mockResolvedValue(null);
+  setTracksFavCmd.mockResolvedValue(undefined);
+  deleteTracksCmd.mockResolvedValue(null);
   useStore.setState({
     tracks: CINCO,
     playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids: [], plantilla: false }],
@@ -150,11 +150,23 @@ describe("agregar a una lista", () => {
     });
   });
 
-  /** Lo que devolvería el backend tras meter `ids` en la lista. */
-  const conLaLista = (ids: string[]): Snapshot => ({
-    tracks: CINCO,
-    folders: [],
-    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids, plantilla: false }],
+  /** Lo que devolvería el backend tras meter `ids` en la lista: solo las listas. */
+  const conLaLista = (ids: string[]): Playlist[] => [
+    { id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids, plantilla: false },
+  ];
+
+  it("agregar a un culto no toca el catálogo", async () => {
+    // Lo que hacía caro el clic con una biblioteca grande (#136): la respuesta
+    // traía todas las pistas y reemplazaba `tracks`, así que todo lo que las
+    // lee se recalculaba por una canción más en un culto.
+    const antes = useStore.getState().tracks;
+    useStore.setState({ selection: ["a"] });
+    addTracksToPlaylistCmd.mockResolvedValue(conLaLista(["a"]));
+
+    useStore.getState().bulkAddToPlaylist("p1");
+
+    await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a"]));
+    expect(useStore.getState().tracks).toBe(antes);
   });
 
   it("al agregarlas, el titular dice a dónde y el detalle cuántas", () => {

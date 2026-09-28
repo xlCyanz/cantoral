@@ -39,7 +39,7 @@ function rutaProyectable(t: Track | undefined): string {
 export const filasProyectadas = recordar(
   (s: CantoralState): Track[] =>
     (s.plOrder[s.proyeccionLista] || [])
-      .map((id) => s.tracks.find((t) => t.id === id))
+      .map((id) => pistasPorId(s.tracks).get(id))
       .filter((t): t is Track => !!t),
   (s: CantoralState) => [s.proyeccionLista, s.plOrder[s.proyeccionLista], s.tracks],
 );
@@ -208,6 +208,8 @@ import {
   pickShareExportPath,
   readPlaylistFileCmd,
   getLibrary,
+  getPlaylistsCmd,
+  getTracksSince,
   getSetting,
   getSheets,
   getTrackSheet,
@@ -255,7 +257,9 @@ import {
 // Module-scoped timers (kept out of React/zustand state).
 let scanTimer: ReturnType<typeof setInterval> | null = null;
 /** Poll that pulls in tracks a running scan has already indexed. */
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+/** Bumped on every start and stop, so a pull that outlived its run stops there. */
+let refreshGen = 0;
 /** True while a catalogue pull is in flight, so they cannot pile up. */
 let refreshing = false;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -809,17 +813,33 @@ export const useStore = create<CantoralState>((set, get) => {
     toast(aviso);
   };
 
+  /** Turn cover file paths into asset:// URLs the webview can load. */
+  const conCaratula = (tracks: Track[]): Track[] =>
+    tracks.map((t) => (t.cover ? { ...t, cover: assetUrl(t.cover) } : t));
+
+  /** The lists and their order, keeping the open one if it still exists. */
+  const listasDe = (playlists: Playlist[]) => {
+    const plOrder: Record<string, string[]> = {};
+    playlists.forEach((p) => (plOrder[p.id] = p.ids.slice()));
+    const actual = get().curPlaylist;
+    const curPlaylist = playlists.some((p) => p.id === actual) ? actual : playlists[0]?.id || actual;
+    return { playlists, plOrder, curPlaylist };
+  };
+
+  /**
+   * Replace only the lists, from what a change to a list answered with.
+   *
+   * The catalogue is left alone —same array, same identity—, so nothing that
+   * reads the tracks recomputes because a culto got one more song (#136).
+   */
+  const applyPlaylists = (playlists: Playlist[]) => set(listasDe(playlists));
+
   /** Replace the catalogue from a backend snapshot, preserving the player /
    *  playlist selection when the referenced ids still exist. */
   const applySnapshot = (snap: Snapshot) => {
-    const plOrder: Record<string, string[]> = {};
-    snap.playlists.forEach((p) => (plOrder[p.id] = p.ids.slice()));
-    // Turn cover file paths into asset:// URLs the webview can load.
-    const tracks = snap.tracks.map((t) => (t.cover ? { ...t, cover: assetUrl(t.cover) } : t));
+    const { plOrder, curPlaylist } = listasDe(snap.playlists);
+    const tracks = conCaratula(snap.tracks);
     const st = get();
-    const curPlaylist = snap.playlists.some((p) => p.id === st.curPlaylist)
-      ? st.curPlaylist
-      : snap.playlists[0]?.id || st.curPlaylist;
     const playerId = tracks.some((t) => t.id === st.playerId)
       ? st.playerId
       : tracks[0]?.id || st.playerId;
@@ -842,44 +862,70 @@ export const useStore = create<CantoralState>((set, get) => {
     });
   };
 
-  /** How often the catalogue is pulled in while a scan is running. */
+  /** How often what a scan has indexed is pulled in while it runs. */
   const REFRESCO_MS = 2000;
+  /** The longest the live refresh waits while nothing new is coming in. */
+  const REFRESCO_MAX_MS = 8000;
 
   /**
-   * Pull the catalogue periodically while a scan walks the disk.
+   * Pull in what a running scan has indexed so far.
    *
    * The backend was built for exactly this — the scan runs on its own
    * connection and commits in batches of 200 — so what it has indexed so far is
    * already readable. Without this the library would sit frozen at whatever it
    * held when the scan started and only catch up at the very end.
+   *
+   * Only what is new, by id: ids only grow, so «after the last one I have» is
+   * exactly what the scan added. It used to be the whole catalogue every two
+   * seconds, each pull bigger than the last, while the disk and the tag reader
+   * already had the machine busy (#136). What a rescan changes in tracks that
+   * already existed —and what it drops— arrives with the snapshot the scan
+   * ends with. When a pull comes back empty the next one waits longer.
    */
   const startLiveRefresh = () => {
     if (refreshTimer || !isTauri()) return;
-    refreshTimer = setInterval(() => {
-      // Never while a pull is already out, and never on top of an edit still
-      // waiting out its debounce: the snapshot would overwrite what is being
-      // typed with the value the backend has not been told about yet.
-      if (refreshing || pendingSave) return;
+    const gen = ++refreshGen;
+    const programar = (ms: number) => {
+      if (gen === refreshGen) refreshTimer = setTimeout(() => void refrescar(ms), ms);
+    };
+    const refrescar = async (espera: number) => {
+      // Never on top of an edit still waiting out its debounce: the pull would
+      // overwrite what is being typed with the value the backend has not been
+      // told about yet.
+      if (refreshing || pendingSave) return programar(espera);
       refreshing = true;
-      void getLibrary()
-        .then((snap) => {
-          // A snapshot that arrives after the scan ended is stale by
-          // definition — the final one has already landed.
-          if (!snap || !get().scanning) return;
-          applySnapshot(snap);
-          // As soon as there is something to show, the library shows it: the
-          // full-view scan card is only for having nothing at all.
-          if (snap.tracks.length) set({ libState: "content" });
-        })
-        .catch((err) => console.error("live refresh failed", err))
-        .finally(() => {
-          refreshing = false;
-        });
-    }, REFRESCO_MS);
+      let siguiente = espera;
+      try {
+        const desde = ultimoId(get().tracks);
+        const nuevo = await getTracksSince(String(desde));
+        // What arrives after the scan ended is stale by definition — the final
+        // snapshot has already landed.
+        if (!nuevo || !get().scanning) return;
+        const tengo = new Set(get().tracks.map((t) => t.id));
+        const nuevas = conCaratula(nuevo.tracks.filter((t) => !tengo.has(t.id)));
+        set((st) => ({
+          folders: nuevo.folders,
+          ...(nuevas.length ? { tracks: [...st.tracks, ...nuevas] } : {}),
+        }));
+        // As soon as there is something to show, the library shows it: the
+        // full-view scan card is only for having nothing at all.
+        if (get().tracks.length) set({ libState: "content" });
+        siguiente = nuevas.length ? REFRESCO_MS : Math.min(espera * 2, REFRESCO_MAX_MS);
+      } catch (err) {
+        console.error("live refresh failed", err);
+      } finally {
+        refreshing = false;
+      }
+      // Stopped —or stopped and started again— while this pull was out: this
+      // run is over, and `programar` knows it.
+      programar(siguiente);
+    };
+    programar(REFRESCO_MS);
   };
 
   const stopLiveRefresh = () => {
-    if (refreshTimer) clearInterval(refreshTimer);
+    refreshGen++;
+    if (refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = null;
   };
 
@@ -1477,8 +1523,8 @@ export const useStore = create<CantoralState>((set, get) => {
       }
       const yaEstaban = (get().plOrder[playlistId] || []).length;
       addTracksToPlaylistCmd(playlistId, [...ids])
-        .then((snap) => {
-          if (snap) applySnapshot(snap);
+        .then((listas) => {
+          if (listas) applyPlaylists(listas);
           hecho((get().plOrder[playlistId] || []).length - yaEstaban);
         })
         .catch((err) => {
@@ -1878,7 +1924,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const pl = s.playlists.find((p) => p.id === s.curPlaylist);
       const ord = s.plOrder[s.curPlaylist] || [];
       const rows = ord
-        .map((id) => s.tracks.find((t) => t.id === id))
+        .map((id) => pistasPorId(s.tracks).get(id))
         .filter((t): t is Track => !!t);
       if (!pl || rows.length === 0) {
         toast("La lista está vacía");
@@ -1956,8 +2002,8 @@ export const useStore = create<CantoralState>((set, get) => {
       if (isTauri()) {
         createPlaylistCmd(name, ocasion, desde)
           .then(async (id) => {
-            const snap = await getLibrary();
-            if (snap) applySnapshot(snap);
+            const listas = await getPlaylistsCmd();
+            if (listas) applyPlaylists(listas);
             set({ view: "lista", curPlaylist: id });
             toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
           })
@@ -1986,8 +2032,8 @@ export const useStore = create<CantoralState>((set, get) => {
       if (isTauri()) {
         duplicatePlaylistCmd(id)
           .then(async (nuevo) => {
-            const snap = await getLibrary();
-            if (snap) applySnapshot(snap);
+            const listas = await getPlaylistsCmd();
+            if (listas) applyPlaylists(listas);
             set({ view: "lista", curPlaylist: nuevo });
             toast("Lista duplicada");
           })
@@ -2020,7 +2066,7 @@ export const useStore = create<CantoralState>((set, get) => {
       const s = get();
       const pl = s.playlists.find((p) => p.id === s.curPlaylist);
       const rows = (s.plOrder[s.curPlaylist] || [])
-        .map((id) => s.tracks.find((t) => t.id === id))
+        .map((id) => pistasPorId(s.tracks).get(id))
         .filter((t): t is Track => !!t);
       if (!pl) return;
       if (rows.length === 0) {
@@ -2099,8 +2145,8 @@ export const useStore = create<CantoralState>((set, get) => {
         createPlaylistCmd(nombre, ocasion)
           .then(async (id) => {
             await setPlaylistOrderCmd(id, ids);
-            const snap = await getLibrary();
-            if (snap) applySnapshot(snap);
+            const listas = await getPlaylistsCmd();
+            if (listas) applyPlaylists(listas);
             set({ view: "lista", curPlaylist: id });
             aviso();
           })
@@ -2129,8 +2175,8 @@ export const useStore = create<CantoralState>((set, get) => {
       const aviso = plantilla ? "Guardada como plantilla" : "Ya no es una plantilla";
       if (isTauri()) {
         setPlaylistTemplateCmd(id, plantilla)
-          .then((snap) => {
-            applySnapshot(snap);
+          .then((listas) => {
+            applyPlaylists(listas);
             toast(aviso);
           })
           .catch((err) => {
@@ -2151,8 +2197,8 @@ export const useStore = create<CantoralState>((set, get) => {
       set({ dialog: null });
       if (isTauri()) {
         updatePlaylistCmd(id, name, ocasion)
-          .then((snap) => {
-            applySnapshot(snap);
+          .then((listas) => {
+            applyPlaylists(listas);
             tocarCulto(id);
             toast("Lista actualizada");
           })
@@ -2188,8 +2234,8 @@ export const useStore = create<CantoralState>((set, get) => {
         onConfirm: () => {
           if (isTauri()) {
             deletePlaylistCmd(id)
-              .then((snap) => {
-                applySnapshot(snap);
+              .then((listas) => {
+                applyPlaylists(listas);
                 set({ view: "colecciones" });
                 toast("Lista eliminada");
               })
@@ -2876,6 +2922,33 @@ if (isTauri()) {
  *
  * The cached value is shared between callers, so treat it as read-only.
  */
+/**
+ * The catalogue by id, built once per catalogue.
+ *
+ * Every list view turns an order of ids into tracks. With `tracks.find` that
+ * was one walk of the whole library per id —thirty ids over five thousand
+ * tracks is 150 000 comparisons per render (#136)—; this is one walk per
+ * catalogue, and the catalogue only changes when a snapshot lands.
+ */
+export const pistasPorId = recordar(
+  (tracks: readonly Track[]): ReadonlyMap<string, Track> => new Map(tracks.map((t) => [t.id, t])),
+  (tracks: readonly Track[]) => [tracks],
+);
+
+/**
+ * The highest track id in the catalogue, or 0 without any.
+ *
+ * Numeric: ids are strings on this side, and "10" sorts before "9".
+ */
+export function ultimoId(tracks: readonly Track[]): number {
+  let max = 0;
+  for (const t of tracks) {
+    const n = Number(t.id);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max;
+}
+
 function recordar<A extends unknown[], T>(
   calcular: (...args: A) => T,
   leer: (...args: A) => unknown[],
@@ -2908,7 +2981,7 @@ export function escaneoAPantallaCompleta(s: CantoralState): boolean {
 
 /** Currently loaded player track. */
 export function cur(s: CantoralState): Track | null {
-  return s.tracks.find((x) => x.id === s.playerId) ?? null;
+  return pistasPorId(s.tracks).get(s.playerId) ?? null;
 }
 
 /**
@@ -2942,7 +3015,7 @@ export const ocasiones = recordar(
 export const filasDeLista = recordar(
   (s: CantoralState): Track[] =>
     (s.plOrder[s.curPlaylist] || [])
-      .map((id) => s.tracks.find((t) => t.id === id))
+      .map((id) => pistasPorId(s.tracks).get(id))
       .filter((t): t is Track => !!t),
   (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks],
 );
@@ -3144,9 +3217,7 @@ export const buildGroups = recordar(
  * only subscribing to `tracks`.
  */
 export function plDur(s: { tracks: Track[] }, ids: string[]): string {
-  const total = ids.reduce((a, id) => {
-    const t = s.tracks.find((x) => x.id === id);
-    return a + (t ? t.durSec : 0);
-  }, 0);
+  const porId = pistasPorId(s.tracks);
+  const total = ids.reduce((a, id) => a + (porId.get(id)?.durSec ?? 0), 0);
   return Math.round(total / 60) + " min";
 }

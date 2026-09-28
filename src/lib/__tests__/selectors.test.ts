@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, filasDeLista, ocasiones, plantillas, plDur, playQueue, queueForView } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, ocasiones, pistasPorId, plantillas, plDur, playQueue, queueForView, ultimoId } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -366,5 +366,31 @@ describe("filasDeLista", () => {
 
   it("is empty for a list that has no order yet", () => {
     expect(filasDeLista(state({ curPlaylist: "p9" }))).toEqual([]);
+  });
+});
+
+describe("pistasPorId", () => {
+  it("encuentra cada pista por su id", () => {
+    const tracks = state().tracks;
+    const porId = pistasPorId(tracks);
+    for (const t of tracks) expect(porId.get(t.id)).toBe(t);
+    expect(porId.get("999")).toBeUndefined();
+  });
+
+  it("se construye una vez por catálogo, no una por consulta", () => {
+    const tracks = state().tracks;
+    expect(pistasPorId(tracks)).toBe(pistasPorId(tracks));
+    expect(pistasPorId([...tracks])).not.toBe(pistasPorId(tracks));
+  });
+});
+
+describe("ultimoId", () => {
+  it("compara como números: 10 va después de 9", () => {
+    const t = state().tracks[0];
+    expect(ultimoId([{ ...t, id: "9" }, { ...t, id: "10" }])).toBe(10);
+  });
+
+  it("es 0 sin pistas", () => {
+    expect(ultimoId([])).toBe(0);
   });
 });
