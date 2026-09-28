@@ -8,7 +8,8 @@ const ctrlBtn = { width: 46, height: 34, display: "grid", placeItems: "center", 
  *  - macOS: window uses native traffic lights (titleBarStyle=Overlay); we only
  *    draw the brand and leave room on the left for the lights.
  *  - Windows/Linux: frameless window — we draw the min / maximize / close
- *    controls and handle double-click-to-maximize + drag ourselves. */
+ *    controls; drag and double-click-to-maximize come from Tauri's
+ *    `data-tauri-drag-region`. */
 export default function TitleBar() {
   const nativeMac = isTauri() && isMacOS();
   const [maximized, setMaximized] = useState(false);
@@ -20,9 +21,12 @@ export default function TitleBar() {
   }, []);
 
   return (
+    // Arrastrar y el doble clic para maximizar los hace Tauri con el atributo:
+    // su script llama a `internal_toggle_maximize` al segundo clic. Un
+    // `onDoubleClick` propio encima maximizaba y restauraba en el mismo gesto,
+    // y en Windows parecía que el doble clic no hacía nada.
     <div
       data-tauri-drag-region
-      onDoubleClick={nativeMac ? undefined : () => void winToggleMaximize()}
       style={{
         height: 34,
         flex: "0 0 auto",
