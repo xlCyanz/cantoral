@@ -8,7 +8,8 @@ const ctrlBtn = { width: 46, height: 34, display: "grid", placeItems: "center", 
  *  - macOS: window uses native traffic lights (titleBarStyle=Overlay); we only
  *    draw the brand and leave room on the left for the lights.
  *  - Windows/Linux: frameless window — we draw the min / maximize / close
- *    controls and handle double-click-to-maximize + drag ourselves. */
+ *    controls; drag and double-click-to-maximize come from Tauri's
+ *    `data-tauri-drag-region`. */
 export default function TitleBar() {
   const nativeMac = isTauri() && isMacOS();
   const [maximized, setMaximized] = useState(false);
@@ -20,14 +21,20 @@ export default function TitleBar() {
   }, []);
 
   return (
+    // Arrastrar y el doble clic para maximizar los hace Tauri con el atributo:
+    // su script llama a `internal_toggle_maximize` al segundo clic. Un
+    // `onDoubleClick` propio encima maximizaba y restauraba en el mismo gesto,
+    // y en Windows parecía que el doble clic no hacía nada.
     <div
       data-tauri-drag-region
-      // Solo para el log: el arrastre lo hace Tauri. Si esta línea aparece y
-      // la ventana no se mueve, el clic llegó y lo que falla es el núcleo.
+      // Solo para el log: arrastrar y maximizar los hace Tauri. Si la línea
+      // aparece y la ventana no responde, el clic llegó y lo que falla es el
+      // núcleo.
       onMouseDown={(e) => {
-        if (!nativeMac && e.button === 0 && e.detail === 1 && e.target === e.currentTarget) registrar("info", "window: drag requested");
+        if (nativeMac || e.button !== 0 || e.target !== e.currentTarget) return;
+        if (e.detail === 1) registrar("info", "window: drag requested");
+        else if (e.detail === 2) registrar("info", "window: double-click maximize requested");
       }}
-      onDoubleClick={nativeMac ? undefined : () => void winToggleMaximize()}
       style={{
         height: 34,
         flex: "0 0 auto",
