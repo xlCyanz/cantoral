@@ -102,8 +102,10 @@ describe("las letras en la hoja impresa", () => {
   it("imprime los acordes encima de la sílaba donde caen", () => {
     const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ acordes: "[Sol]Sublime [Do]gracia" }));
 
-    expect(html).toContain('<span class="a">Sol</span><span class="w">Sublime </span>');
-    expect(html).toContain('<span class="a">Do</span><span class="w">gracia</span>');
+    // The chord's span comes straight before the words it sits over, inside
+    // the same stack; the styling is HojaAcordes' and is checked there.
+    expect(html).toMatch(/<span style="[^"]*">Sol<\/span><span style="[^"]*">Sublime <\/span>/);
+    expect(html).toMatch(/<span style="[^"]*">Do<\/span><span style="[^"]*">gracia<\/span>/);
   });
 
   it("encabeza cada hoja con el título y el artista", () => {
@@ -143,7 +145,21 @@ describe("las letras en la hoja impresa", () => {
   it("marca las secciones que la hoja declara", () => {
     const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ acordes: "{Coro}\n[Sol]Santo" }));
 
-    expect(html).toContain("<h3>Coro</h3>");
+    expect(html).toMatch(/<h3 style="[^"]*">Coro<\/h3>/);
+  });
+
+  it("escapa también los acordes y los encabezados, que se escriben igual a mano", () => {
+    const html = playlistSheetHtml(
+      pl,
+      [track()],
+      "4 min",
+      hoja({ acordes: '{<img src=x onerror="alert(1)">}\n[Sol]<script>alert(1)</script>' }),
+    );
+
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).not.toContain("<img");
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 });
 
