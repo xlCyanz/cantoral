@@ -1,5 +1,4 @@
 import { escaneoAPantallaCompleta, useStore } from "../store";
-import { SCAN_FILES } from "../lib/seed";
 
 /**
  * Scan progress as a card in the corner, so the library stays usable.
@@ -13,7 +12,6 @@ export default function ScanProgress() {
   const ocupaTodo = useStore(escaneoAPantallaCompleta);
   const oculta = useStore((s) => s.tarjetaEscaneoOculta);
   const scanPct = useStore((s) => s.scanPct);
-  const scanIdx = useStore((s) => s.scanIdx);
   const scanFile = useStore((s) => s.scanFile);
   const cancelScan = useStore((s) => s.cancelScan);
   const ocultar = useStore((s) => s.ocultarTarjetaEscaneo);
@@ -21,7 +19,7 @@ export default function ScanProgress() {
   if (!scanning || ocupaTodo || oculta) return null;
 
   const pct = Math.round(scanPct);
-  const archivo = scanFile || SCAN_FILES[scanIdx] || "";
+  const archivo = scanFile;
 
   return (
     <div
