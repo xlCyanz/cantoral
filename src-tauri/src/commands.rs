@@ -288,8 +288,12 @@ fn rutas_con_alcance(conn: &Connection) -> anyhow::Result<Vec<String>> {
 /// own, usually from another PC, and without this their covers and audio stay
 /// out of the webview's reach until the app is restarted (#124).
 pub fn conceder_alcance(app: &AppHandle, conn: &Connection) {
+    let inicio = std::time::Instant::now();
     match rutas_con_alcance(conn) {
-        Ok(rutas) => rutas.iter().for_each(|ruta| permitir_asset(app, ruta)),
+        Ok(rutas) => {
+            rutas.iter().for_each(|ruta| permitir_asset(app, ruta));
+            log::info!("asset access granted to {} folders in {:?}", rutas.len(), inicio.elapsed());
+        }
         Err(err) => log::error!("could not list the folders to grant asset access to: {err}"),
     }
 }
@@ -403,9 +407,11 @@ pub fn update_track_sheet(
 #[tauri::command]
 pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
     fuera_del_hilo_principal(app, |app| {
+        let inicio = std::time::Instant::now();
         let propia = db::open_secondary(&app.state::<DbPath>().0).map_err(e)?;
         db::reconcile_all(&propia).map_err(e)?;
         drop(propia);
+        log::info!("reconcile done in {:?}", inicio.elapsed());
         let db = app.state::<Db>();
         let conn = db.0.lock().map_err(e)?;
         snapshot(&conn).map_err(e)
@@ -488,7 +494,27 @@ pub fn update_track(
     Ok(())
 }
 
-#[tauri::command]
+/// Una línea del frontend en el log de la app.
+///
+/// La consola del webview no llega a ningún sitio en una PC de iglesia; esto
+/// sí, y es lo que permite saber qué hacía la interfaz cuando alguien dice que
+/// se quedó pegada. Se recorta para que un mensaje desbocado no llene el disco.
+#[tauri::command(async)]
+pub fn registrar(nivel: String, mensaje: String) {
+    let mensaje: String = mensaje.chars().take(2000).collect();
+    match nivel.as_str() {
+        "error" => log::error!(target: "ui", "{mensaje}"),
+        "warn" => log::warn!(target: "ui", "{mensaje}"),
+        _ => log::info!(target: "ui", "{mensaje}"),
+    }
+}
+
+/// Store the duration the webview read from a video whose tags had none.
+///
+/// Async like every other command that takes the mutex: at startup the
+/// frontend calls this once per such video, and on the main thread each call
+/// would queue behind the reconcile snapshot with the window frozen meanwhile.
+#[tauri::command(async)]
 pub fn update_track_duration(
     db: State<Db>,
     id: String,

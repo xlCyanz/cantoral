@@ -8,6 +8,7 @@ mod proyeccion;
 mod scanner;
 #[cfg(desktop)]
 mod updates;
+mod vigia;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -38,10 +39,23 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
 
+            // Lo primero que se lee de un log mandado desde otra PC: qué versión,
+            // en qué sistema y con qué webview. En Windows el webview es
+            // WebView2, que se actualiza por su cuenta y no siempre igual.
+            log::info!(
+                "startup: Cantoral {} on {} {}, webview {}",
+                app.package_info().version,
+                std::env::consts::OS,
+                std::env::consts::ARCH,
+                tauri::webview_version().unwrap_or_else(|err| format!("unknown ({err})")),
+            );
+            let inicio = std::time::Instant::now();
+
             let dir = app.path().app_data_dir().expect("resolve app data dir");
             std::fs::create_dir_all(&dir).ok();
             let db_path = dir.join("cantoral.db");
             let conn = db::open_and_migrate(&db_path).expect("open cantoral.db");
+            log::info!("startup: database open in {:?}", inicio.elapsed());
             // `asset://` starts with nothing allowed (see tauri.conf.json) and is
             // opened here to exactly what the app reads: the covers it extracts
             // into its own data directory, and the folders the user indexed.
@@ -55,6 +69,8 @@ pub fn run() {
             app.manage(db::Db(Mutex::new(conn)));
             app.manage(commands::DbPath(db_path));
             app.manage(scanner::ScanSlot::new());
+            vigia::vigilar(app.handle().clone());
+            log::info!("startup: core ready in {:?}", inicio.elapsed());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -80,6 +96,7 @@ pub fn run() {
             commands::relocate_folder,
             commands::set_track_fav,
             commands::update_track,
+            commands::registrar,
             commands::update_track_duration,
             commands::check_for_update,
             commands::projection_monitors,

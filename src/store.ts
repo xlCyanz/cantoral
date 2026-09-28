@@ -226,6 +226,7 @@ import {
   pickMediaFile,
   pickSavePath,
   reconcileLibraryCmd,
+  registrar,
   revealFile,
   relocateFolderCmd,
   relocateTrackCmd,
@@ -1790,11 +1791,14 @@ export const useStore = create<CantoralState>((set, get) => {
       // before Tauri injected its globals, drop the seed before the real
       // catalogue lands so demo rows can never reach the screen.
       if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], queueOrigen: "biblioteca", playerId: "", curPlaylist: "", posSec: 0 });
+      const inicio = performance.now();
       try {
         const snap = await getLibrary();
         if (snap) {
           applySnapshot(snap);
           set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
+          const videos = snap.tracks.filter((t) => t.video).length;
+          registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
         }
         // Restore saved preferences.
         // `openExt` ya no se lee. La fila que dejó en `settings` una
@@ -1844,10 +1848,15 @@ export const useStore = create<CantoralState>((set, get) => {
         void reconcileLibraryCmd()
           .then((fresh) => {
             if (fresh) applySnapshot(fresh);
+            registrar("info", `hydrate: reconciled ${Math.round(performance.now() - inicio)} ms after start`);
           })
-          .catch((err) => console.error("reconcile failed", err));
+          .catch((err) => {
+            console.error("reconcile failed", err);
+            registrar("error", `reconcile failed: ${String(err)}`);
+          });
       } catch (err) {
         console.error("hydrate failed", err);
+        registrar("error", `hydrate failed: ${String(err)}`);
         lastFailedAction = () => void get().hydrate();
         set({ libState: "error", scanError: String(err) });
       }
