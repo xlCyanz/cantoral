@@ -3,7 +3,8 @@ import type { CSSProperties } from "react";
 import { Heart, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { cur, useStore } from "../store";
 import { useReproductor } from "../lib/media";
-import { coverStyle, fmt, hasCover } from "../lib/covers";
+import { coverStyle, fmt } from "../lib/covers";
+import GlifoDePista from "./GlifoDePista";
 
 /** Draggable progress / volume track (ported from dragBar). */
 function DragBar({
@@ -96,11 +97,10 @@ export default function PlayerBar() {
       {/* lo que suena */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, width: 190, minWidth: 0 }}>
         <div style={coverStyle(track, 38)}>
-          {!hasCover(track) && (
-            <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
-              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-            </svg>
-          )}
+          {/* Always the note, even for a video or a missing file: the bar is
+              about what is sounding, and has shown it this way since before
+              the other swatches learnt to tell tracks apart. */}
+          <GlifoDePista t={track} size="barra" forma="nota" />
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track ? track.titulo : "—"}</div>

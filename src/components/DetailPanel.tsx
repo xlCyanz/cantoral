@@ -3,12 +3,13 @@ import type { CSSProperties, ReactNode } from "react";
 import { Check, FileText, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { ocasiones, useStore } from "../store";
 import type { SaveState } from "../store";
-import { coverStyle, hasCover } from "../lib/covers";
+import { coverStyle } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
 import { useEstrecho } from "../lib/ventana";
 import { useReproductor } from "../lib/media";
 import { motivoNoProyectable } from "../lib/formatos";
 import { AddToListButton } from "./AddToListDialog";
+import GlifoDePista from "./GlifoDePista";
 import type { Track } from "../lib/types";
 
 /**
@@ -59,15 +60,6 @@ const ESTADO: Record<SaveState, { icono: ReactNode; texto: string; color: string
 
 /** Occasions worth suggesting even before any track carries one. */
 const OCASIONES_SUGERIDAS = ["Adoración", "Alabanza", "Comunión", "Ofrenda", "Reflexión", "Navidad", "Resurrección"];
-
-function BigCoverInner({ t }: { t: Track }) {
-  if (hasCover(t)) return null;
-  if (t.missing)
-    return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ width: 40, height: 40 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>;
-  if (t.video)
-    return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ width: 44, height: 44 }}><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>;
-  return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ width: 40, height: 40 }}><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>;
-}
 
 export default function DetailPanel() {
   // Field by field: the panel sits beside a player that writes `posSec`
@@ -130,7 +122,7 @@ export default function DetailPanel() {
             <VideoDeLaPista t={sel} />
           ) : (
             <div style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
-              <div style={{ ...coverStyle(sel, 74), flex: "0 0 auto" }}><BigCoverInner t={sel} /></div>
+              <div style={{ ...coverStyle(sel, 74), flex: "0 0 auto" }}><GlifoDePista t={sel} size="detalle" /></div>
               <div style={{ minWidth: 0 }}>
                 <div className="display" style={{ fontSize: 19, lineHeight: 1.15, marginBottom: 2, textWrap: "balance" } as CSSProperties}>{sel.titulo}</div>
                 <div style={{ fontSize: "11.5px", color: "var(--text-2)" }}>{sel.artista}</div>

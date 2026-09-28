@@ -90,6 +90,25 @@ export function hasCover(t: Pick<Track, "missing" | "cover"> | null | undefined)
   return !!(t && t.cover && !t.missing);
 }
 
+/** The white glyph drawn on a generated swatch. */
+export type FormaDeGlifo = "faltante" | "video" | "nota";
+
+/**
+ * Which glyph a track's swatch carries, or `null` when it shows real art.
+ *
+ * A missing file wins over everything — it cannot be played, and saying so is
+ * the point — and a video is told apart from audio because it plays somewhere
+ * else (the detail panel, the projection window).
+ */
+export function formaDeGlifo(
+  t: Pick<Track, "missing" | "cover" | "video"> | null | undefined,
+): FormaDeGlifo | null {
+  if (hasCover(t)) return null;
+  if (t?.missing) return "faltante";
+  if (t?.video) return "video";
+  return "nota";
+}
+
 /** Linear-gradient background for a playlist cover, keyed by id. */
 export function gradientFor(id: string, angle = 145): CSSProperties {
   const p = COVERS[hash(id) % COVERS.length];
