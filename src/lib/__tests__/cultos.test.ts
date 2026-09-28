@@ -4,11 +4,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Playlist } from "../types";
-import type { Snapshot } from "../api";
 
 let enTauri = false;
 const touchPlaylistCmd = vi.fn<(id: string) => Promise<void>>();
-const updatePlaylistCmd = vi.fn<(id: string, nombre: string, ocasion: string) => Promise<Snapshot>>();
+const updatePlaylistCmd = vi.fn<(id: string, nombre: string, ocasion: string) => Promise<Playlist[]>>();
 const setPlaylistOrderCmd = vi.fn<(id: string, ids: string[]) => Promise<void>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -122,15 +121,13 @@ describe("qué cuenta como tocar un culto", () => {
   });
 
   it("en la app, lo que vuelve del núcleo no lo devuelve a su sitio", async () => {
-    // El núcleo contesta con una instantánea sacada antes de que el toque se
-    // escriba. Aplicarla después del toque dejaría el culto donde estaba.
+    // El núcleo contesta con las listas leídas antes de que el toque se
+    // escriba. Aplicarlas después del toque dejaría el culto donde estaba.
     enTauri = true;
     const viejo = useStore.getState().playlists;
-    updatePlaylistCmd.mockResolvedValue({
-      tracks: [],
-      folders: [],
-      playlists: viejo.map((p) => (p.id === "jovenes" ? { ...p, nombre: "Jóvenes" } : p)),
-    } as unknown as Snapshot);
+    updatePlaylistCmd.mockResolvedValue(
+      viejo.map((p) => (p.id === "jovenes" ? { ...p, nombre: "Jóvenes" } : p)),
+    );
     useStore.setState({ curPlaylist: "jovenes" });
 
     useStore.getState().updateList("Jóvenes", "");

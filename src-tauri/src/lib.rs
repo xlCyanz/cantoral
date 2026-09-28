@@ -75,6 +75,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_library,
+            commands::get_playlists,
+            commands::get_tracks_since,
             commands::add_and_scan_folder,
             commands::rescan_folder,
             commands::cancel_scan,

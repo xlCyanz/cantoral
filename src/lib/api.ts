@@ -233,19 +233,24 @@ export interface ScanProgressEvent {
   omitidos: number;
 }
 
-/** Append a whole selection to a list, in one transaction and one snapshot. */
+/**
+ * Append a whole selection to a list, in one transaction.
+ *
+ * Answers with the lists, not the catalogue: the tracks did not change, and
+ * with a big library sending them back was most of the cost of the click (#136).
+ */
 export async function addTracksToPlaylistCmd(
   playlist: string,
   tracks: string[],
-): Promise<Snapshot | null> {
+): Promise<Playlist[] | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("add_tracks_to_playlist", { playlist, tracks });
+  return inv<Playlist[]>("add_tracks_to_playlist", { playlist, tracks });
 }
 
 /** Mark or unmark a whole selection as favourites. */
-export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<Snapshot | null> {
-  if (!isTauri()) return null;
-  return inv<Snapshot>("set_tracks_fav", { ids, fav });
+export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<void> {
+  if (!isTauri()) return;
+  await inv<void>("set_tracks_fav", { ids, fav });
 }
 
 /** Drop a whole selection from the catalogue. The audio files are untouched. */
@@ -337,6 +342,15 @@ export async function restoreDismissedDuplicatesCmd(): Promise<DuplicateReport |
   return inv<DuplicateReport>("restore_dismissed_duplicates");
 }
 
+/** What a running scan has indexed after track `after`, plus the folders. */
+export interface Novedades {
+  tracks: Track[];
+  folders: Folder[];
+}
+export async function getTracksSince(after: string): Promise<Novedades | null> {
+  if (!isTauri()) return null;
+  return inv<Novedades>("get_tracks_since", { after });
+}
 export async function getLibrary(): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("get_library");
@@ -416,22 +430,28 @@ export async function createPlaylistCmd(nombre: string, ocasion: string, desde?:
 export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
   return inv<string>("duplicate_playlist", { playlist });
 }
-export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolean): Promise<Snapshot> {
-  return inv<Snapshot>("set_playlist_template", { playlist, plantilla });
+// Lo que cambia una lista contesta con las listas, no con el catálogo (#136).
+export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolean): Promise<Playlist[]> {
+  return inv<Playlist[]>("set_playlist_template", { playlist, plantilla });
 }
-export async function addToPlaylistCmd(playlist: string, track: string): Promise<Snapshot> {
-  return inv<Snapshot>("add_to_playlist", { playlist, track });
+export async function addToPlaylistCmd(playlist: string, track: string): Promise<Playlist[]> {
+  return inv<Playlist[]>("add_to_playlist", { playlist, track });
 }
-export async function updatePlaylistCmd(playlist: string, nombre: string, ocasion: string): Promise<Snapshot> {
-  return inv<Snapshot>("update_playlist", { playlist, nombre, ocasion });
+export async function updatePlaylistCmd(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]> {
+  return inv<Playlist[]>("update_playlist", { playlist, nombre, ocasion });
 }
 /** Apuntar que un culto se acaba de abrir o de cambiar. */
 export async function touchPlaylistCmd(playlist: string): Promise<void> {
   if (!isTauri()) return;
   await inv("touch_playlist", { playlist });
 }
-export async function deletePlaylistCmd(playlist: string): Promise<Snapshot> {
-  return inv<Snapshot>("delete_playlist", { playlist });
+export async function deletePlaylistCmd(playlist: string): Promise<Playlist[]> {
+  return inv<Playlist[]>("delete_playlist", { playlist });
+}
+/** Every list with its order: what a new or duplicated list is read back with. */
+export async function getPlaylistsCmd(): Promise<Playlist[] | null> {
+  if (!isTauri()) return null;
+  return inv<Playlist[]>("get_playlists");
 }
 /**
  * Lo que responde una restauración fallida cuando tampoco se pudo reabrir la

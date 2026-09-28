@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use rusqlite::{params, Connection, OpenFlags};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -82,6 +83,8 @@ CREATE TABLE IF NOT EXISTS duplicate_dismissals (
 
 CREATE INDEX IF NOT EXISTS idx_tracks_titulo ON tracks(titulo);
 CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
+-- `list_playlists` lee el orden de todas las listas de una vez, en este orden.
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist_id, position);
 "#;
 
 pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
@@ -126,6 +129,14 @@ fn now() -> String {
 // ---------------------------------------------------------------- tracks
 
 pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
+    list_tracks_since(conn, 0)
+}
+
+/// The tracks indexed after `after`, in id order.
+///
+/// Ids only grow, so this is what a scan has added since the last look — what
+/// the live refresh needs, instead of the whole catalogue every two seconds.
+pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
                 t.bpm, t.ocasion, t.fav, t.missing, t.video,
@@ -133,9 +144,10 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
                 t.cover_path,
                 {CON_HOJA}
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
+         WHERE t.id > ?1
          ORDER BY t.id"
     ))?;
-    let rows = stmt.query_map([], |r| {
+    let rows = stmt.query_map(params![after], |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
         Ok(Track {
@@ -655,17 +667,29 @@ pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
         .collect::<std::result::Result<_, _>>()?;
 
-    let mut out = Vec::new();
-    for (id, nombre, ocasion, plantilla, tocada) in base {
-        let mut ts = conn.prepare(
-            "SELECT track_id FROM playlist_tracks WHERE playlist_id=?1 ORDER BY position",
-        )?;
-        let ids: Vec<String> = ts
-            .query_map(params![id], |r| r.get::<_, i64>(0).map(|v| v.to_string()))?
-            .collect::<std::result::Result<_, _>>()?;
-        out.push(Playlist { id: id.to_string(), nombre, ocasion, ids, plantilla, tocada });
+    // Every list's order in one query, grouped here, instead of one query per
+    // list: with forty cultos that was forty-one round trips per snapshot.
+    let mut orden: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut ts = conn.prepare(
+        "SELECT playlist_id, track_id FROM playlist_tracks ORDER BY playlist_id, position",
+    )?;
+    let filas = ts.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?;
+    for fila in filas {
+        let (pl, track) = fila?;
+        orden.entry(pl).or_default().push(track.to_string());
     }
-    Ok(out)
+
+    Ok(base
+        .into_iter()
+        .map(|(id, nombre, ocasion, plantilla, tocada)| Playlist {
+            id: id.to_string(),
+            nombre,
+            ocasion,
+            ids: orden.remove(&id).unwrap_or_default(),
+            plantilla,
+            tocada,
+        })
+        .collect())
 }
 
 /// Create a playlist, optionally starting from the track order of another one.
@@ -2178,6 +2202,125 @@ mod tests {
 
         set_playlist_order(&conn, pid, &[b, a]).unwrap();
         assert_eq!(list_playlists(&conn).unwrap()[0].ids, vec![b.to_string(), a.to_string()]);
+    }
+
+    thread_local! {
+        static LECTURAS_DE_ORDEN: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
+    fn contar_lecturas_de_orden(evento: rusqlite::trace::TraceEvent<'_>) {
+        if let rusqlite::trace::TraceEvent::Stmt(_, sql) = evento {
+            if sql.contains("FROM playlist_tracks") {
+                LECTURAS_DE_ORDEN.with(|c| c.set(c.get() + 1));
+            }
+        }
+    }
+
+    #[test]
+    fn list_playlists_reads_every_order_in_one_query() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let mut esperado = Vec::new();
+        for i in 0..40 {
+            let pid = create_playlist(&conn, &format!("Culto {i}"), "", None).unwrap();
+            // Distintos órdenes, y alguna vacía, para que agrupar no pueda
+            // mezclar una lista con la de al lado.
+            let orden = match i % 3 {
+                0 => vec![a, b],
+                1 => vec![b, a],
+                _ => vec![],
+            };
+            set_playlist_order(&conn, pid, &orden).unwrap();
+            esperado
+                .push((pid.to_string(), orden.iter().map(|x| x.to_string()).collect::<Vec<_>>()));
+        }
+
+        LECTURAS_DE_ORDEN.with(|c| c.set(0));
+        let stmt = rusqlite::trace::TraceEventCodes::SQLITE_TRACE_STMT;
+        conn.trace_v2(stmt, Some(contar_lecturas_de_orden));
+        let listas = list_playlists(&conn).unwrap();
+        conn.trace_v2(stmt, None);
+
+        assert_eq!(LECTURAS_DE_ORDEN.with(|c| c.get()), 1);
+        let mut vistas: Vec<(String, Vec<String>)> =
+            listas.into_iter().map(|p| (p.id, p.ids)).collect();
+        vistas.sort();
+        esperado.sort();
+        assert_eq!(vistas, esperado);
+    }
+
+    /// Lo que cuesta «Agregar a un culto» con una biblioteca grande (#136):
+    /// antes la respuesta era el catálogo entero, ahora son las listas.
+    ///
+    /// No es una prueba de corrección sino una medida, así que no corre con
+    /// las demás: `cargo test --release medir_agregar_a_un_culto -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn medir_agregar_a_un_culto() {
+        use std::time::Instant;
+        let conn = mem();
+        let fid = add_folder(&conn, "C:\\Users\\Iglesia\\Music", "Music", true).unwrap();
+        let ids: Vec<i64> = (0..5000)
+            .map(|i| {
+                add_track(
+                    &conn,
+                    fid,
+                    &format!("C:\\Users\\Iglesia\\Music\\Carpeta {}\\Canto {i:04}.mp3", i % 50),
+                    &format!("Canto {i}"),
+                )
+            })
+            .collect();
+        let listas: Vec<i64> = (0..40)
+            .map(|i| {
+                let pl = create_playlist(&conn, &format!("Culto {i}"), "Adoración", None).unwrap();
+                let orden: Vec<i64> =
+                    ids.iter().skip(i * 37).step_by(97).take(30).copied().collect();
+                set_playlist_order(&conn, pl, &orden).unwrap();
+                pl
+            })
+            .collect();
+
+        let medir = |nombre: &str, f: &dyn Fn() -> String| {
+            let n = 20;
+            let t = Instant::now();
+            let mut bytes = 0;
+            for _ in 0..n {
+                bytes = f().len();
+            }
+            let ms = t.elapsed().as_secs_f64() * 1000.0 / n as f64;
+            println!("{nombre}: {ms:.2} ms, {:.1} KB", bytes as f64 / 1024.0);
+        };
+        medir("antes (snapshot)", &|| {
+            add_tracks_to_playlist(&conn, listas[0], &[ids[4999]]).unwrap();
+            let snap = (
+                list_tracks(&conn).unwrap(),
+                list_folders(&conn).unwrap(),
+                list_playlists(&conn).unwrap(),
+            );
+            serde_json::to_string(&snap).unwrap()
+        });
+        medir("ahora (listas)", &|| {
+            add_tracks_to_playlist(&conn, listas[1], &[ids[4999]]).unwrap();
+            serde_json::to_string(&list_playlists(&conn).unwrap()).unwrap()
+        });
+    }
+
+    #[test]
+    fn tracks_since_returns_only_what_came_after() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let a = add_track(&conn, fid, "/m/a.mp3", "A");
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+
+        let ids = |after| -> Vec<String> {
+            list_tracks_since(&conn, after).unwrap().into_iter().map(|t| t.id).collect()
+        };
+        assert_eq!(ids(0), vec![a.to_string(), b.to_string(), c.to_string()]);
+        assert_eq!(ids(a), vec![b.to_string(), c.to_string()]);
+        assert!(ids(c).is_empty());
     }
 
     #[test]

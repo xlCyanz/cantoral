@@ -9,7 +9,7 @@ import type { Snapshot } from "../api";
 
 let enTauri = false;
 const duplicatePlaylistCmd = vi.fn<(playlist: string) => Promise<string>>();
-const setPlaylistTemplateCmd = vi.fn<(playlist: string, plantilla: boolean) => Promise<Snapshot>>();
+const setPlaylistTemplateCmd = vi.fn<(playlist: string, plantilla: boolean) => Promise<Playlist[]>>();
 const createPlaylistCmd = vi.fn<(n: string, o: string, desde?: string) => Promise<string>>();
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
 
@@ -177,11 +177,7 @@ describe("marcar una lista como plantilla", () => {
 
   it("en la app manda lo contrario de lo que hay", async () => {
     enTauri = true;
-    setPlaylistTemplateCmd.mockResolvedValue({
-      tracks: [],
-      folders: [],
-      playlists: [],
-    } as unknown as Snapshot);
+    setPlaylistTemplateCmd.mockResolvedValue([]);
 
     useStore.getState().toggleCurrentTemplate();
 
