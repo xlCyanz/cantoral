@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Check, Save, TriangleAlert, X } from "lucide-react";
 import { useStore } from "../store";
 import type { SaveState } from "../store";
-import { parseHoja } from "../lib/chords";
+import HojaAcordes from "./HojaAcordes";
 import Modal from "./Modal";
 
 const labelStyle: CSSProperties = {
@@ -35,54 +35,6 @@ const ESTADO: Record<SaveState, { icono: ReactNode; texto: string; color: string
   saved: { icono: <Check size={15} strokeWidth={2.6} color="var(--success)" />, texto: "Guardado", color: "var(--success)" },
   error: { icono: <TriangleAlert size={15} color="var(--danger)" />, texto: "No se pudo guardar", color: "var(--danger)" },
 };
-
-/**
- * Chords over the words, as they will be read.
- *
- * Shown beside the editor because ChordPro is written inline — `[Sol]Sublime` —
- * and what matters is which syllable the chord lands on, which the source line
- * does not show.
- */
-export function Vista({ acordes, escala = 1 }: { acordes: string; escala?: number }) {
-  const lineas = parseHoja(acordes);
-  return (
-    <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 13 * escala, lineHeight: 1.35 }}>
-      {lineas.map((linea, i) => {
-        if (linea.tipo === "vacia") return <div key={i} style={{ height: 14 * escala }} />;
-        if (linea.tipo === "seccion") {
-          return (
-            <div
-              key={i}
-              style={{
-                fontFamily: "inherit",
-                fontSize: 11.5 * escala,
-                fontWeight: 700,
-                letterSpacing: ".5px",
-                textTransform: "uppercase",
-                color: "var(--primary)",
-                margin: `${14 * escala}px 0 ${4 * escala}px`,
-              }}
-            >
-              {linea.etiqueta}
-            </div>
-          );
-        }
-        return (
-          <div key={i} style={{ display: "flex", flexWrap: "wrap", marginBottom: 2 * escala }}>
-            {linea.segmentos.map((seg, j) => (
-              <span key={j} style={{ display: "inline-block", whiteSpace: "pre" }}>
-                <span style={{ display: "block", fontWeight: 700, color: "var(--primary)", minHeight: "1.3em" }}>
-                  {seg.acorde}
-                </span>
-                <span style={{ display: "block" }}>{seg.texto}</span>
-              </span>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /** Editor for a track's lyrics and chords. */
 export default function SheetDialog() {
@@ -151,8 +103,11 @@ export default function SheetDialog() {
         {acordes.trim() && (
           <div style={{ marginTop: 16 }}>
             <span style={labelStyle}>Cómo se verá</span>
+            {/* Chords over the words, as they will be read: ChordPro is written
+                inline — `[Sol]Sublime` — and what matters is which syllable the
+                chord lands on, which the source line does not show. */}
             <div style={{ border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface-2)", padding: "12px 14px", overflowX: "auto" }}>
-              <Vista acordes={acordes} />
+              <HojaAcordes acordes={acordes} tamano="editor" />
             </div>
           </div>
         )}

@@ -2,10 +2,11 @@ import { memo, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, useStore } from "../store";
-import { coverStyle, gradientFor, hasCover, inicialDe } from "../lib/covers";
+import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { ocasionBadge, ocupadoStyle } from "../lib/styles";
 import type { Track } from "../lib/types";
 import Empty, { emptyBtnSecondary } from "./Empty";
+import GlifoDePista from "./GlifoDePista";
 
 const GRID = "26px 26px minmax(150px,3fr) 116px 58px 86px";
 
@@ -24,15 +25,6 @@ const menuItem = {
 
 /** Shared empty order, so an absent list does not hand out a fresh array each read. */
 const VACIA: string[] = [];
-
-function CoverInner({ t }: { t: Track }) {
-  if (hasCover(t)) return null;
-  if (t.missing)
-    return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>;
-  if (t.video)
-    return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>;
-  return <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>;
-}
 
 /**
  * One row of a culto list. Like the library's row there is an instance per
@@ -95,7 +87,7 @@ const PlRow = memo(function PlRow({ t, num, total }: { t: Track; num: number; to
       </div>
       <span style={{ textAlign: "center", fontSize: "12.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{num}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
-        <div style={coverStyle(t, 40)}><CoverInner t={t} /></div>
+        <div style={coverStyle(t, 40)}><GlifoDePista t={t} size="lista" /></div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.titulo}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
