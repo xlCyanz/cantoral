@@ -78,7 +78,7 @@ describe("la versión del respaldo en la confirmación", () => {
 
   it("uno anterior avisa de que se actualizará al restaurarlo", async () => {
     inspectBackup.mockResolvedValue({ tracks: 3, folders: 1, playlists: 0, version: 0, appVersion: 10 });
-    expect((await confirmacion()).detail).toMatch(/versión anterior de Cantoral \(esquema 0; esta app usa el 10\)/);
+    expect((await confirmacion()).detail).toMatch(/versión anterior de Cantoral: se actualizará al restaurarlo/);
   });
 
   it("uno más nuevo, rechazado al leerlo, no llega a preguntar", async () => {

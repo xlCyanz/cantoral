@@ -2543,8 +2543,7 @@ export const useStore = create<CantoralState>((set, get) => {
             // A newer backup was already refused by `inspectBackup`; an older
             // one is brought up to date on restore, which is worth saying.
             (info.version < info.appVersion
-              ? `\nEl respaldo es de una versión anterior de Cantoral ` +
-                `(esquema ${info.version}; esta app usa el ${info.appVersion}): se actualizará al restaurarlo.`
+              ? "\nEl respaldo es de una versión anterior de Cantoral: se actualizará al restaurarlo."
               : ""),
           safe: "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta.",
           confirmLabel: "Restaurar",
