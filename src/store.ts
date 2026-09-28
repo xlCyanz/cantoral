@@ -168,8 +168,6 @@ function resolveTheme(mode: ThemeMode, delSistema: Theme | null = null): Theme {
   if (mode !== "system") return mode;
   return delSistema ?? (osPrefersDark() ? "dark" : "light");
 }
-import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "./lib/seed";
-import { nombreDeCopia } from "./lib/copias";
 import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "./lib/compartir";
 import type { ArchivoDeLista, Resultado } from "./lib/compartir";
 import type { UpdateCheck, UpdateProgress } from "./lib/api";
@@ -184,11 +182,7 @@ import { PREF_FIELDS, UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } fr
 import { alHacerClic, enOrden, vigentes } from "./lib/selection";
 import type { Modificadores } from "./lib/selection";
 import {
-  addAndScanFolder,
-  addTracksToPlaylistCmd,
   assetUrl,
-  cancelScanCmd,
-  backupDatabase,
   checkForUpdateCmd,
   closeProjectionCmd,
   onTemaDelSistema,
@@ -197,65 +191,19 @@ import {
   openProjectionCmd,
   projectionMonitors,
   setProjectionCmd,
-  createPlaylistCmd,
-  deletePlaylistCmd,
-  duplicatePlaylistCmd,
-  deleteTrackCmd,
-  exportPlaylistCmd,
-  exportPlaylistJsonCmd,
-  leerArchivoDelNavegador,
-  pickPlaylistFile,
-  pickShareExportPath,
-  readPlaylistFileCmd,
-  getLibrary,
-  getPlaylistsCmd,
-  getTracksSince,
-  getSetting,
-  getSheets,
-  getTrackSheet,
-  dismissDuplicatesCmd,
-  findDuplicatesCmd,
   installUpdateCmd,
-  inspectBackup,
-  isTauri,
-  mergeDuplicatesCmd,
-  restoreDismissedDuplicatesCmd,
-  openExportedSheet,
   onUpdateProgress,
-  pickDbFile,
-  pickExportPath,
-  pickFolder,
-  pickMediaFile,
-  pickSavePath,
-  reconcileLibraryCmd,
   registrar,
-  rutaDelLog,
-  revealFile,
-  relocateFolderCmd,
-  relocateTrackCmd,
-  removeFolderCmd,
-  rescanFolderCmd,
   BIBLIOTECA_SIN_ABRIR,
-  restoreDatabaseCmd,
-  setPlaylistOrderCmd,
-  setPlaylistTemplateCmd,
-  setSetting,
   temaDelSistema,
-  setTrackFav,
-  setTracksFavCmd,
-  deleteTracksCmd,
-  updatePlaylistCmd,
-  touchPlaylistCmd,
-  updateTrackCmd,
-  updateTrackSheet,
   type DuplicateGroup,
   type DuplicateTrack,
   type Sheet,
   type Snapshot,
 } from "./lib/api";
+import { NoDisponible, backend } from "./lib/backend";
 
 // Module-scoped timers (kept out of React/zustand state).
-let scanTimer: ReturnType<typeof setInterval> | null = null;
 /** Poll that pulls in tracks a running scan has already indexed. */
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 /** Bumped on every start and stop, so a pull that outlived its run stops there. */
@@ -678,9 +626,7 @@ export interface CantoralState {
   /** Show the log file in the system file manager, for sending it when something fails. */
   mostrarRegistro: () => void;
   closeDialog: () => void;
-  confirmAddFolder: () => void;
-  indexFolder: (path?: string, recursive?: boolean) => void;
-  startScan: () => void;
+  indexFolder: (path: string, recursive?: boolean) => void;
   cancelScan: () => void;
   retryError: () => void;
   hydrate: () => Promise<void>;
@@ -786,15 +732,24 @@ export interface CantoralState {
   closeConfirm: () => void;
 }
 
-const initialPlOrder: Record<string, string[]> = {};
-SEED_PLAYLISTS.forEach((p) => (initialPlOrder[p.id] = p.ids.slice()));
-
-/** True in a plain browser (`pnpm dev`), where the seed stands in for the backend. */
-const MOCK = !isTauri();
-
 export const useStore = create<CantoralState>((set, get) => {
   const toast = (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) =>
     get().showToast(titulo, opciones);
+
+  /**
+   * Lo que se dice cuando el backend no pudo.
+   *
+   * Un `NoDisponible` es el navegador diciendo que eso no lo sabe hacer —no hay
+   * disco que mostrar—: un aviso, no un error. Todo lo demás es un fallo.
+   */
+  const avisarFallo = (err: unknown, titulo: string, detalle?: string) => {
+    if (err instanceof NoDisponible) {
+      toast(err.message, { tipo: "info" });
+      return;
+    }
+    console.error(err);
+    toast(titulo, { tipo: "error", detalle });
+  };
 
   /**
    * El `<video>` solo existe dentro del panel de detalle y mostrando la pista
@@ -882,7 +837,7 @@ export const useStore = create<CantoralState>((set, get) => {
    * ends with. When a pull comes back empty the next one waits longer.
    */
   const startLiveRefresh = () => {
-    if (refreshTimer || !isTauri()) return;
+    if (refreshTimer) return;
     const gen = ++refreshGen;
     const programar = (ms: number) => {
       if (gen === refreshGen) refreshTimer = setTimeout(() => void refrescar(ms), ms);
@@ -896,10 +851,10 @@ export const useStore = create<CantoralState>((set, get) => {
       let siguiente = espera;
       try {
         const desde = ultimoId(get().tracks);
-        const nuevo = await getTracksSince(String(desde));
+        const nuevo = await backend().getTracksSince(String(desde));
         // What arrives after the scan ended is stale by definition — the final
         // snapshot has already landed.
-        if (!nuevo || !get().scanning) return;
+        if (!get().scanning) return;
         const tengo = new Set(get().tracks.map((t) => t.id));
         const nuevas = conCaratula(nuevo.tracks.filter((t) => !tengo.has(t.id)));
         set((st) => ({
@@ -939,30 +894,12 @@ export const useStore = create<CantoralState>((set, get) => {
     const s = get();
     const html = playlistSheetHtml(pl, rows, plDur(s, ord), s.sheets);
     const name = sheetFileName(pl.nombre);
-    if (!isTauri()) {
-      // Browser fallback so the sheet is testable with `pnpm dev`.
-      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast("Hoja de la lista exportada");
-      return;
-    }
-    void pickExportPath(name).then((dest) => {
-      if (!dest) return;
-      exportPlaylistCmd(dest, html)
-        .then(() => {
-          toast("Hoja de la lista exportada");
-          // Opens in the default browser, where Cmd/Ctrl+P saves it as PDF.
-          return openExportedSheet(dest);
-        })
-        .catch((err) => {
-          console.error(err);
-          toast("No se pudo exportar la lista", { tipo: "error" });
-        });
-    });
+    backend()
+      .saveSheet(name, html)
+      .then((guardada) => {
+        if (guardada) toast("Hoja de la lista exportada");
+      })
+      .catch((err) => avisarFallo(err, "No se pudo exportar la lista"));
   };
 
   /** Write the sheet waiting out its debounce, reading the latest text. */
@@ -974,7 +911,8 @@ export const useStore = create<CantoralState>((set, get) => {
     if (!id) return;
     const hoja = get().sheets[id];
     if (!hoja) return;
-    updateTrackSheet(id, hoja.letra, hoja.acordes)
+    backend()
+      .updateTrackSheet(id, hoja.letra, hoja.acordes)
       .then(() => {
         if (get().sheetDialog === id) set({ sheetState: "saved" });
       })
@@ -1006,7 +944,8 @@ export const useStore = create<CantoralState>((set, get) => {
     const t = get().tracks.find((x) => x.id === id);
     if (!t) return;
 
-    updateTrackCmd(t.id, t.artista, t.bpm, t.ocasion)
+    backend()
+      .updateTrack(t.id, t.artista, t.bpm, t.ocasion)
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.
@@ -1037,14 +976,14 @@ export const useStore = create<CantoralState>((set, get) => {
    * Apply a new playlist order at once and persist it, putting the previous one
    * back if the backend refuses.
    *
-   * The order used to be saved with a bare `void setPlaylistOrderCmd(...)`, so a
+   * The order used to be saved with a bare `void setPlaylistOrder(...)`, so a
    * write that failed left the screen showing an order the database never got —
    * and the user found out at the next launch, when their culto had reverted.
    */
   const saveOrder = (playlistId: string, next: string[], prev: string[]) => {
     set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: next } }));
     tocarCulto(playlistId);
-    setPlaylistOrderCmd(playlistId, next).catch((err) => {
+    backend().setPlaylistOrder(playlistId, next).catch((err) => {
       console.error("set_playlist_order failed", err);
       set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: prev } }));
       get().showToast("No se pudo guardar el orden de la lista", { tipo: "error" });
@@ -1066,17 +1005,17 @@ export const useStore = create<CantoralState>((set, get) => {
     if (!id) return;
     const ahora = new Date().toISOString();
     set((st) => ({ playlists: st.playlists.map((p) => (p.id === id ? { ...p, tocada: ahora } : p)) }));
-    touchPlaylistCmd(id).catch((err) => console.error("touch_playlist failed", err));
+    backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
   return {
-    // The seed catalogue is browser-only scaffolding. Inside Tauri the store
-    // starts empty and `hydrate()` fills it from SQLite, so demo data can never
-    // flash on screen nor survive a failed load.
-    tracks: MOCK ? SEED_TRACKS.map((t) => ({ ...t })) : [],
-    folders: MOCK ? SEED_FOLDERS.map((f) => ({ ...f })) : [],
-    playlists: MOCK ? SEED_PLAYLISTS : [],
-    plOrder: MOCK ? initialPlOrder : {},
+    // Empty until `hydrate()` fills it from the backend — SQLite in the app,
+    // the seed in the browser. Starting from the seed in the browser used to
+    // be a second way in, and one that had to be kept out of the app (#135).
+    tracks: [],
+    folders: [],
+    playlists: [],
+    plOrder: {},
     queue: [],
     queueOrigen: "biblioteca",
     detailFijado: false,
@@ -1085,7 +1024,7 @@ export const useStore = create<CantoralState>((set, get) => {
     theme: resolveTheme("system"),
     temaSistema: null,
     view: "biblioteca",
-    libState: MOCK ? "content" : "empty",
+    libState: "empty",
 
     query: "",
     qf: null,
@@ -1136,15 +1075,15 @@ export const useStore = create<CantoralState>((set, get) => {
     scanError: null,
     ultimaCopia: null,
 
-    playerId: MOCK ? "t1" : "",
+    playerId: "",
     playing: false,
-    posSec: MOCK ? 47 : 0,
+    posSec: 0,
     volume: 0.72,
     muted: false,
     shuffle: false,
     repeat: false,
 
-    curPlaylist: MOCK ? "p1" : "",
+    curPlaylist: "",
     draggingId: null,
     overId: null,
     reorderNotice: "",
@@ -1193,7 +1132,7 @@ export const useStore = create<CantoralState>((set, get) => {
       set({ themeMode: m, theme });
       // Only the log: the theme is already applied, and all a failed save costs
       // is the choice not surviving a restart.
-      if (isTauri()) void setSetting("themeMode", m).catch((err) => console.error("set_setting failed", err));
+      void backend().setSetting("themeMode", m).catch((err) => console.error("set_setting failed", err));
     },
     applySystemTheme: () => {
       if (get().themeMode === "system") set((st) => ({ theme: resolveTheme("system", st.temaSistema) }));
@@ -1511,18 +1450,11 @@ export const useStore = create<CantoralState>((set, get) => {
           detalle: n === 1 ? "1 pista, al final del culto." : `${n} pistas, al final del culto.`,
         });
       };
-      if (!isTauri()) {
-        // Browser stand-in: the same outcome, minus what is already on the list.
-        const ya = get().plOrder[playlistId] || [];
-        const nuevas = ids.filter((id) => !ya.includes(id));
-        set((st) => ({ plOrder: { ...st.plOrder, [playlistId]: [...ya, ...nuevas] } }));
-        hecho(nuevas.length);
-        return;
-      }
       const yaEstaban = (get().plOrder[playlistId] || []).length;
-      addTracksToPlaylistCmd(playlistId, [...ids])
+      backend()
+        .addTracksToPlaylist(playlistId, [...ids])
         .then((listas) => {
-          if (listas) applyPlaylists(listas);
+          applyPlaylists(listas);
           hecho((get().plOrder[playlistId] || []).length - yaEstaban);
         })
         .catch((err) => {
@@ -1561,8 +1493,7 @@ export const useStore = create<CantoralState>((set, get) => {
         tracks: st.tracks.map((t) => (marcadas.has(t.id) ? { ...t, fav } : t)),
         rowMenu: null,
       }));
-      if (!isTauri()) return;
-      void setTracksFavCmd(ids, fav).catch((err) => {
+      void backend().setTracksFav(ids, fav).catch((err) => {
         console.error("set_tracks_fav failed", err);
         toast("No se pudo guardar el cambio", { tipo: "error" });
       });
@@ -1587,23 +1518,10 @@ export const useStore = create<CantoralState>((set, get) => {
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
           set({ rowMenu: null, selection: [], selAnchor: null });
-          if (!isTauri()) {
-            const fuera = new Set(ids);
-            set((st) => {
-              const plOrder: Record<string, string[]> = {};
-              Object.entries(st.plOrder).forEach(([pid, orden]) => {
-                plOrder[pid] = orden.filter((id) => !fuera.has(id));
-              });
-              return { tracks: st.tracks.filter((t) => !fuera.has(t.id)), plOrder };
-            });
-            toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
-              detalle: "Los archivos siguen en el disco.",
-            });
-            return;
-          }
-          deleteTracksCmd(ids)
+          backend()
+            .deleteTracks(ids)
             .then((snap) => {
-              if (snap) applySnapshot(snap);
+              applySnapshot(snap);
               toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
                 detalle: "Los archivos siguen en el disco.",
               });
@@ -1622,7 +1540,7 @@ export const useStore = create<CantoralState>((set, get) => {
       set((s) => ({ tracks: s.tracks.map((x) => (x.id === id ? { ...x, fav: nf } : x)) }));
       // The heart changes at once; if the core refuses, it goes back and says
       // so, rather than staying lit on screen and unlit in the database (#128).
-      void setTrackFav(id, nf).catch((err) => {
+      void backend().setTrackFav(id, nf).catch((err) => {
         console.error("set_track_fav failed", err);
         // Only if nothing has toggled it since: a second click already put it
         // where the user wants it.
@@ -1750,10 +1668,6 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     openHelp: () => set({ dialog: "help" }),
     closeDialog: () => set({ dialog: null, importPreview: null }),
-    confirmAddFolder: () => {
-      set({ dialog: null });
-      get().indexFolder();
-    },
     indexFolder: (path, recursive = true) => {
       set({ dialog: null });
       // The backend refuses a second scan outright, and an error screen is a
@@ -1762,63 +1676,29 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
-      if (isTauri() && path) {
-        if (scanTimer) clearInterval(scanTimer);
-        scanTimer = null;
-        // The view does move to the library here — the user just asked for a
-        // folder from the add dialog, so that is where they expect to land.
-        // What it no longer does is *replace* the library with the scan.
-        set({ view: "biblioteca", scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
-        startLiveRefresh();
-        addAndScanFolder(path, recursive)
-          .then((snap) => {
-            applySnapshot(snap);
-            set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
-          })
-          .catch((err) => {
-            console.error(err);
-            lastFailedAction = () => get().indexFolder(path, recursive);
-            set({ scanning: false, libState: "error", scanError: String(err) });
-          })
-          .finally(stopLiveRefresh);
-      } else {
-        set({ view: "biblioteca" });
-        get().startScan();
-      }
-    },
-    // Browser stand-in for a real scan. It deliberately does not touch `view`:
-    // it stands in for both adding a folder and re-scanning one, and only the
-    // first of those has any business moving the user.
-    startScan: () => {
-      if (scanTimer) clearInterval(scanTimer);
-      set({ scanning: true, scanPct: 0, scanFile: SCAN_FILES[0], scanOmitidos: 0, tarjetaEscaneoOculta: false });
-      scanTimer = setInterval(() => {
-        const p = get().scanPct + Math.random() * 7 + 3;
-        if (p >= 100) {
-          if (scanTimer) clearInterval(scanTimer);
-          scanTimer = null;
-          set({ scanPct: 100, scanning: false, libState: "content" });
-          toast("Biblioteca actualizada");
-        } else {
-          // Lo que el núcleo manda en `scan-progress`, inventado: los nombres
-          // de demostración se quedan aquí y la tarjeta nunca los lee por su
-          // cuenta. Antes caía en ellos cada vez que la app real mandaba el
-          // archivo vacío, y enseñaba canciones que no están en el disco.
-          set({
-            scanPct: p,
-            scanFile: SCAN_FILES[Math.min(SCAN_FILES.length - 1, Math.floor((p / 100) * SCAN_FILES.length))],
-          });
-        }
-      }, 160);
+      if (!path) return;
+      // The view does move to the library here — the user just asked for a
+      // folder from the add dialog, so that is where they expect to land.
+      // What it no longer does is *replace* the library with the scan.
+      set({ view: "biblioteca", scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
+      startLiveRefresh();
+      backend()
+        .addAndScanFolder(path, recursive)
+        .then((snap) => {
+          applySnapshot(snap);
+          set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
+          toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
+        })
+        .catch((err) => {
+          console.error(err);
+          lastFailedAction = () => get().indexFolder(path, recursive);
+          set({ scanning: false, libState: "error", scanError: String(err) });
+        })
+        .finally(stopLiveRefresh);
     },
     cancelScan: () => {
-      if (scanTimer) clearInterval(scanTimer);
-      scanTimer = null;
       stopLiveRefresh();
-      // Stop the backend walk too — clearing the timer only ever hid the
-      // browser simulation, leaving a real scan running to completion.
-      void cancelScanCmd().catch(console.error);
+      void backend().cancelScan().catch(console.error);
       // `libState` is left alone: whatever the library was showing is still
       // what it holds. A cancelled first scan goes back to the empty state on
       // its own, because nothing was ever indexed.
@@ -1826,40 +1706,28 @@ export const useStore = create<CantoralState>((set, get) => {
     },
     retryError: () => {
       set({ scanError: null });
-      // In the browser there is no backend, so replay the simulated scan.
-      if (isTauri()) {
-        const retry = lastFailedAction;
-        lastFailedAction = null;
-        if (retry) retry();
-        else void get().hydrate();
-        return;
-      }
-      get().startScan();
+      const retry = lastFailedAction;
+      lastFailedAction = null;
+      if (retry) retry();
+      else void get().hydrate();
     },
     hydrate: async () => {
-      if (!isTauri()) return;
-      // Belt and braces: `MOCK` is decided at module-eval time. If that ever ran
-      // before Tauri injected its globals, drop the seed before the real
-      // catalogue lands so demo rows can never reach the screen.
-      if (MOCK) set({ tracks: [], folders: [], playlists: [], plOrder: {}, queue: [], queueOrigen: "biblioteca", playerId: "", curPlaylist: "", posSec: 0 });
       const inicio = performance.now();
       try {
-        const snap = await getLibrary();
-        if (snap) {
-          applySnapshot(snap);
-          set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
-          const videos = snap.tracks.filter((t) => t.video).length;
-          registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
-        }
+        const snap = await backend().getLibrary();
+        applySnapshot(snap);
+        set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
+        const videos = snap.tracks.filter((t) => t.video).length;
+        registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
         // Restore saved preferences.
         // `openExt` ya no se lee. La fila que dejó en `settings` una
         // instalación anterior se queda ahí sin hacer nada: borrarla sería
         // tocar datos del usuario para ganar nada, y si el ajuste volviera
         // alguna vez, volvería con su valor.
         const [modeS, themeS, uiS] = await Promise.all([
-          getSetting("themeMode"),
-          getSetting("theme"),
-          getSetting(UI_PREFS_KEY),
+          backend().getSetting("themeMode"),
+          backend().getSetting("theme"),
+          backend().getSetting(UI_PREFS_KEY),
         ]);
         const patch: Partial<CantoralState> = {};
         const mode: ThemeMode | null =
@@ -1876,7 +1744,7 @@ export const useStore = create<CantoralState>((set, get) => {
         // where the user was. Only the fields that survived validation, over
         // whatever the defaults are, and settled against the lists that exist.
         const prefs = parsePrefs(uiS);
-        Object.assign(patch, prefs, resolveView(prefs, snap?.playlists ?? get().playlists));
+        Object.assign(patch, prefs, resolveView(prefs, snap.playlists));
         if (Object.keys(patch).length) {
           set(patch);
           // Nothing read at startup is worth writing back, and `applySnapshot`
@@ -1896,9 +1764,10 @@ export const useStore = create<CantoralState>((set, get) => {
 
         // Files can disappear while the app is closed; re-check them once the
         // catalogue is on screen rather than blocking the first paint.
-        void reconcileLibraryCmd()
+        void backend()
+          .reconcileLibrary()
           .then((fresh) => {
-            if (fresh) applySnapshot(fresh);
+            applySnapshot(fresh);
             registrar("info", `hydrate: reconciled ${Math.round(performance.now() - inicio)} ms after start`);
           })
           .catch((err) => {
@@ -2001,67 +1870,33 @@ export const useStore = create<CantoralState>((set, get) => {
     createList: (nombre, ocasion, desde) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
-      if (isTauri()) {
-        createPlaylistCmd(name, ocasion, desde)
-          .then(async (id) => {
-            const listas = await getPlaylistsCmd();
-            if (listas) applyPlaylists(listas);
-            set({ view: "lista", curPlaylist: id });
-            toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo crear la lista", { tipo: "error" });
-          });
-      } else {
-        const id = "new-" + Date.now();
-        const base = desde ? get().plOrder[desde] ?? [] : [];
-        const ids = base.slice();
-        const pl: Playlist = { id, nombre: name, ocasion, ids, plantilla: false, tocada: new Date().toISOString() };
-        set((s) => ({
-          playlists: [...s.playlists, pl],
-          plOrder: { ...s.plOrder, [id]: ids },
-          view: "lista",
-          curPlaylist: id,
-        }));
-        toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
-      }
+      backend()
+        .createPlaylist(name, ocasion, desde)
+        .then(async (id) => {
+          applyPlaylists(await backend().getPlaylists());
+          set({ view: "lista", curPlaylist: id });
+          toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
+        })
+        .catch((err) => {
+          console.error(err);
+          toast("No se pudo crear la lista", { tipo: "error" });
+        });
     },
     duplicateList: (id) => {
       const st = get();
       const pl = st.playlists.find((p) => p.id === id);
       if (!pl) return;
-      if (isTauri()) {
-        duplicatePlaylistCmd(id)
-          .then(async (nuevo) => {
-            const listas = await getPlaylistsCmd();
-            if (listas) applyPlaylists(listas);
-            set({ view: "lista", curPlaylist: nuevo });
-            toast("Lista duplicada");
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo duplicar la lista", { tipo: "error" });
-          });
-      } else {
-        const nuevo = "copy-" + Date.now();
-        const ids = (st.plOrder[id] ?? pl.ids).slice();
-        const copia: Playlist = {
-          id: nuevo,
-          nombre: nombreDeCopia(pl.nombre, st.playlists.map((p) => p.nombre)),
-          ocasion: pl.ocasion,
-          ids,
-          plantilla: false,
-          tocada: new Date().toISOString(),
-        };
-        set((s) => ({
-          playlists: [...s.playlists, copia],
-          plOrder: { ...s.plOrder, [nuevo]: ids },
-          view: "lista",
-          curPlaylist: nuevo,
-        }));
-        toast("Lista duplicada");
-      }
+      backend()
+        .duplicatePlaylist(id)
+        .then(async (nuevo) => {
+          applyPlaylists(await backend().getPlaylists());
+          set({ view: "lista", curPlaylist: nuevo });
+          toast("Lista duplicada");
+        })
+        .catch((err) => {
+          console.error(err);
+          toast("No se pudo duplicar la lista", { tipo: "error" });
+        });
     },
     duplicateCurrentList: () => get().duplicateList(get().curPlaylist),
     shareCurrentList: () => {
@@ -2077,26 +1912,12 @@ export const useStore = create<CantoralState>((set, get) => {
       }
       const json = JSON.stringify(armarArchivo(pl, rows), null, 2);
       const name = nombreDeArchivo(pl.nombre);
-      if (!isTauri()) {
-        // Browser fallback, so the whole round trip is testable with `pnpm dev`.
-        const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = name;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast("Lista exportada para otra instalación");
-        return;
-      }
-      void pickShareExportPath(name).then((dest) => {
-        if (!dest) return;
-        exportPlaylistJsonCmd(dest, json)
-          .then(() => toast("Lista exportada para otra instalación"))
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo exportar la lista", { tipo: "error" });
-          });
-      });
+      backend()
+        .saveSharedList(name, json)
+        .then((guardada) => {
+          if (guardada) toast("Lista exportada para otra instalación");
+        })
+        .catch((err) => avisarFallo(err, "No se pudo exportar la lista"));
     },
     importList: () => {
       // Read and match before anything is created: the screen that follows is
@@ -2105,26 +1926,15 @@ export const useStore = create<CantoralState>((set, get) => {
         const resultado = emparejar(archivo.pistas, get().tracks);
         set({ importPreview: { archivo, resultado }, dialog: "importList" });
       };
-      if (!isTauri()) {
-        void leerArchivoDelNavegador()
-          .then((archivo) => {
-            if (archivo) mostrar(archivo);
-          })
-          .catch((err) => {
-            console.error(err);
-            toast(String(err), { tipo: "error" });
-          });
-        return;
-      }
-      void pickPlaylistFile().then(async (src) => {
-        if (!src) return;
-        try {
-          mostrar(await readPlaylistFileCmd(src));
-        } catch (err) {
+      backend()
+        .openSharedList()
+        .then((archivo) => {
+          if (archivo) mostrar(archivo);
+        })
+        .catch((err) => {
           console.error(err);
           toast(String(err), { tipo: "error" });
-        }
-      });
+        });
     },
     confirmImport: () => {
       const previo = get().importPreview;
@@ -2143,30 +1953,18 @@ export const useStore = create<CantoralState>((set, get) => {
           tipo: faltan === 0 ? "success" : "info",
         });
       };
-      if (isTauri()) {
-        createPlaylistCmd(nombre, ocasion)
-          .then(async (id) => {
-            await setPlaylistOrderCmd(id, ids);
-            const listas = await getPlaylistsCmd();
-            if (listas) applyPlaylists(listas);
-            set({ view: "lista", curPlaylist: id });
-            aviso();
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo importar la lista", { tipo: "error" });
-          });
-      } else {
-        const id = "imp-" + Date.now();
-        const pl: Playlist = { id, nombre, ocasion, ids, plantilla: false, tocada: new Date().toISOString() };
-        set((st) => ({
-          playlists: [...st.playlists, pl],
-          plOrder: { ...st.plOrder, [id]: ids },
-          view: "lista",
-          curPlaylist: id,
-        }));
-        aviso();
-      }
+      backend()
+        .createPlaylist(nombre, ocasion)
+        .then(async (id) => {
+          await backend().setPlaylistOrder(id, ids);
+          applyPlaylists(await backend().getPlaylists());
+          set({ view: "lista", curPlaylist: id });
+          aviso();
+        })
+        .catch((err) => {
+          console.error(err);
+          toast("No se pudo importar la lista", { tipo: "error" });
+        });
     },
     toggleCurrentTemplate: () => {
       const st = get();
@@ -2175,48 +1973,33 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!pl) return;
       const plantilla = !pl.plantilla;
       const aviso = plantilla ? "Guardada como plantilla" : "Ya no es una plantilla";
-      if (isTauri()) {
-        setPlaylistTemplateCmd(id, plantilla)
-          .then((listas) => {
-            applyPlaylists(listas);
-            toast(aviso);
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo cambiar la plantilla", { tipo: "error" });
-          });
-      } else {
-        set((s) => ({
-          playlists: s.playlists.map((p) => (p.id === id ? { ...p, plantilla } : p)),
-        }));
-        toast(aviso);
-      }
+      backend()
+        .setPlaylistTemplate(id, plantilla)
+        .then((listas) => {
+          applyPlaylists(listas);
+          toast(aviso);
+        })
+        .catch((err) => {
+          console.error(err);
+          toast("No se pudo cambiar la plantilla", { tipo: "error" });
+        });
     },
     editCurrentList: () => set({ dialog: "editList" }),
     updateList: (nombre, ocasion) => {
       const id = get().curPlaylist;
       const name = nombre.trim() || "Lista sin título";
       set({ dialog: null });
-      if (isTauri()) {
-        updatePlaylistCmd(id, name, ocasion)
-          .then((listas) => {
-            applyPlaylists(listas);
-            tocarCulto(id);
-            toast("Lista actualizada");
-          })
-          .catch((err) => {
-            console.error(err);
-            toast("No se pudo actualizar la lista", { tipo: "error" });
-          });
-      } else {
-        set((st) => ({
-          playlists: st.playlists.map((p) =>
-            p.id === id ? { ...p, nombre: name, ocasion } : p,
-          ),
-        }));
-        tocarCulto(id);
-        toast("Lista actualizada");
-      }
+      backend()
+        .updatePlaylist(id, name, ocasion)
+        .then((listas) => {
+          applyPlaylists(listas);
+          tocarCulto(id);
+          toast("Lista actualizada");
+        })
+        .catch((err) => {
+          console.error(err);
+          toast("No se pudo actualizar la lista", { tipo: "error" });
+        });
     },
     deleteCurrentList: () => {
       const st = get();
@@ -2234,26 +2017,17 @@ export const useStore = create<CantoralState>((set, get) => {
         safe: "Las pistas siguen en tu biblioteca; solo se borra la lista.",
         confirmLabel: "Eliminar lista",
         onConfirm: () => {
-          if (isTauri()) {
-            deletePlaylistCmd(id)
-              .then((listas) => {
-                applyPlaylists(listas);
-                set({ view: "colecciones" });
-                toast("Lista eliminada");
-              })
-              .catch((err) => {
-                console.error(err);
-                toast("No se pudo eliminar la lista", { tipo: "error" });
-              });
-          } else {
-            set((s) => {
-              const playlists = s.playlists.filter((p) => p.id !== id);
-              const plOrder = { ...s.plOrder };
-              delete plOrder[id];
-              return { playlists, plOrder, view: "colecciones", curPlaylist: playlists[0]?.id || s.curPlaylist };
+          backend()
+            .deletePlaylist(id)
+            .then((listas) => {
+              applyPlaylists(listas);
+              set({ view: "colecciones" });
+              toast("Lista eliminada");
+            })
+            .catch((err) => {
+              console.error(err);
+              toast("No se pudo eliminar la lista", { tipo: "error" });
             });
-            toast("Lista eliminada");
-          }
         },
       });
     },
@@ -2310,49 +2084,31 @@ export const useStore = create<CantoralState>((set, get) => {
     revealTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t?.path) return;
-      if (!isTauri()) {
-        toast("Mostrar el archivo solo funciona en la app de escritorio", { tipo: "info" });
-        return;
-      }
-      revealFile(t.path).catch((err) => {
-        console.error("revealItemInDir failed", err);
-        toast("No se pudo mostrar el archivo", { tipo: "error" });
-      });
+      backend()
+        .revealFile(t.path)
+        .catch((err) => avisarFallo(err, "No se pudo mostrar el archivo"));
     },
     mostrarRegistro: () => {
-      if (!isTauri()) {
-        toast("El registro solo existe en la app de escritorio", { tipo: "info" });
-        return;
-      }
-      rutaDelLog()
-        .then((ruta) => (ruta ? revealFile(ruta) : undefined))
+      backend()
+        .revealLog()
         .catch((err) => {
-          console.error("reveal log failed", err);
-          registrar("error", `could not reveal the log: ${String(err)}`);
-          toast("No se pudo mostrar el registro", { tipo: "error" });
+          if (!(err instanceof NoDisponible)) registrar("error", `could not reveal the log: ${String(err)}`);
+          avisarFallo(err, "No se pudo mostrar el registro");
         });
     },
     relocateTrack: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (!t) return;
-      if (!isTauri()) {
-        toast("Localizar archivos solo funciona en la app de escritorio", { tipo: "info" });
-        return;
-      }
-      void pickMediaFile().then((path) => {
-        if (!path) return;
-        relocateTrackCmd(id, path)
-          .then((snap) => {
-            applySnapshot(snap);
-            toast(`«${t.titulo}» vuelve a estar localizada`, {
-              detalle: "Conserva su favorito y su sitio en los cultos.",
-            });
-          })
-          .catch((err) => {
-            console.error(err);
-            toast(String(err), { tipo: "error" });
+      backend()
+        .relocateTrack(id)
+        .then((snap) => {
+          if (!snap) return;
+          applySnapshot(snap);
+          toast(`«${t.titulo}» vuelve a estar localizada`, {
+            detalle: "Conserva su favorito y su sitio en los cultos.",
           });
-      });
+        })
+        .catch((err) => avisarFallo(err, String(err)));
     },
     deleteTrack: (id) => {
       const st = get();
@@ -2372,12 +2128,8 @@ export const useStore = create<CantoralState>((set, get) => {
         safe: "El archivo de audio no se borra: solo deja de estar indexado.",
         confirmLabel: "Quitar de la biblioteca",
         onConfirm: () => {
-          if (!isTauri()) {
-            set((s) => ({ tracks: s.tracks.filter((x) => x.id !== id) }));
-            toast("Pista quitada de la biblioteca");
-            return;
-          }
-          deleteTrackCmd(id)
+          backend()
+            .deleteTrack(id)
             .then((snap) => {
               applySnapshot(snap);
               set({ detailOpen: false, selId: null });
@@ -2403,24 +2155,16 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
-      if (!isTauri()) {
-        toast("Mover carpetas solo funciona en la app de escritorio", { tipo: "info" });
-        return;
-      }
-      void pickFolder().then((path) => {
-        if (!path) return;
-        relocateFolderCmd(id, path)
-          .then((snap) => {
-            applySnapshot(snap);
-            toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
-              detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
-            });
-          })
-          .catch((err) => {
-            console.error(err);
-            toast(String(err), { tipo: "error" });
+      backend()
+        .relocateFolder(id)
+        .then((snap) => {
+          if (!snap) return;
+          applySnapshot(snap);
+          toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
+            detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
           });
-      });
+        })
+        .catch((err) => avisarFallo(err, String(err)));
     },
     removeFolder: (id) => {
       const f = get().folders.find((x) => x.id === id);
@@ -2442,18 +2186,14 @@ export const useStore = create<CantoralState>((set, get) => {
         safe: "Tus archivos de audio no se tocan: siguen donde están.",
         confirmLabel: "Quitar carpeta",
         onConfirm: () => {
-          if (isTauri()) {
-            removeFolderCmd(id)
-              .then(applySnapshot)
-              .then(() => toast("Carpeta quitada de la biblioteca"))
-              .catch((err) => {
-                console.error(err);
-                toast("No se pudo quitar la carpeta", { tipo: "error", detalle: String(err) });
-              });
-          } else {
-            set((s) => ({ folders: s.folders.filter((x) => x.id !== id) }));
-            toast("Carpeta quitada de la biblioteca");
-          }
+          backend()
+            .removeFolder(id)
+            .then(applySnapshot)
+            .then(() => toast("Carpeta quitada de la biblioteca"))
+            .catch((err) => {
+              console.error(err);
+              toast("No se pudo quitar la carpeta", { tipo: "error", detalle: String(err) });
+            });
         },
       });
     },
@@ -2462,48 +2202,39 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
-      if (isTauri() && id) {
-        // No `view` here on purpose. A re-scan is started from Configuración,
-        // and yanking the user out of the screen they are working on is the
-        // whole complaint this change exists to fix.
-        set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
-        startLiveRefresh();
-        rescanFolderCmd(id)
-          .then((snap) => {
-            applySnapshot(snap);
-            set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
-            toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
-          })
-          .catch((err) => {
-            console.error(err);
-            lastFailedAction = () => get().rescanFolder(id);
-            set({ scanning: false, libState: "error", scanError: String(err) });
-          })
-          .finally(stopLiveRefresh);
-      } else {
-        get().startScan();
-      }
+      if (!id) return;
+      // No `view` here on purpose. A re-scan is started from Configuración,
+      // and yanking the user out of the screen they are working on is the
+      // whole complaint this change exists to fix.
+      set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, tarjetaEscaneoOculta: false });
+      startLiveRefresh();
+      backend()
+        .rescanFolder(id)
+        .then((snap) => {
+          applySnapshot(snap);
+          set({ scanning: false, libState: snap.tracks.length ? "content" : "empty", scanPct: 100 });
+          toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
+        })
+        .catch((err) => {
+          console.error(err);
+          lastFailedAction = () => get().rescanFolder(id);
+          set({ scanning: false, libState: "error", scanError: String(err) });
+        })
+        .finally(stopLiveRefresh);
     },
     backup: () => {
-      if (!isTauri()) {
-        toast("Copia de seguridad creada correctamente");
-        return;
-      }
       // A backup that fails has to say so. It used to end in a bare
       // `console.error`, so a full disk or an unplugged USB left the user with
       // neither the success toast nor an error — and walking away believing
       // there was a copy (#128).
-      void pickSavePath()
-        .then(async (dest) => {
-          if (!dest) return;
-          const cuando = await backupDatabase(dest);
-          set({ ultimaCopia: cuando });
-          toast("Copia de seguridad creada correctamente", { detalle: dest });
+      void backend()
+        .backup()
+        .then((copia) => {
+          if (!copia) return;
+          set({ ultimaCopia: copia.cuando });
+          toast("Copia de seguridad creada correctamente", { detalle: copia.dest });
         })
-        .catch((err) => {
-          console.error("backup_database failed", err);
-          toast("No se pudo crear la copia de seguridad", { tipo: "error", detalle: String(err) });
-        });
+        .catch((err) => avisarFallo(err, "No se pudo crear la copia de seguridad", String(err)));
     },
     restore: () => {
       // A scan holds its own connection to the database a restore moves
@@ -2512,69 +2243,62 @@ export const useStore = create<CantoralState>((set, get) => {
         toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
-      if (!isTauri()) {
-        toast("Selecciona un archivo de respaldo…", { tipo: "info" });
-        return;
-      }
-      void pickDbFile().then(async (src) => {
-        if (!src) return;
-        // Read the backup before asking anything: a file that is not a Cantoral
-        // database is rejected here, so the question is never even posed.
-        let info;
-        try {
-          info = await inspectBackup(src);
-        } catch (err) {
-          console.error(err);
-          toast(String(err), { tipo: "error" });
-          return;
-        }
-        const st = get();
-        const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-        get().askConfirm({
-          title: "¿Restaurar este respaldo?",
-          message: "Tu biblioteca actual se reemplaza por completo con la del respaldo.",
-          detail:
-            `Ahora: ${plural(st.tracks.length, "pista", "pistas")}, ` +
-            `${plural(st.folders.length, "carpeta", "carpetas")} y ` +
-            `${plural(st.playlists.length, "lista", "listas")}.\n` +
-            `Respaldo: ${plural(info.tracks, "pista", "pistas")}, ` +
-            `${plural(info.folders, "carpeta", "carpetas")} y ` +
-            `${plural(info.playlists, "lista", "listas")}.` +
-            // A newer backup was already refused by `inspectBackup`; an older
-            // one is brought up to date on restore, which is worth saying.
-            (info.version < info.appVersion
-              ? "\nEl respaldo es de una versión anterior de Cantoral: se actualizará al restaurarlo."
-              : ""),
-          safe: "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta.",
-          confirmLabel: "Restaurar",
-          onConfirm: () => {
-            restoreDatabaseCmd(src)
-              .then((snap) => {
-                applySnapshot(snap);
-                set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
-                toast("Base de datos restaurada");
-              })
-              .catch((err) => {
-                console.error(err);
-                // The previous database could not be reopened either: the core
-                // is running on a blank one and only a restart brings the file
-                // back. A five-second toast is not enough for that, so it takes
-                // over the library (#124). «Volver a intentarlo» would reload
-                // that blank database and show an empty library, so it keeps
-                // repeating the message instead.
-                if (String(err) === BIBLIOTECA_SIN_ABRIR) {
-                  const sinBiblioteca = () => {
-                    lastFailedAction = sinBiblioteca;
-                    set({ libState: "error", scanError: BIBLIOTECA_SIN_ABRIR });
-                  };
-                  sinBiblioteca();
-                  return;
-                }
-                toast("No se pudo restaurar la base de datos", { tipo: "error", detalle: String(err) });
-              });
-          },
-        });
-      });
+      void backend()
+        .pickBackup()
+        .then(async (src) => {
+          if (!src) return;
+          // Read the backup before asking anything: a file that is not a Cantoral
+          // database is rejected here, so the question is never even posed.
+          const info = await backend().inspectBackup(src);
+          const st = get();
+          const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+          get().askConfirm({
+            title: "¿Restaurar este respaldo?",
+            message: "Tu biblioteca actual se reemplaza por completo con la del respaldo.",
+            detail:
+              `Ahora: ${plural(st.tracks.length, "pista", "pistas")}, ` +
+              `${plural(st.folders.length, "carpeta", "carpetas")} y ` +
+              `${plural(st.playlists.length, "lista", "listas")}.\n` +
+              `Respaldo: ${plural(info.tracks, "pista", "pistas")}, ` +
+              `${plural(info.folders, "carpeta", "carpetas")} y ` +
+              `${plural(info.playlists, "lista", "listas")}.` +
+              // A newer backup was already refused by `inspectBackup`; an older
+              // one is brought up to date on restore, which is worth saying.
+              (info.version < info.appVersion
+                ? "\nEl respaldo es de una versión anterior de Cantoral: se actualizará al restaurarlo."
+                : ""),
+            safe: "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta.",
+            confirmLabel: "Restaurar",
+            onConfirm: () => {
+              backend()
+                .restoreDatabase(src)
+                .then((snap) => {
+                  applySnapshot(snap);
+                  set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
+                  toast("Base de datos restaurada");
+                })
+                .catch((err) => {
+                  console.error(err);
+                  // The previous database could not be reopened either: the core
+                  // is running on a blank one and only a restart brings the file
+                  // back. A five-second toast is not enough for that, so it takes
+                  // over the library (#124). «Volver a intentarlo» would reload
+                  // that blank database and show an empty library, so it keeps
+                  // repeating the message instead.
+                  if (String(err) === BIBLIOTECA_SIN_ABRIR) {
+                    const sinBiblioteca = () => {
+                      lastFailedAction = sinBiblioteca;
+                      set({ libState: "error", scanError: BIBLIOTECA_SIN_ABRIR });
+                    };
+                    sinBiblioteca();
+                    return;
+                  }
+                  toast("No se pudo restaurar la base de datos", { tipo: "error", detalle: String(err) });
+                });
+            },
+          });
+        })
+        .catch((err) => avisarFallo(err, String(err)));
     },
 
     // ---------- player tick / toast ----------
@@ -2585,10 +2309,10 @@ export const useStore = create<CantoralState>((set, get) => {
       if (!t) return;
       // When a real file is loaded (Tauri), its <audio> or <video> element
       // drives posSec via timeupdate and the queue via onEnded — the simulated
-      // timer only runs in the browser. Videos used to be left out, so the bar
+      // timer only runs where there is no file to play. Videos used to be left out, so the bar
       // kept advancing over a video the closed panel had silenced, and two
       // writers raced on posSec while it was open (#125).
-      if (isTauri() && t.path && !t.missing) return;
+      if (backend().reproduceArchivos && t.path && !t.missing) return;
       const p = s.posSec + 1;
       if (p >= t.durSec) get().advance();
       else set({ posSec: p });
@@ -2596,16 +2320,10 @@ export const useStore = create<CantoralState>((set, get) => {
     // ---------- lyrics and chords ----------
     loadSheet: (id) => {
       if (get().sheets[id]) return;
-      if (!isTauri()) {
-        const semilla = SEED_SHEETS[id];
-        set((st) => ({
-          sheets: { ...st.sheets, [id]: semilla ?? { trackId: id, letra: "", acordes: "" } },
-        }));
-        return;
-      }
-      getTrackSheet(id)
+      backend()
+        .getTrackSheet(id)
         .then((hoja) => {
-          if (hoja) set((st) => ({ sheets: { ...st.sheets, [id]: hoja } }));
+          set((st) => ({ sheets: { ...st.sheets, [id]: hoja } }));
         })
         .catch((err) => {
           console.error("get_track_sheet failed", err);
@@ -2621,16 +2339,9 @@ export const useStore = create<CantoralState>((set, get) => {
       const vacias = Object.fromEntries(
         faltan.map((id) => [id, { trackId: id, letra: "", acordes: "" }] as const),
       );
-      if (!isTauri()) {
-        const deSemilla = Object.fromEntries(
-          faltan.filter((id) => SEED_SHEETS[id]).map((id) => [id, SEED_SHEETS[id]] as const),
-        );
-        set((st) => ({ sheets: { ...st.sheets, ...vacias, ...deSemilla } }));
-        return;
-      }
       try {
-        const hojas = await getSheets(faltan);
-        const traidas = Object.fromEntries((hojas ?? []).map((h) => [h.trackId, h] as const));
+        const hojas = await backend().getSheets(faltan);
+        const traidas = Object.fromEntries(hojas.map((h) => [h.trackId, h] as const));
         set((st) => ({ sheets: { ...st.sheets, ...vacias, ...traidas } }));
       } catch (err) {
         console.error("get_sheets failed", err);
@@ -2698,15 +2409,10 @@ export const useStore = create<CantoralState>((set, get) => {
     // ---------- duplicates ----------
     findDuplicates: () => {
       set({ duplicatesState: "buscando" });
-      if (!isTauri()) {
-        // Fixture, not a search: the real grouping reads file sizes and lengths
-        // the browser mock does not have.
-        set({ duplicates: seedDuplicates(), duplicatesDismissed: 0, duplicatesState: "listo" });
-        return;
-      }
-      findDuplicatesCmd()
+      backend()
+        .findDuplicates()
         .then((r) => {
-          if (r) set({ duplicates: r.groups, duplicatesDismissed: r.dismissed, duplicatesState: "listo" });
+          set({ duplicates: r.groups, duplicatesDismissed: r.dismissed, duplicatesState: "listo" });
         })
         .catch((err) => {
           console.error("find_duplicates failed", err);
@@ -2750,49 +2456,10 @@ export const useStore = create<CantoralState>((set, get) => {
         confirmLabel: "Fusionar",
         onConfirm: () => {
           const ids = copias.map((c) => c.id);
-          if (!isTauri()) {
-            // Browser stand-in: the same visible outcome, none of the SQL.
-            set((st) => {
-              const fuera = new Set(ids);
-              let fav = false;
-              st.tracks.forEach((t) => {
-                if (t.id === keepId || fuera.has(t.id)) fav = fav || t.fav;
-              });
-              // Lists follow the survivor, and a list that held two copies
-              // ends up with the song once, not twice.
-              const plOrder: Record<string, string[]> = {};
-              Object.entries(st.plOrder).forEach(([pid, orden]) => {
-                const visto = new Set<string>();
-                const nuevo: string[] = [];
-                orden.forEach((id) => {
-                  const destino = fuera.has(id) ? keepId : id;
-                  if (visto.has(destino)) return;
-                  visto.add(destino);
-                  nuevo.push(destino);
-                });
-                plOrder[pid] = nuevo;
-              });
-              // A sheetless survivor takes the copy's sheet, as the core does.
-              const sheets = { ...st.sheets };
-              const hoja = heredada && (st.sheets[heredada.id] ?? SEED_SHEETS[heredada.id]);
-              if (hoja) sheets[keepId] = { ...hoja, trackId: keepId };
-              return {
-                tracks: st.tracks
-                  .filter((t) => !fuera.has(t.id))
-                  .map((t) => (t.id === keepId ? { ...t, fav, tieneHoja: t.tieneHoja || !!heredada } : t)),
-                sheets,
-                plOrder,
-                duplicates: st.duplicates.filter((g) => g.signature !== signature),
-              };
-            });
-            toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
-              detalle: "Se quedó una con el favorito y su sitio en los cultos.",
-            });
-            return;
-          }
-          mergeDuplicatesCmd(keepId, ids)
+          backend()
+            .mergeDuplicates(keepId, ids)
             .then((snap) => {
-              if (snap) applySnapshot(snap);
+              applySnapshot(snap);
               toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
                 detalle: "Se quedó una con el favorito y su sitio en los cultos.",
               });
@@ -2808,16 +2475,10 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     dismissDuplicates: (signature) => {
-      if (!isTauri()) {
-        set((st) => ({
-          duplicates: st.duplicates.filter((g) => g.signature !== signature),
-          duplicatesDismissed: st.duplicatesDismissed + 1,
-        }));
-        return;
-      }
-      dismissDuplicatesCmd(signature)
+      backend()
+        .dismissDuplicates(signature)
         .then((r) => {
-          if (r) set({ duplicates: r.groups, duplicatesDismissed: r.dismissed });
+          set({ duplicates: r.groups, duplicatesDismissed: r.dismissed });
         })
         .catch((err) => {
           console.error("dismiss_duplicates failed", err);
@@ -2826,13 +2487,10 @@ export const useStore = create<CantoralState>((set, get) => {
     },
 
     restoreDismissedDuplicates: () => {
-      if (!isTauri()) {
-        set({ duplicates: seedDuplicates(), duplicatesDismissed: 0 });
-        return;
-      }
-      restoreDismissedDuplicatesCmd()
+      backend()
+        .restoreDismissedDuplicates()
         .then((r) => {
-          if (r) set({ duplicates: r.groups, duplicatesDismissed: r.dismissed });
+          set({ duplicates: r.groups, duplicatesDismissed: r.dismissed });
         })
         .catch((err) => {
           console.error("restore_dismissed_duplicates failed", err);
@@ -2875,7 +2533,7 @@ const PREFS_MS = 400;
 function writePrefs() {
   if (prefsTimer) clearTimeout(prefsTimer);
   prefsTimer = null;
-  void setSetting(UI_PREFS_KEY, serialisePrefs(useStore.getState())).catch((err) =>
+  void backend().setSetting(UI_PREFS_KEY, serialisePrefs(useStore.getState())).catch((err) =>
     console.error("could not save the interface preferences", err),
   );
 }
@@ -2903,12 +2561,10 @@ export function flushUiPrefs() {
  * is a save that gets forgotten the next time somebody adds a tenth. This sees
  * the change wherever it came from.
  */
-if (isTauri()) {
-  useStore.subscribe((s, previo) => {
-    if (PREF_FIELDS.every((campo) => s[campo] === previo[campo])) return;
-    schedulePrefsSave();
-  });
-}
+useStore.subscribe((s, previo) => {
+  if (PREF_FIELDS.every((campo) => s[campo] === previo[campo])) return;
+  schedulePrefsSave();
+});
 
 // ============================================================
 // Derived selectors (pure) — used by components against a state snapshot.

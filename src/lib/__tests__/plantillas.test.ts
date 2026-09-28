@@ -5,25 +5,26 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Playlist } from "../types";
-import type { Snapshot } from "../api";
 
-let enTauri = false;
 const duplicatePlaylistCmd = vi.fn<(playlist: string) => Promise<string>>();
 const setPlaylistTemplateCmd = vi.fn<(playlist: string, plantilla: boolean) => Promise<Playlist[]>>();
 const createPlaylistCmd = vi.fn<(n: string, o: string, desde?: string) => Promise<string>>();
-const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
+const getPlaylistsCmd = vi.fn<() => Promise<Playlist[]>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
-  isTauri: () => enTauri,
   duplicatePlaylistCmd: (playlist: string) => duplicatePlaylistCmd(playlist),
   setPlaylistTemplateCmd: (playlist: string, plantilla: boolean) =>
     setPlaylistTemplateCmd(playlist, plantilla),
   createPlaylistCmd: (n: string, o: string, desde?: string) => createPlaylistCmd(n, o, desde),
-  getLibrary: () => getLibrary(),
+  getPlaylistsCmd: () => getPlaylistsCmd(),
+  touchPlaylistCmd: async () => {},
 }));
 
 const { useStore } = await import("../../store");
+const { usarBackend } = await import("../backend");
+const { crearMemoria } = await import("../backend/memoria");
+const { tauri } = await import("../backend/tauri");
 const initial = useStore.getState();
 
 function lista(id: string, over: Partial<Playlist> = {}): Playlist {
@@ -50,6 +51,9 @@ function conListas() {
     curPlaylist: "p1",
     view: "lista",
   });
+  // En el navegador, la base en memoria con las mismas listas; los bloques
+  // «en la app» la cambian por el backend de Tauri.
+  usarBackend(crearMemoria({ tracks: [], playlists: [culto, plantilla] }));
 }
 
 const abierta = () => {
@@ -59,18 +63,23 @@ const abierta = () => {
 
 beforeEach(() => {
   useStore.setState(initial, true);
-  enTauri = false;
-  [duplicatePlaylistCmd, setPlaylistTemplateCmd, createPlaylistCmd, getLibrary].forEach((m) =>
+  [duplicatePlaylistCmd, setPlaylistTemplateCmd, createPlaylistCmd, getPlaylistsCmd].forEach((m) =>
     m.mockReset(),
   );
-  getLibrary.mockResolvedValue(null);
+  // El núcleo contesta las listas que tiene el store, más la que se pidió crear.
+  getPlaylistsCmd.mockImplementation(async () => {
+    const st = useStore.getState();
+    const nuevas = ["77"].filter((id) => !st.playlists.some((p) => p.id === id));
+    return [...st.playlists, ...nuevas.map((id) => lista(id))];
+  });
   conListas();
 });
 
 describe("duplicar una lista, en el navegador", () => {
-  it("copia el orden y la ocasión", () => {
+  it("copia el orden y la ocasión", async () => {
     useStore.getState().duplicateList("p1");
 
+    await vi.waitFor(() => expect(useStore.getState().curPlaylist).not.toBe("p1"));
     const copia = abierta();
     expect(copia.id).not.toBe("p1");
     expect(copia.nombre).toBe("Culto (copia)");
@@ -78,17 +87,18 @@ describe("duplicar una lista, en el navegador", () => {
     expect(useStore.getState().plOrder[copia.id]).toEqual(["a", "b", "c"]);
   });
 
-  it("abre la copia, no deja al usuario en la original", () => {
+  it("abre la copia, no deja al usuario en la original", async () => {
     useStore.getState().duplicateList("p1");
 
+    await vi.waitFor(() => expect(useStore.getState().curPlaylist).not.toBe("p1"));
     expect(useStore.getState().view).toBe("lista");
-    expect(useStore.getState().curPlaylist).not.toBe("p1");
   });
 
-  it("la copia lleva su propio orden, no el mismo arreglo", () => {
+  it("la copia lleva su propio orden, no el mismo arreglo", async () => {
     // Compartir el arreglo haría que reordenar la copia reordenara el culto
     // que ya pasó, sin que nada lo dijera.
     useStore.getState().duplicateList("p1");
+    await vi.waitFor(() => expect(useStore.getState().curPlaylist).not.toBe("p1"));
     const copia = useStore.getState().curPlaylist;
     const { plOrder } = useStore.getState();
 
@@ -107,7 +117,7 @@ describe("duplicar una lista, en el navegador", () => {
 
 describe("duplicar una lista, en la app", () => {
   beforeEach(() => {
-    enTauri = true;
+    usarBackend(tauri);
   });
 
   it("pide la copia al backend y abre la que devuelve", async () => {
@@ -132,31 +142,34 @@ describe("duplicar una lista, en la app", () => {
 });
 
 describe("partir de una plantilla", () => {
-  it("la lista nueva empieza con el repertorio de la plantilla", () => {
+  it("la lista nueva empieza con el repertorio de la plantilla", async () => {
     useStore.getState().createList("Culto 11 Ene", "Servicio dominical", "p9");
 
+    await vi.waitFor(() => expect(abierta().nombre).toBe("Culto 11 Ene"));
     const nueva = abierta();
     expect(useStore.getState().plOrder[nueva.id]).toEqual(["b", "a"]);
     // Una lista hecha desde una plantilla es un culto, no otra plantilla.
     expect(nueva.plantilla).toBe(false);
   });
 
-  it("sin plantilla la lista nace vacía", () => {
+  it("sin plantilla la lista nace vacía", async () => {
     useStore.getState().createList("Culto 11 Ene", "Servicio dominical");
 
+    await vi.waitFor(() => expect(abierta().nombre).toBe("Culto 11 Ene"));
     expect(useStore.getState().plOrder[abierta().id]).toEqual([]);
   });
 
-  it("copiar la plantilla no la vacía ni comparte su arreglo", () => {
+  it("copiar la plantilla no la vacía ni comparte su arreglo", async () => {
     useStore.getState().createList("Culto 11 Ene", "", "p9");
 
+    await vi.waitFor(() => expect(abierta().nombre).toBe("Culto 11 Ene"));
     const { plOrder, curPlaylist } = useStore.getState();
     expect(plOrder.p9).toEqual(["b", "a"]);
     expect(plOrder[curPlaylist]).not.toBe(plOrder.p9);
   });
 
   it("en la app el id de la plantilla viaja con la orden", async () => {
-    enTauri = true;
+    usarBackend(tauri);
     createPlaylistCmd.mockResolvedValue("77");
 
     useStore.getState().createList("Culto", "Servicio dominical", "p9");
@@ -167,16 +180,16 @@ describe("partir de una plantilla", () => {
 });
 
 describe("marcar una lista como plantilla", () => {
-  it("la marca y la desmarca", () => {
+  it("la marca y la desmarca", async () => {
     useStore.getState().toggleCurrentTemplate();
-    expect(abierta().plantilla).toBe(true);
+    await vi.waitFor(() => expect(abierta().plantilla).toBe(true));
 
     useStore.getState().toggleCurrentTemplate();
-    expect(abierta().plantilla).toBe(false);
+    await vi.waitFor(() => expect(abierta().plantilla).toBe(false));
   });
 
   it("en la app manda lo contrario de lo que hay", async () => {
-    enTauri = true;
+    usarBackend(tauri);
     setPlaylistTemplateCmd.mockResolvedValue([]);
 
     useStore.getState().toggleCurrentTemplate();
@@ -185,7 +198,7 @@ describe("marcar una lista como plantilla", () => {
   });
 
   it("si el backend falla no se queda marcada en pantalla", async () => {
-    enTauri = true;
+    usarBackend(tauri);
     setPlaylistTemplateCmd.mockRejectedValue(new Error("base bloqueada"));
     vi.spyOn(console, "error").mockImplementation(() => {});
 

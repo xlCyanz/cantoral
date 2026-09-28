@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { flushUiPrefs, useStore } from "./store";
-import { onScanProgress } from "./lib/api";
+import { backend } from "./lib/backend";
 import { registerShortcuts } from "./lib/shortcuts";
 import { useVideoDurations } from "./lib/videoDurations";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -53,7 +53,7 @@ export default function App() {
   // Drive the scan progress bar from backend events.
   useEffect(() => {
     let un: (() => void) | undefined;
-    void onScanProgress((p) => {
+    void backend().onScanProgress((p) => {
       useStore.setState({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos });
     }).then((u) => (un = u));
     return () => un?.();

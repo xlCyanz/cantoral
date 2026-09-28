@@ -60,22 +60,34 @@ pnpm tauri dev    # app completa
 ```
 
 > [!TIP]
-> Para trabajar en la interfaz, `pnpm dev` es mucho más rápido: `src/lib/api.ts`
-> detecta que no hay runtime de Tauri y el store carga el catálogo de ejemplo de
-> `src/lib/seed.ts`. Solo necesitas `pnpm tauri dev` cuando toques Rust, SQLite,
-> el escaneo, los diálogos nativos o la reproducción de archivos reales.
+> Para trabajar en la interfaz, `pnpm dev` es mucho más rápido: sin runtime de
+> Tauri, el store habla con el backend en memoria (`src/lib/backend/memoria.ts`),
+> que arranca con el catálogo de ejemplo de `src/lib/seed.ts`. Solo necesitas
+> `pnpm tauri dev` cuando toques Rust, SQLite, el escaneo real, los diálogos
+> nativos o la reproducción de archivos reales.
 
 ## Cómo está organizado el código
 
 **La regla principal: la interfaz nunca llama a `invoke` directamente.** Todo pasa
-por `src/lib/api.ts`, que es la única costura con Tauri y la que hace posible el
-modo navegador. Si añades un comando de Rust, añade también su envoltorio ahí.
+por `src/lib/api.ts`, que es la única costura con Tauri. Si añades un comando de
+Rust, añade también su envoltorio ahí.
+
+**El store tiene un solo camino.** Lo que cambia entre la app y el navegador vive
+detrás de la interfaz `Backend` (`src/lib/backend/`): `tauri.ts` delega en `api.ts`
+y `memoria.ts` hace lo mismo sobre una base en memoria, con las mismas reglas que
+SQLite (sin repetidos, borrado en cascada…). El store llama a `backend()` y aplica
+lo que le contestan; no pregunta `isTauri()`. Una operación de datos nueva se añade
+a la interfaz y a las dos implementaciones, con su prueba en `memoria.test.ts`. Lo
+que el navegador no sabe hacer contesta `NoDisponible`, que el store enseña como
+aviso. Los servicios de plataforma (ventana, proyección, actualizador, tema,
+registro) siguen en `api.ts`, que ya no hace nada fuera de Tauri.
 
 | Capa | Dónde | Responsabilidad |
 |---|---|---|
 | Vistas | `src/components/` | Solo presentación; leen del store y llaman acciones |
 | Estado | `src/store.ts` | Estado global (Zustand), acciones y selectores derivados puros |
-| Costura | `src/lib/api.ts` | Único punto que habla con Tauri; degrada a mock en el navegador |
+| Backend | `src/lib/backend/` | Interfaz `Backend`: Tauri (`tauri.ts`) o en memoria (`memoria.ts`) |
+| Costura | `src/lib/api.ts` | Único punto que habla con Tauri |
 | Tipos | `src/lib/types.ts` | Espejo del esquema SQLite y de los modelos de vista |
 | Comandos | `src-tauri/src/commands.rs` | Handlers IPC; no contienen SQL |
 | Datos | `src-tauri/src/db.rs` | Esquema, migraciones y todas las consultas |
