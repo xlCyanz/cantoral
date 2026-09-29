@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpCircle, CircleCheck, Download, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowUpCircle, Check, CircleCheck, Download, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
@@ -316,10 +316,13 @@ function Actualizaciones() {
   const progreso = useStore((s) => s.updateProgress);
   const checkForUpdate = useStore((s) => s.checkForUpdate);
   const installUpdate = useStore((s) => s.installUpdate);
+  const alAbrir = useStore((s) => s.buscarActualizacionesAlAbrir);
+  const setAlAbrir = useStore((s) => s.setBuscarActualizacionesAlAbrir);
 
   const buscando = estado === "checking";
   const bajando = estado === "downloading";
   const hay = update?.estado === "disponible";
+  const conCasilla = update?.estado !== "sinConfigurar";
   const pct =
     progreso?.total && progreso.total > 0
       ? Math.min(100, Math.round((progreso.descargado / progreso.total) * 100))
@@ -330,14 +333,16 @@ function Actualizaciones() {
       {/* El título, la versión y el botón de comprobar en una fila, como el
           resto de las tarjetas: lo que hay debajo solo aparece cuando hay algo
           que decir. */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: hay || estado !== "idle" ? 10 : 0 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: conCasilla || hay || estado !== "idle" ? 10 : 0 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={h2Style}>Actualizaciones</h2>
           <p style={pStyle}>
             Versión {__APP_VERSION__} ·{" "}
             {update?.estado === "sinConfigurar"
               ? "esta compilación no trae actualizaciones automáticas: descárgalas desde GitHub."
-              : "Cantoral mira si hay una versión nueva al abrirse, sin interrumpir."}
+              : alAbrir
+                ? "Cantoral mira si hay una versión nueva al abrirse, sin interrumpir."
+                : "Cantoral solo busca una versión nueva cuando pulsas «Buscar ahora»."}
           </p>
         </div>
         <button
@@ -350,6 +355,30 @@ function Actualizaciones() {
           Buscar ahora
         </button>
       </div>
+
+      {/* La única petición de red de la app (#146): una iglesia con una
+          política de red estricta puede apagarla al abrir y seguir buscando a
+          mano. Una compilación sin actualizador no tiene nada que apagar. */}
+      {conCasilla && (
+        <label className="casilla" style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 9, marginBottom: hay || estado !== "idle" ? 10 : 0, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            className="solo-lector"
+            checked={alAbrir}
+            onChange={(e) => setAlAbrir(e.target.checked)}
+            aria-describedby="actualizaciones-al-abrir-ayuda"
+          />
+          <div aria-hidden className="casilla-marca" style={{ width: 16, height: 16, borderRadius: 5, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(alAbrir ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
+            {alAbrir && <Check size={11} color="var(--on-primary)" strokeWidth={3} />}
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>Buscar actualizaciones al abrir Cantoral</div>
+            <div id="actualizaciones-al-abrir-ayuda" style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>
+              Pide a GitHub el archivo de la última versión. No envía nada tuyo.
+            </div>
+          </div>
+        </label>
+      )}
 
       <div style={{ display: hay || estado !== "idle" ? "block" : "none", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)", padding: "10px 11px" }}>
         {hay && update.estado === "disponible" ? (
