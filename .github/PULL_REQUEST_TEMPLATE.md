@@ -35,23 +35,24 @@ Closes #
 pnpm lint
 pnpm exec tsc --noEmit
 pnpm test
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo audit --file src-tauri/Cargo.lock
 ```
 
-- [ ] Las seis pasan en local
+- [ ] Las siete pasan en local
 - [ ] Hay pruebas para el comportamiento nuevo o corregido
 - [ ] El PR hace **una** cosa (nada de arreglar un bug y reformatear medio archivo a la vez)
 - [ ] Los commits siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)
 - [ ] Añadí una línea a `CHANGELOG.md` bajo `Sin publicar`
-- [ ] Actualicé el `README.md` si cambió algo que ahí se describe
+- [ ] Actualicé `README.md`, `SECURITY.md` o `CONTRIBUTING.md` si cambió algo que ahí se describe
 
 ## Si tocaste la base de datos
 
 - [ ] La migración es **aditiva** (`ALTER TABLE … ADD COLUMN`), sin borrar ni cambiar columnas existentes
 - [ ] Una base creada con la versión anterior sigue abriendo sin perder datos
-- [ ] Los campos que edita el usuario (`artista`, `bpm`, `ocasion`, `fav`) siguen sobreviviendo a un re-escaneo
+- [ ] Lo que escribe el usuario (`ocasion`, `fav`, la letra y el `artista` corregido a mano) sigue sobreviviendo a un re-escaneo
 
 ## Si tocaste la interfaz
 

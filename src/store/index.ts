@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
+import { ESPERA_BUSQUEDA_LETRA_MS } from "../lib/buscarLetra";
 import { crearContexto, modulo } from "./contexto";
 import { crearInterfaz } from "./interfaz";
 import { crearBiblioteca } from "./biblioteca";
@@ -92,4 +93,22 @@ export function flushUiPrefs() {
 useStore.subscribe((s, previo) => {
   if (PREF_FIELDS.every((campo) => s[campo] === previo[campo])) return;
   schedulePrefsSave();
+});
+
+// ============================================================
+// Buscar en las hojas mientras se escribe (#144)
+// ============================================================
+
+/**
+ * Cada cambio de la búsqueda pregunta al núcleo por la letra, pero no a cada
+ * tecla: espera a que se deje de escribir. El título, el artista y el álbum se
+ * siguen filtrando al instante en `applyFilters`; la letra se suma cuando llega.
+ *
+ * Mirando `query` y no desde `onQuery`, porque la búsqueda también se borra
+ * desde otros sitios —«Todas», Esc, el botón del estado vacío—.
+ */
+useStore.subscribe((s, previo) => {
+  if (s.query === previo.query) return;
+  if (modulo.letrasTimer) clearTimeout(modulo.letrasTimer);
+  modulo.letrasTimer = setTimeout(() => void useStore.getState().buscarEnLetras(), ESPERA_BUSQUEDA_LETRA_MS);
 });

@@ -36,10 +36,10 @@ jobs:
           - language: javascript-typescript
           - language: rust
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Inicializar CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3.38.2
         with:
           languages: ${{ matrix.language }}
           # `none` analiza desde el código fuente sin compilar: la interfaz no
@@ -48,6 +48,6 @@ jobs:
           build-mode: none
 
       - name: Analizar
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3.38.2
         with:
           category: "/language:${{ matrix.language }}"

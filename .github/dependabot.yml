@@ -40,9 +40,17 @@ updates:
       tauri:
         patterns: ["tauri", "tauri-*"]
 
+  # Las actions van fijadas por SHA completo con la versión en un comentario
+  # (`@<sha> # v7.0.1`): una etiqueta se puede mover, un SHA no. Dependabot
+  # actualiza el SHA y el comentario a la vez. La excepción es
+  # dtolnay/rust-toolchain, que no publica versiones: está fijada a la punta de
+  # su rama `stable` y hay que moverla a mano.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
     commit-message:
       prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
