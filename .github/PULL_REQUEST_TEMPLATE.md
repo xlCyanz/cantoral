@@ -35,12 +35,13 @@ Closes #
 pnpm lint
 pnpm exec tsc --noEmit
 pnpm test
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo audit --file src-tauri/Cargo.lock
 ```
 
-- [ ] Las seis pasan en local
+- [ ] Las siete pasan en local
 - [ ] Hay pruebas para el comportamiento nuevo o corregido
 - [ ] El PR hace **una** cosa (nada de arreglar un bug y reformatear medio archivo a la vez)
 - [ ] Los commits siguen [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)

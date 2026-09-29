@@ -284,7 +284,8 @@ Produce, según el sistema:
    ```
 
 El workflow `build.yml` verifica que la etiqueta coincida con `package.json`, corre
-las pruebas, compila macOS + Windows en paralelo y **crea el GitHub Release**
+la CI completa (`ci.yml`: los siete comandos de arriba), compila macOS + Windows en
+paralelo y **crea el GitHub Release**
 adjuntando los `.dmg`, `.msi` y `.exe`, con las notas tomadas del `CHANGELOG.md`.
 
 ## 🔄 Actualizaciones automáticas
