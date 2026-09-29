@@ -14,6 +14,13 @@ export interface ActualizacionesSlice {
   /** Por qué falló la última comprobación, para poder decirlo. */
   updateError: string | null;
   updateProgress: UpdateProgress | null;
+  /**
+   * Si `hydrate` comprueba solo al arrancar (#146). Activado de fábrica y
+   * guardado con el resto de las preferencias; apagado, al abrir no sale
+   * ninguna petición y solo pregunta el botón «Buscar ahora».
+   */
+  buscarActualizacionesAlAbrir: boolean;
+  setBuscarActualizacionesAlAbrir: (si: boolean) => void;
 
   /**
    * Ask whether there is a newer Cantoral.
@@ -34,6 +41,8 @@ export function crearActualizaciones(set: Set, get: Get, ctx: Contexto): Actuali
     updateState: "idle",
     updateError: null,
     updateProgress: null,
+    buscarActualizacionesAlAbrir: true,
+    setBuscarActualizacionesAlAbrir: (si) => set({ buscarActualizacionesAlAbrir: si }),
     checkForUpdate: async (manual = false) => {
       if (get().updateState === "downloading") return;
       set({ updateState: "checking", updateError: null });

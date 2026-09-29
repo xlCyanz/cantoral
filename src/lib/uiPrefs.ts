@@ -42,12 +42,20 @@ export interface UiPrefs {
    * que alguien hable también.
    */
   avanceProyeccion: AvanceProyeccion;
+  /**
+   * Si Cantoral pregunta a GitHub por una versión nueva al abrirse (#146).
+   *
+   * Activado de fábrica: el público son PCs de iglesia sin nadie técnico, y
+   * sin la comprobación los arreglos no llegan. Apagarlo es para la iglesia
+   * con una política de red estricta; «Buscar ahora» sigue funcionando igual.
+   */
+  buscarActualizacionesAlAbrir: boolean;
 }
 
 /** The settings key it is stored under. */
 export const UI_PREFS_KEY = "ui";
 
-const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "bpm", "dur"];
+const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
 // «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde
@@ -76,6 +84,7 @@ export const PREF_FIELDS = [
   "salidaDeAudio",
   "transicionProyeccion",
   "avanceProyeccion",
+  "buscarActualizacionesAlAbrir",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -94,6 +103,7 @@ export function serialisePrefs(s: UiPrefs): string {
     salidaDeAudio: s.salidaDeAudio,
     transicionProyeccion: s.transicionProyeccion,
     avanceProyeccion: s.avanceProyeccion,
+    buscarActualizacionesAlAbrir: s.buscarActualizacionesAlAbrir,
   };
   return JSON.stringify(limpio);
 }
@@ -145,6 +155,9 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   }
   if (AVANCES.includes(o.avanceProyeccion as AvanceProyeccion)) {
     out.avanceProyeccion = o.avanceProyeccion as AvanceProyeccion;
+  }
+  if (esBooleano(o.buscarActualizacionesAlAbrir)) {
+    out.buscarActualizacionesAlAbrir = o.buscarActualizacionesAlAbrir;
   }
   return out;
 }

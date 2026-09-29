@@ -9,6 +9,73 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.4.0] - 2026-09-29
+
+**El culto entero, no solo las canciones.** Los momentos sin música —oración,
+lectura, anuncios— entran en el culto y detienen la proyección; las canciones
+se encuentran también por su letra; y antes de cada operación que no tiene
+vuelta atrás se guarda una copia. Con esto se cierra la auditoría de
+septiembre.
+
+### Añadido
+
+- **Momentos sin música en el culto**: Oración, Lectura, Anuncios, Ofrenda,
+  Mensaje u Otro, con un título y una línea de texto opcional. Se añaden con
+  «Añadir un momento…» y se reordenan como una pista. En Proyección salen sobre
+  negro y la proyección se detiene en ellos hasta que pulses «Siguiente»,
+  aunque esté puesto «Pasar al siguiente». Aparecen en su lugar en la hoja
+  impresa y en el modo culto; «Reproducir todo» los salta.
+- **Buscar por la letra.** El buscador de la biblioteca encuentra también las
+  canciones por su letra, sin importar acentos ni mayúsculas, con las palabras
+  en cualquier orden. Las filas que salen solo por la letra enseñan el verso
+  que coincidió.
+- **Copia automática antes de lo que no se puede deshacer.** Antes de quitar
+  una carpeta, fusionar duplicados o restaurar un respaldo se guarda una copia
+  de la biblioteca; se guardan las cinco últimas. Están en Configuración →
+  Base de datos → «Copias automáticas», cada una con su «Restaurar…». Si la
+  copia no se puede guardar, la operación no se hace.
+- **Interruptor para buscar actualizaciones al abrir**, en Configuración →
+  Actualizaciones. Viene encendido; apagado, Cantoral no hace ninguna petición
+  de red al abrirse, y «Buscar ahora» sigue funcionando.
+- **Todo con el teclado.** El volumen y la posición de la pista se mueven con
+  las flechas; «Incluir subcarpetas» se marca con Espacio; el menú de una fila
+  se abre con Mayús+F10 o la tecla de menú y se recorre con ↑/↓. Un lector de
+  pantalla anuncia la biblioteca como una tabla («fila 3 de 120,
+  seleccionada»), y las opciones de Proyección explican lo que hacen en la
+  pantalla, no solo al pasar el ratón.
+
+### Cambiado
+
+- **«Guardar .html» ya no abre el navegador.** Guarda la hoja y avisa dónde
+  quedó. Para imprimir o pasarla a PDF está «Imprimir».
+- **Las listas compartidas con momentos usan el formato 2.** Una lista sin
+  momentos se sigue exportando como antes; una con momentos, una versión
+  anterior de Cantoral la rechaza pidiendo actualizar en vez de perderlos.
+- **La documentación dice lo que la app hace hoy**, incluida la única petición
+  de red (buscar actualizaciones) y cómo apagarla.
+
+### Eliminado
+
+- **El BPM.** No se podía editar y aun así salía en la hoja impresa, en la
+  ordenación y en la fusión de duplicados. Lo que tuviera tu base se queda
+  guardado; la app ya no lo muestra.
+
+### Corregido
+
+- **Un archivo que hace fallar al lector de etiquetas ya no corta el escaneo.**
+  Entra con su nombre, queda anotado en el registro con su ruta, y al terminar
+  se avisa cuántos no se pudieron leer.
+
+### Seguridad
+
+- **La copia de seguridad solo se escribe en un archivo `.db`**, como las
+  exportaciones solo escriben `.html` y `.json`.
+- **La ventana ya no tiene permiso para abrir enlaces ni archivos** con otro
+  programa; solo para mostrar un archivo en el Explorador o el Finder.
+- **El release pasa las mismas comprobaciones que cada cambio** (lint, clippy,
+  auditoría de dependencias y pruebas) antes de compilar, y las acciones de
+  GitHub están fijadas a un commit exacto.
+
 ## [0.3.2] - 2026-09-28
 
 **Windows más estable, y una app que dice lo que pasa.** Arreglos que salieron
@@ -174,11 +241,10 @@ en tu base se quedan donde están; esta versión deja de leerlos.
   peor. Si alguno falla de verdad, el fallo aparece en la cola con lo que dijo
   el reproductor.
 
-  **Cuando un elemento se acaba, el proyector se pone en negro** y ahí se
-  queda. No pasa solo al siguiente: un video se termina mientras alguien está
-  hablando, y arrancar la canción de después por su cuenta delante de la
-  congregación no lo puede decidir la app. Lo siguiente queda cargado y en
-  pausa, a un botón de distancia.
+  **Lo siguiente queda cargado y en pausa**, a un botón de distancia. Qué pasa
+  cuando un elemento se acaba —pasar solo al siguiente, que es lo que viene de
+  fábrica, o quedarse en negro esperando— se elige en Proyección; está más
+  abajo, en «Proyectar un culto entero sin nadie al ratón».
 
   Debajo del título, el tiempo real de lo que está sonando: lo cuenta la
   ventana de salida y se lo devuelve a la de mandos.
@@ -1085,7 +1151,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.3.2...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/xlCyanz/cantoral/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/xlCyanz/cantoral/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/xlCyanz/cantoral/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/xlCyanz/cantoral/compare/v0.2.1...v0.3.0

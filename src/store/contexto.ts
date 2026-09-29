@@ -1,10 +1,12 @@
 import type { Playlist, Track } from "../lib/types";
 import { playlistSheetHtml, sheetFileName } from "../lib/exportSheet";
+import type { Elemento } from "../lib/momentos";
 import { assetUrl, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
 import type { CantoralState, ToastType } from "./tipos";
 import { ultimoId, cur, plDur } from "./selectores";
+import { buscaEnLetras } from "../lib/buscarLetra";
 
 // Parte del store (#134). Ver src/store/index.ts.
 //
@@ -38,6 +40,10 @@ export const modulo = {
   pendingSave: null as string | null,
   /** Debounce for writing the interface preferences back. */
   prefsTimer: null as ReturnType<typeof setTimeout> | null,
+  /** Retardo entre la última tecla del buscador y preguntar por la letra (#144). */
+  letrasTimer: null as ReturnType<typeof setTimeout> | null,
+  /** Sube con cada búsqueda en las hojas, para descartar respuestas viejas. */
+  letrasGen: 0,
   /** Si el escaneo que está acabando lo canceló el usuario. */
   escaneoCancelado: false,
 
@@ -209,16 +215,18 @@ export function crearContexto(set: Set, get: Get) {
    * it can build anything, and the waiting has two endings — with them, and
    * without them if they could not be read.
    */
-  const escribirHoja = (pl: Playlist, rows: Track[], ord: string[]) => {
+  const escribirHoja = (pl: Playlist, rows: readonly Elemento[], ord: string[]) => {
     const s = get();
     const html = playlistSheetHtml(pl, rows, plDur(s, ord), s.sheets);
     const name = sheetFileName(pl.nombre);
     backend()
       .saveSheet(name, html)
-      .then((guardada) => {
-        if (guardada) toast("Hoja de la lista exportada");
+      .then((dest) => {
+        // Se dice dónde quedó y nada más: abrirla con otra aplicación es cosa
+        // de quien la guardó, no de la app (#142).
+        if (dest) toast("Hoja guardada", { detalle: dest });
       })
-      .catch((err) => avisarFallo(err, "No se pudo exportar la lista"));
+      .catch((err) => avisarFallo(err, "No se pudo guardar la hoja"));
   };
 
   /** Write the sheet waiting out its debounce, reading the latest text. */
@@ -234,6 +242,9 @@ export function crearContexto(set: Set, get: Get) {
       .updateTrackSheet(id, hoja.letra, hoja.acordes)
       .then(() => {
         if (get().sheetDialog === id) set({ sheetState: "saved" });
+        // Lo escrito ya está en el índice: si hay una búsqueda puesta, que lo
+        // vea sin tener que volver a teclearla.
+        if (buscaEnLetras(get().query)) void get().buscarEnLetras();
       })
       .catch((err) => {
         console.error("update_track_sheet failed", err);
@@ -264,7 +275,7 @@ export function crearContexto(set: Set, get: Get) {
     if (!t) return;
 
     backend()
-      .updateTrack(t.id, t.artista, t.bpm, t.ocasion)
+      .updateTrack(t.id, t.artista, t.ocasion)
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.

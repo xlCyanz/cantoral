@@ -12,7 +12,6 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub bpm: i64,
     pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
@@ -46,6 +45,15 @@ pub struct Sheet {
     pub acordes: String,
 }
 
+/// Una pista que la búsqueda encontró por su hoja (#144).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricHit {
+    pub track_id: String,
+    /// El trozo de la letra donde aparece lo buscado, sin acordes, en una línea.
+    pub fragmento: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Folder {
@@ -70,6 +78,26 @@ pub struct Playlist {
     pub plantilla: bool,
     /// RFC3339, UTC: la última vez que se abrió o se cambió. Lo que ordena.
     pub tocada: String,
+    /// Los momentos sin música del culto (#145). Su sitio en el orden lo dice
+    /// `ids`, donde aparecen por su `id` («m:12») entre los de las pistas.
+    #[serde(default)]
+    pub momentos: Vec<Momento>,
+}
+
+/// Un momento del culto que no es una pista: una oración, una lectura, los
+/// anuncios (#145). En la proyección sale su título sobre negro y la cola se
+/// detiene ahí hasta que quien opera pulsa «Siguiente».
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Momento {
+    /// `m:` y el id de la fila, para que no se confunda con el de una pista
+    /// dentro del orden del culto.
+    pub id: String,
+    /// «oracion», «lectura», «anuncios», «ofrenda», «mensaje» u «otro».
+    pub tipo: String,
+    pub titulo: String,
+    /// Opcional: la cita de la lectura, quién predica.
+    pub texto: String,
 }
 
 /// One track inside a group of suspected duplicates.
@@ -121,6 +149,9 @@ pub struct ScanProgress {
     /// Archivos de medios que se reconocieron y no se indexaron porque ningún
     /// motor de webview los decodifica.
     pub omitidos: i64,
+    /// Archivos que se indexaron sin metadatos porque leerlos hizo *panic* en
+    /// `lofty` (#131). Entran con el nombre del archivo por título.
+    pub ilegibles: i64,
     /// Media files the walk found: what `added` counts up to. «120 de 3 400»
     /// says more than «4 %» to someone deciding whether to wait (#139).
     pub total: i64,

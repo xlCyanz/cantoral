@@ -3,8 +3,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::compartir;
+use crate::copias::{self, Motivo};
 use crate::db::{self, Db};
-use crate::models::{DuplicateGroup, Folder, Playlist, Sheet, Track};
+use crate::models::{DuplicateGroup, Folder, LyricHit, Playlist, Sheet, Track};
 use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
 
 /// Everything the frontend needs to hydrate its store.
@@ -264,7 +265,12 @@ pub async fn find_duplicates(app: AppHandle) -> CmdResult<DuplicateReport> {
 
 /// Fold the copies into the one the user chose to keep.
 #[tauri::command(async)]
-pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdResult<Snapshot> {
+pub fn merge_duplicates(
+    db: State<Db>,
+    db_path: State<DbPath>,
+    keep: String,
+    drop: Vec<String>,
+) -> CmdResult<Snapshot> {
     let keep_id = keep.parse::<i64>().map_err(e)?;
     let drop_ids = drop
         .iter()
@@ -272,9 +278,21 @@ pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdRe
         .collect::<std::result::Result<Vec<i64>, _>>()
         .map_err(e)?;
     let conn = db.0.lock().map_err(e)?;
-    db::merge_tracks(&conn, keep_id, &drop_ids).map_err(e)?;
+    fusionar(&conn, &copias::carpeta(&db_path.0), keep_id, &drop_ids).map_err(e)?;
     log::info!("merged {} copies into track {keep}", drop_ids.len());
     snapshot(&conn).map_err(e)
+}
+
+/// Fusionar, con la copia automática antes (#143). Si la copia no se puede
+/// guardar, no se fusiona nada.
+fn fusionar(
+    conn: &Connection,
+    copias: &std::path::Path,
+    keep: i64,
+    drop: &[i64],
+) -> anyhow::Result<()> {
+    copias::guardar(conn, copias, Motivo::Fusionar, None)?;
+    db::merge_tracks(conn, keep, drop)
 }
 
 /// Remember that a group is not duplicates after all.
@@ -326,38 +344,6 @@ pub fn conceder_alcance(app: &AppHandle, conn: &Connection) {
         }
         Err(err) => log::error!("could not list the folders to grant asset access to: {err}"),
     }
-}
-
-/// Hand the sheet the app just exported to the system's default application.
-///
-/// The webview no longer holds `opener:allow-open-path`, so this is the only
-/// way to the OS opener. With the permission granted straight to the webview,
-/// `open_path` was a request to run anything: the scope was `**`, and the
-/// system opener does not care whether the file is a song or an executable.
-///
-/// It used to let media through as well, for the «open in the system player»
-/// escape hatch. That hatch is gone (#81) — everything plays inside the app
-/// now — so the only file left to open is the printable sheet, and the rule
-/// narrowed with it. A command that can open less is a command worth less to
-/// anything that manages to call it.
-#[tauri::command]
-pub fn open_exported_sheet(path: String) -> CmdResult<()> {
-    if !abrible(std::path::Path::new(&path)) {
-        return Err(format!("Cantoral solo abre las hojas que exporta, no «{path}»."));
-    }
-    tauri_plugin_opener::open_path(&path, None::<&str>).map_err(e)
-}
-
-/// Whether this is a file Cantoral is willing to hand to the system opener.
-///
-/// The printable sheet the app itself just wrote, and nothing else. Separate
-/// from the command so the rule can be read and tested without anything
-/// actually opening.
-fn abrible(path: &std::path::Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
-        .unwrap_or(false)
 }
 
 /// Parse a list of ids coming from the frontend.
@@ -431,6 +417,13 @@ pub fn update_track_sheet(
     db::set_track_sheet(&conn, id.parse::<i64>().map_err(e)?, &letra, &acordes).map_err(e)
 }
 
+/// The tracks whose sheet holds every word searched for (#144).
+#[tauri::command(async)]
+pub fn search_lyrics(db: State<Db>, consulta: String) -> CmdResult<Vec<LyricHit>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::search_lyrics(&conn, &consulta).map_err(e)
+}
+
 /// Re-check every indexed file on disk. Called after startup so tracks deleted
 /// while the app was closed show up as missing without a full rescan.
 ///
@@ -452,11 +445,25 @@ pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
 }
 
 #[tauri::command(async)]
-pub fn remove_folder(db: State<Db>, slot: State<ScanSlot>, id: String) -> CmdResult<Snapshot> {
+pub fn remove_folder(
+    db: State<Db>,
+    db_path: State<DbPath>,
+    slot: State<ScanSlot>,
+    id: String,
+) -> CmdResult<Snapshot> {
     let _claim = tomar(&slot, Tarea::QuitarCarpeta)?;
     let conn = db.0.lock().map_err(e)?;
-    db::remove_folder(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
+    quitar_carpeta(&conn, &copias::carpeta(&db_path.0), id.parse::<i64>().map_err(e)?)
+        .map_err(e)?;
     snapshot(&conn).map_err(e)
+}
+
+/// Quitar una carpeta, con la copia automática antes (#143). La toma de la
+/// ranura de escaneo ya la hizo quien llama, así que la copia nunca se hace
+/// con un escaneo escribiendo a medias (#127).
+fn quitar_carpeta(conn: &Connection, copias: &std::path::Path, id: i64) -> anyhow::Result<()> {
+    copias::guardar(conn, copias, Motivo::QuitarCarpeta, None)?;
+    db::remove_folder(conn, id)
 }
 
 /// Point a track at the file's new location, keeping what it carries.
@@ -513,16 +520,10 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 }
 
 #[tauri::command(async)]
-pub fn update_track(
-    db: State<Db>,
-    id: String,
-    artista: String,
-    bpm: i64,
-    ocasion: String,
-) -> CmdResult<()> {
+pub fn update_track(db: State<Db>, id: String, artista: String, ocasion: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &artista, bpm, &ocasion).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista, &ocasion).map_err(e)?;
     Ok(())
 }
 
@@ -610,8 +611,48 @@ pub fn set_playlist_template(
 pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let pid = playlist.parse::<i64>().map_err(e)?;
-    let numeric: Vec<i64> = ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
-    db::set_playlist_order(&conn, pid, &numeric).map_err(e)
+    // Pistas y momentos (#145), cada uno por su clave: `12` o `m:12`.
+    let orden: Vec<db::Elemento> = ids.iter().filter_map(|s| db::Elemento::de_clave(s)).collect();
+    db::set_playlist_order(&conn, pid, &orden).map_err(e)
+}
+
+/// El id de fila de un momento a partir de su clave (`m:12`).
+fn id_de_momento(clave: &str) -> CmdResult<i64> {
+    match db::Elemento::de_clave(clave) {
+        Some(db::Elemento::Momento(id)) => Ok(id),
+        _ => Err(format!("«{clave}» no es un momento del culto")),
+    }
+}
+
+/// Añadir un momento sin música —una oración, una lectura— al final de un
+/// culto (#145). Contesta con las listas, como agregar pistas.
+#[tauri::command(async)]
+pub fn add_playlist_momento(
+    db: State<Db>,
+    playlist: String,
+    tipo: String,
+    titulo: String,
+    texto: String,
+) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::add_playlist_momento(&conn, playlist.parse::<i64>().map_err(e)?, &tipo, &titulo, &texto)
+        .map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
+}
+
+/// Cambiar lo que dice un momento del culto. Su sitio en el orden no se toca.
+#[tauri::command(async)]
+pub fn update_playlist_momento(
+    db: State<Db>,
+    momento: String,
+    tipo: String,
+    titulo: String,
+    texto: String,
+) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::update_playlist_momento(&conn, id_de_momento(&momento)?, &tipo, &titulo, &texto)
+        .map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -733,6 +774,12 @@ pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
 
 /// Read a shared playlist file without touching the library.
 ///
+/// Takes any `.json`, not only the `.cantoral.json` the app writes (#131): a
+/// file renamed by hand, or by a mail client that mangles double extensions,
+/// is still a list someone meant to share. That is safe because `leer` only
+/// returns something when the content is a valid Cantoral list, and its
+/// errors never echo the file's content, so this is no general-purpose read.
+///
 /// Nothing is created until the user has seen what matched: the same shape as
 /// `inspect_backup`, because both answer «what am I about to let in?».
 #[tauri::command]
@@ -797,6 +844,26 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
     // or write into nothing. It waits here instead.
     let mut guard = db.0.lock().map_err(e)?;
 
+    restaurar(&mut guard, live, src, &copias::carpeta(live))?;
+    let snap = snapshot(&guard).map_err(e)?;
+    conceder_alcance(app, &guard);
+    log::info!("database restored from {}", src.display());
+    Ok(snap)
+}
+
+/// El reemplazo de la base en sí, sin Tauri de por medio para poder probarlo.
+///
+/// Primero la copia automática de la biblioteca actual (#143): si no se puede
+/// guardar, no se restaura nada. El respaldo que se restaura queda protegido de
+/// la rotación, porque puede ser una de esas mismas copias.
+fn restaurar(
+    guard: &mut Connection,
+    live: &std::path::Path,
+    src: &std::path::Path,
+    dir_copias: &std::path::Path,
+) -> CmdResult<()> {
+    copias::guardar(guard, dir_copias, Motivo::Restaurar, Some(src)).map_err(e)?;
+
     // Fold the WAL back into the main file and release it, so the restore can
     // move it aside (an open handle makes that fail on Windows).
     let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -804,11 +871,8 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
 
     match db::restore_from_backup(live, src) {
         Ok(conn) => {
-            let snap = snapshot(&conn).map_err(e)?;
-            conceder_alcance(app, &conn);
             *guard = conn;
-            log::info!("database restored from {}", src.display());
-            Ok(snap)
+            Ok(())
         }
         Err(err) => {
             // `restore_from_backup` already put the previous database back; all
@@ -830,6 +894,14 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
             }
         }
     }
+}
+
+/// Las copias automáticas que se guardaron antes de quitar una carpeta,
+/// restaurar o fusionar, de la más nueva a la más antigua (#143). Se restauran
+/// por el camino de siempre: `inspect_backup` y `restore_database`.
+#[tauri::command(async)]
+pub fn list_auto_backups(db_path: State<DbPath>) -> CmdResult<Vec<copias::CopiaAutomatica>> {
+    copias::listar(&copias::carpeta(&db_path.0)).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -869,6 +941,30 @@ pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
     Ok(DbInfo { path: path.to_string_lossy().to_string(), size, ultima_copia })
 }
 
+/// Whether a backup destination ends in `.db`, in any case.
+///
+/// Same guard as `export_playlist` and `export_playlist_json`, and for the
+/// same reason (#131): without it this command could overwrite any writable
+/// file with the contents of `cantoral.db`. Only `.db` because it is what the
+/// save dialog proposes and the only thing the restore dialog lets you pick.
+fn es_db(dest: &str) -> bool {
+    std::path::Path::new(dest)
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case("db"))
+}
+
+const SOLO_DB: &str = "La copia de seguridad debe terminar en .db";
+
+/// Put the (already checkpointed) database at `dest`, refusing anything that
+/// is not a `.db`.
+fn copiar_respaldo(src: &std::path::Path, dest: &str) -> CmdResult<()> {
+    if !es_db(dest) {
+        return Err(SOLO_DB.into());
+    }
+    std::fs::copy(src, dest).map(|_| ()).map_err(e)
+}
+
 /// Copy the database to `dest`. The WAL is first checkpointed into the main file
 /// so the copy is complete — a plain copy alone would miss data still in the WAL.
 ///
@@ -877,6 +973,10 @@ pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
 /// this exists to avoid (#128).
 #[tauri::command]
 pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> {
+    // Refused before the checkpoint: nothing is touched for a bad destination.
+    if !es_db(&dest) {
+        return Err(SOLO_DB.into());
+    }
     fuera_del_hilo_principal(app, move |app| {
         let src = app.state::<DbPath>().0.clone();
         {
@@ -884,7 +984,7 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
             let conn = db.0.lock().map_err(e)?;
             let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         }
-        std::fs::copy(&src, &dest).map_err(e)?;
+        copiar_respaldo(&src, &dest)?;
         let cuando = chrono::Utc::now().to_rfc3339();
         {
             let db = app.state::<Db>();
@@ -903,57 +1003,12 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{abrible, export_playlist, export_playlist_json, rutas_con_alcance};
-    use crate::db;
+    use super::{
+        copiar_respaldo, export_playlist, export_playlist_json, fusionar, quitar_carpeta,
+        restaurar, rutas_con_alcance,
+    };
+    use crate::{copias, db};
     use std::path::Path;
-
-    #[test]
-    fn the_exported_sheet_can_be_opened() {
-        // It is what «Exportar» hands to the browser to be printed, and now
-        // the only thing this command opens at all.
-        assert!(abrible(Path::new("/tmp/Culto.html")));
-        assert!(abrible(Path::new("/tmp/Culto.htm")));
-    }
-
-    #[test]
-    fn media_is_no_longer_openable() {
-        // The escape hatch to the system player is gone (#81): everything
-        // plays inside the app, so handing a track to the OS is no longer
-        // something the app does — or something this command allows.
-        for media in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
-            assert!(!abrible(Path::new(media)), "{media} must no longer be openable");
-        }
-    }
-
-    #[test]
-    fn an_extension_in_capitals_is_the_same_extension() {
-        // Windows is full of «.HTML»; a case-sensitive check would refuse the
-        // sheet the app itself just wrote.
-        assert!(abrible(Path::new("/tmp/Culto.HTML")));
-        assert!(abrible(Path::new("/tmp/Culto.Htm")));
-    }
-
-    #[test]
-    fn anything_the_system_would_run_is_refused() {
-        // The point of the whole change: `open_path` asks the OS to open the
-        // file with its default application, and for these that means running
-        // them.
-        for malo in ["/tmp/x.exe", "/tmp/x.sh", "/tmp/x.bat", "/tmp/x.command", "/tmp/x.app"] {
-            assert!(!abrible(Path::new(malo)), "{malo} must be refused");
-        }
-    }
-
-    #[test]
-    fn so_is_anything_without_an_extension_to_judge() {
-        assert!(!abrible(Path::new("/tmp/sin-extension")));
-        assert!(!abrible(Path::new("/tmp/")));
-        assert!(!abrible(Path::new("")));
-    }
-
-    #[test]
-    fn and_the_library_database_itself() {
-        assert!(!abrible(Path::new("/datos/cantoral.db")));
-    }
 
     /// A temp directory of this test's own, cleared when it goes out of scope.
     ///
@@ -1033,6 +1088,25 @@ mod tests {
     }
 
     #[test]
+    fn a_backup_must_be_a_db() {
+        // Sin esta guarda, la copia sobrescribiría cualquier archivo escribible
+        // con el contenido de `cantoral.db` (#131).
+        let dir = Dir::new("respaldo-extension");
+        let src = std::path::PathBuf::from(dir.path("cantoral.db"));
+        std::fs::write(&src, b"SQLite format 3\0").unwrap();
+        for bad in ["x.txt", "x.db.txt", "x", "x.sqlite"] {
+            let dest = dir.path(bad);
+            assert!(copiar_respaldo(&src, &dest).is_err(), "{bad} should be refused");
+            assert!(!std::path::Path::new(&dest).exists(), "{bad} must not be created");
+        }
+        for ok in ["copia.db", "COPIA.DB"] {
+            let dest = dir.path(ok);
+            copiar_respaldo(&src, &dest).unwrap_or_else(|err| panic!("{ok}: {err}"));
+            assert_eq!(std::fs::read(&dest).unwrap(), std::fs::read(&src).unwrap());
+        }
+    }
+
+    #[test]
     fn export_accepts_either_html_spelling_and_ignores_case() {
         let dir = Dir::new("spellings");
         for ok in ["culto.htm", "culto.HTML"] {
@@ -1064,5 +1138,151 @@ mod tests {
         let mut rutas = rutas_con_alcance(&restaurada).unwrap();
         rutas.sort();
         assert_eq!(rutas, ["/otro-pc/Coros", "/otro-pc/Himnos"]);
+    }
+
+    // ---- copia automática antes de lo que no se deshace (#143)
+
+    /// Una base en disco con una carpeta de `n` pistas, en `dir/nombre`.
+    fn base_con(
+        dir: &Dir,
+        nombre: &str,
+        n: usize,
+    ) -> (std::path::PathBuf, rusqlite::Connection, i64) {
+        let ruta = std::path::PathBuf::from(dir.path(nombre));
+        let conn = db::open_and_migrate(&ruta).unwrap();
+        let fid = db::add_folder(&conn, &format!("/m/{nombre}"), "m", true).unwrap();
+        for i in 0..n {
+            db::upsert_track(
+                &conn,
+                fid,
+                &format!("/m/{nombre}/{i}.mp3"),
+                "t",
+                "a",
+                "al",
+                1,
+                "MP3",
+                false,
+                1,
+                1,
+            )
+            .unwrap();
+        }
+        (ruta, conn, fid)
+    }
+
+    fn pistas_en(copia: &str) -> i64 {
+        db::inspect_backup(Path::new(copia)).unwrap().tracks
+    }
+
+    #[test]
+    fn removing_a_folder_saves_a_copy_first_and_the_copy_brings_it_back() {
+        let dir = Dir::new("copia-quitar");
+        let (live, mut conn, fid) = base_con(&dir, "cantoral.db", 4);
+        db::set_track_sheet(&conn, 1, "Letra a mano", "").unwrap();
+        let respaldos = copias::carpeta(&live);
+
+        quitar_carpeta(&conn, &respaldos, fid).unwrap();
+        assert!(db::list_tracks(&conn).unwrap().is_empty());
+
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista.len(), 1);
+        assert_eq!(lista[0].motivo, "quitar-carpeta");
+        assert_eq!(pistas_en(&lista[0].ruta), 4, "la copia es de antes de quitarla");
+
+        // Restaurarla es el «deshacer»: vuelven las pistas y la letra.
+        let src = std::path::PathBuf::from(&lista[0].ruta);
+        restaurar(&mut conn, &live, &src, &respaldos).unwrap();
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 4);
+        assert_eq!(db::track_sheet(&conn, 1).unwrap().letra, "Letra a mano");
+    }
+
+    #[test]
+    fn a_folder_is_not_removed_when_its_copy_cannot_be_saved() {
+        let dir = Dir::new("copia-quitar-falla");
+        let (_live, conn, fid) = base_con(&dir, "cantoral.db", 2);
+        let bloqueo = std::path::PathBuf::from(dir.path("respaldos"));
+        std::fs::write(&bloqueo, b"no soy una carpeta").unwrap();
+
+        let err = quitar_carpeta(&conn, &bloqueo, fid).unwrap_err();
+
+        assert!(err.to_string().contains("no se quitó la carpeta"), "{err}");
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 2, "no se quitó nada");
+    }
+
+    #[test]
+    fn merging_saves_a_copy_first() {
+        let dir = Dir::new("copia-fusionar");
+        let (live, conn, _) = base_con(&dir, "cantoral.db", 3);
+        let respaldos = copias::carpeta(&live);
+
+        fusionar(&conn, &respaldos, 1, &[2, 3]).unwrap();
+
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 1);
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista[0].motivo, "fusionar");
+        assert_eq!(pistas_en(&lista[0].ruta), 3);
+    }
+
+    #[test]
+    fn a_merge_is_not_done_when_its_copy_cannot_be_saved() {
+        let dir = Dir::new("copia-fusionar-falla");
+        let (_live, conn, _) = base_con(&dir, "cantoral.db", 3);
+        let bloqueo = std::path::PathBuf::from(dir.path("respaldos"));
+        std::fs::write(&bloqueo, b"x").unwrap();
+
+        assert!(fusionar(&conn, &bloqueo, 1, &[2, 3]).is_err());
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn restoring_saves_the_current_library_first() {
+        let dir = Dir::new("copia-restaurar");
+        let (live, mut conn, _) = base_con(&dir, "cantoral.db", 2);
+        let (backup, otra, _) = base_con(&dir, "respaldo.db", 5);
+        otra.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+        drop(otra);
+        let respaldos = copias::carpeta(&live);
+
+        restaurar(&mut conn, &live, &backup, &respaldos).unwrap();
+
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 5, "se restauró");
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista[0].motivo, "restaurar");
+        assert_eq!(pistas_en(&lista[0].ruta), 2, "la copia es la biblioteca de antes");
+    }
+
+    #[test]
+    fn a_restore_is_not_done_when_its_copy_cannot_be_saved() {
+        let dir = Dir::new("copia-restaurar-falla");
+        let (live, mut conn, _) = base_con(&dir, "cantoral.db", 2);
+        let (backup, otra, _) = base_con(&dir, "respaldo.db", 5);
+        drop(otra);
+        let bloqueo = std::path::PathBuf::from(dir.path("respaldos"));
+        std::fs::write(&bloqueo, b"x").unwrap();
+
+        let err = restaurar(&mut conn, &live, &backup, &bloqueo).unwrap_err();
+
+        assert!(err.contains("no se restauró el respaldo"), "{err}");
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 2, "la biblioteca sigue igual");
+    }
+
+    #[test]
+    fn restoring_the_oldest_automatic_copy_does_not_rotate_it_away() {
+        let dir = Dir::new("copia-restaurar-vieja");
+        let (live, mut conn, fid) = base_con(&dir, "cantoral.db", 3);
+        let respaldos = copias::carpeta(&live);
+        // Una de antes de quitar la carpeta, y detrás tantas como caben.
+        quitar_carpeta(&conn, &respaldos, fid).unwrap();
+        for _ in 1..copias::CONSERVAR {
+            copias::guardar(&conn, &respaldos, copias::Motivo::Fusionar, None).unwrap();
+        }
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista.len(), copias::CONSERVAR);
+        assert_eq!(lista.last().unwrap().motivo, "quitar-carpeta");
+        let mas_vieja = std::path::PathBuf::from(&lista.last().unwrap().ruta);
+
+        restaurar(&mut conn, &live, &mas_vieja, &respaldos).unwrap();
+
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 3);
     }
 }

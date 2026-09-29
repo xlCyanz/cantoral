@@ -1,5 +1,6 @@
 import { type Sheet } from "../lib/api";
 import { backend } from "../lib/backend";
+import { soloPistas } from "../lib/momentos";
 import type { SaveState } from "./tipos";
 import type { Contexto, Get, Set } from "./contexto";
 
@@ -72,7 +73,9 @@ export function crearHojas(set: Set, get: Get, ctx: Contexto): HojasSlice {
     },
 
     loadSheets: async (ids) => {
-      const faltan = ids.filter((id) => !get().sheets[id]);
+      // Un momento del culto no tiene hoja (#145), y su id no es de pista: el
+      // núcleo no sabría qué hacer con él.
+      const faltan = soloPistas(ids).filter((id) => !get().sheets[id]);
       if (faltan.length === 0) return;
       // Tracks with nothing written do not come back, so they are seeded empty
       // here — otherwise every view of them would ask again.

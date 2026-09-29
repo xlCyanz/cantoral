@@ -1,6 +1,7 @@
 import { type DuplicateGroup, type DuplicateTrack } from "../lib/api";
 import { backend } from "../lib/backend";
 import type { Contexto, Get, Set } from "./contexto";
+import { AVISO_COPIA_AUTOMATICA } from "./reglas";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // Buscar, fusionar y descartar pistas repetidas.
@@ -76,7 +77,8 @@ export function crearDuplicados(set: Set, get: Get, ctx: Contexto): DuplicadosSl
         detail: [...copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`), ...avisoHojas].join("\n\n"),
         safe:
           "Su favorito, la letra y los acordes, y su sitio en las listas para culto pasan a la que se queda. " +
-          "Los archivos de audio no se borran del disco.",
+          "Los archivos de audio no se borran del disco. " +
+          AVISO_COPIA_AUTOMATICA,
         confirmLabel: "Fusionar",
         onConfirm: () => {
           const ids = copias.map((c) => c.id);

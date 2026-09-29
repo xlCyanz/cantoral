@@ -27,7 +27,7 @@ export const tauri: Backend = {
   reconcileLibrary: async () => requerido(await api.reconcileLibraryCmd(), "reconcile_library"),
   setTrackFav: (id, fav) => api.setTrackFav(id, fav),
   setTracksFav: (ids, fav) => api.setTracksFavCmd(ids, fav),
-  updateTrack: (id, artista, bpm, ocasion) => api.updateTrackCmd(id, artista, bpm, ocasion),
+  updateTrack: (id, artista, ocasion) => api.updateTrackCmd(id, artista, ocasion),
   deleteTrack: (id) => api.deleteTrackCmd(id),
   deleteTracks: async (ids) => requerido(await api.deleteTracksCmd(ids), "delete_tracks"),
   relocateTrack: async (id) => {
@@ -56,11 +56,14 @@ export const tauri: Backend = {
   setPlaylistTemplate: (playlist, plantilla) => api.setPlaylistTemplateCmd(playlist, plantilla),
   updatePlaylist: (playlist, nombre, ocasion) => api.updatePlaylistCmd(playlist, nombre, ocasion),
   touchPlaylist: (playlist) => api.touchPlaylistCmd(playlist),
+  addPlaylistMomento: (playlist, tipo, titulo, texto) => api.addPlaylistMomentoCmd(playlist, tipo, titulo, texto),
+  updatePlaylistMomento: (momento, tipo, titulo, texto) => api.updatePlaylistMomentoCmd(momento, tipo, titulo, texto),
   deletePlaylist: (playlist) => api.deletePlaylistCmd(playlist),
 
   getTrackSheet: async (id) => requerido(await api.getTrackSheet(id), "get_track_sheet"),
   getSheets: async (ids) => (await api.getSheets(ids)) ?? [],
   updateTrackSheet: (id, letra, acordes) => api.updateTrackSheet(id, letra, acordes),
+  searchLyrics: async (consulta) => requerido(await api.searchLyrics(consulta), "search_lyrics"),
 
   findDuplicates: async () => requerido(await api.findDuplicatesCmd(), "find_duplicates"),
   mergeDuplicates: async (keep, drop) => requerido(await api.mergeDuplicatesCmd(keep, drop), "merge_duplicates"),
@@ -81,15 +84,17 @@ export const tauri: Backend = {
   pickBackup: () => api.pickDbFile(),
   inspectBackup: (src) => api.inspectBackup(src),
   restoreDatabase: (src) => api.restoreDatabaseCmd(src),
+  listAutoBackups: () => api.listAutoBackups(),
 
   saveSheet: async (nombre, html) => {
     const dest = await api.pickExportPath(nombre);
-    if (!dest) return false;
+    if (!dest) return null;
     await api.exportPlaylistCmd(dest, html);
-    // Se abre en el navegador, donde Cmd/Ctrl+P la guarda como PDF. Si no se
-    // abre, la hoja ya está escrita: eso no convierte el guardado en un fallo.
-    await api.openExportedSheet(dest).catch((err) => console.error("could not open the exported sheet", err));
-    return true;
+    // Solo se escribe. Antes se abría además en el navegador, y quien la
+    // guardaba para mandarla por correo veía saltar una ventana —quizá encima
+    // de la proyección— sin haberla pedido (#142). Imprimir tiene su vista
+    // previa dentro de la app; esto es solo el archivo.
+    return dest;
   },
   saveSharedList: async (nombre, json) => {
     const dest = await api.pickShareExportPath(nombre);

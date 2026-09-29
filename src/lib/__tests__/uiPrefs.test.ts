@@ -41,6 +41,7 @@ const GUARDADAS: UiPrefs = {
   salidaDeAudio: "portada",
   transicionProyeccion: "cuenta",
   avanceProyeccion: "siguiente",
+  buscarActualizacionesAlAbrir: false,
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -81,6 +82,12 @@ describe("parsePrefs", () => {
 
     // Only the one field that held up survives; the rest fall back to defaults.
     expect(parsePrefs(raro)).toEqual({ shuffle: true });
+  });
+
+  it("olvida el orden por BPM que guardó una versión anterior (#141)", () => {
+    // Ya no hay columna que lo active ni forma de verlo: la biblioteca vuelve
+    // al orden por defecto en vez de quedarse ordenada por un campo invisible.
+    expect(parsePrefs(JSON.stringify({ sortKey: "bpm", sortDir: "desc" }))).toEqual({ sortDir: "desc" });
   });
 
   it("recuerda los ajustes de la proyección", () => {
@@ -235,6 +242,15 @@ describe("guardar los cambios", () => {
     await vi.advanceTimersByTimeAsync(400);
 
     expect(ultimoGuardado().densidad).toBe("compacta");
+  });
+
+  it("recuerda si se busca actualizaciones al abrir (#146)", async () => {
+    // Si no se guardara, la iglesia que la apaga por su política de red
+    // volvería a hacer la petición en la siguiente apertura.
+    useStore.getState().setBuscarActualizacionesAlAbrir(false);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(ultimoGuardado().buscarActualizacionesAlAbrir).toBe(false);
   });
 
   it("no guarda los filtros de la biblioteca", async () => {

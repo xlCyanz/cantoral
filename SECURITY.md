@@ -65,6 +65,23 @@ modelo de amenaza relevante es, por tanto:
 - Vulnerabilidades en dependencias sin una ruta de explotación en Cantoral; para eso
   están los PRs de Dependabot.
 
+## La comprobación de actualizaciones
+
+Es la única petición de red que Cantoral hace por su cuenta: al abrirse, un
+`GET` a
+`https://github.com/xlCyanz/cantoral/releases/latest/download/latest.json`.
+No lleva identificadores, datos de la biblioteca ni la versión instalada; GitHub
+ve la IP y el `User-Agent` del plugin (`tauri-plugin-updater/<versión>`). La
+respuesta solo se muestra (las notas, como texto plano); un instalador se
+descarga únicamente si el usuario lo pide, y se instala solo si su firma
+coincide con la clave pública de `src-tauri/tauri.conf.json`.
+
+Se puede apagar en **Configuración → Actualizaciones → Buscar actualizaciones al
+abrir Cantoral** (activado de fábrica); apagada, al abrir no sale ninguna
+petición y **Buscar ahora** sigue disponible. Un fallo que haga salir esa
+petición con la casilla apagada, o que envíe algo más de lo descrito, está
+dentro de alcance.
+
 ## Endurecimiento
 
 La configuración de seguridad de Tauri se endureció en
@@ -85,3 +102,14 @@ La configuración de seguridad de Tauri se endureció en
 
 Si encuentras una forma de saltarte algo de esto, repórtala en privado por el canal
 de arriba.
+
+## Limitaciones conocidas
+
+- **El alcance del protocolo `asset` solo crece mientras la app está abierta.**
+  Al indexar una carpeta o localizar una pista se le da acceso a esa ruta, pero
+  quitar la carpeta o borrar pistas del catálogo no lo retira: Tauri no ofrece
+  una forma sencilla de revocar lo concedido. El alcance se vacía al cerrar y, al
+  arrancar, se vuelve a abrir solo a las carpetas que siguen en la biblioteca, así
+  que lo que queda de más dura como mucho hasta reiniciar. Sin una ruta de
+  explotación conocida, se anota aquí en vez de tratarlo como fallo
+  ([#131](https://github.com/xlCyanz/cantoral/issues/131)).

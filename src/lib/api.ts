@@ -75,20 +75,6 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 
 // ---------------------------------------------------------------- os / files
 
-/**
- * Abre en el navegador la hoja que la app acaba de exportar, para imprimirla.
- *
- * Va por el núcleo y no por el plugin del abridor: el webview no puede pedirle
- * al sistema que abra una ruta cualquiera, y el núcleo solo deja pasar la hoja
- * —comprueba la extensión—. Antes esto también abría pistas, para el desvío al
- * reproductor del sistema; ese desvío ya no existe (#81) y la regla se
- * estrechó con él.
- */
-export async function openExportedSheet(path: string): Promise<void> {
-  if (!isTauri() || !path) return;
-  await inv("open_exported_sheet", { path });
-}
-
 /** Native picker for a single media file, used when relocating a track. */
 export async function pickMediaFile(): Promise<string | null> {
   if (!isTauri()) return null;
@@ -231,6 +217,9 @@ export interface ScanProgressEvent {
   /** Archivos de medios que se reconocieron y no se indexaron porque ningún
    *  motor de webview los decodifica. */
   omitidos: number;
+  /** Archivos que se indexaron sin metadatos porque leerlos hizo fallar al
+   *  lector de etiquetas (#131). */
+  ilegibles: number;
   /** Archivos de medios que encontró el recorrido: hasta dónde cuenta `added`. */
   total: number;
 }
@@ -285,6 +274,19 @@ export async function getSheets(ids: string[]): Promise<Sheet[] | null> {
 export async function updateTrackSheet(id: string, letra: string, acordes: string): Promise<void> {
   if (!isTauri()) return;
   await inv("update_track_sheet", { id, letra, acordes });
+}
+
+/** A track the search found by its sheet (#144). */
+export interface LyricHit {
+  trackId: string;
+  /** Where the words appear, chords stripped, on one line. */
+  fragmento: string;
+}
+
+/** Tracks whose lyrics or chords hold every word of `consulta`. */
+export async function searchLyrics(consulta: string): Promise<LyricHit[] | null> {
+  if (!isTauri()) return null;
+  return inv<LyricHit[]>("search_lyrics", { consulta });
 }
 
 /** One candidate inside a group of suspected duplicates. */
@@ -392,14 +394,9 @@ export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;
   await inv("set_track_fav", { id, fav });
 }
-export async function updateTrackCmd(
-  id: string,
-  artista: string,
-  bpm: number,
-  ocasion: string,
-): Promise<void> {
+export async function updateTrackCmd(id: string, artista: string, ocasion: string): Promise<void> {
   if (!isTauri()) return;
-  await inv("update_track", { id, artista, bpm, ocasion });
+  await inv("update_track", { id, artista, ocasion });
 }
 export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Promise<void> {
   if (!isTauri()) return;
@@ -447,6 +444,24 @@ export async function touchPlaylistCmd(playlist: string): Promise<void> {
   if (!isTauri()) return;
   await inv("touch_playlist", { playlist });
 }
+/** Añadir un momento sin música al final de un culto (#145). */
+export async function addPlaylistMomentoCmd(
+  playlist: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("add_playlist_momento", { playlist, tipo, titulo, texto });
+}
+/** Cambiar lo que dice un momento del culto; `momento` es su id (`m:…`). */
+export async function updatePlaylistMomentoCmd(
+  momento: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("update_playlist_momento", { momento, tipo, titulo, texto });
+}
 export async function deletePlaylistCmd(playlist: string): Promise<Playlist[]> {
   return inv<Playlist[]>("delete_playlist", { playlist });
 }
@@ -483,6 +498,22 @@ export interface BackupInfo {
 /** Read a backup so the user can be told what they are about to replace. */
 export async function inspectBackup(src: string): Promise<BackupInfo> {
   return inv<BackupInfo>("inspect_backup", { src });
+}
+/**
+ * Una copia que el núcleo guardó solo antes de quitar una carpeta, restaurar o
+ * fusionar duplicados (#143). Se restaura como cualquier respaldo.
+ */
+export interface CopiaAutomatica {
+  ruta: string;
+  /** Hora local del equipo, `YYYY-MM-DDTHH:MM:SS`. */
+  fecha: string;
+  motivo: "quitar-carpeta" | "restaurar" | "fusionar";
+  tamano: number;
+}
+/** Las copias automáticas, de la más nueva a la más antigua. */
+export async function listAutoBackups(): Promise<CopiaAutomatica[]> {
+  if (!isTauri()) return [];
+  return inv<CopiaAutomatica[]>("list_auto_backups");
 }
 /** Native open dialog for a .db backup file. */
 export async function pickDbFile(): Promise<string | null> {

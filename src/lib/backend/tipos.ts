@@ -17,13 +17,15 @@
 import type { ArchivoDeLista } from "../compartir";
 import type {
   BackupInfo,
+  CopiaAutomatica,
   DuplicateReport,
+  LyricHit,
   Novedades,
   ScanProgressEvent,
   Sheet,
   Snapshot,
 } from "../api";
-import type { Playlist } from "../types";
+import type { Playlist, TipoMomento } from "../types";
 
 /**
  * Lo que un entorno no sabe hacer, dicho para quien lo pidió.
@@ -54,7 +56,7 @@ export interface Backend {
   reconcileLibrary(): Promise<Snapshot>;
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
-  updateTrack(id: string, artista: string, bpm: number, ocasion: string): Promise<void>;
+  updateTrack(id: string, artista: string, ocasion: string): Promise<void>;
   deleteTrack(id: string): Promise<Snapshot>;
   deleteTracks(ids: string[]): Promise<Snapshot>;
   /** Elige el archivo nuevo de una pista y la apunta a él; null si se canceló. */
@@ -80,6 +82,10 @@ export interface Backend {
   setPlaylistTemplate(playlist: string, plantilla: boolean): Promise<Playlist[]>;
   updatePlaylist(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]>;
   touchPlaylist(playlist: string): Promise<void>;
+  /** Añade un momento sin música al final del culto (#145). */
+  addPlaylistMomento(playlist: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
+  /** Cambia lo que dice un momento; su sitio en el orden no se toca. */
+  updatePlaylistMomento(momento: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
   deletePlaylist(playlist: string): Promise<Playlist[]>;
 
   // ---- letras y acordes
@@ -87,6 +93,11 @@ export interface Backend {
   /** Solo las que tienen algo escrito. */
   getSheets(ids: string[]): Promise<Sheet[]>;
   updateTrackSheet(id: string, letra: string, acordes: string): Promise<void>;
+  /**
+   * Las pistas cuya hoja tiene todas las palabras de `consulta`, sin mirar
+   * mayúsculas ni tildes, con el trozo donde aparecen (#144).
+   */
+  searchLyrics(consulta: string): Promise<LyricHit[]>;
 
   // ---- duplicados
   findDuplicates(): Promise<DuplicateReport>;
@@ -105,10 +116,16 @@ export interface Backend {
   pickBackup(): Promise<string | null>;
   inspectBackup(src: string): Promise<BackupInfo>;
   restoreDatabase(src: string): Promise<Snapshot>;
+  /** Las que el núcleo guardó antes de quitar, restaurar o fusionar (#143). */
+  listAutoBackups(): Promise<CopiaAutomatica[]>;
 
   // ---- archivos que salen y entran
-  /** Guarda la hoja imprimible de un culto; false si se canceló. */
-  saveSheet(nombre: string, html: string): Promise<boolean>;
+  /**
+   * Guarda la hoja imprimible de un culto, sin abrirla con nada. Devuelve dónde
+   * quedó —la ruta en la app, el nombre de la descarga en el navegador—, o
+   * null si se canceló.
+   */
+  saveSheet(nombre: string, html: string): Promise<string | null>;
   /** Guarda un culto para otra instalación; false si se canceló. */
   saveSharedList(nombre: string, json: string): Promise<boolean>;
   /** Abre un culto exportado desde otra instalación; null si se canceló. */

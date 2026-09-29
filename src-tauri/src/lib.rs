@@ -2,6 +2,7 @@
 
 mod commands;
 mod compartir;
+mod copias;
 mod db;
 mod models;
 mod proyeccion;
@@ -83,10 +84,10 @@ pub fn run() {
             commands::add_tracks_to_playlist,
             commands::set_tracks_fav,
             commands::delete_tracks,
-            commands::open_exported_sheet,
             commands::get_track_sheet,
             commands::get_sheets,
             commands::update_track_sheet,
+            commands::search_lyrics,
             commands::find_duplicates,
             commands::merge_duplicates,
             commands::dismiss_duplicates,
@@ -111,6 +112,8 @@ pub fn run() {
             commands::duplicate_playlist,
             commands::set_playlist_template,
             commands::set_playlist_order,
+            commands::add_playlist_momento,
+            commands::update_playlist_momento,
             commands::add_to_playlist,
             commands::update_playlist,
             commands::touch_playlist,
@@ -124,6 +127,7 @@ pub fn run() {
             commands::backup_database,
             commands::inspect_backup,
             commands::restore_database,
+            commands::list_auto_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

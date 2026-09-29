@@ -7,6 +7,18 @@ import HojaAcordes from "../components/HojaAcordes";
 import { aHtml } from "./aHtml";
 import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
+import { etiquetaDeTipo } from "./momentos";
+import type { Elemento } from "./momentos";
+
+/**
+ * Lo que entra en la hoja: el culto entero en su orden (#145), o solo sus
+ * pistas, que es como se llamaba antes de que hubiera momentos.
+ */
+export type FilaDeHoja = Track | Elemento;
+
+function comoElemento(f: FilaDeHoja): Elemento {
+  return "clase" in f ? f : { clase: "pista", id: f.id, pista: f };
+}
 
 /** Escape text for HTML body / attribute interpolation. */
 function esc(value: string): string {
@@ -87,18 +99,34 @@ function lineasHtml(acordes: string): string {
 
 export function playlistSheetHtml(
   pl: Playlist,
-  tracks: Track[],
+  filas: readonly FilaDeHoja[],
   durLabel: string,
   sheets: Record<string, Sheet> = {},
 ): string {
-  const rows = tracks
-    .map((t, i) => {
+  const elementos = filas.map(comoElemento);
+  const tracks = elementos.flatMap((e) => (e.clase === "pista" ? [e.pista] : []));
+  const momentos = elementos.length - tracks.length;
+  const rows = elementos
+    .map((e, i) => {
+      // Un momento sin música es una fila sin duración, en cursiva (#145): quien
+      // dirige ve que ahí no se toca, y en qué orden va.
+      if (e.clase === "momento") {
+        const m = e.momento;
+        return `      <tr class="momento">
+        <td class="num">${i + 1}</td>
+        <td class="titulo">${esc(m.titulo)}</td>
+        <td>${esc(m.texto)}</td>
+        <td>${esc(etiquetaDeTipo(m.tipo))}</td>
+        <td class="num"></td>
+        <td class="num"></td>
+      </tr>`;
+      }
+      const t = e.pista;
       const cells = [
         String(i + 1),
         esc(t.titulo),
         esc(t.artista),
         esc(t.ocasion),
-        t.bpm ? String(t.bpm) : "",
         esc(t.dur),
       ];
       return `      <tr>
@@ -107,13 +135,17 @@ export function playlistSheetHtml(
         <td>${cells[2]}</td>
         <td>${cells[3]}</td>
         <td class="num">${cells[4]}</td>
-        <td class="num">${cells[5]}</td>
       </tr>`;
     })
     .join("\n");
 
   const lyrics = lyricsHtml(tracks, sheets);
-  const meta = [pl.ocasion, `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`, durLabel]
+  const meta = [
+    pl.ocasion,
+    `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`,
+    momentos > 0 ? `${momentos} ${momentos === 1 ? "momento" : "momentos"}` : "",
+    durLabel,
+  ]
     .filter(Boolean)
     .map(esc)
     .join(" · ");
@@ -147,6 +179,7 @@ export function playlistSheetHtml(
   td { padding: 9px 8px; border-bottom: 1px solid #e1e5ea; vertical-align: top; }
   tr { page-break-inside: avoid; }
   .titulo { font-weight: 600; }
+  tr.momento td { font-style: italic; color: #5a626d; }
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th.num { text-align: right; }
   footer { margin-top: 26px; font-size: 10.5px; color: #8d95a1; }
@@ -170,7 +203,6 @@ export function playlistSheetHtml(
         <th>Título</th>
         <th>Artista</th>
         <th>Ocasión</th>
-        <th class="num">BPM</th>
         <th class="num">Dur.</th>
       </tr>
     </thead>

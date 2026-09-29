@@ -5,7 +5,7 @@ import { NoDisponible, backend } from "../lib/backend";
 import type { CantoralState } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
-import { detalleDeOmitidos, resolveTheme } from "./reglas";
+import { AVISO_COPIA_AUTOMATICA, detalleDeOmitidos, resolveTheme } from "./reglas";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // Carpetas, escaneo, arranque y copias de seguridad.
@@ -37,6 +37,8 @@ export interface EscaneoSlice {
    * formato o porque el escaneo se rompió.
    */
   scanOmitidos: number;
+  /** Archivos que el último escaneo indexó sin metadatos porque leerlos falló (#131). */
+  scanIlegibles: number;
   scanFile: string;
   /** Archivos que el escaneo en curso ya leyó, y cuántos encontró (#139). */
   scanHechos: number;
@@ -64,7 +66,11 @@ export interface EscaneoSlice {
   removeFolder: (id: string) => void;
   rescanFolder: (id?: string) => void;
   backup: () => void;
-  restore: () => void;
+  /**
+   * Restaurar un respaldo. Sin `src` pide el archivo; con él —una copia
+   * automática elegida en Configuración (#143)— va directo a la confirmación.
+   */
+  restore: (src?: string) => void;
 }
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
@@ -73,7 +79,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
     modulo.escaneoCancelado = false;
-    set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, scanHechos: 0, scanTotal: 0, tarjetaEscaneoOculta: false });
+    set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, scanIlegibles: 0, scanHechos: 0, scanTotal: 0, tarjetaEscaneoOculta: false });
     startLiveRefresh();
   };
 
@@ -99,7 +105,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
       });
       return;
     }
-    toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
+    toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos, get().scanIlegibles) });
   };
 
   return {
@@ -107,6 +113,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     scanning: false,
     scanPct: 0,
     scanOmitidos: 0,
+    scanIlegibles: 0,
     scanFile: "",
     scanHechos: 0,
     scanTotal: 0,
@@ -115,7 +122,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
     escucharEscaneo: () =>
       backend().onScanProgress((p) =>
-        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanHechos: p.added, scanTotal: p.total }),
+        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanIlegibles: p.ilegibles, scanHechos: p.added, scanTotal: p.total }),
       ),
 
     openAddFolder: () => {
@@ -217,7 +224,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         // Callada y sin bloquear: si hay algo, aparece en Configuración; si no,
         // nadie se entera. Una app que interrumpe al abrirse para decir que no
         // pasa nada es una app que se aprende a ignorar.
-        void get().checkForUpdate();
+        // Va después de restaurar las preferencias a propósito: con la casilla
+        // apagada (#146) no tiene que salir ni una petición, tampoco la primera.
+        if (get().buscarActualizacionesAlAbrir) void get().checkForUpdate();
 
         // Files can disappear while the app is closed; re-check them once the
         // catalogue is on screen rather than blocking the first paint.
@@ -282,9 +291,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         message: `«${f.nombre}» dejará de estar indexada.`,
         detail:
           n > 0
-            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus favoritos y su ocasión. Eso no se puede deshacer.`
+            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus favoritos y su ocasión.`
             : "La carpeta no tiene pistas indexadas.",
-        safe: "Tus archivos de audio no se tocan: siguen donde están.",
+        safe: `Tus archivos de audio no se tocan: siguen donde están. ${AVISO_COPIA_AUTOMATICA}`,
         confirmLabel: "Quitar carpeta",
         onConfirm: () => {
           backend()
@@ -332,15 +341,15 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         })
         .catch((err) => avisarFallo(err, "No se pudo crear la copia de seguridad", String(err)));
     },
-    restore: () => {
+    restore: (elegido) => {
       // A scan holds its own connection to the database a restore moves
       // aside, so its work would vanish with the old file (#127).
       if (get().scanning) {
         toast("Espera a que termine el escaneo en curso", { tipo: "info" });
         return;
       }
-      void backend()
-        .pickBackup()
+      const archivo = elegido ? Promise.resolve(elegido) : backend().pickBackup();
+      void archivo
         .then(async (src) => {
           if (!src) return;
           // Read the backup before asking anything: a file that is not a Cantoral
@@ -363,7 +372,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
               (info.version < info.appVersion
                 ? "\nEl respaldo es de una versión anterior de Cantoral: se actualizará al restaurarlo."
                 : ""),
-            safe: "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta.",
+            safe:
+              "Tus archivos de audio no se tocan. Si la restauración falla, la biblioteca actual vuelve intacta. " +
+              AVISO_COPIA_AUTOMATICA,
             confirmLabel: "Restaurar",
             onConfirm: () => {
               backend()

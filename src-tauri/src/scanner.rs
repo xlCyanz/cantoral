@@ -238,6 +238,47 @@ fn read_meta(path: &Path) -> Meta {
     }
 }
 
+/// `leer` sobre `path`, sin dejar que un *panic* salga de aquí (#131).
+///
+/// `lofty` ha tenido panics con archivos malformados —aritmética de tamaños,
+/// índices—, y un error de lectura ya se trata como «sin metadatos», pero un
+/// panic no: tumbaría el hilo del escaneo con la transacción abierta y, con
+/// ella, cualquier cerrojo que tuviera tomado. Un solo archivo corrupto
+/// bajado de internet dejaría la carpeta imposible de indexar, sin que nadie
+/// supiera cuál es. Aquí ese archivo entra como cualquiera sin etiquetas, con
+/// el nombre del archivo por título, y queda en el log con su ruta.
+///
+/// `None` quiere decir que hubo panic, para que el escaneo lo cuente.
+/// `AssertUnwindSafe` es correcto: lo único que cruza el límite es la ruta,
+/// que no se modifica, y lo que devuelve la lectura, que se descarta entero.
+fn leer_a_salvo(leer: fn(&Path) -> Meta, path: &Path) -> Option<Meta> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| leer(path))) {
+        Ok(meta) => Some(meta),
+        Err(panico) => {
+            let motivo = panico
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| panico.downcast_ref::<String>().cloned())
+                .unwrap_or_default();
+            log::error!("could not read the metadata of {}: panic ({motivo})", path.display());
+            None
+        }
+    }
+}
+
+/// Lo que va contando el escaneo, para el aviso del final.
+#[derive(Clone, Copy, Default)]
+struct Cuentas {
+    /// Archivos indexados.
+    added: i64,
+    /// Medios que se reconocen y no se indexan (`SIN_SOPORTE`).
+    omitidos: i64,
+    /// Archivos que se indexaron sin metadatos porque leerlos hizo *panic*.
+    ilegibles: i64,
+    /// Medios que encontró el recorrido.
+    total: i64,
+}
+
 /// How many files are indexed per transaction. Committing in batches keeps the
 /// write lock short enough that the UI's own queries get a turn.
 const BATCH: usize = 200;
@@ -277,13 +318,29 @@ pub fn scan_folder(
     cancel: &AtomicBool,
     on_progress: &dyn Fn(ScanProgress),
 ) -> Result<i64> {
+    escanear_con(conn, folder_id, root, cover_dir, recursive, cancel, on_progress, read_meta)
+}
+
+/// `scan_folder` con el lector de metadatos a elegir, para poder probar qué
+/// pasa cuando el de verdad hace *panic*.
+#[allow(clippy::too_many_arguments)]
+fn escanear_con(
+    conn: &Connection,
+    folder_id: i64,
+    root: &str,
+    cover_dir: &Path,
+    recursive: bool,
+    cancel: &AtomicBool,
+    on_progress: &dyn Fn(ScanProgress),
+    leer: fn(&Path) -> Meta,
+) -> Result<i64> {
     // The closing `done: true` goes out whichever way the walk ends. It used
     // to be reached only on the happy path, so a scan that failed half way
     // left anything waiting on `done` waiting for good (#127).
-    let hecho = Cell::new((0i64, 0i64, 0i64));
+    let hecho = Cell::new(Cuentas::default());
     let resultado =
-        recorrer(conn, folder_id, root, cover_dir, recursive, cancel, on_progress, &hecho);
-    let (added, omitidos, total) = hecho.get();
+        recorrer(conn, folder_id, root, cover_dir, recursive, cancel, on_progress, &hecho, leer);
+    let Cuentas { added, omitidos, ilegibles, total } = hecho.get();
     on_progress(ScanProgress {
         folder_id: folder_id.to_string(),
         pct: 100.0,
@@ -291,13 +348,14 @@ pub fn scan_folder(
         done: true,
         added,
         omitidos,
+        ilegibles,
         total,
     });
     resultado
 }
 
-/// The walk itself. Keeps `hecho` — files indexed, files skipped, files found — up to date
-/// as it goes, so the closing event can report them even when it fails.
+/// The walk itself. Keeps `hecho` — files indexed, skipped, unreadable and found — up to
+/// date as it goes, so the closing event can report them even when it fails.
 #[allow(clippy::too_many_arguments)]
 fn recorrer(
     conn: &Connection,
@@ -307,7 +365,8 @@ fn recorrer(
     recursive: bool,
     cancel: &AtomicBool,
     on_progress: &dyn Fn(ScanProgress),
-    hecho: &Cell<(i64, i64, i64)>,
+    hecho: &Cell<Cuentas>,
+    leer: fn(&Path) -> Meta,
 ) -> Result<i64> {
     let _ = std::fs::create_dir_all(cover_dir);
     // Before the first insert: whatever this scan adds is «recién agregada».
@@ -331,7 +390,8 @@ fn recorrer(
         }
     }
 
-    hecho.set((0, omitidos, files.len() as i64));
+    let mut ilegibles: i64 = 0;
+    hecho.set(Cuentas { omitidos, total: files.len() as i64, ..Cuentas::default() });
 
     let total = files.len().max(1);
     let mut count: i64 = 0;
@@ -359,7 +419,11 @@ fn recorrer(
             let video = VIDEO_EXTS.contains(&ext.as_str());
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Sin título");
 
-            let (title, artist, album, dur, cover) = read_meta(path);
+            let (title, artist, album, dur, cover) =
+                leer_a_salvo(leer, path).unwrap_or_else(|| {
+                    ilegibles += 1;
+                    (None, None, None, 0, None)
+                });
             let titulo = title.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| stem.to_string());
 
             let id = db::upsert_track(
@@ -383,7 +447,7 @@ fn recorrer(
             }
         }
         count += 1;
-        hecho.set((count, omitidos, files.len() as i64));
+        hecho.set(Cuentas { added: count, omitidos, ilegibles, total: files.len() as i64 });
 
         if (i + 1) % BATCH == 0 {
             conn.execute_batch("COMMIT; BEGIN;")?;
@@ -401,6 +465,7 @@ fn recorrer(
                 done: false,
                 added: count,
                 omitidos,
+                ilegibles,
                 total: files.len() as i64,
             });
         }
@@ -588,6 +653,57 @@ mod tests {
         let (conn, fid, covers) = setup(&tree);
 
         assert_eq!(escanear_con_resumen(&conn, fid, &tree, &covers).omitidos, 0);
+    }
+
+    /// Un lector que hace *panic* con cualquier archivo que se llame «roto…»,
+    /// como lo haría `lofty` con uno malformado, y lee bien el resto.
+    fn lector_que_revienta(path: &Path) -> Meta {
+        if path.file_stem().is_some_and(|s| s.to_string_lossy().starts_with("roto")) {
+            panic!("lofty simulado: índice fuera de rango");
+        }
+        read_meta(path)
+    }
+
+    #[test]
+    fn a_file_that_panics_the_reader_does_not_stop_the_scan() {
+        // Un solo archivo corrupto no puede dejar la carpeta imposible de
+        // indexar (#131): el escaneo termina, el archivo entra con su nombre
+        // por título y se cuenta para decirlo al final.
+        let tree = Tree::new("panic");
+        tree.write("roto.wav");
+        tree.write("Coros/roto-dos.wav");
+        let (conn, fid, covers) = setup(&tree);
+        let ultimo = std::sync::Mutex::new(None);
+
+        let n = escanear_con(
+            &conn,
+            fid,
+            &tree.path(),
+            &covers,
+            true,
+            &AtomicBool::new(false),
+            &|p| *ultimo.lock().unwrap() = Some(p),
+            lector_que_revienta,
+        )
+        .expect("el escaneo termina");
+
+        let resumen = ultimo.into_inner().unwrap().unwrap();
+        assert_eq!(n, 7, "los cinco del árbol y los dos rotos");
+        assert_eq!(resumen.added, 7);
+        assert_eq!(resumen.ilegibles, 2);
+        assert_eq!(resumen.omitidos, 0, "no se confunden con los formatos sin soporte");
+        let titulos: Vec<String> =
+            db::list_tracks(&conn).unwrap().into_iter().map(|t| t.titulo).collect();
+        assert!(titulos.iter().any(|t| t == "roto"), "{titulos:?}");
+        assert!(titulos.iter().any(|t| t == "roto-dos"), "{titulos:?}");
+    }
+
+    #[test]
+    fn a_clean_scan_reports_nothing_unreadable() {
+        let tree = Tree::new("sin-panic");
+        let (conn, fid, covers) = setup(&tree);
+
+        assert_eq!(escanear_con_resumen(&conn, fid, &tree, &covers).ilegibles, 0);
     }
 
     #[test]

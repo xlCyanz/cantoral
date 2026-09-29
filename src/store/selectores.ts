@@ -1,8 +1,11 @@
-import type { Playlist, Track } from "../lib/types";
+import type { Momento, Playlist, Track } from "../lib/types";
 import { carpetaReal } from "../lib/carpetas";
+import { elementosDe, esMomento } from "../lib/momentos";
+import type { Elemento } from "../lib/momentos";
 import { enOrden, vigentes } from "../lib/selection";
 import type { CantoralState } from "./tipos";
 import { recordar } from "../lib/memo";
+import { buscaEnLetras } from "../lib/buscarLetra";
 
 // ============================================================
 // Derived selectors (pure) — used by components against a state snapshot.
@@ -128,6 +131,30 @@ export const filasDeLista = recordar(
 );
 
 /**
+ * Los momentos sin música de todos los cultos, por id (#145).
+ *
+ * Uno solo para todas las listas: los ids de momento no se repiten entre
+ * cultos, y así la vista de un culto no tiene que buscar primero su lista.
+ */
+export const momentosPorId = recordar(
+  (playlists: readonly Playlist[]): ReadonlyMap<string, Momento> =>
+    new Map(playlists.flatMap((p) => (p.momentos ?? []).map((m) => [m.id, m] as const))),
+  (playlists: readonly Playlist[]) => [playlists],
+);
+
+/**
+ * Todo lo que tiene el culto abierto, en su orden: pistas y momentos (#145).
+ *
+ * Lo que dibuja el culto —la tabla, la hoja, la cola de la proyección— lee
+ * esto; lo que solo reproduce sigue con `filasDeLista`.
+ */
+export const elementosDeLista = recordar(
+  (s: CantoralState): Elemento[] =>
+    elementosDe(s.plOrder[s.curPlaylist] || [], pistasPorId(s.tracks), momentosPorId(s.playlists)),
+  (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks, s.playlists],
+);
+
+/**
  * Las pistas sobre las que actúa «Agregar a un culto».
  *
  * La selección si hay una; si no, la pista que el panel de detalle tiene
@@ -159,7 +186,7 @@ export const seleccionVigente = recordar(
     const visibles = applyFilters(s).map((t) => t.id);
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir, s.selection],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.letras, s.sortKey, s.sortDir, s.selection],
 );
 
 /**
@@ -196,7 +223,8 @@ export const cultos = recordar(
 
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
-  if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();
+  // Los momentos no suenan: «Reproducir todo» pasa de largo (#145).
+  if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).filter((id) => !esMomento(id));
   return applyFilters(s).map((t) => t.id);
 }
 
@@ -206,6 +234,49 @@ export function playQueue(s: CantoralState): string[] {
   const live = s.queue.filter((id) => ids.has(id));
   return live.length ? live : applyFilters(s).map((t) => t.id);
 }
+
+/** Si lo buscado (ya en minúsculas) está en el título, el artista, el álbum o la ocasión. */
+function coincideEnCampos(t: Track, q: string): boolean {
+  return [t.titulo, t.artista, t.album, t.ocasion].join(" ").toLowerCase().includes(q);
+}
+
+/**
+ * Los fragmentos de la última búsqueda en las hojas, si valen para lo que está
+ * escrito ahora; null si no.
+ *
+ * Mientras llega la respuesta a lo último tecleado vale la anterior si lo
+ * nuevo la continúa: lo que encuentra «sublime gra» también lo encontraba
+ * «sublime gr», y así las filas halladas por la letra no desaparecen y vuelven
+ * a cada tecla.
+ */
+function letrasVigentes(s: CantoralState): Record<string, string> | null {
+  const l = s.letras;
+  if (!l || !buscaEnLetras(s.query)) return null;
+  return s.query.trim().toLowerCase().startsWith(l.consulta.toLowerCase()) ? l.fragmentos : null;
+}
+
+/** Una sola instancia, para que una fila sin fragmento no cambie de valor. */
+const SIN_FRAGMENTOS: ReadonlyMap<string, string> = new Map();
+
+/**
+ * Las filas que salen *solo* por la letra, con el trozo que lo explica (#144).
+ *
+ * Una que ya coincide por el título no lo necesita: se ve por qué está ahí.
+ */
+export const fragmentosDeLetra = recordar(
+  (s: CantoralState): ReadonlyMap<string, string> => {
+    const porLetra = letrasVigentes(s);
+    if (!porLetra) return SIN_FRAGMENTOS;
+    const q = s.query.toLowerCase();
+    const mapa = new Map<string, string>();
+    for (const t of s.tracks) {
+      const f = porLetra[t.id];
+      if (f !== undefined && !coincideEnCampos(t, q)) mapa.set(t.id, f);
+    }
+    return mapa;
+  },
+  (s: CantoralState) => [s.tracks, s.query, s.letras],
+);
 
 /** Filter + sort the library exactly like the design's applyFilters(). */
 export const applyFilters = recordar(
@@ -219,12 +290,10 @@ export const applyFilters = recordar(
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
     if (s.query) {
       const q = s.query.toLowerCase();
-      list = list.filter((t) =>
-        [t.titulo, t.artista, t.album, t.ocasion]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
+      // Lo que coincide en los campos sale al instante; lo que solo está en la
+      // letra, cuando el núcleo contesta (#144).
+      const porLetra = letrasVigentes(s);
+      list = list.filter((t) => coincideEnCampos(t, q) || (porLetra !== null && t.id in porLetra));
     }
     if (s.qf !== "recent") {
       const dir = s.sortDir === "asc" ? 1 : -1;
@@ -242,7 +311,7 @@ export const applyFilters = recordar(
     }
     return list;
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.letras, s.sortKey, s.sortDir],
 );
 
 export interface Group {

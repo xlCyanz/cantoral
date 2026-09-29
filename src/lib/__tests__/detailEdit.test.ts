@@ -4,15 +4,15 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const updateTrackCmd =
-  vi.fn<(id: string, artista: string, bpm: number, ocasion: string) => Promise<void>>();
+const updateTrackCmd = vi.fn<(id: string, artista: string, ocasion: string) => Promise<void>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
   // Dentro de Tauri: el camino que corre en la app, que llega a `api.ts`.
   isTauri: () => true,
-  updateTrackCmd: (id: string, artista: string, bpm: number, ocasion: string) =>
-    updateTrackCmd(id, artista, bpm, ocasion),
+  // Reenvía todo lo que llegue, también lo que sobre: así se ve si alguien
+  // vuelve a mandar un campo de más.
+  updateTrackCmd: (...args: Parameters<typeof updateTrackCmd>) => updateTrackCmd(...args),
 }));
 
 const { useStore } = await import("../../store");
@@ -59,16 +59,15 @@ describe("editar un campo", () => {
 
     expect(updateTrackCmd).toHaveBeenCalledTimes(1);
     // Manda el valor final, no el que había cuando arrancó el temporizador.
-    expect(updateTrackCmd.mock.calls[0][3]).toBe("Adoración");
+    expect(updateTrackCmd.mock.calls[0][2]).toBe("Adoración");
   });
 
-  it("manda el tempo como número, que es lo que espera el i64 de Rust", async () => {
-    useStore.getState().setEdit("bpm", 96);
+  it("manda solo el artista y la ocasión: el BPM ya no se guarda (#141)", async () => {
+    useStore.getState().setEdit("artista", "Coro Emanuel");
     await vi.runAllTimersAsync();
 
-    const bpm = updateTrackCmd.mock.calls[0][2];
-    expect(typeof bpm).toBe("number");
-    expect(bpm).toBe(96);
+    const t = seleccionada();
+    expect(updateTrackCmd.mock.calls[0]).toEqual([t.id, "Coro Emanuel", t.ocasion]);
   });
 
   it("marca «guardado» cuando el backend confirma", async () => {
@@ -87,7 +86,7 @@ describe("nada queda a medio escribir", () => {
     useStore.getState().closeDetail();
 
     expect(updateTrackCmd).toHaveBeenCalledTimes(1);
-    expect(updateTrackCmd.mock.calls[0][3]).toBe("Bautismo");
+    expect(updateTrackCmd.mock.calls[0][2]).toBe("Bautismo");
   });
 
   it("saltar a otra pista escribe la anterior antes de cambiar", () => {
@@ -99,7 +98,7 @@ describe("nada queda a medio escribir", () => {
 
     expect(updateTrackCmd).toHaveBeenCalledTimes(1);
     expect(updateTrackCmd.mock.calls[0][0]).toBe(primera.id);
-    expect(updateTrackCmd.mock.calls[0][3]).toBe("Vigilia");
+    expect(updateTrackCmd.mock.calls[0][2]).toBe("Vigilia");
   });
 
   it("flushEdit no escribe nada si no hay nada pendiente", () => {
@@ -156,7 +155,7 @@ describe("corregir el artista", () => {
     const llamadas = updateTrackCmd.mock.calls.filter(([id]) => id === seleccionada().id);
     expect(llamadas).toHaveLength(1);
     expect(llamadas[0][1]).toBe("Voces de Gracia");
-    expect(llamadas[0][3]).toBe("Alabanza");
+    expect(llamadas[0][2]).toBe("Alabanza");
   });
 });
 
