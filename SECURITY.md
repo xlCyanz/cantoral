@@ -61,3 +61,14 @@ nula, alcance del protocolo `asset` y permisos del plugin `opener`—:
 [#14](https://github.com/xlCyanz/cantoral/issues/14). Está abierto porque no se
 conoce ninguna ruta de explotación hoy; si encuentras una, repórtala en privado por
 el canal de arriba en vez de comentar en ese issue.
+
+## Limitaciones conocidas
+
+- **El alcance del protocolo `asset` solo crece mientras la app está abierta.**
+  Al indexar una carpeta o localizar una pista se le da acceso a esa ruta, pero
+  quitar la carpeta o borrar pistas del catálogo no lo retira: Tauri no ofrece
+  una forma sencilla de revocar lo concedido. El alcance se vacía al cerrar y, al
+  arrancar, se vuelve a abrir solo a las carpetas que siguen en la biblioteca, así
+  que lo que queda de más dura como mucho hasta reiniciar. Sin una ruta de
+  explotación conocida, se anota aquí en vez de tratarlo como fallo
+  ([#131](https://github.com/xlCyanz/cantoral/issues/131)).

@@ -733,6 +733,12 @@ pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
 
 /// Read a shared playlist file without touching the library.
 ///
+/// Takes any `.json`, not only the `.cantoral.json` the app writes (#131): a
+/// file renamed by hand, or by a mail client that mangles double extensions,
+/// is still a list someone meant to share. That is safe because `leer` only
+/// returns something when the content is a valid Cantoral list, and its
+/// errors never echo the file's content, so this is no general-purpose read.
+///
 /// Nothing is created until the user has seen what matched: the same shape as
 /// `inspect_backup`, because both answer «what am I about to let in?».
 #[tauri::command]
@@ -869,6 +875,30 @@ pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
     Ok(DbInfo { path: path.to_string_lossy().to_string(), size, ultima_copia })
 }
 
+/// Whether a backup destination ends in `.db`, in any case.
+///
+/// Same guard as `export_playlist` and `export_playlist_json`, and for the
+/// same reason (#131): without it this command could overwrite any writable
+/// file with the contents of `cantoral.db`. Only `.db` because it is what the
+/// save dialog proposes and the only thing the restore dialog lets you pick.
+fn es_db(dest: &str) -> bool {
+    std::path::Path::new(dest)
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case("db"))
+}
+
+const SOLO_DB: &str = "La copia de seguridad debe terminar en .db";
+
+/// Put the (already checkpointed) database at `dest`, refusing anything that
+/// is not a `.db`.
+fn copiar_respaldo(src: &std::path::Path, dest: &str) -> CmdResult<()> {
+    if !es_db(dest) {
+        return Err(SOLO_DB.into());
+    }
+    std::fs::copy(src, dest).map(|_| ()).map_err(e)
+}
+
 /// Copy the database to `dest`. The WAL is first checkpointed into the main file
 /// so the copy is complete — a plain copy alone would miss data still in the WAL.
 ///
@@ -877,6 +907,10 @@ pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
 /// this exists to avoid (#128).
 #[tauri::command]
 pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> {
+    // Refused before the checkpoint: nothing is touched for a bad destination.
+    if !es_db(&dest) {
+        return Err(SOLO_DB.into());
+    }
     fuera_del_hilo_principal(app, move |app| {
         let src = app.state::<DbPath>().0.clone();
         {
@@ -884,7 +918,7 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
             let conn = db.0.lock().map_err(e)?;
             let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         }
-        std::fs::copy(&src, &dest).map_err(e)?;
+        copiar_respaldo(&src, &dest)?;
         let cuando = chrono::Utc::now().to_rfc3339();
         {
             let db = app.state::<Db>();
@@ -903,7 +937,9 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{abrible, export_playlist, export_playlist_json, rutas_con_alcance};
+    use super::{
+        abrible, copiar_respaldo, export_playlist, export_playlist_json, rutas_con_alcance,
+    };
     use crate::db;
     use std::path::Path;
 
@@ -1029,6 +1065,25 @@ mod tests {
             let dest = dir.path(bad);
             assert!(export_playlist(dest.clone(), "x".into()).is_err(), "{bad} should be refused");
             assert!(!std::path::Path::new(&dest).exists(), "{bad} must not be created");
+        }
+    }
+
+    #[test]
+    fn a_backup_must_be_a_db() {
+        // Sin esta guarda, la copia sobrescribiría cualquier archivo escribible
+        // con el contenido de `cantoral.db` (#131).
+        let dir = Dir::new("respaldo-extension");
+        let src = std::path::PathBuf::from(dir.path("cantoral.db"));
+        std::fs::write(&src, b"SQLite format 3\0").unwrap();
+        for bad in ["x.txt", "x.db.txt", "x", "x.sqlite"] {
+            let dest = dir.path(bad);
+            assert!(copiar_respaldo(&src, &dest).is_err(), "{bad} should be refused");
+            assert!(!std::path::Path::new(&dest).exists(), "{bad} must not be created");
+        }
+        for ok in ["copia.db", "COPIA.DB"] {
+            let dest = dir.path(ok);
+            copiar_respaldo(&src, &dest).unwrap_or_else(|err| panic!("{ok}: {err}"));
+            assert_eq!(std::fs::read(&dest).unwrap(), std::fs::read(&src).unwrap());
         }
     }
 

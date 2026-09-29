@@ -13,11 +13,25 @@ import type { CantoralState } from "./tipos";
  * —esto entró, esto no— pero el titular es que la biblioteca ya está, y lo
  * que se quedó fuera es la letra pequeña.
  */
-export function detalleDeOmitidos(n: number): string | undefined {
-  if (n <= 0) return undefined;
-  return n === 1
-    ? "1 archivo se quedó fuera: Cantoral no reproduce su formato."
-    : `${n} archivos se quedaron fuera: Cantoral no reproduce su formato.`;
+export function detalleDeOmitidos(n: number, ilegibles = 0): string | undefined {
+  const partes: string[] = [];
+  if (n > 0) {
+    partes.push(
+      n === 1
+        ? "1 archivo se quedó fuera: Cantoral no reproduce su formato."
+        : `${n} archivos se quedaron fuera: Cantoral no reproduce su formato.`,
+    );
+  }
+  // Entraron, pero sin título ni duración: leerlos rompió el lector de
+  // etiquetas (#131). La ruta de cada uno queda en el registro.
+  if (ilegibles > 0) {
+    partes.push(
+      ilegibles === 1
+        ? "1 archivo no se pudo leer y entró solo con su nombre."
+        : `${ilegibles} archivos no se pudieron leer y entraron solo con su nombre.`,
+    );
+  }
+  return partes.length ? partes.join(" ") : undefined;
 }
 
 /**

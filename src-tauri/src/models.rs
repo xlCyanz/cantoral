@@ -121,6 +121,9 @@ pub struct ScanProgress {
     /// Archivos de medios que se reconocieron y no se indexaron porque ningún
     /// motor de webview los decodifica.
     pub omitidos: i64,
+    /// Archivos que se indexaron sin metadatos porque leerlos hizo *panic* en
+    /// `lofty` (#131). Entran con el nombre del archivo por título.
+    pub ilegibles: i64,
     /// Media files the walk found: what `added` counts up to. «120 de 3 400»
     /// says more than «4 %» to someone deciding whether to wait (#139).
     pub total: i64,
