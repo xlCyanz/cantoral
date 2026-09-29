@@ -54,6 +54,23 @@ llamadas de red. El modelo de amenaza relevante es, por tanto:
 - Vulnerabilidades en dependencias sin una ruta de explotación en Cantoral; para eso
   están los PRs de Dependabot.
 
+## La comprobación de actualizaciones
+
+Es la única petición de red que Cantoral hace por su cuenta: al abrirse, un
+`GET` a
+`https://github.com/xlCyanz/cantoral/releases/latest/download/latest.json`.
+No lleva identificadores, datos de la biblioteca ni la versión instalada; GitHub
+ve la IP y el `User-Agent` del plugin (`tauri-plugin-updater/<versión>`). La
+respuesta solo se muestra (las notas, como texto plano); un instalador se
+descarga únicamente si el usuario lo pide, y se instala solo si su firma
+coincide con la clave pública de `src-tauri/tauri.conf.json`.
+
+Se puede apagar en **Configuración → Actualizaciones → Buscar actualizaciones al
+abrir Cantoral** (activado de fábrica); apagada, al abrir no sale ninguna
+petición y **Buscar ahora** sigue disponible. Un fallo que haga salir esa
+petición con la casilla apagada, o que envíe algo más de lo descrito, está
+dentro de alcance.
+
 ## Endurecimiento en curso
 
 Hay un issue abierto y público sobre la configuración de seguridad de Tauri —CSP

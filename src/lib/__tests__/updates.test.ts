@@ -4,11 +4,14 @@
 // cambio, siempre contesta: silencio después de pulsar se lee como avería.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { UpdateCheck, UpdateProgress } from "../api";
+import type { Snapshot, UpdateCheck, UpdateProgress } from "../api";
+import { UI_PREFS_KEY } from "../uiPrefs";
 
 const checkForUpdateCmd = vi.fn<() => Promise<UpdateCheck>>();
 const installUpdateCmd = vi.fn<() => Promise<void>>();
 const onUpdateProgress = vi.fn<(cb: (p: UpdateProgress) => void) => Promise<() => void>>();
+const getSetting = vi.fn<(key: string) => Promise<string | null>>();
+const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
@@ -16,6 +19,10 @@ vi.mock("../api", async (importOriginal) => ({
   checkForUpdateCmd: () => checkForUpdateCmd(),
   installUpdateCmd: () => installUpdateCmd(),
   onUpdateProgress: (cb: (p: UpdateProgress) => void) => onUpdateProgress(cb),
+  getSetting: (k: string) => getSetting(k),
+  setSetting: () => Promise.resolve(),
+  getLibrary: () => getLibrary(),
+  reconcileLibraryCmd: () => Promise.resolve(null),
 }));
 
 const { useStore } = await import("../../store");
@@ -158,5 +165,47 @@ describe("instalar", () => {
     await vi.waitFor(() => expect(parar).toHaveBeenCalled());
     // Y la actualización sigue ahí para reintentarla.
     expect(useStore.getState().update).toEqual(DISPONIBLE);
+  });
+});
+
+describe("buscar al abrir (#146)", () => {
+  /** Arranca la app con lo que haya guardado en `ui`. */
+  async function arrancarCon(ui: string | null) {
+    getSetting.mockImplementation((k) => Promise.resolve(k === UI_PREFS_KEY ? ui : null));
+    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [] });
+    await useStore.getState().hydrate();
+  }
+
+  it("de fábrica, comprueba al arrancar", async () => {
+    // Sin nada guardado: una instalación nueva, o una anterior a la casilla.
+    // Apagarla de fábrica dejaría las instalaciones congeladas en su versión.
+    expect(useStore.getState().buscarActualizacionesAlAbrir).toBe(true);
+    await arrancarCon(null);
+
+    expect(checkForUpdateCmd).toHaveBeenCalledTimes(1);
+  });
+
+  it("con la casilla marcada, comprueba al arrancar", async () => {
+    await arrancarCon(JSON.stringify({ buscarActualizacionesAlAbrir: true }));
+
+    expect(checkForUpdateCmd).toHaveBeenCalledTimes(1);
+  });
+
+  it("con la casilla apagada, no sale ninguna petición al arrancar", async () => {
+    await arrancarCon(JSON.stringify({ buscarActualizacionesAlAbrir: false }));
+
+    expect(useStore.getState().buscarActualizacionesAlAbrir).toBe(false);
+    expect(checkForUpdateCmd).not.toHaveBeenCalled();
+    // Y nada que diga «No se pudo comprobar» sin que nadie lo haya pedido.
+    expect(useStore.getState().updateState).toBe("idle");
+  });
+
+  it("pero «Buscar ahora» sigue funcionando", async () => {
+    await arrancarCon(JSON.stringify({ buscarActualizacionesAlAbrir: false }));
+
+    await useStore.getState().checkForUpdate(true);
+
+    expect(checkForUpdateCmd).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().toast?.titulo).toContain("al día");
   });
 });
