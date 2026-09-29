@@ -147,7 +147,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       const avisar = (done: boolean) => {
         const file = SCAN_FILES[Math.min(SCAN_FILES.length - 1, Math.floor((pct / 100) * SCAN_FILES.length))];
         const added = Math.round((pct / 100) * total);
-        oyentes.forEach((cb) => cb({ folderId, pct, file: done ? "" : file, done, added, omitidos: 0, total }));
+        oyentes.forEach((cb) => cb({ folderId, pct, file: done ? "" : file, done, added, omitidos: 0, ilegibles: 0, total }));
       };
       const terminar = () => {
         clearInterval(reloj);

@@ -37,6 +37,8 @@ export interface EscaneoSlice {
    * formato o porque el escaneo se rompió.
    */
   scanOmitidos: number;
+  /** Archivos que el último escaneo indexó sin metadatos porque leerlos falló (#131). */
+  scanIlegibles: number;
   scanFile: string;
   /** Archivos que el escaneo en curso ya leyó, y cuántos encontró (#139). */
   scanHechos: number;
@@ -77,7 +79,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
     modulo.escaneoCancelado = false;
-    set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, scanHechos: 0, scanTotal: 0, tarjetaEscaneoOculta: false });
+    set({ scanning: true, scanPct: 0, scanFile: "", scanOmitidos: 0, scanIlegibles: 0, scanHechos: 0, scanTotal: 0, tarjetaEscaneoOculta: false });
     startLiveRefresh();
   };
 
@@ -103,7 +105,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
       });
       return;
     }
-    toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos) });
+    toast("Biblioteca actualizada", { detalle: detalleDeOmitidos(get().scanOmitidos, get().scanIlegibles) });
   };
 
   return {
@@ -111,6 +113,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     scanning: false,
     scanPct: 0,
     scanOmitidos: 0,
+    scanIlegibles: 0,
     scanFile: "",
     scanHechos: 0,
     scanTotal: 0,
@@ -119,7 +122,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
     escucharEscaneo: () =>
       backend().onScanProgress((p) =>
-        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanHechos: p.added, scanTotal: p.total }),
+        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanIlegibles: p.ilegibles, scanHechos: p.added, scanTotal: p.total }),
       ),
 
     openAddFolder: () => {
