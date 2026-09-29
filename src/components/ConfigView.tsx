@@ -4,7 +4,8 @@ import { ArrowUpCircle, CircleCheck, Download, FileText, Folder, HelpCircle, Plu
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
-import { getDbInfo, isMacOS, type DbInfo } from "../lib/api";
+import { getDbInfo, isMacOS, type CopiaAutomatica, type DbInfo } from "../lib/api";
+import { backend } from "../lib/backend";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { ThemeMode } from "../lib/types";
 import { Logotipo } from "./Logo";
@@ -29,6 +30,13 @@ function formatSize(bytes: number): string {
   if (bytes >= 1024) return Math.round(bytes / 1024) + " KB";
   return bytes + " B";
 }
+
+/** Por qué se guardó una copia automática, dicho como en la lista. */
+const MOTIVO_DE_COPIA: Record<CopiaAutomatica["motivo"], string> = {
+  "quitar-carpeta": "antes de quitar una carpeta",
+  restaurar: "antes de restaurar un respaldo",
+  fusionar: "antes de fusionar duplicados",
+};
 
 function formatScan(iso: string | undefined): string {
   return formatFecha(iso, "aún sin escanear");
@@ -113,6 +121,16 @@ export default function ConfigView() {
     void getDbInfo().then(setDbInfo);
   }, [folders.length, totalTracks]);
 
+  // Se vuelven a leer cada vez que cambia el catálogo: quitar una carpeta,
+  // fusionar o restaurar lo cambian, y cada una acaba de dejar una copia.
+  const [copiasAuto, setCopiasAuto] = useState<CopiaAutomatica[]>([]);
+  useEffect(() => {
+    backend()
+      .listAutoBackups()
+      .then(setCopiasAuto)
+      .catch((err) => console.error("list_auto_backups failed", err));
+  }, [folders, tracks]);
+
   const faltantesPorCarpeta = faltantesPorCarpetaDe(tracks, folders);
 
   const lastScan = folders
@@ -192,7 +210,7 @@ export default function ConfigView() {
           <button onClick={backup} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
             <Download size={13} />Crear copia de seguridad
           </button>
-          <button onClick={restore} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, ...ocupadoStyle(scanning) }}>
+          <button onClick={() => restore()} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, ...ocupadoStyle(scanning) }}>
             Restaurar una copia…
           </button>
         </div>
@@ -203,6 +221,32 @@ export default function ConfigView() {
             Última copia: {formatFecha(copiaDeEstaSesion ?? dbInfo.ultimaCopia, "todavía ninguna")}
           </p>
         )}
+
+        {/* El «deshacer» de quitar, restaurar y fusionar (#143): restaurar una
+            de estas pasa por la misma confirmación con números de siempre. */}
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+          <h3 style={{ ...h2Style, fontSize: 12 }}>Copias automáticas</h3>
+          <p style={{ ...pStyle, marginBottom: copiasAuto.length ? 6 : 0 }}>
+            Cantoral guarda una antes de quitar una carpeta, restaurar un respaldo o fusionar duplicados, y conserva las
+            últimas cinco. Están en este mismo disco: no sustituyen una copia en otro equipo o en una memoria USB.
+            {copiasAuto.length === 0 && " Todavía no hay ninguna."}
+          </p>
+          {copiasAuto.map((c) => (
+            <div key={c.ruta} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--border)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12 }}>
+                  {formatFecha(c.fecha, c.fecha)}, {MOTIVO_DE_COPIA[c.motivo] ?? c.motivo}
+                </div>
+                <div title={c.ruta} style={{ fontSize: "10.5px", color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {formatSize(c.tamano)}
+                </div>
+              </div>
+              <button onClick={() => restore(c.ruta)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
+                Restaurar…
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Para cuando algo falla en una PC que quien arregla no tiene delante:

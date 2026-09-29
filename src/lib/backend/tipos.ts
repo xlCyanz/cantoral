@@ -17,6 +17,7 @@
 import type { ArchivoDeLista } from "../compartir";
 import type {
   BackupInfo,
+  CopiaAutomatica,
   DuplicateReport,
   Novedades,
   ScanProgressEvent,
@@ -105,6 +106,8 @@ export interface Backend {
   pickBackup(): Promise<string | null>;
   inspectBackup(src: string): Promise<BackupInfo>;
   restoreDatabase(src: string): Promise<Snapshot>;
+  /** Las que el núcleo guardó antes de quitar, restaurar o fusionar (#143). */
+  listAutoBackups(): Promise<CopiaAutomatica[]>;
 
   // ---- archivos que salen y entran
   /** Guarda la hoja imprimible de un culto; false si se canceló. */

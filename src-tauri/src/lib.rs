@@ -2,6 +2,7 @@
 
 mod commands;
 mod compartir;
+mod copias;
 mod db;
 mod models;
 mod proyeccion;
@@ -124,6 +125,7 @@ pub fn run() {
             commands::backup_database,
             commands::inspect_backup,
             commands::restore_database,
+            commands::list_auto_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

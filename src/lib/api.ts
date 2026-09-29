@@ -484,6 +484,22 @@ export interface BackupInfo {
 export async function inspectBackup(src: string): Promise<BackupInfo> {
   return inv<BackupInfo>("inspect_backup", { src });
 }
+/**
+ * Una copia que el núcleo guardó solo antes de quitar una carpeta, restaurar o
+ * fusionar duplicados (#143). Se restaura como cualquier respaldo.
+ */
+export interface CopiaAutomatica {
+  ruta: string;
+  /** Hora local del equipo, `YYYY-MM-DDTHH:MM:SS`. */
+  fecha: string;
+  motivo: "quitar-carpeta" | "restaurar" | "fusionar";
+  tamano: number;
+}
+/** Las copias automáticas, de la más nueva a la más antigua. */
+export async function listAutoBackups(): Promise<CopiaAutomatica[]> {
+  if (!isTauri()) return [];
+  return inv<CopiaAutomatica[]>("list_auto_backups");
+}
 /** Native open dialog for a .db backup file. */
 export async function pickDbFile(): Promise<string | null> {
   if (!isTauri()) return null;
