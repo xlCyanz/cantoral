@@ -94,6 +94,25 @@ describe("la versión del respaldo en la confirmación", () => {
   });
 });
 
+describe("restaurar una copia automática (#143)", () => {
+  it("va directo a la confirmación con números, sin pedir el archivo", async () => {
+    const ruta = "/datos/respaldos/cantoral-2026-09-29-213005-quitar-carpeta.db";
+    restoreDatabaseCmd.mockResolvedValue({ tracks: [track("a")], folders: [], playlists: [] });
+
+    useStore.getState().restore(ruta);
+    await vi.waitFor(() => expect(useStore.getState().confirm).toBeTruthy());
+
+    expect(pickDbFile).not.toHaveBeenCalled();
+    expect(inspectBackup).toHaveBeenCalledWith(ruta);
+    const c = useStore.getState().confirm!;
+    expect(c.detail).toContain("Respaldo: 3 pistas");
+    expect(c.safe).toContain("copia automática");
+
+    c.onConfirm();
+    await vi.waitFor(() => expect(restoreDatabaseCmd).toHaveBeenCalledWith(ruta));
+  });
+});
+
 describe("restaurar un respaldo que falla", () => {
   it("con la biblioteca anterior reabierta, lo dice un aviso y la biblioteca sigue", async () => {
     restoreDatabaseCmd.mockRejectedValue("file is not a database");

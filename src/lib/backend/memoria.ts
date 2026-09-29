@@ -324,6 +324,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     restoreDatabase: async () => {
       throw new NoDisponible("Restaurar una copia solo funciona en la app de escritorio");
     },
+    // Sin disco no hay copias automáticas: la lista queda vacía, no es un fallo.
+    listAutoBackups: async () => [],
 
     saveSheet: async (nombre, html) => {
       descargar(nombre, html, "text/html");

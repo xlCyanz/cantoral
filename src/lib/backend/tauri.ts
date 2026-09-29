@@ -82,6 +82,7 @@ export const tauri: Backend = {
   pickBackup: () => api.pickDbFile(),
   inspectBackup: (src) => api.inspectBackup(src),
   restoreDatabase: (src) => api.restoreDatabaseCmd(src),
+  listAutoBackups: () => api.listAutoBackups(),
 
   saveSheet: async (nombre, html) => {
     const dest = await api.pickExportPath(nombre);
