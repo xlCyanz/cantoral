@@ -1,5 +1,14 @@
 # Rediseño de Cantoral — brief
 
+> [!NOTE]
+> **Documento histórico.** Es el brief que se le pasó al diseño antes del
+> rediseño de la 0.3.0, y describe la app tal como era en la 0.2.1 (septiembre
+> de 2026): etiquetas, tono, fechas de culto, transposición, formatos que ya no se
+> indexan, abrir en el reproductor del sistema, otras tipografías… Mucho de eso ya
+> no existe. Se conserva como registro de por qué el rediseño es como es; **la
+> referencia de lo que la app hace hoy es el [README](../README.md)**, y lo que
+> cambió desde entonces está en el [CHANGELOG](../CHANGELOG.md).
+
 > Pega esto completo en Claude Design. Describe la app tal como es hoy, con todo
 > lo que hace, y termina pidiendo el rediseño.
 
