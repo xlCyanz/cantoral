@@ -296,6 +296,26 @@ hay, aparece en **Configuración → Actualizaciones**, con el número de versi�
 las novedades. También hay un botón para comprobarlo cuando se quiera. Instalar
 descarga, verifica la firma, reemplaza la app y la reinicia.
 
+### Qué se pide al abrir, y cómo apagarlo
+
+Es la única petición de red que hace Cantoral por su cuenta. Al abrirse pide,
+con un `GET`, el archivo
+`https://github.com/xlCyanz/cantoral/releases/latest/download/latest.json`
+(GitHub lo redirige a su almacén de descargas). **No envía ningún dato tuyo**:
+ni identificador, ni biblioteca, ni la versión instalada —la dirección es
+siempre la misma—. GitHub ve lo que ve de cualquier descarga: la IP y un
+`User-Agent` genérico del plugin (`tauri-plugin-updater/<versión>`). Lo que
+vuelve es el número de versión, las notas del release, que se muestran como
+texto plano, y las firmas; nada de eso se ejecuta. El instalador solo se baja
+si se pulsa **Reiniciar e instalar**, y se verifica su firma antes de usarlo.
+
+Si la política de red del equipo no lo permite (PCs de secretaría, redes de
+colegio), se apaga en **Configuración → Actualizaciones → Buscar
+actualizaciones al abrir Cantoral**: entonces al abrir no sale ninguna
+petición, y **Buscar ahora** sigue funcionando para comprobarlo a mano. Viene
+**activado de fábrica**: en un PC de iglesia sin nadie técnico, sin la
+comprobación los arreglos no llegan nunca.
+
 La firma del actualizador es **independiente** de la de Apple y Microsoft: con
 ella, una actualización queda verificada criptográficamente aunque el instalador
 siga sin firmar.

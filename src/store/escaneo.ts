@@ -217,7 +217,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         // Callada y sin bloquear: si hay algo, aparece en Configuración; si no,
         // nadie se entera. Una app que interrumpe al abrirse para decir que no
         // pasa nada es una app que se aprende a ignorar.
-        void get().checkForUpdate();
+        // Va después de restaurar las preferencias a propósito: con la casilla
+        // apagada (#146) no tiene que salir ni una petición, tampoco la primera.
+        if (get().buscarActualizacionesAlAbrir) void get().checkForUpdate();
 
         // Files can disappear while the app is closed; re-check them once the
         // catalogue is on screen rather than blocking the first paint.

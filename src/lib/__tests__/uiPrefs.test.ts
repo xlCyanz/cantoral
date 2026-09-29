@@ -41,6 +41,7 @@ const GUARDADAS: UiPrefs = {
   salidaDeAudio: "portada",
   transicionProyeccion: "cuenta",
   avanceProyeccion: "siguiente",
+  buscarActualizacionesAlAbrir: false,
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -235,6 +236,15 @@ describe("guardar los cambios", () => {
     await vi.advanceTimersByTimeAsync(400);
 
     expect(ultimoGuardado().densidad).toBe("compacta");
+  });
+
+  it("recuerda si se busca actualizaciones al abrir (#146)", async () => {
+    // Si no se guardara, la iglesia que la apaga por su política de red
+    // volvería a hacer la petición en la siguiente apertura.
+    useStore.getState().setBuscarActualizacionesAlAbrir(false);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(ultimoGuardado().buscarActualizacionesAlAbrir).toBe(false);
   });
 
   it("no guarda los filtros de la biblioteca", async () => {
