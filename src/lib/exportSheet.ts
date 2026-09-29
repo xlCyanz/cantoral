@@ -98,7 +98,6 @@ export function playlistSheetHtml(
         esc(t.titulo),
         esc(t.artista),
         esc(t.ocasion),
-        t.bpm ? String(t.bpm) : "",
         esc(t.dur),
       ];
       return `      <tr>
@@ -107,7 +106,6 @@ export function playlistSheetHtml(
         <td>${cells[2]}</td>
         <td>${cells[3]}</td>
         <td class="num">${cells[4]}</td>
-        <td class="num">${cells[5]}</td>
       </tr>`;
     })
     .join("\n");
@@ -170,7 +168,6 @@ export function playlistSheetHtml(
         <th>Título</th>
         <th>Artista</th>
         <th>Ocasión</th>
-        <th class="num">BPM</th>
         <th class="num">Dur.</th>
       </tr>
     </thead>

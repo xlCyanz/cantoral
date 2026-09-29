@@ -391,14 +391,9 @@ export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;
   await inv("set_track_fav", { id, fav });
 }
-export async function updateTrackCmd(
-  id: string,
-  artista: string,
-  bpm: number,
-  ocasion: string,
-): Promise<void> {
+export async function updateTrackCmd(id: string, artista: string, ocasion: string): Promise<void> {
   if (!isTauri()) return;
-  await inv("update_track", { id, artista, bpm, ocasion });
+  await inv("update_track", { id, artista, ocasion });
 }
 export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Promise<void> {
   if (!isTauri()) return;

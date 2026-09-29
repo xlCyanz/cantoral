@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   album     TEXT NOT NULL DEFAULT '',
   dur_sec   INTEGER NOT NULL DEFAULT 0,
   formato   TEXT NOT NULL DEFAULT '',
+  -- Vestigial (#141): la app ya no lo lee ni lo escribe. Se queda en el
+  -- esquema para que una versión anterior siga abriendo esta base, y para no
+  -- borrar lo que alguien hubiera apuntado.
   bpm       INTEGER NOT NULL DEFAULT 0,
   ocasion   TEXT NOT NULL DEFAULT '',
   fav       INTEGER NOT NULL DEFAULT 0,
@@ -274,7 +277,7 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
 pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
-                t.bpm, t.ocasion, t.fav, t.missing, t.video,
+                t.ocasion, t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
                 t.cover_path,
                 {CON_HOJA},
@@ -295,16 +298,15 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
             dur_sec,
             dur: fmt_dur(dur_sec),
             formato: r.get(6)?,
-            bpm: r.get(7)?,
-            ocasion: r.get(8)?,
-            fav: r.get::<_, i64>(9)? != 0,
-            missing: r.get::<_, i64>(10)? != 0,
-            video: r.get::<_, i64>(11)? != 0,
-            carpeta: r.get(12)?,
+            ocasion: r.get(7)?,
+            fav: r.get::<_, i64>(8)? != 0,
+            missing: r.get::<_, i64>(9)? != 0,
+            video: r.get::<_, i64>(10)? != 0,
+            carpeta: r.get(11)?,
             added: id,
-            cover: r.get::<_, Option<String>>(13)?,
-            tiene_hoja: r.get::<_, i64>(14)? != 0,
-            nueva: r.get::<_, i64>(15)? != 0,
+            cover: r.get::<_, Option<String>>(12)?,
+            tiene_hoja: r.get::<_, i64>(13)? != 0,
+            nueva: r.get::<_, i64>(14)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -318,22 +320,16 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
 /// corrección duraría hasta el siguiente escaneo de la carpeta: se arreglaría
 /// el domingo y estaría mal otra vez el jueves.
 ///
-/// Sólo el artista la lleva. El tempo y la ocasión no salen de las etiquetas
-/// del archivo, así que no hay nada que los pise.
-pub fn update_track_meta(
-    conn: &Connection,
-    id: i64,
-    artista: &str,
-    bpm: i64,
-    ocasion: &str,
-) -> Result<()> {
+/// Sólo el artista la lleva. La ocasión no sale de las etiquetas del archivo,
+/// así que no hay nada que la pise.
+pub fn update_track_meta(conn: &Connection, id: i64, artista: &str, ocasion: &str) -> Result<()> {
     conn.execute(
         "UPDATE tracks
             SET artista=?1,
                 artista_manual = CASE WHEN artista=?1 THEN artista_manual ELSE 1 END,
-                bpm=?2, ocasion=?3
-          WHERE id=?4",
-        params![artista, bpm, ocasion, id],
+                ocasion=?2
+          WHERE id=?3",
+        params![artista, ocasion, id],
     )?;
     Ok(())
 }
@@ -352,7 +348,7 @@ pub fn update_track_duration(conn: &Connection, id: i64, path: &str, duration: i
 }
 
 /// Insert or update a scanned track by path. Preserves user-edited church
-/// fields (bpm/ocasion/fav) on re-scan. Returns the track row id.
+/// fields (ocasion/fav) on re-scan. Returns the track row id.
 #[allow(clippy::too_many_arguments)]
 pub fn upsert_track(
     conn: &Connection,
@@ -456,7 +452,7 @@ fn folder_containing(conn: &Connection, path: &Path) -> Result<Option<i64>> {
 }
 
 /// Point a track at the file's new location, keeping everything the user put on
-/// it — the favourite, the tempo, the occasion and the sheet.
+/// it — the favourite, the occasion and the sheet.
 ///
 /// The file stamp is taken from the new file, so the next scan sees it as
 /// unchanged and does not re-read its metadata. If the new location falls inside
@@ -1539,14 +1535,6 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
         ),
         params![keep_id],
     )?;
-    tx.execute(
-        &format!(
-            "UPDATE tracks SET bpm = COALESCE(
-                 (SELECT bpm FROM tracks WHERE id IN ({marcador}) AND bpm > 0 ORDER BY id LIMIT 1), bpm)
-             WHERE id=?1 AND bpm = 0"
-        ),
-        params![keep_id],
-    )?;
     // The sheet is the costliest thing in the library to produce, and it tends
     // to be written on the copy the band plays — the MP3 — while the suggested
     // survivor is the bigger WAV. A survivor with no sheet takes the first
@@ -2547,14 +2535,45 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        update_track_meta(&conn, queda, "Coro", 0, "Adoración").unwrap();
-        update_track_meta(&conn, copia, "Coro", 96, "Comunión").unwrap();
+        update_track_meta(&conn, queda, "Coro", "Adoración").unwrap();
+        update_track_meta(&conn, copia, "Coro", "Comunión").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
         let t = &list_tracks(&conn).unwrap()[0];
         assert_eq!(t.ocasion, "Adoración", "what the user typed on the copy they keep wins");
-        assert_eq!(t.bpm, 96, "and the empty ones are filled from the copy");
+    }
+
+    #[test]
+    fn merging_fills_an_empty_occasion_from_the_copy() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
+        let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
+        update_track_meta(&conn, copia, "Coro", "Comunión").unwrap();
+
+        merge_tracks(&conn, queda, &[copia]).unwrap();
+
+        assert_eq!(list_tracks(&conn).unwrap()[0].ocasion, "Comunión");
+    }
+
+    #[test]
+    fn a_tempo_written_by_an_older_version_is_left_alone() {
+        // El BPM salió de la app (#141), pero la columna se queda: lo que
+        // alguien apuntó con una versión anterior no se borra al editar la
+        // pista, y una versión anterior que vuelva a abrir la base lo encuentra.
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        conn.execute("UPDATE tracks SET bpm=72 WHERE id=?1", params![id]).unwrap();
+
+        update_track_meta(&conn, id, "Coro", "Adoración").unwrap();
+        add_track(&conn, fid, "/m/a.mp3", "A");
+
+        let bpm: i64 = conn
+            .query_row("SELECT bpm FROM tracks WHERE id=?1", params![id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(bpm, 72);
     }
 
     #[test]
@@ -2599,7 +2618,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
-        update_track_meta(&conn, copia, "Coro Emanuel", 0, "").unwrap();
+        update_track_meta(&conn, copia, "Coro Emanuel", "").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
         assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Coro Emanuel");
@@ -2619,8 +2638,8 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
-        update_track_meta(&conn, queda, "Coro Emanuel", 0, "").unwrap();
-        update_track_meta(&conn, copia, "Coro", 0, "").unwrap();
+        update_track_meta(&conn, queda, "Coro Emanuel", "").unwrap();
+        update_track_meta(&conn, copia, "Coro", "").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
@@ -2698,7 +2717,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
 
-        update_track_meta(&conn, id, "Coro Congregacional", 0, "").unwrap();
+        update_track_meta(&conn, id, "Coro Congregacional", "").unwrap();
         // El escaneo vuelve a leer las etiquetas del archivo, que siguen mal.
         pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
 
@@ -2707,17 +2726,17 @@ mod tests {
 
     #[test]
     fn an_artist_nobody_touched_still_follows_the_file() {
-        // La marca sólo la levanta corregirlo. Guardar el tempo sin tocar el
+        // La marca sólo la levanta corregirlo. Guardar la ocasión sin tocar el
         // artista no puede congelar lo que diga el archivo.
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Viejo", 300, "MP3", 4_000);
 
-        update_track_meta(&conn, id, "Viejo", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "Viejo", "Adoración").unwrap();
         pista(&conn, fid, "/m/a.mp3", "Santo", "Corregido en el archivo", 300, "MP3", 4_000);
 
         assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Corregido en el archivo");
-        assert_eq!(list_tracks(&conn).unwrap()[0].bpm, 72);
+        assert_eq!(list_tracks(&conn).unwrap()[0].ocasion, "Adoración");
     }
 
     #[test]
@@ -2726,7 +2745,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = add_track(&conn, fid, "/m/a.mp3", "A");
 
-        update_track_meta(&conn, id, "", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "", "Adoración").unwrap();
         set_fav(&conn, id, true).unwrap();
 
         // A rescan re-reads tag metadata but must not clobber church fields.
@@ -2735,7 +2754,6 @@ mod tests {
 
         let t = &list_tracks(&conn).unwrap()[0];
         assert_eq!(t.titulo, "A (retag)");
-        assert_eq!(t.bpm, 72);
         assert_eq!(t.ocasion, "Adoración");
         assert!(t.fav);
     }
@@ -3309,7 +3327,7 @@ mod tests {
         let conn = mem();
         let fid = add_folder(&conn, &files.s("Himnos"), "Himnos", true).unwrap();
         let id = add_track(&conn, fid, &files.s("Himnos/viejo.mp3"), "Sublime Gracia");
-        update_track_meta(&conn, id, "", 72, "Adoración").unwrap();
+        update_track_meta(&conn, id, "", "Adoración").unwrap();
         set_fav(&conn, id, true).unwrap();
         conn.execute("UPDATE tracks SET missing=1", []).unwrap();
 
@@ -3320,7 +3338,6 @@ mod tests {
         assert_eq!(t.path, nuevo.to_string_lossy());
         assert!(!t.missing, "deja de estar marcada como faltante");
         // Lo que costó trabajo poner sigue ahí.
-        assert_eq!(t.bpm, 72);
         assert_eq!(t.ocasion, "Adoración");
         assert!(t.fav);
         assert_eq!(t.titulo, "Sublime Gracia");

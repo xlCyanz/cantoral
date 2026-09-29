@@ -155,8 +155,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     setTracksFav: async (ids, fav) => {
       ids.forEach((id) => (pista(id).fav = fav));
     },
-    updateTrack: async (id, artista, bpm, ocasion) => {
-      Object.assign(pista(id), { artista, bpm, ocasion });
+    updateTrack: async (id, artista, ocasion) => {
+      Object.assign(pista(id), { artista, ocasion });
     },
     deleteTrack: async (id) => {
       quitarPistas([id]);

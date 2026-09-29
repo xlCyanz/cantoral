@@ -12,7 +12,6 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub bpm: i64,
     pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
