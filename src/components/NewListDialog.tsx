@@ -102,8 +102,8 @@ function ListForm({
             destructive, action. */}
         {!editing && plantillas.length > 0 && (
           <div>
-            <label style={label}>Partir de una plantilla <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-            <div role="group" aria-label="Plantillas" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div id="lista-plantilla" style={label}>Partir de una plantilla <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></div>
+            <div role="group" aria-labelledby="lista-plantilla" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {plantillas.map((p) => {
                 const puesta = desde === p.id;
                 return (
@@ -143,12 +143,12 @@ function ListForm({
           </div>
         )}
         <div>
-          <label style={label}>Nombre</label>
-          <input value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
+          <label htmlFor="lista-nombre" style={label}>Nombre</label>
+          <input id="lista-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
         </div>
         <div>
-          <label style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-          <input value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
+          <label htmlFor="lista-ocasion" style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
+          <input id="lista-ocasion" value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
           {/* Las mismas que el panel de detalle: las de esta iglesia primero. */}
           <datalist id="ocasiones-lista">
             {sugerencias.map((o) => (

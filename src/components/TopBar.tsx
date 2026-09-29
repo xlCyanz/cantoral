@@ -167,7 +167,7 @@ export default function TopBar() {
             {chips.map((c) => {
               const active = c.value ? ocasion === c.value : !ocasion;
               return (
-                <button key={c.value || "all"} onClick={() => onOcasion(c.value)} style={chipStyle(active)}>
+                <button key={c.value || "all"} onClick={() => onOcasion(c.value)} aria-pressed={active} style={chipStyle(active)}>
                   {c.label}
                 </button>
               );

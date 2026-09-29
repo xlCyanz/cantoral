@@ -46,24 +46,38 @@ function AddFolderForm() {
       </div>
 
       <div style={{ padding: "20px 24px" }}>
-        <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 7 }}>Ubicación de la carpeta</label>
+        {/* No es un campo que se escriba: la ruta sale de «Explorar…». Así que
+            el rótulo y la ruta describen a ese botón, que es lo que recibe el
+            foco, y no a un `label` que no apuntaba a nada (#138). */}
+        <div id="carpeta-rotulo" style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text-2)", marginBottom: 7 }}>Ubicación de la carpeta</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
           <div style={{ flex: 1, height: 42, display: "flex", alignItems: "center", gap: 9, border: "1px solid var(--border-2)", background: "var(--surface-2)", borderRadius: 10, padding: "0 12px", fontFamily: "ui-monospace,monospace", fontSize: "12.5px", color: "var(--text-2)", minWidth: 0 }}>
             <Folder size={16} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
-            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: path ? "var(--text-2)" : "var(--text-3)" }}>
+            <span id="carpeta-ruta" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: path ? "var(--text-2)" : "var(--text-3)" }}>
               {path || "Ninguna carpeta seleccionada"}
             </span>
           </div>
-          <button onClick={browse} className="hb-s2" style={{ height: 42, padding: "0 15px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 13, fontWeight: 600 }}>Explorar…</button>
+          <button onClick={browse} aria-describedby="carpeta-rotulo carpeta-ruta" className="hb-s2" style={{ height: 42, padding: "0 15px", borderRadius: 10, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text)", fontSize: 13, fontWeight: 600 }}>Explorar…</button>
         </div>
 
-        <label onClick={() => setSubfolders((v) => !v)} style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: 12, border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface-2)", cursor: "pointer" }}>
-          <div style={{ width: 20, height: 20, borderRadius: 6, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(subfolders ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
+        {/* Una casilla de verdad, escondida, debajo de la pintada: Tab llega,
+            Espacio la marca y el lector la anuncia como casilla. Antes era un
+            `label` con `onClick` sobre un `div` y el teclado se la saltaba
+            (#138). */}
+        <label className="casilla" style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 11, padding: 12, border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface-2)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            className="solo-lector"
+            checked={subfolders}
+            onChange={(e) => setSubfolders(e.target.checked)}
+            aria-describedby="subcarpetas-ayuda"
+          />
+          <div aria-hidden className="casilla-marca" style={{ width: 20, height: 20, borderRadius: 6, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(subfolders ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
             {subfolders && <Check size={13} color="var(--on-primary)" strokeWidth={3} />}
           </div>
           <div>
             <div style={{ fontSize: "13.5px", fontWeight: 600 }}>Incluir subcarpetas</div>
-            <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 1 }}>Revisa también las carpetas que estén dentro de esta.</div>
+            <div id="subcarpetas-ayuda" style={{ fontSize: 12, color: "var(--text-2)", marginTop: 1 }}>Revisa también las carpetas que estén dentro de esta.</div>
           </div>
         </label>
       </div>

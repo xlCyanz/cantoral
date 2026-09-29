@@ -78,6 +78,51 @@ const OPCIONES_TRANSICION = [
   { valor: "cuenta" as const, etiqueta: "Cuenta atrás 3 s", ayuda: "Tres, dos, uno en la pantalla grande antes de arrancar." },
 ];
 
+/**
+ * Un grupo de ajustes de la proyección, con lo que hace el elegido escrito
+ * debajo.
+ *
+ * La explicación vivía solo en `title`, que sale al pasar el ratón y que los
+ * lectores de pantalla no leen de forma fiable (#138). Ahora se ve la del
+ * elegido, y cada botón lleva la suya por `aria-describedby`.
+ */
+function GrupoDeOpciones<V extends string>({
+  id,
+  rotuloTexto,
+  opciones,
+  valor,
+  elegir,
+  ultimo,
+}: {
+  id: string;
+  rotuloTexto: string;
+  opciones: readonly { valor: V; etiqueta: string; ayuda: string }[];
+  valor: V;
+  elegir: (v: V) => void;
+  ultimo?: boolean;
+}) {
+  const elegida = opciones.find((o) => o.valor === valor);
+  return (
+    <div role="group" aria-labelledby={`proy-${id}`} style={{ marginBottom: ultimo ? 0 : 11 }}>
+      <div id={`proy-${id}`} style={{ ...rotulo, marginBottom: 7 }}>{rotuloTexto}</div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {opciones.map((o) => (
+          <button key={o.valor} onClick={() => elegir(o.valor)} aria-pressed={valor === o.valor} aria-describedby={`proy-${id}-${o.valor}`} title={o.ayuda} style={mini(valor === o.valor)}>
+            {o.etiqueta}
+          </button>
+        ))}
+      </div>
+      {/* Fuera de los botones: dentro, pasarían a formar parte de su nombre. */}
+      {opciones.map((o) => (
+        <span key={o.valor} id={`proy-${id}-${o.valor}`} className="solo-lector">{o.ayuda}</span>
+      ))}
+      {elegida && (
+        <p aria-hidden style={{ margin: "5px 0 0", fontSize: "10.5px", lineHeight: 1.4, color: "var(--text-3)" }}>{elegida.ayuda}</p>
+      )}
+    </div>
+  );
+}
+
 export default function ProjectionView() {
   const monitores = useStore((s) => s.monitores);
   const monitorSalida = useStore((s) => s.monitorSalida);
@@ -302,30 +347,9 @@ export default function ProjectionView() {
           </div>
 
           <div style={{ ...tarjeta, flex: 1, minWidth: 0 }}>
-            <div style={{ ...rotulo, marginBottom: 7 }}>Si la pista es solo audio</div>
-            <div style={{ display: "flex", gap: 5, marginBottom: 11, flexWrap: "wrap" }}>
-              {OPCIONES_AUDIO.map((o) => (
-                <button key={o.valor} onClick={() => setSalidaDeAudio(o.valor)} aria-pressed={salidaDeAudio === o.valor} title={o.ayuda} style={mini(salidaDeAudio === o.valor)}>
-                  {o.etiqueta}
-                </button>
-              ))}
-            </div>
-            <div style={{ ...rotulo, marginBottom: 7 }}>Entre un elemento y otro</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 11 }}>
-              {OPCIONES_TRANSICION.map((o) => (
-                <button key={o.valor} onClick={() => setTransicionProyeccion(o.valor)} aria-pressed={transicionProyeccion === o.valor} title={o.ayuda} style={mini(transicionProyeccion === o.valor)}>
-                  {o.etiqueta}
-                </button>
-              ))}
-            </div>
-            <div style={{ ...rotulo, marginBottom: 7 }}>Cuando un elemento se acaba</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {OPCIONES_AVANCE.map((o) => (
-                <button key={o.valor} onClick={() => setAvanceProyeccion(o.valor)} aria-pressed={avanceProyeccion === o.valor} title={o.ayuda} style={mini(avanceProyeccion === o.valor)}>
-                  {o.etiqueta}
-                </button>
-              ))}
-            </div>
+            <GrupoDeOpciones id="audio" rotuloTexto="Si la pista es solo audio" opciones={OPCIONES_AUDIO} valor={salidaDeAudio} elegir={setSalidaDeAudio} />
+            <GrupoDeOpciones id="transicion" rotuloTexto="Entre un elemento y otro" opciones={OPCIONES_TRANSICION} valor={transicionProyeccion} elegir={setTransicionProyeccion} />
+            <GrupoDeOpciones id="avance" rotuloTexto="Cuando un elemento se acaba" opciones={OPCIONES_AVANCE} valor={avanceProyeccion} elegir={setAvanceProyeccion} ultimo />
           </div>
           </div>
         </div>

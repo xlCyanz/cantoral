@@ -23,6 +23,12 @@ function Equalizer() {
   );
 }
 
+/** Opens the row menu just under `fila`, for when there is no pointer to open it at. */
+function abrirMenuBajo(fila: HTMLElement, id: string, abrir: (id: string, x: number, y: number) => void) {
+  const r = fila.getBoundingClientRect();
+  abrir(id, r.left + 40, r.bottom);
+}
+
 /**
  * One row of the library.
  *
@@ -32,7 +38,7 @@ function Equalizer() {
  * the entire table along with it. Actions are read through the store too, but
  * they are created once and never replaced, so they never cause a render.
  */
-const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: number; densidad: Densidad }) {
+const TrackRow = memo(function TrackRow({ t, num, fila, densidad }: { t: Track; num: number; fila: number; densidad: Densidad }) {
   const playing = useStore((s) => s.playerId === t.id && s.playing);
   const sel = useStore((s) => s.selId === t.id && s.detailOpen);
   const elegida = useStore((s) => s.selection.includes(t.id));
@@ -73,6 +79,8 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
   return (
     <div
       className="lib-row"
+      role="row"
+      aria-rowindex={fila}
       tabIndex={0}
       aria-label={`${t.titulo}, ${t.artista}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
       aria-selected={elegida}
@@ -88,11 +96,20 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
       onDragEnd={endLibraryDrag}
       onContextMenu={(e) => {
         e.preventDefault();
-        openRowMenu(t.id, e.clientX, e.clientY);
+        // A context menu raised from the keyboard can arrive without a point;
+        // then it opens under the row, where the focus is.
+        if (e.clientX === 0 && e.clientY === 0) abrirMenuBajo(e.currentTarget, t.id, openRowMenu);
+        else openRowMenu(t.id, e.clientX, e.clientY);
       }}
       onClick={(e) => onRowClick(t.id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
       onDoubleClick={() => play(t.id)}
       onKeyDown={(e) => {
+        // Shift+F10 and the Menu key: the keyboard's right click (#138).
+        if ((e.key === "F10" && e.shiftKey) || e.key === "ContextMenu") {
+          e.preventDefault();
+          abrirMenuBajo(e.currentTarget, t.id, openRowMenu);
+          return;
+        }
         if (e.key === "Enter") {
           e.preventDefault();
           // Enter opens the detail panel; ⌘/Ctrl+Enter starts playback.
@@ -103,7 +120,7 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
       style={rowStyle}
     >
       {/* index / play */}
-      <div style={{ width: 32, height: 34, display: "grid", placeItems: "center", position: "relative" }}>
+      <div role="gridcell" style={{ width: 32, height: 34, display: "grid", placeItems: "center", position: "relative" }}>
         {playing ? (
           <Equalizer />
         ) : (
@@ -122,7 +139,7 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
       </div>
 
       {/* title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+      <div role="gridcell" style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         <div style={coverStyle(t, compacta ? 24 : 40)}><GlifoDePista t={t} size={compacta ? "compacta" : "fila"} /></div>
         {/* Cómoda pone el artista debajo del título; compacta lo pone al lado,
             porque en 34 px no caben dos líneas y perder el artista para ganar
@@ -156,13 +173,13 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
       </div>
 
       {/* album */}
-      <div style={{ fontSize: "12.5px", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.album}</div>
+      <div role="gridcell" style={{ fontSize: "12.5px", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.album}</div>
       {/* ocasion */}
-      <div><span style={ocasionBadge}>{t.ocasion}</span></div>
+      <div role="gridcell"><span style={ocasionBadge}>{t.ocasion}</span></div>
       {/* dur */}
-      <div style={{ fontSize: "12.5px", color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
+      <div role="gridcell" style={{ fontSize: "12.5px", color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       {/* actions */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
+      <div role="gridcell" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
         <button onClick={(e) => { e.stopPropagation(); onFav(t.id); }} title="Favorita" aria-label={t.fav ? `Quitar «${t.titulo}» de favoritas` : `Marcar «${t.titulo}» como favorita`} aria-pressed={t.fav} className="hb-s3" style={favBtnStyle(t.fav)}>
           <Heart size={15} fill={t.fav ? "currentColor" : "none"} />
         </button>
@@ -183,9 +200,13 @@ const TrackRow = memo(function TrackRow({ t, num, densidad }: { t: Track; num: n
  * folder on disk: the name reads «Himnos / Clásicos», the path says which
  * «Himnos» that is when two drives have one.
  */
-function GroupHeader({ clave, label, ruta, countLabel, colapsado, densidad }: { clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean; densidad: Densidad }) {
+function GroupHeader({ clave, label, ruta, countLabel, colapsado, fila, densidad }: { clave: string; label: string; ruta: string; countLabel: string; colapsado: boolean; fila: number; densidad: Densidad }) {
   const toggleGrupo = useStore((s) => s.toggleGrupo);
+  // Inside the grid every child has to be a row, so the button goes in one,
+  // in a cell that spans the columns.
   return (
+    <div role="row" aria-rowindex={fila}>
+    <div role="gridcell" aria-colspan={6}>
     <button
       onClick={() => toggleGrupo(clave)}
       aria-expanded={!colapsado}
@@ -207,6 +228,8 @@ function GroupHeader({ clave, label, ruta, countLabel, colapsado, densidad }: { 
       <span style={{ flex: 1 }} />
       <span style={{ flex: "0 0 auto", fontSize: "10.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{countLabel}</span>
     </button>
+    </div>
+    </div>
   );
 }
 
@@ -221,13 +244,14 @@ function ColumnHeader() {
     { key: "dur", label: "", icon: true },
   ];
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "10px 10px 9px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-      <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", fontWeight: 600 }}>#</span>
+    <div role="row" aria-rowindex={1} style={{ position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: GRID, alignItems: "center", gap: 8, padding: "10px 10px 9px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+      <span role="columnheader" aria-label="Número" style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", fontWeight: 600 }}>#</span>
       {cols.map((c) => {
         const { style, arrow } = thProps(c.key, sortKey, sortDir);
+        const orden = sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : "none";
         return (
+          <div key={c.key} role="columnheader" aria-sort={orden} style={{ minWidth: 0, display: "flex" }}>
           <button
-            key={c.key}
             onClick={() => onSortHeader(c.key)}
             aria-label={`Ordenar por ${c.label || "duración"}${
               sortKey === c.key ? (sortDir === "asc" ? ", ascendente" : ", descendente") : ""
@@ -236,9 +260,10 @@ function ColumnHeader() {
           >
             {c.icon ? <Clock size={14} /> : c.label} {arrow}
           </button>
+          </div>
         );
       })}
-      <span />
+      <span role="columnheader" aria-label="Favorita" />
     </div>
   );
 }
@@ -479,18 +504,24 @@ function Tabla() {
   const visibles = recortado ? plano.filas.slice(rango.desde, rango.hasta) : plano.filas;
 
   return (
-    <div style={{ padding: "6px 16px 22px" }}>
+    // A grid, so a screen reader reads a row as «row N of M, selected». The
+    // count is the whole table, header included, even with most rows not
+    // mounted: `aria-rowcount` and `aria-rowindex` exist for exactly that
+    // (#138).
+    <div role="grid" aria-label="Biblioteca" aria-rowcount={plano.filas.length + 1} aria-multiselectable style={{ padding: "6px 16px 22px" }}>
       <ColumnHeader />
       {/* Holds the scrollbar open for the rows that are not mounted. */}
       <div ref={hueco} style={recortado ? { height: altoTotal(plano) } : undefined}>
         <div style={recortado ? { transform: `translateY(${plano.offsets[rango.desde]}px)` } : undefined}>
-          {visibles.map((f) =>
-            f.tipo === "grupo" ? (
-              <GroupHeader key={`g:${f.clave}`} clave={f.clave} label={f.label} ruta={f.ruta} countLabel={f.countLabel} colapsado={f.colapsado} densidad={densidad} />
+          {visibles.map((f, i) => {
+            // Rows count from 1 and the header is the first.
+            const fila = (recortado ? rango.desde : 0) + i + 2;
+            return f.tipo === "grupo" ? (
+              <GroupHeader key={`g:${f.clave}`} clave={f.clave} label={f.label} ruta={f.ruta} countLabel={f.countLabel} colapsado={f.colapsado} fila={fila} densidad={densidad} />
             ) : (
-              <TrackRow key={f.track.id} t={f.track} num={f.num} densidad={densidad} />
-            ),
-          )}
+              <TrackRow key={f.track.id} t={f.track} num={f.num} fila={fila} densidad={densidad} />
+            );
+          })}
         </div>
       </div>
     </div>
