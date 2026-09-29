@@ -264,7 +264,7 @@ export function crearContexto(set: Set, get: Get) {
     if (!t) return;
 
     backend()
-      .updateTrack(t.id, t.artista, t.bpm, t.ocasion)
+      .updateTrack(t.id, t.artista, t.ocasion)
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.

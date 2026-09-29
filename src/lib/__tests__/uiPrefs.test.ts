@@ -83,6 +83,12 @@ describe("parsePrefs", () => {
     expect(parsePrefs(raro)).toEqual({ shuffle: true });
   });
 
+  it("olvida el orden por BPM que guardó una versión anterior (#141)", () => {
+    // Ya no hay columna que lo active ni forma de verlo: la biblioteca vuelve
+    // al orden por defecto en vez de quedarse ordenada por un campo invisible.
+    expect(parsePrefs(JSON.stringify({ sortKey: "bpm", sortDir: "desc" }))).toEqual({ sortDir: "desc" });
+  });
+
   it("recuerda los ajustes de la proyección", () => {
     // Una iglesia elige una vez si proyecta la letra o deja el negro, y no
     // quiere volver a decidirlo cada domingo antes de empezar.

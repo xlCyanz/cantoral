@@ -54,7 +54,7 @@ export interface Backend {
   reconcileLibrary(): Promise<Snapshot>;
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
-  updateTrack(id: string, artista: string, bpm: number, ocasion: string): Promise<void>;
+  updateTrack(id: string, artista: string, ocasion: string): Promise<void>;
   deleteTrack(id: string): Promise<Snapshot>;
   deleteTracks(ids: string[]): Promise<Snapshot>;
   /** Elige el archivo nuevo de una pista y la apunta a él; null si se canceló. */

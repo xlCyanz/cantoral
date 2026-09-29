@@ -513,16 +513,10 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 }
 
 #[tauri::command(async)]
-pub fn update_track(
-    db: State<Db>,
-    id: String,
-    artista: String,
-    bpm: i64,
-    ocasion: String,
-) -> CmdResult<()> {
+pub fn update_track(db: State<Db>, id: String, artista: String, ocasion: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &artista, bpm, &ocasion).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista, &ocasion).map_err(e)?;
     Ok(())
 }
 

@@ -24,7 +24,7 @@ export type SalidaDeAudio = "negro" | "portada" | "letra";
 export type TransicionProyeccion = "negro" | "cuenta";
 /** Qué hace la proyección cuando un elemento del culto se termina. */
 export type AvanceProyeccion = "negro" | "siguiente";
-export type SortKey = "titulo" | "album" | "ocasion" | "bpm" | "dur";
+export type SortKey = "titulo" | "album" | "ocasion" | "dur";
 export type SortDir = "asc" | "desc";
 
 export interface Track {
@@ -35,7 +35,6 @@ export interface Track {
   /** Human-readable duration, e.g. "4:12". */
   dur: string;
   durSec: number;
-  bpm: number;
   ocasion: string;
   /** File format label, e.g. "MP3", "WAV", "MP4". */
   formato: string;
@@ -93,4 +92,4 @@ export interface Playlist {
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */
-export type TrackEdit = Partial<Pick<Track, "artista" | "bpm" | "ocasion">>;
+export type TrackEdit = Partial<Pick<Track, "artista" | "ocasion">>;
