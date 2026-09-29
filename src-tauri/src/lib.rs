@@ -83,7 +83,6 @@ pub fn run() {
             commands::add_tracks_to_playlist,
             commands::set_tracks_fav,
             commands::delete_tracks,
-            commands::open_exported_sheet,
             commands::get_track_sheet,
             commands::get_sheets,
             commands::update_track_sheet,

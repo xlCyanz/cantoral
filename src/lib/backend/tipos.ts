@@ -107,8 +107,12 @@ export interface Backend {
   restoreDatabase(src: string): Promise<Snapshot>;
 
   // ---- archivos que salen y entran
-  /** Guarda la hoja imprimible de un culto; false si se canceló. */
-  saveSheet(nombre: string, html: string): Promise<boolean>;
+  /**
+   * Guarda la hoja imprimible de un culto, sin abrirla con nada. Devuelve dónde
+   * quedó —la ruta en la app, el nombre de la descarga en el navegador—, o
+   * null si se canceló.
+   */
+  saveSheet(nombre: string, html: string): Promise<string | null>;
   /** Guarda un culto para otra instalación; false si se canceló. */
   saveSharedList(nombre: string, json: string): Promise<boolean>;
   /** Abre un culto exportado desde otra instalación; null si se canceló. */

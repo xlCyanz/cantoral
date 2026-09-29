@@ -84,12 +84,13 @@ export const tauri: Backend = {
 
   saveSheet: async (nombre, html) => {
     const dest = await api.pickExportPath(nombre);
-    if (!dest) return false;
+    if (!dest) return null;
     await api.exportPlaylistCmd(dest, html);
-    // Se abre en el navegador, donde Cmd/Ctrl+P la guarda como PDF. Si no se
-    // abre, la hoja ya está escrita: eso no convierte el guardado en un fallo.
-    await api.openExportedSheet(dest).catch((err) => console.error("could not open the exported sheet", err));
-    return true;
+    // Solo se escribe. Antes se abría además en el navegador, y quien la
+    // guardaba para mandarla por correo veía saltar una ventana —quizá encima
+    // de la proyección— sin haberla pedido (#142). Imprimir tiene su vista
+    // previa dentro de la app; esto es solo el archivo.
+    return dest;
   },
   saveSharedList: async (nombre, json) => {
     const dest = await api.pickShareExportPath(nombre);
