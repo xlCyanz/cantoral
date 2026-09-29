@@ -18,6 +18,7 @@ import type { ArchivoDeLista } from "../compartir";
 import type {
   BackupInfo,
   DuplicateReport,
+  LyricHit,
   Novedades,
   ScanProgressEvent,
   Sheet,
@@ -87,6 +88,11 @@ export interface Backend {
   /** Solo las que tienen algo escrito. */
   getSheets(ids: string[]): Promise<Sheet[]>;
   updateTrackSheet(id: string, letra: string, acordes: string): Promise<void>;
+  /**
+   * Las pistas cuya hoja tiene todas las palabras de `consulta`, sin mirar
+   * mayúsculas ni tildes, con el trozo donde aparecen (#144).
+   */
+  searchLyrics(consulta: string): Promise<LyricHit[]>;
 
   // ---- duplicados
   findDuplicates(): Promise<DuplicateReport>;
@@ -107,8 +113,12 @@ export interface Backend {
   restoreDatabase(src: string): Promise<Snapshot>;
 
   // ---- archivos que salen y entran
-  /** Guarda la hoja imprimible de un culto; false si se canceló. */
-  saveSheet(nombre: string, html: string): Promise<boolean>;
+  /**
+   * Guarda la hoja imprimible de un culto, sin abrirla con nada. Devuelve dónde
+   * quedó —la ruta en la app, el nombre de la descarga en el navegador—, o
+   * null si se canceló.
+   */
+  saveSheet(nombre: string, html: string): Promise<string | null>;
   /** Guarda un culto para otra instalación; false si se canceló. */
   saveSharedList(nombre: string, json: string): Promise<boolean>;
   /** Abre un culto exportado desde otra instalación; null si se canceló. */
