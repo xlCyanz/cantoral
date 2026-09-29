@@ -45,6 +45,15 @@ pub struct Sheet {
     pub acordes: String,
 }
 
+/// Una pista que la búsqueda encontró por su hoja (#144).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricHit {
+    pub track_id: String,
+    /// El trozo de la letra donde aparece lo buscado, sin acordes, en una línea.
+    pub fragmento: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Folder {
