@@ -318,7 +318,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
 
     saveSheet: async (nombre, html) => {
       descargar(nombre, html, "text/html");
-      return true;
+      return nombre;
     },
     saveSharedList: async (nombre, json) => {
       descargar(nombre, json, "application/json");

@@ -215,10 +215,12 @@ export function crearContexto(set: Set, get: Get) {
     const name = sheetFileName(pl.nombre);
     backend()
       .saveSheet(name, html)
-      .then((guardada) => {
-        if (guardada) toast("Hoja de la lista exportada");
+      .then((dest) => {
+        // Se dice dónde quedó y nada más: abrirla con otra aplicación es cosa
+        // de quien la guardó, no de la app (#142).
+        if (dest) toast("Hoja guardada", { detalle: dest });
       })
-      .catch((err) => avisarFallo(err, "No se pudo exportar la lista"));
+      .catch((err) => avisarFallo(err, "No se pudo guardar la hoja"));
   };
 
   /** Write the sheet waiting out its debounce, reading the latest text. */

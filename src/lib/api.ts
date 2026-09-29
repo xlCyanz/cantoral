@@ -75,20 +75,6 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 
 // ---------------------------------------------------------------- os / files
 
-/**
- * Abre en el navegador la hoja que la app acaba de exportar, para imprimirla.
- *
- * Va por el núcleo y no por el plugin del abridor: el webview no puede pedirle
- * al sistema que abra una ruta cualquiera, y el núcleo solo deja pasar la hoja
- * —comprueba la extensión—. Antes esto también abría pistas, para el desvío al
- * reproductor del sistema; ese desvío ya no existe (#81) y la regla se
- * estrechó con él.
- */
-export async function openExportedSheet(path: string): Promise<void> {
-  if (!isTauri() || !path) return;
-  await inv("open_exported_sheet", { path });
-}
-
 /** Native picker for a single media file, used when relocating a track. */
 export async function pickMediaFile(): Promise<string | null> {
   if (!isTauri()) return null;
