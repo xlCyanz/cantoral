@@ -73,6 +73,11 @@ a { color: var(--primary); text-decoration: none; }
 a:hover { color: var(--primary-hover); }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
 button:focus:not(:focus-visible) { outline: none; }
+/* Fuera de la vista pero no fuera del árbol de accesibilidad: para el lector
+   de pantalla y el teclado, no para los ojos. */
+.solo-lector { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* La casilla de verdad está escondida; el anillo de foco lo lleva la pintada. */
+.casilla:has(.solo-lector:focus-visible) .casilla-marca { outline: 2px solid var(--primary); outline-offset: 2px; }
 ::selection { background: var(--primary-soft); color: var(--text); }
 *::-webkit-scrollbar { width: 12px; height: 12px; }
 *::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 9px; border: 3px solid var(--bg); }

@@ -198,7 +198,11 @@ export default function ProjectionOutput() {
   );
 
   return (
+    // Una pantalla para la congregación, no una interfaz: que un lector de
+    // pantalla no la anuncie al abrirse en el otro monitor (#138).
     <div
+      aria-hidden
+      role="presentation"
       style={{
         position: "fixed",
         inset: 0,
