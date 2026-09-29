@@ -31,7 +31,7 @@ shasum -a 256 -c SHA256SUMS.txt
 En Windows, con PowerShell:
 
 ```powershell
-Get-FileHash .\Cantoral_0.2.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Cantoral_<versión>_x64-setup.exe -Algorithm SHA256
 ```
 
 <!-- SHA256SUMS -->
