@@ -1,7 +1,8 @@
 import { useMemo, useRef } from "react";
 import { Download, FileText, Music, Printer } from "lucide-react";
-import { filasDeLista, plDur, useStore } from "../store";
+import { elementosDeLista, plDur, useStore } from "../store";
 import { hayLetras, playlistSheetHtml } from "../lib/exportSheet";
+import { pistasDe } from "../lib/momentos";
 import Modal from "./Modal";
 
 /** Nothing to hand `playlistSheetHtml` when the lyrics are left out. */
@@ -39,14 +40,15 @@ export default function PrintPreview() {
   const closeDialog = useStore((s) => s.closeDialog);
   const exportPl = useStore((s) => s.exportPl);
   const pl = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
-  const rows = useStore(filasDeLista);
+  // El culto entero: los momentos sin música salen en la hoja en su sitio (#145).
+  const rows = useStore(elementosDeLista);
   const sheets = useStore((s) => s.sheets);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || []));
   const conLetras = useStore((s) => s.printWithLyrics);
   const setConLetras = useStore((s) => s.setPrintWithLyrics);
   const marco = useRef<HTMLIFrameElement>(null);
 
-  const disponibles = useMemo(() => hayLetras(rows, sheets), [rows, sheets]);
+  const disponibles = useMemo(() => hayLetras(pistasDe(rows), sheets), [rows, sheets]);
   const html = useMemo(
     () =>
       pl ? playlistSheetHtml(pl, rows, duracion, conLetras && disponibles ? sheets : SIN_HOJAS) : "",

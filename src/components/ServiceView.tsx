@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus, Type, X } from "lucide-react";
-import { useStore } from "../store";
+import { momentosPorId, useStore } from "../store";
+import { esMomento, etiquetaDeTipo } from "../lib/momentos";
 import HojaAcordes from "./HojaAcordes";
+import IconoDeMomento from "./IconoDeMomento";
 
 const boton: CSSProperties = {
   height: 34,
@@ -64,6 +66,12 @@ export default function ServiceView() {
     const id = ids[s.serviceIdx];
     return id ? s.tracks.find((t) => t.id === id) : undefined;
   });
+  // Un momento sin música ocupa su página, como una canción más (#145): quien
+  // pasa las hojas en el atril tiene que ver que ahí no se toca.
+  const momento = useStore((s) => {
+    const id = (s.plOrder[s.curPlaylist] || [])[s.serviceIdx];
+    return id && esMomento(id) ? momentosPorId(s.playlists).get(id) : undefined;
+  });
   const hoja = useStore((s) => {
     const ids = s.plOrder[s.curPlaylist] || [];
     const id = ids[s.serviceIdx];
@@ -74,7 +82,7 @@ export default function ServiceView() {
   const scaleService = useStore((s) => s.scaleService);
   const openSheetEditor = useStore((s) => s.openSheetEditor);
 
-  if (!abierto || !pista) return null;
+  if (!abierto || (!pista && !momento)) return null;
   const total = orden?.length ?? 0;
   const letra = hoja?.letra ?? "";
   const acordes = hoja?.acordes ?? "";
@@ -87,10 +95,12 @@ export default function ServiceView() {
           <div style={etiqueta}>
             {lista?.nombre} · {idx + 1} de {total}
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.3px", margin: "3px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {pista.titulo}
+          <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.3px", margin: "3px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(momento ? { fontStyle: "italic" } : {}) }}>
+            {momento ? momento.titulo : pista?.titulo}
           </h1>
-          <div style={{ fontSize: "13.5px", color: "var(--text-2)" }}>{pista.artista}</div>
+          <div style={{ fontSize: "13.5px", color: "var(--text-2)" }}>
+            {momento ? `${etiquetaDeTipo(momento.tipo)} · sin música` : pista?.artista}
+          </div>
         </div>
 
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
@@ -112,7 +122,18 @@ export default function ServiceView() {
 
       <main style={{ flex: 1, overflowY: "auto", padding: "26px 32px 40px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          {vacia ? (
+          {momento ? (
+            <div style={{ padding: "70px 0", textAlign: "center", color: "var(--text-2)" }}>
+              <div style={{ width: 64, height: 64, margin: "0 auto 18px", borderRadius: 18, border: "1px dashed var(--border-2)", display: "grid", placeItems: "center" }}>
+                <IconoDeMomento tipo={momento.tipo} size={28} />
+              </div>
+              <p style={{ fontSize: 30 * escala, fontWeight: 700, fontStyle: "italic", color: "var(--text)", margin: "0 0 8px" }}>{momento.titulo}</p>
+              {momento.texto && <p style={{ fontSize: 19 * escala, margin: "0 0 18px" }}>{momento.texto}</p>}
+              <p style={{ fontSize: 15, color: "var(--text-3)", margin: 0 }}>
+                Aquí no se toca. Pasa a la siguiente cuando termine.
+              </p>
+            </div>
+          ) : !pista ? null : vacia ? (
             <div style={{ padding: "60px 0", textAlign: "center" }}>
               <p style={{ fontSize: 17, color: "var(--text-2)", margin: "0 0 18px" }}>
                 Esta pista todavía no tiene letra ni acordes escritos.

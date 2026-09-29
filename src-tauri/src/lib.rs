@@ -111,6 +111,8 @@ pub fn run() {
             commands::duplicate_playlist,
             commands::set_playlist_template,
             commands::set_playlist_order,
+            commands::add_playlist_momento,
+            commands::update_playlist_momento,
             commands::add_to_playlist,
             commands::update_playlist,
             commands::touch_playlist,

@@ -23,7 +23,7 @@ import type {
   Sheet,
   Snapshot,
 } from "../api";
-import type { Playlist } from "../types";
+import type { Playlist, TipoMomento } from "../types";
 
 /**
  * Lo que un entorno no sabe hacer, dicho para quien lo pidió.
@@ -80,6 +80,10 @@ export interface Backend {
   setPlaylistTemplate(playlist: string, plantilla: boolean): Promise<Playlist[]>;
   updatePlaylist(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]>;
   touchPlaylist(playlist: string): Promise<void>;
+  /** Añade un momento sin música al final del culto (#145). */
+  addPlaylistMomento(playlist: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
+  /** Cambia lo que dice un momento; su sitio en el orden no se toca. */
+  updatePlaylistMomento(momento: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
   deletePlaylist(playlist: string): Promise<Playlist[]>;
 
   // ---- letras y acordes

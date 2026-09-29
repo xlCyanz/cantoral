@@ -4,8 +4,10 @@ import { estrofasDe } from "./estrofas";
 import type { Estrofa } from "./estrofas";
 import { assetUrl, type SalidaProyeccion, type VistaProyeccion } from "./api";
 import type { CantoralState } from "../store/tipos";
-import { pistasPorId } from "../store/selectores";
+import { momentosPorId, pistasPorId } from "../store/selectores";
 import { recordar } from "./memo";
+import { elementosDe } from "./momentos";
+import type { Elemento } from "./momentos";
 
 // Qué se manda al proyector, decidido sin tocar el estado.
 //
@@ -27,23 +29,35 @@ export function rutaProyectable(t: Track | undefined): string {
   return assetUrl(t.path!);
 }
 
+/** La ruta de un elemento del culto. Un momento no tiene archivo que proyectar. */
+export function rutaDeElemento(e: Elemento | undefined): string {
+  return e?.clase === "pista" ? rutaProyectable(e.pista) : "";
+}
+
 /**
- * Las pistas que se están proyectando, en su orden.
+ * Lo que se está proyectando, en su orden: pistas y momentos (#145).
  *
- * `filasDeLista` mira la lista *abierta*; esta mira la que está en el aire, que
- * no tienen por qué ser la misma.
+ * `elementosDeLista` mira la lista *abierta*; esta mira la que está en el aire,
+ * que no tienen por qué ser la misma.
  */
 export const filasProyectadas = recordar(
-  (s: CantoralState): Track[] =>
-    (s.plOrder[s.proyeccionLista] || [])
-      .map((id) => pistasPorId(s.tracks).get(id))
-      .filter((t): t is Track => !!t),
-  (s: CantoralState) => [s.proyeccionLista, s.plOrder[s.proyeccionLista], s.tracks],
+  (s: CantoralState): Elemento[] =>
+    elementosDe(s.plOrder[s.proyeccionLista] || [], pistasPorId(s.tracks), momentosPorId(s.playlists)),
+  (s: CantoralState) => [s.proyeccionLista, s.plOrder[s.proyeccionLista], s.tracks, s.playlists],
 );
 
-/** Lo que hay que ir cargando en silencio estando en `idx`: el siguiente. */
+/**
+ * Lo que hay que ir cargando en silencio estando en `idx`: la siguiente pista.
+ *
+ * Por encima de un momento: mientras dura la oración se va cargando la canción
+ * de después, que es la que tiene que arrancar sin parpadeo al pulsar
+ * «Siguiente».
+ */
 export function precargaDe(s: CantoralState, idx: number): string | undefined {
-  return rutaProyectable(filasProyectadas(s)[idx + 1]) || undefined;
+  const filas = filasProyectadas(s);
+  let i = idx + 1;
+  while (filas[i]?.clase === "momento") i++;
+  return rutaDeElemento(filas[i]) || undefined;
 }
 
 /**
@@ -55,9 +69,17 @@ export function precargaDe(s: CantoralState, idx: number): string | undefined {
  * la congregación no le importa que falte un archivo.
  */
 export function salidaDelCulto(s: CantoralState, idx: number, reproduciendo: boolean): SalidaProyeccion {
-  const t = filasProyectadas(s)[idx];
+  const e = filasProyectadas(s)[idx];
   const precarga = precargaDe(s, idx);
-  if (!t) return { vista: { modo: "negro" }, precarga };
+  if (!e) return { vista: { modo: "negro" }, precarga };
+  // Un momento sin música sale como su título sobre negro (#145). No hay
+  // archivo, así que la salida nunca avisa de que se terminó: la cola se queda
+  // aquí hasta que alguien pulse «Siguiente», que es justo lo que se quiere
+  // mientras alguien ora o lee.
+  if (e.clase === "momento") {
+    return { vista: { modo: "titulo", titulo: e.momento.titulo, sub: e.momento.texto || undefined }, precarga };
+  }
+  const t = e.pista;
   const src = rutaProyectable(t);
   if (!src) return { vista: { modo: "titulo", titulo: t.titulo, sub: t.artista || undefined }, precarga };
   return {
@@ -109,9 +131,9 @@ export const estrofasDeLaPista = recordar(
 /** Cuántas estrofas tiene lo que está en pantalla, o 0 si no se proyecta letra. */
 export function estrofasEnPantalla(s: CantoralState): Estrofa[] {
   if (s.salidaDeAudio === "negro" || s.proyeccionIdx < 0) return VACIO_ESTROFAS;
-  const t = filasProyectadas(s)[s.proyeccionIdx];
-  if (!t || t.video) return VACIO_ESTROFAS;
-  return estrofasDeLaPista(s, t.id);
+  const e = filasProyectadas(s)[s.proyeccionIdx];
+  if (e?.clase !== "pista" || e.pista.video) return VACIO_ESTROFAS;
+  return estrofasDeLaPista(s, e.pista.id);
 }
 
 const VACIO_ESTROFAS: Estrofa[] = [];

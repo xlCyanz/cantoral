@@ -1,12 +1,14 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
-import { filasDeLista, plDur, useStore } from "../store";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
+import { elementosDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
+import { etiquetaDeTipo, resumenDeOrden } from "../lib/momentos";
 import { botonPrimario, botonSecundario, emptyBtnSecondary, ocasionBadge, ocupadoStyle } from "../lib/styles";
-import type { Track } from "../lib/types";
+import type { Momento, Track } from "../lib/types";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
+import IconoDeMomento from "./IconoDeMomento";
 
 const GRID = "26px 26px minmax(150px,3fr) 116px 58px 86px";
 
@@ -133,12 +135,119 @@ const PlRow = memo(function PlRow({ t, num, total }: { t: Track; num: number; to
   );
 });
 
+/**
+ * Un momento sin música del culto: una oración, una lectura (#145).
+ *
+ * Se arrastra, se sube y se baja como una pista —es un sitio más en el orden—,
+ * pero no tiene carátula ni duración ni se reproduce: en su lugar, un icono de
+ * su tipo, y Intro o el doble clic abren lo que dice para cambiarlo.
+ */
+const MomentoRow = memo(function MomentoRow({ m, num, total }: { m: Momento; num: number; total: number }) {
+  const dragging = useStore((s) => s.draggingId === m.id);
+  const over = useStore((s) => s.overId === m.id && !!s.draggingId && s.draggingId !== m.id);
+  const setDragging = useStore((s) => s.setDragging);
+  const setOver = useStore((s) => s.setOver);
+  const reorderPl = useStore((s) => s.reorderPl);
+  const clearDrag = useStore((s) => s.clearDrag);
+  const removeFromPl = useStore((s) => s.removeFromPl);
+  const moveInPlaylist = useStore((s) => s.moveInPlaylist);
+  const editarMomento = useStore((s) => s.editarMomento);
+
+  const primera = num === 1;
+  const ultima = num === total;
+  const tipo = etiquetaDeTipo(m.tipo);
+
+  return (
+    <div
+      className="lib-row"
+      role="listitem"
+      tabIndex={0}
+      aria-label={`${num} de ${total}, momento sin música: ${m.titulo}${m.texto ? `, ${m.texto}` : ""}`}
+      draggable
+      onDragStart={() => setDragging(m.id)}
+      onDragOver={(e) => { e.preventDefault(); setOver(m.id); }}
+      onDrop={(e) => { e.preventDefault(); reorderPl(m.id); }}
+      onDragEnd={clearDrag}
+      onDoubleClick={() => editarMomento(m.id)}
+      onKeyDown={(e) => {
+        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+          e.preventDefault();
+          moveInPlaylist(m.id, e.key === "ArrowUp" ? -1 : 1);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          editarMomento(m.id);
+        }
+      }}
+      style={{
+        display: "grid",
+        gridTemplateColumns: GRID,
+        alignItems: "center",
+        gap: 8,
+        padding: "7px 8px",
+        borderRadius: 10,
+        transition: "background .12s,box-shadow .12s,opacity .12s",
+        ...(over ? { boxShadow: "inset 0 2px 0 0 var(--primary)" } : {}),
+        ...(dragging ? { opacity: 0.4 } : {}),
+      }}
+    >
+      <div title="Arrastrar para reordenar" className="hb-text" style={{ display: "grid", placeItems: "center", color: "var(--text-3)", cursor: "grab" }}>
+        <GripVertical size={16} />
+      </div>
+      <span style={{ textAlign: "center", fontSize: "12.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{num}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+        {/* Del tamaño de una carátula, pero sin serlo: punteado y sin color,
+            para que se lea como un hueco en la música y no como otra canción. */}
+        <div style={{ width: 40, height: 40, flex: "0 0 auto", borderRadius: 8, border: "1px dashed var(--border-2)", color: "var(--text-2)", display: "grid", placeItems: "center" }}>
+          <IconoDeMomento tipo={m.tipo} size={18} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.titulo}</div>
+          <div style={{ fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {m.texto || "Sin música · la proyección espera a «Siguiente»"}
+          </div>
+        </div>
+      </div>
+      <div><span style={{ fontSize: 12, color: "var(--text-2)" }}>{tipo}</span></div>
+      <div style={{ fontSize: "12.5px", color: "var(--text-3)", textAlign: "right" }} aria-hidden>—</div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+        <button
+          onClick={() => moveInPlaylist(m.id, -1)}
+          disabled={primera}
+          title="Subir en la lista"
+          aria-label={`Subir «${m.titulo}» en la lista`}
+          className="hb-s2t"
+          style={{ width: 24, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)", ...ocupadoStyle(primera) }}
+        >
+          <ChevronUp size={15} />
+        </button>
+        <button
+          onClick={() => moveInPlaylist(m.id, 1)}
+          disabled={ultima}
+          title="Bajar en la lista"
+          aria-label={`Bajar «${m.titulo}» en la lista`}
+          className="hb-s2t"
+          style={{ width: 24, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)", ...ocupadoStyle(ultima) }}
+        >
+          <ChevronDown size={15} />
+        </button>
+        <button onClick={() => editarMomento(m.id)} title="Editar el momento" aria-label={`Editar «${m.titulo}»`} className="hb-s2t" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+          <Pencil size={14} />
+        </button>
+        <button onClick={() => removeFromPl(m.id)} title="Quitar del culto" aria-label={`Quitar «${m.titulo}» del culto`} className="hb-danger" style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}>
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </div>
+  );
+});
+
 export default function PlaylistView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const curPlaylist = useStore((s) => s.curPlaylist);
   const pl = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
   const order = useStore((s) => s.plOrder[s.curPlaylist] || VACIA);
-  const rows = useStore(filasDeLista);
+  const rows = useStore(elementosDeLista);
+  const nuevoMomento = useStore((s) => s.nuevoMomento);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
   const openService = useStore((s) => s.openService);
@@ -177,7 +286,7 @@ export default function PlaylistView() {
           </span>
           <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
-            <span>{order.length} pistas · {duracion}</span>
+            <span>{resumenDeOrden(order)} · {duracion}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
             <button onClick={playAll} className="hb-primary hb-active-scale" style={{ ...botonPrimario(42), fontWeight: 700, transition: "background .14s,transform .08s" }}>
@@ -212,6 +321,9 @@ export default function PlaylistView() {
                     <button onClick={() => { setMenuOpen(false); editCurrentList(); }} className="hb-s2" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--text)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Pencil size={15} />Editar lista
                     </button>
+                    <button onClick={() => { setMenuOpen(false); nuevoMomento(); }} className="hb-s2" style={menuItem}>
+                      <Hourglass size={15} />Añadir un momento…
+                    </button>
                     <button onClick={() => { setMenuOpen(false); duplicateCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Copy size={15} />Duplicar lista
                     </button>
@@ -244,9 +356,14 @@ export default function PlaylistView() {
           title="Esta lista está vacía"
           desc="Agrega pistas desde la Biblioteca para armar el repertorio de este culto."
           action={
-            <button onClick={showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
-              <Library size={16} />Ir a la biblioteca
-            </button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+              <button onClick={showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
+                <Library size={16} />Ir a la biblioteca
+              </button>
+              <button onClick={nuevoMomento} className="hb-s2" style={emptyBtnSecondary}>
+                <Hourglass size={16} />Añadir un momento…
+              </button>
+            </div>
           }
         />
       ) : (
@@ -270,15 +387,26 @@ export default function PlaylistView() {
             <span /><span style={{ textAlign: "center" }}>#</span><span>Título</span><span>Ocasión</span><span style={{ textAlign: "right" }}>Dur.</span><span />
           </div>
           <div role="list">
-            {rows.map((t, i) => (
-              <PlRow key={t.id} t={t} num={i + 1} total={rows.length} />
-            ))}
+            {rows.map((e, i) =>
+              e.clase === "pista" ? (
+                <PlRow key={e.id} t={e.pista} num={i + 1} total={rows.length} />
+              ) : (
+                <MomentoRow key={e.id} m={e.momento} num={i + 1} total={rows.length} />
+              ),
+            )}
           </div>
           {/* Moving a row is silent otherwise: the list re-renders, but nothing
               says where the song ended up. */}
           <p aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
             {reorderNotice}
           </p>
+          {/* Una oración, una lectura, los anuncios: lo que pasa entre canción y
+              canción. Entra al final y se arrastra a su sitio como una pista. */}
+          <div style={{ padding: "10px 8px 0" }}>
+            <button onClick={nuevoMomento} className="hb-s2" style={{ ...botonSecundario(38), height: 34, fontSize: "12.5px" }}>
+              <Hourglass size={14} />Añadir un momento…
+            </button>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 8px", color: "var(--text-3)", fontSize: "12.5px" }}>
             <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto, o usa los botones de cada fila. Con el teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd>.
           </div>

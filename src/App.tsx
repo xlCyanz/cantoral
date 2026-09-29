@@ -18,6 +18,7 @@ import NewListDialog from "./components/NewListDialog";
 import AddToListDialog from "./components/AddToListDialog";
 import ImportListDialog from "./components/ImportListDialog";
 import PrintPreview from "./components/PrintPreview";
+import MomentoDialog from "./components/MomentoDialog";
 import HelpDialog from "./components/HelpDialog";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
@@ -139,6 +140,7 @@ export default function App() {
       <AddToListDialog />
       <ImportListDialog />
       <PrintPreview />
+      <MomentoDialog />
       <HelpDialog />
       <ConfirmDialog />
       <ServiceView />

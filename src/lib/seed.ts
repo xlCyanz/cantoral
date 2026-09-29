@@ -132,7 +132,20 @@ export const SEED_PLAYLISTS: Playlist[] = [
   // Una plantilla en el seed, para que «Nueva lista» pueda partir de ella y la
   // sección de plantillas tenga algo que mostrar.
   { id: "p6", nombre: "Servicio dominical · plantilla", ocasion: "Servicio dominical", ids: ["t2", "t1", "t6", "t12"], plantilla: true, tocada: "2026-08-01T12:00:00.000Z" },
-  { id: "p5", nombre: "Noche de Adoración", ocasion: "Adoración especial", ids: ["t1", "t4", "t15", "t6", "t14", "t7"], plantilla: false, tocada: "2026-07-25T21:00:00.000Z" },
+  // Con dos momentos sin música entre las canciones (#145), para que la tabla,
+  // la hoja, el atril y la cola de la proyección tengan uno que enseñar.
+  {
+    id: "p5",
+    nombre: "Noche de Adoración",
+    ocasion: "Adoración especial",
+    ids: ["t1", "t4", "m:1", "t15", "t6", "m:2", "t14", "t7"],
+    momentos: [
+      { id: "m:1", tipo: "oracion", titulo: "Oración", texto: "" },
+      { id: "m:2", tipo: "lectura", titulo: "Lectura", texto: "Salmo 23" },
+    ],
+    plantilla: false,
+    tocada: "2026-07-25T21:00:00.000Z",
+  },
 ];
 
 /**

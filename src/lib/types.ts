@@ -80,7 +80,10 @@ export interface Playlist {
   id: string;
   nombre: string;
   ocasion: string;
-  /** Default ordered track ids (live order is kept in store.plOrder). */
+  /**
+   * Default order (live order is kept in store.plOrder): track ids, and the
+   * ids of its momentos (`m:…`) where they fall (#145).
+   */
   ids: string[];
   /** A list kept as a starting point rather than as a service of its own. */
   plantilla: boolean;
@@ -90,6 +93,30 @@ export interface Playlist {
    * tocó.
    */
   tocada: string;
+  /**
+   * Los momentos sin música del culto —oración, lectura, anuncios— (#145).
+   * Su sitio lo dice `ids`. Opcional: un culto sin ninguno puede no traerlo.
+   */
+  momentos?: Momento[];
+}
+
+/** Qué clase de momento sin música es. Decide el icono y el título de fábrica. */
+export type TipoMomento = "oracion" | "lectura" | "anuncios" | "ofrenda" | "mensaje" | "otro";
+
+/**
+ * Un elemento del culto que no es una pista (#145).
+ *
+ * En la proyección sale su título sobre negro y la cola se detiene ahí hasta
+ * que quien opera pulsa «Siguiente»; en el atril, una página que avisa de que
+ * no se toca; en la hoja, una fila sin duración.
+ */
+export interface Momento {
+  /** Empieza por `m:`, así nunca se confunde con el id de una pista en el orden. */
+  id: string;
+  tipo: TipoMomento;
+  titulo: string;
+  /** Opcional: la cita de la lectura, quién predica. */
+  texto: string;
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */

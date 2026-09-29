@@ -447,6 +447,24 @@ export async function touchPlaylistCmd(playlist: string): Promise<void> {
   if (!isTauri()) return;
   await inv("touch_playlist", { playlist });
 }
+/** Añadir un momento sin música al final de un culto (#145). */
+export async function addPlaylistMomentoCmd(
+  playlist: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("add_playlist_momento", { playlist, tipo, titulo, texto });
+}
+/** Cambiar lo que dice un momento del culto; `momento` es su id (`m:…`). */
+export async function updatePlaylistMomentoCmd(
+  momento: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("update_playlist_momento", { momento, tipo, titulo, texto });
+}
 export async function deletePlaylistCmd(playlist: string): Promise<Playlist[]> {
   return inv<Playlist[]>("delete_playlist", { playlist });
 }

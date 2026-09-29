@@ -6,10 +6,20 @@
 // le contaría a quien reciba la lista cómo tiene organizado el disco quien la
 // mandó, y para emparejar no hace falta.
 
-import type { Playlist, Track } from "./types";
+import type { Playlist, TipoMomento, Track } from "./types";
+import { tipoDeMomento } from "./momentos";
+import type { Elemento } from "./momentos";
 
-/** Versión del formato. Debe coincidir con `compartir::VERSION` en Rust. */
-export const VERSION = 1;
+/**
+ * Versión del formato. Debe coincidir con `compartir::VERSION` en Rust.
+ *
+ * El 2 añade `momentos` (#145). Un culto sin momentos se sigue escribiendo como
+ * 1 —`VERSION_SIN_MOMENTOS`—, así una instalación de antes lo abre igual; uno
+ * con momentos sale como 2, y la de antes pide que la actualicen en vez de
+ * perder la oración por el camino sin decirlo.
+ */
+export const VERSION = 2;
+export const VERSION_SIN_MOMENTOS = 1;
 
 export interface PistaCompartida {
   titulo: string;
@@ -27,10 +37,26 @@ export interface ListaCompartida {
   plantilla: boolean;
 }
 
+/**
+ * Un momento sin música del culto (#145).
+ *
+ * Su sitio se cuenta en pistas —cuántas del archivo van antes— y no en
+ * posiciones: del otro lado pueden faltar canciones, y el momento tiene que
+ * quedar entre las que lo rodeaban.
+ */
+export interface MomentoCompartido {
+  trasPistas: number;
+  tipo: TipoMomento;
+  titulo: string;
+  texto: string;
+}
+
 export interface ArchivoDeLista {
   cantoral: number;
   lista: ListaCompartida;
   pistas: PistaCompartida[];
+  /** Ausente en un archivo de formato 1, que es lo mismo que ninguno. */
+  momentos?: MomentoCompartido[];
   exportado: string;
 }
 
@@ -46,9 +72,10 @@ export function armarArchivo(
   lista: Playlist,
   pistas: readonly Track[],
   ahora: Date = new Date(),
+  momentos: readonly MomentoCompartido[] = [],
 ): ArchivoDeLista {
   return {
-    cantoral: VERSION,
+    cantoral: momentos.length > 0 ? VERSION : VERSION_SIN_MOMENTOS,
     lista: {
       nombre: lista.nombre,
       ocasion: lista.ocasion,
@@ -62,8 +89,56 @@ export function armarArchivo(
       ocasion: t.ocasion,
       archivo: soloElNombre(t.path),
     })),
+    // Sin la clave cuando no hay ninguno: el archivo queda idéntico al de antes.
+    ...(momentos.length > 0 ? { momentos: momentos.map((m) => ({ ...m })) } : {}),
     exportado: ahora.toISOString(),
   };
+}
+
+/** Armar el archivo de un culto con todo lo que tiene: pistas y momentos. */
+export function armarArchivoDeCulto(
+  lista: Playlist,
+  elementos: readonly Elemento[],
+  ahora: Date = new Date(),
+): ArchivoDeLista {
+  const pistas: Track[] = [];
+  const momentos: MomentoCompartido[] = [];
+  for (const e of elementos) {
+    if (e.clase === "pista") pistas.push(e.pista);
+    else momentos.push({ trasPistas: pistas.length, tipo: e.momento.tipo, titulo: e.momento.titulo, texto: e.momento.texto });
+  }
+  return armarArchivo(lista, pistas, ahora, momentos);
+}
+
+/**
+ * El orden del culto que se importa: las pistas encontradas y los momentos
+ * —ya creados, con sus ids de aquí— cada uno en su sitio.
+ *
+ * Un momento va antes de la pista número `trasPistas` del archivo. Si esa no
+ * está en esta biblioteca, se queda igual antes de la siguiente que sí: la
+ * oración sigue entre las mismas canciones, falte la que falte.
+ */
+export function ordenDelImportado(
+  pistas: readonly PistaCompartida[],
+  encontradas: readonly Emparejada[],
+  momentos: readonly { trasPistas: number; id: string }[],
+): string[] {
+  const idDe = new Map(encontradas.map((e) => [e.pista, e.id] as const));
+  const vistos = new Set<string>();
+  const orden: string[] = [];
+  const momentosAntesDe = (i: number) =>
+    momentos.filter((m) => Math.min(m.trasPistas, pistas.length) === i).forEach((m) => orden.push(m.id));
+  pistas.forEach((p, i) => {
+    momentosAntesDe(i);
+    const id = idDe.get(p);
+    // Sin repetir, como `idsParaLaLista`.
+    if (id && !vistos.has(id)) {
+      vistos.add(id);
+      orden.push(id);
+    }
+  });
+  momentosAntesDe(pistas.length);
+  return orden;
 }
 
 /** Nombre sugerido en el diálogo de guardar. */
@@ -224,6 +299,15 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
   const nombre = texto_(lista.nombre);
   if (!nombre.trim()) throw new Error("La lista exportada no tiene nombre.");
   const crudas = Array.isArray(bruto.pistas) ? bruto.pistas : [];
+  // Un momento sin título no tendría nada que enseñar: se deja fuera en vez de
+  // tirar el archivo entero por él.
+  const momentos = (Array.isArray(bruto.momentos) ? bruto.momentos : [])
+    .map((m): MomentoCompartido => {
+      const x = (m ?? {}) as Record<string, unknown>;
+      const tras = typeof x.trasPistas === "number" && Number.isFinite(x.trasPistas) ? Math.max(0, Math.floor(x.trasPistas)) : 0;
+      return { trasPistas: tras, tipo: tipoDeMomento(x.tipo), titulo: texto_(x.titulo).trim(), texto: texto_(x.texto).trim() };
+    })
+    .filter((m) => m.titulo);
   return {
     cantoral: v,
     lista: {
@@ -242,6 +326,7 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
         archivo: texto_(t.archivo),
       };
     }),
+    ...(momentos.length > 0 ? { momentos } : {}),
     exportado: texto_(bruto.exportado),
   };
 }
