@@ -14,6 +14,7 @@
 
 import { leerArchivoDelNavegador } from "../api";
 import type { DuplicateReport, ScanProgressEvent, Sheet, Snapshot } from "../api";
+import { buscarEnHojas } from "../buscarLetra";
 import { nombreDeCopia } from "../copias";
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "../seed";
 import type { Folder, Playlist, Track } from "../types";
@@ -258,6 +259,14 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     updateTrackSheet: async (id, letra, acordes) => {
       sheets[id] = { trackId: id, letra, acordes };
       pista(id).tieneHoja = tieneTexto(sheets[id]);
+    },
+    // Como el índice del núcleo: solo lo que está en el catálogo.
+    searchLyrics: async (consulta) => {
+      const hay = new Set(tracks.map((t) => t.id));
+      return buscarEnHojas(
+        Object.values(sheets).filter((h) => hay.has(h.trackId)),
+        consulta,
+      );
     },
 
     findDuplicates: async () => informe(),

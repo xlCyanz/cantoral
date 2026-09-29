@@ -61,6 +61,7 @@ export const tauri: Backend = {
   getTrackSheet: async (id) => requerido(await api.getTrackSheet(id), "get_track_sheet"),
   getSheets: async (ids) => (await api.getSheets(ids)) ?? [],
   updateTrackSheet: (id, letra, acordes) => api.updateTrackSheet(id, letra, acordes),
+  searchLyrics: async (consulta) => requerido(await api.searchLyrics(consulta), "search_lyrics"),
 
   findDuplicates: async () => requerido(await api.findDuplicatesCmd(), "find_duplicates"),
   mergeDuplicates: async (keep, drop) => requerido(await api.mergeDuplicatesCmd(keep, drop), "merge_duplicates"),

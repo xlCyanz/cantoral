@@ -287,6 +287,19 @@ export async function updateTrackSheet(id: string, letra: string, acordes: strin
   await inv("update_track_sheet", { id, letra, acordes });
 }
 
+/** A track the search found by its sheet (#144). */
+export interface LyricHit {
+  trackId: string;
+  /** Where the words appear, chords stripped, on one line. */
+  fragmento: string;
+}
+
+/** Tracks whose lyrics or chords hold every word of `consulta`. */
+export async function searchLyrics(consulta: string): Promise<LyricHit[] | null> {
+  if (!isTauri()) return null;
+  return inv<LyricHit[]>("search_lyrics", { consulta });
+}
+
 /** One candidate inside a group of suspected duplicates. */
 export interface DuplicateTrack {
   id: string;

@@ -87,6 +87,7 @@ pub fn run() {
             commands::get_track_sheet,
             commands::get_sheets,
             commands::update_track_sheet,
+            commands::search_lyrics,
             commands::find_duplicates,
             commands::merge_duplicates,
             commands::dismiss_duplicates,
