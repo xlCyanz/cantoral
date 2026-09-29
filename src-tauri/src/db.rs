@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::models::{
-    fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Momento, Playlist, Sheet, Track,
+    fmt_dur, DuplicateGroup, DuplicateTrack, Folder, LyricHit, Momento, Playlist, Sheet, Track,
 };
 
 /// Tauri-managed database handle.
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
 
 -- Los momentos sin música de un culto (#145). Comparten la numeración de
 -- `position` con `playlist_tracks`: el orden del culto es la mezcla de las dos
--- tablas por esa columna. Igual que en la migración 11.
+-- tablas por esa columna. Igual que en la migración 12.
 CREATE TABLE IF NOT EXISTS playlist_momentos (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
@@ -102,6 +102,46 @@ CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist_id, position);
 "#;
 
+/// El índice de búsqueda sobre las hojas (#144): una tabla FTS5 que lee la
+/// letra y los acordes de `tracks` y tres triggers que la mantienen al día,
+/// escriba quien escriba —el editor, la fusión de duplicados, la cascada al
+/// quitar una carpeta—.
+///
+/// `remove_diacritics 2` es para el español: «corazon» encuentra «corazón» y
+/// «senor» encuentra «Señor». Los corchetes de los acordes separan palabras,
+/// así que `[Sol]Sublime` se indexa como «sol» y «sublime»: el acorde sobra,
+/// pero la palabra de la letra está.
+///
+/// Fuera de `SCHEMA` a propósito. `SCHEMA` corre en cada arranque, antes de las
+/// migraciones, y un trigger que nombra `letra` sobre una base de antes de esa
+/// columna haría fallar el `ALTER TABLE` que la añade. Una base nueva lo crea
+/// justo después de `SCHEMA`; una vieja, en su migración.
+macro_rules! letras_fts {
+    () => {
+        "CREATE VIRTUAL TABLE IF NOT EXISTS letras_fts USING fts5(
+           letra, acordes,
+           content='tracks', content_rowid='id',
+           tokenize='unicode61 remove_diacritics 2'
+         );
+         CREATE TRIGGER IF NOT EXISTS letras_fts_ai AFTER INSERT ON tracks BEGIN
+           INSERT INTO letras_fts(rowid, letra, acordes) VALUES (new.id, new.letra, new.acordes);
+         END;
+         CREATE TRIGGER IF NOT EXISTS letras_fts_ad AFTER DELETE ON tracks BEGIN
+           INSERT INTO letras_fts(letras_fts, rowid, letra, acordes)
+             VALUES ('delete', old.id, old.letra, old.acordes);
+         END;
+         CREATE TRIGGER IF NOT EXISTS letras_fts_au AFTER UPDATE OF letra, acordes ON tracks BEGIN
+           INSERT INTO letras_fts(letras_fts, rowid, letra, acordes)
+             VALUES ('delete', old.id, old.letra, old.acordes);
+           INSERT INTO letras_fts(rowid, letra, acordes) VALUES (new.id, new.letra, new.acordes);
+         END;
+        "
+    };
+}
+
+/// Ver `letras_fts!`.
+pub const LETRAS_FTS: &str = letras_fts!();
+
 /// The schema changes made since the first release, in the order they
 /// happened. Entry `n` takes a database from `PRAGMA user_version` `n - 1` to
 /// `n`; `open_and_migrate` runs only the ones a database has not seen yet, each
@@ -110,9 +150,9 @@ CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist
 ///
 /// Append only: never edit, reorder or remove an entry that has shipped, or a
 /// database that already ran it would disagree with one that runs it now. The
-/// table definitions in `SCHEMA` must already include whatever these add — a
-/// brand-new database is created from `SCHEMA` and stamped straight to
-/// `SCHEMA_VERSION` without running any of them.
+/// table definitions in `SCHEMA` (and `LETRAS_FTS`) must already include
+/// whatever these add — a brand-new database is created from them and stamped
+/// straight to `SCHEMA_VERSION` without running any of them.
 ///
 /// An `ALTER TABLE … ADD COLUMN` goes alone in its entry. Databases from before
 /// `user_version` existed are at 0 yet already have some or all of these
@@ -135,11 +175,14 @@ const MIGRATIONS: &[(i64, &str)] = &[
     // todos empatados. Una fila nueva siempre llega con valor, así que basta
     // con hacerlo una vez.
     (10, "UPDATE playlists SET tocada_at=created_at WHERE tocada_at=''"),
+    // La búsqueda por la letra (#144). `rebuild` indexa las hojas que ya había
+    // escritas; de ahí en adelante, los triggers.
+    (11, concat!(letras_fts!(), "INSERT INTO letras_fts(letras_fts) VALUES('rebuild');")),
     // Los momentos sin música del culto (#145): oración, lectura, anuncios.
     // Una tabla nueva y nada más, así que se sostiene sola: no toca ninguna
     // fila de antes y puede cambiar de número si otra migración entra antes.
     (
-        11,
+        12,
         "CREATE TABLE IF NOT EXISTS playlist_momentos (
            id          INTEGER PRIMARY KEY AUTOINCREMENT,
            playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
@@ -194,6 +237,7 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     conn.execute_batch(SCHEMA)?;
 
     if fresh {
+        conn.execute_batch(LETRAS_FTS)?;
         conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
         log::info!("new database created at schema version {SCHEMA_VERSION}");
         return Ok(conn);
@@ -667,6 +711,75 @@ pub fn set_track_sheet(conn: &Connection, id: i64, letra: &str, acordes: &str) -
         bail!("la pista ya no está en la biblioteca");
     }
     Ok(())
+}
+
+/// Lo que se le pasa a FTS5 para lo que alguien escribió en el buscador.
+///
+/// Cada palabra va entre comillas —así un `"`, un `-` o un `OR` escritos no son
+/// sintaxis de FTS5— y como prefijo, porque se busca mientras se teclea:
+/// «sublime gra» ya encuentra «sublime gracia». Todas tienen que estar, en
+/// cualquier orden. Sin ninguna palabra, `None`.
+fn consulta_fts(texto: &str) -> Option<String> {
+    let palabras: Vec<String> = texto
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|p| !p.is_empty())
+        .map(|p| format!("\"{p}\"*"))
+        .collect();
+    (!palabras.is_empty()).then(|| palabras.join(" "))
+}
+
+/// El fragmento de FTS5, sin los acordes.
+///
+/// `snippet` corta por palabras, y en una hoja de acordes una palabra puede ser
+/// el nombre del acorde: el fragmento puede empezar en «Sol]Sublime» o acabar
+/// en «gracia [Do». Se quitan los acordes enteros y los medios, y los saltos
+/// de línea se vuelven espacios, porque el fragmento se lee en una línea.
+fn fragmento_limpio(crudo: &str) -> String {
+    let (antes, resto) = crudo.strip_prefix('…').map_or(("", crudo), |r| ("…", r));
+    let (resto, despues) = resto.strip_suffix('…').map_or((resto, ""), |r| (r, "…"));
+    // Un `]` antes de cualquier `[` cierra un acorde que empezó fuera del corte.
+    let resto = match (resto.find(']'), resto.find('[')) {
+        (Some(cierre), abre) if abre.is_none_or(|a| cierre < a) => &resto[cierre + 1..],
+        _ => resto,
+    };
+    let mut limpio = String::with_capacity(resto.len());
+    let mut en_acorde = false;
+    for c in resto.chars() {
+        match c {
+            '[' => en_acorde = true,
+            ']' => en_acorde = false,
+            _ if !en_acorde => limpio.push(c),
+            _ => {}
+        }
+    }
+    let texto = limpio.split_whitespace().collect::<Vec<_>>().join(" ");
+    if texto.is_empty() {
+        return String::new();
+    }
+    format!("{antes}{texto}{despues}")
+}
+
+/// Las pistas cuya letra o acordes contienen todas las palabras buscadas, con
+/// el trozo de la hoja donde aparecen.
+///
+/// Sin distinguir mayúsculas ni tildes. El orden es el de relevancia de FTS5;
+/// quien las muestra las vuelve a ordenar a su manera.
+pub fn search_lyrics(conn: &Connection, consulta: &str) -> Result<Vec<LyricHit>> {
+    let Some(q) = consulta_fts(consulta) else {
+        return Ok(Vec::new());
+    };
+    let mut stmt = conn.prepare(
+        "SELECT rowid, snippet(letras_fts, -1, '', '', '…', 10)
+         FROM letras_fts WHERE letras_fts MATCH ?1
+         ORDER BY rank",
+    )?;
+    let filas = stmt.query_map(params![q], |r| {
+        Ok(LyricHit {
+            track_id: r.get::<_, i64>(0)?.to_string(),
+            fragmento: fragmento_limpio(&r.get::<_, String>(1)?),
+        })
+    })?;
+    Ok(filas.collect::<std::result::Result<_, _>>()?)
 }
 
 // ---------------------------------------------------------------- folders
@@ -1691,6 +1804,7 @@ mod tests {
     fn mem() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(SCHEMA).unwrap();
+        conn.execute_batch(LETRAS_FTS).unwrap();
         conn
     }
 
@@ -1889,6 +2003,174 @@ mod tests {
 
     // ---- lyrics and chords ----
 
+    // ---- búsqueda por la letra (#144) ----
+
+    fn encontradas(conn: &Connection, consulta: &str) -> Vec<i64> {
+        let mut ids: Vec<i64> = search_lyrics(conn, consulta)
+            .unwrap()
+            .into_iter()
+            .map(|h| h.track_id.parse().unwrap())
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    #[test]
+    fn a_verse_finds_the_song_whatever_its_title() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/track03.mp3", "Track 03");
+        let otra = add_track(&conn, fid, "/m/otra.mp3", "Otra");
+        set_track_sheet(&conn, id, "Sublime gracia del Señor\nque a un infeliz salvó", "").unwrap();
+        set_track_sheet(&conn, otra, "Cuán grande es Él", "").unwrap();
+
+        assert_eq!(encontradas(&conn, "sublime gracia del"), vec![id]);
+        // En otro orden y a medio escribir, también.
+        assert_eq!(encontradas(&conn, "infeliz subl"), vec![id]);
+        assert!(encontradas(&conn, "sublime grande").is_empty(), "todas las palabras deben estar");
+    }
+
+    #[test]
+    fn accents_and_capitals_do_not_matter_either_way() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let con = add_track(&conn, fid, "/m/a.mp3", "A");
+        let sin = add_track(&conn, fid, "/m/b.mp3", "B");
+        set_track_sheet(&conn, con, "Te doy mi CORAZÓN, Señor", "").unwrap();
+        set_track_sheet(&conn, sin, "mi corazon te adora, senor", "").unwrap();
+
+        assert_eq!(encontradas(&conn, "corazon senor"), vec![con, sin]);
+        assert_eq!(encontradas(&conn, "Corazón Señor"), vec![con, sin]);
+    }
+
+    #[test]
+    fn chords_alone_are_searched_without_their_brackets() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_sheet(&conn, id, "", "[Sol]Sublime [Do]gracia del [Re]Señor").unwrap();
+
+        let hits = search_lyrics(&conn, "sublime gracia").unwrap();
+        assert_eq!(hits.len(), 1);
+        assert!(!hits[0].fragmento.contains('['), "{}", hits[0].fragmento);
+        assert!(!hits[0].fragmento.contains(']'), "{}", hits[0].fragmento);
+        assert!(hits[0].fragmento.contains("Sublime gracia"), "{}", hits[0].fragmento);
+    }
+
+    #[test]
+    fn the_fragment_is_the_verse_on_one_line() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        let larga = "Uno dos tres cuatro cinco seis siete ocho nueve diez\n\
+                     sublime gracia del Señor\n\
+                     once doce trece catorce quince dieciséis diecisiete";
+        set_track_sheet(&conn, id, larga, "").unwrap();
+
+        let hits = search_lyrics(&conn, "sublime gracia").unwrap();
+        let f = &hits[0].fragmento;
+        assert!(f.contains("sublime gracia del Señor"), "{f}");
+        assert!(!f.contains('\n'), "{f}");
+        assert!(f.starts_with('…') || f.ends_with('…'), "a cut verse says so: {f}");
+    }
+
+    #[test]
+    fn editing_the_sheet_moves_the_result_with_it() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_sheet(&conn, id, "Santo, santo, santo", "").unwrap();
+        assert_eq!(encontradas(&conn, "santo"), vec![id]);
+
+        set_track_sheet(&conn, id, "Aleluya", "").unwrap();
+
+        assert!(encontradas(&conn, "santo").is_empty(), "lo borrado ya no se encuentra");
+        assert_eq!(encontradas(&conn, "aleluya"), vec![id]);
+    }
+
+    #[test]
+    fn a_track_that_leaves_takes_its_lyrics_out_of_the_index() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let sola = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_sheet(&conn, sola, "Aleluya", "").unwrap();
+        delete_track(&conn, sola).unwrap();
+        assert!(encontradas(&conn, "aleluya").is_empty());
+
+        // Y por la cascada de quitar la carpeta entera.
+        let otra = add_track(&conn, fid, "/m/b.mp3", "B");
+        set_track_sheet(&conn, otra, "Hosanna", "").unwrap();
+        remove_folder(&conn, fid).unwrap();
+        assert!(encontradas(&conn, "hosanna").is_empty());
+        let fts: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM letras_fts WHERE letras_fts MATCH 'hosanna'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(fts, 0);
+    }
+
+    #[test]
+    fn a_rescan_does_not_touch_the_index() {
+        // El escaneo reescribe la fila (upsert) sin tocar la hoja.
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_sheet(&conn, id, "Aleluya", "").unwrap();
+
+        add_track(&conn, fid, "/m/a.mp3", "A retitulada");
+
+        assert_eq!(encontradas(&conn, "aleluya"), vec![id]);
+        conn.execute("INSERT INTO letras_fts(letras_fts) VALUES('integrity-check')", []).unwrap();
+    }
+
+    #[test]
+    fn merging_duplicates_carries_the_lyrics_into_the_index() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let queda = add_track(&conn, fid, "/m/a.mp3", "A");
+        let va = add_track(&conn, fid, "/m/a (1).mp3", "A");
+        set_track_sheet(&conn, va, "Cristo ya resucitó", "").unwrap();
+
+        merge_tracks(&conn, queda, &[va]).unwrap();
+
+        assert_eq!(encontradas(&conn, "cristo resucito"), vec![queda]);
+        conn.execute("INSERT INTO letras_fts(letras_fts) VALUES('integrity-check')", []).unwrap();
+    }
+
+    #[test]
+    fn what_is_typed_is_never_fts5_syntax() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_sheet(&conn, id, "Gloria a Dios en las alturas", "").unwrap();
+
+        for raro in
+            ["\"gloria", "gloria OR", "gloria -dios", "NEAR(gloria", "gloria*", "(dios)", "a:b"]
+        {
+            assert!(search_lyrics(&conn, raro).is_ok(), "«{raro}» no debe romper la búsqueda");
+        }
+        assert_eq!(encontradas(&conn, "«gloria» — dios!"), vec![id]);
+        assert!(search_lyrics(&conn, "  ¡¿…?!  ").unwrap().is_empty());
+    }
+
+    #[test]
+    fn without_sheets_nothing_is_found() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        add_track(&conn, fid, "/m/a.mp3", "Sublime gracia");
+        assert!(encontradas(&conn, "sublime").is_empty(), "el título no es la letra");
+    }
+
+    #[test]
+    fn the_fragment_drops_chords_cut_in_half() {
+        assert_eq!(fragmento_limpio("…Sol]Sublime [Do]gracia [Re"), "…Sublime gracia");
+        assert_eq!(fragmento_limpio("Sublime\ngracia…"), "Sublime gracia…");
+        assert_eq!(fragmento_limpio("[Sol]"), "");
+    }
+
     #[test]
     fn a_sheet_goes_in_and_comes_back_out() {
         let conn = mem();
@@ -2040,6 +2322,50 @@ mod tests {
         let id: i64 = tracks[0].id.parse().unwrap();
         set_track_sheet(&conn, id, "letra nueva", "").unwrap();
         assert_eq!(track_sheet(&conn, id).unwrap().letra, "letra nueva");
+    }
+
+    #[test]
+    fn lyrics_written_before_the_index_existed_are_found_after_migrating() {
+        // Una biblioteca de la versión 10: hojas escritas, sin índice.
+        let dir = Dir::new("letras-fts-migration");
+        let path = dir.path("cantoral.db");
+        {
+            let vieja = Connection::open(&path).unwrap();
+            vieja.execute_batch(SCHEMA).unwrap();
+            vieja
+                .execute_batch(
+                    "PRAGMA user_version = 10;
+                     INSERT INTO tracks(path, titulo, added_at, letra, acordes)
+                     VALUES('/m/a.mp3','Track 03','2020-01-01','Sublime gracia del Señor',''),
+                           ('/m/b.mp3','Otra','2020-01-01','','[Sol]Cuán grande es Él');",
+                )
+                .unwrap();
+        }
+
+        let conn = open_and_migrate(&path).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
+        assert_eq!(search_lyrics(&conn, "gracia senor").unwrap().len(), 1);
+        assert_eq!(search_lyrics(&conn, "cuan grande").unwrap().len(), 1);
+        // Y queda vivo: lo que se escribe después también se encuentra.
+        set_track_sheet(&conn, 1, "Aleluya", "").unwrap();
+        assert_eq!(search_lyrics(&conn, "aleluya").unwrap().len(), 1);
+        assert!(search_lyrics(&conn, "sublime").unwrap().is_empty());
+        drop(conn);
+        // Abrir otra vez no la vuelve a crear ni la duplica.
+        let conn = open_and_migrate(&path).unwrap();
+        assert_eq!(search_lyrics(&conn, "aleluya").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_new_database_has_the_lyrics_index_from_the_start() {
+        let dir = Dir::new("letras-fts-nueva");
+        let path = dir.path("cantoral.db");
+        let conn = open_and_migrate(&path).unwrap();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = add_track(&conn, fid, "/m/a.mp3", "A");
+        set_track_sheet(&conn, id, "Aleluya", "").unwrap();
+        assert_eq!(search_lyrics(&conn, "aleluya").unwrap().len(), 1);
     }
 
     // ---- schema version ----

@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::compartir;
 use crate::db::{self, Db};
-use crate::models::{DuplicateGroup, Folder, Playlist, Sheet, Track};
+use crate::models::{DuplicateGroup, Folder, LyricHit, Playlist, Sheet, Track};
 use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
 
 /// Everything the frontend needs to hydrate its store.
@@ -328,38 +328,6 @@ pub fn conceder_alcance(app: &AppHandle, conn: &Connection) {
     }
 }
 
-/// Hand the sheet the app just exported to the system's default application.
-///
-/// The webview no longer holds `opener:allow-open-path`, so this is the only
-/// way to the OS opener. With the permission granted straight to the webview,
-/// `open_path` was a request to run anything: the scope was `**`, and the
-/// system opener does not care whether the file is a song or an executable.
-///
-/// It used to let media through as well, for the «open in the system player»
-/// escape hatch. That hatch is gone (#81) — everything plays inside the app
-/// now — so the only file left to open is the printable sheet, and the rule
-/// narrowed with it. A command that can open less is a command worth less to
-/// anything that manages to call it.
-#[tauri::command]
-pub fn open_exported_sheet(path: String) -> CmdResult<()> {
-    if !abrible(std::path::Path::new(&path)) {
-        return Err(format!("Cantoral solo abre las hojas que exporta, no «{path}»."));
-    }
-    tauri_plugin_opener::open_path(&path, None::<&str>).map_err(e)
-}
-
-/// Whether this is a file Cantoral is willing to hand to the system opener.
-///
-/// The printable sheet the app itself just wrote, and nothing else. Separate
-/// from the command so the rule can be read and tested without anything
-/// actually opening.
-fn abrible(path: &std::path::Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
-        .unwrap_or(false)
-}
-
 /// Parse a list of ids coming from the frontend.
 fn ids_de(ids: &[String]) -> CmdResult<Vec<i64>> {
     ids.iter().map(|i| i.parse::<i64>()).collect::<std::result::Result<Vec<i64>, _>>().map_err(e)
@@ -429,6 +397,13 @@ pub fn update_track_sheet(
 ) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     db::set_track_sheet(&conn, id.parse::<i64>().map_err(e)?, &letra, &acordes).map_err(e)
+}
+
+/// The tracks whose sheet holds every word searched for (#144).
+#[tauri::command(async)]
+pub fn search_lyrics(db: State<Db>, consulta: String) -> CmdResult<Vec<LyricHit>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::search_lyrics(&conn, &consulta).map_err(e)
 }
 
 /// Re-check every indexed file on disk. Called after startup so tracks deleted
@@ -943,57 +918,8 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{abrible, export_playlist, export_playlist_json, rutas_con_alcance};
+    use super::{export_playlist, export_playlist_json, rutas_con_alcance};
     use crate::db;
-    use std::path::Path;
-
-    #[test]
-    fn the_exported_sheet_can_be_opened() {
-        // It is what «Exportar» hands to the browser to be printed, and now
-        // the only thing this command opens at all.
-        assert!(abrible(Path::new("/tmp/Culto.html")));
-        assert!(abrible(Path::new("/tmp/Culto.htm")));
-    }
-
-    #[test]
-    fn media_is_no_longer_openable() {
-        // The escape hatch to the system player is gone (#81): everything
-        // plays inside the app, so handing a track to the OS is no longer
-        // something the app does — or something this command allows.
-        for media in ["/m/coro.mp3", "/m/coro.flac", "/m/coro.wav", "/m/proyeccion.mp4"] {
-            assert!(!abrible(Path::new(media)), "{media} must no longer be openable");
-        }
-    }
-
-    #[test]
-    fn an_extension_in_capitals_is_the_same_extension() {
-        // Windows is full of «.HTML»; a case-sensitive check would refuse the
-        // sheet the app itself just wrote.
-        assert!(abrible(Path::new("/tmp/Culto.HTML")));
-        assert!(abrible(Path::new("/tmp/Culto.Htm")));
-    }
-
-    #[test]
-    fn anything_the_system_would_run_is_refused() {
-        // The point of the whole change: `open_path` asks the OS to open the
-        // file with its default application, and for these that means running
-        // them.
-        for malo in ["/tmp/x.exe", "/tmp/x.sh", "/tmp/x.bat", "/tmp/x.command", "/tmp/x.app"] {
-            assert!(!abrible(Path::new(malo)), "{malo} must be refused");
-        }
-    }
-
-    #[test]
-    fn so_is_anything_without_an_extension_to_judge() {
-        assert!(!abrible(Path::new("/tmp/sin-extension")));
-        assert!(!abrible(Path::new("/tmp/")));
-        assert!(!abrible(Path::new("")));
-    }
-
-    #[test]
-    fn and_the_library_database_itself() {
-        assert!(!abrible(Path::new("/datos/cantoral.db")));
-    }
 
     /// A temp directory of this test's own, cleared when it goes out of scope.
     ///

@@ -61,11 +61,9 @@ export interface ProyeccionSlice {
   /**
    * Qué hace la proyección cuando un elemento se termina. Se recuerda.
    *
-   * Por defecto, negro: en un culto el video se acaba mientras alguien está
-   * hablando, y arrancar la canción de después por su cuenta delante de la
-   * congregación no es algo que la app deba decidir sin que se lo pidan. Quien
-   * proyecta un culto seguido —una lista entera de principio a fin— lo pone en
-   * «siguiente» una vez y se olvida.
+   * Por defecto, «siguiente»: un culto se prepara para correr entero sin
+   * nadie al ratón. Quien prefiere que cada elemento acabe en negro —porque
+   * entre canción y canción alguien habla— lo cambia una vez y se olvida.
    */
   avanceProyeccion: AvanceProyeccion;
   /** Por dónde va lo que se está proyectando, en segundos. Lo dice la salida. */

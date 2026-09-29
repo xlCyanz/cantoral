@@ -5,6 +5,7 @@ import type { Elemento } from "../lib/momentos";
 import { enOrden, vigentes } from "../lib/selection";
 import type { CantoralState } from "./tipos";
 import { recordar } from "../lib/memo";
+import { buscaEnLetras } from "../lib/buscarLetra";
 
 // ============================================================
 // Derived selectors (pure) — used by components against a state snapshot.
@@ -185,7 +186,7 @@ export const seleccionVigente = recordar(
     const visibles = applyFilters(s).map((t) => t.id);
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir, s.selection],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.letras, s.sortKey, s.sortDir, s.selection],
 );
 
 /**
@@ -234,6 +235,49 @@ export function playQueue(s: CantoralState): string[] {
   return live.length ? live : applyFilters(s).map((t) => t.id);
 }
 
+/** Si lo buscado (ya en minúsculas) está en el título, el artista, el álbum o la ocasión. */
+function coincideEnCampos(t: Track, q: string): boolean {
+  return [t.titulo, t.artista, t.album, t.ocasion].join(" ").toLowerCase().includes(q);
+}
+
+/**
+ * Los fragmentos de la última búsqueda en las hojas, si valen para lo que está
+ * escrito ahora; null si no.
+ *
+ * Mientras llega la respuesta a lo último tecleado vale la anterior si lo
+ * nuevo la continúa: lo que encuentra «sublime gra» también lo encontraba
+ * «sublime gr», y así las filas halladas por la letra no desaparecen y vuelven
+ * a cada tecla.
+ */
+function letrasVigentes(s: CantoralState): Record<string, string> | null {
+  const l = s.letras;
+  if (!l || !buscaEnLetras(s.query)) return null;
+  return s.query.trim().toLowerCase().startsWith(l.consulta.toLowerCase()) ? l.fragmentos : null;
+}
+
+/** Una sola instancia, para que una fila sin fragmento no cambie de valor. */
+const SIN_FRAGMENTOS: ReadonlyMap<string, string> = new Map();
+
+/**
+ * Las filas que salen *solo* por la letra, con el trozo que lo explica (#144).
+ *
+ * Una que ya coincide por el título no lo necesita: se ve por qué está ahí.
+ */
+export const fragmentosDeLetra = recordar(
+  (s: CantoralState): ReadonlyMap<string, string> => {
+    const porLetra = letrasVigentes(s);
+    if (!porLetra) return SIN_FRAGMENTOS;
+    const q = s.query.toLowerCase();
+    const mapa = new Map<string, string>();
+    for (const t of s.tracks) {
+      const f = porLetra[t.id];
+      if (f !== undefined && !coincideEnCampos(t, q)) mapa.set(t.id, f);
+    }
+    return mapa;
+  },
+  (s: CantoralState) => [s.tracks, s.query, s.letras],
+);
+
 /** Filter + sort the library exactly like the design's applyFilters(). */
 export const applyFilters = recordar(
   (s: CantoralState): Track[] => {
@@ -246,12 +290,10 @@ export const applyFilters = recordar(
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
     if (s.query) {
       const q = s.query.toLowerCase();
-      list = list.filter((t) =>
-        [t.titulo, t.artista, t.album, t.ocasion]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
+      // Lo que coincide en los campos sale al instante; lo que solo está en la
+      // letra, cuando el núcleo contesta (#144).
+      const porLetra = letrasVigentes(s);
+      list = list.filter((t) => coincideEnCampos(t, q) || (porLetra !== null && t.id in porLetra));
     }
     if (s.qf !== "recent") {
       const dir = s.sortDir === "asc" ? 1 : -1;
@@ -269,7 +311,7 @@ export const applyFilters = recordar(
     }
     return list;
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.letras, s.sortKey, s.sortDir],
 );
 
 export interface Group {
