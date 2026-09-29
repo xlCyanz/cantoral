@@ -56,6 +56,8 @@ export const tauri: Backend = {
   setPlaylistTemplate: (playlist, plantilla) => api.setPlaylistTemplateCmd(playlist, plantilla),
   updatePlaylist: (playlist, nombre, ocasion) => api.updatePlaylistCmd(playlist, nombre, ocasion),
   touchPlaylist: (playlist) => api.touchPlaylistCmd(playlist),
+  addPlaylistMomento: (playlist, tipo, titulo, texto) => api.addPlaylistMomentoCmd(playlist, tipo, titulo, texto),
+  updatePlaylistMomento: (momento, tipo, titulo, texto) => api.updatePlaylistMomentoCmd(momento, tipo, titulo, texto),
   deletePlaylist: (playlist) => api.deletePlaylistCmd(playlist),
 
   getTrackSheet: async (id) => requerido(await api.getTrackSheet(id), "get_track_sheet"),

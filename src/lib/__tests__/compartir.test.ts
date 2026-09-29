@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { Playlist, Track } from "../types";
 import {
   VERSION,
+  VERSION_SIN_MOMENTOS,
   armarArchivo,
   emparejar,
   idsParaLaLista,
@@ -69,7 +70,11 @@ describe("armarArchivo", () => {
   });
 
   it("lleva la versión del formato, para que un lector viejo pueda negarse", () => {
-    expect(armarArchivo(lista, []).cantoral).toBe(VERSION);
+    // Sin momentos (#145), la de antes: una instalación sin actualizar la abre.
+    expect(armarArchivo(lista, []).cantoral).toBe(VERSION_SIN_MOMENTOS);
+    expect(
+      armarArchivo(lista, [], new Date(), [{ trasPistas: 0, tipo: "oracion", titulo: "Oración", texto: "" }]).cantoral,
+    ).toBe(VERSION);
   });
 
   it("guarda lo que sirve para volver a encontrar la pista", () => {

@@ -3,8 +3,8 @@ import type { MonitorInfo, SalidaProyeccion } from "../lib/api";
 import { motivoDeError } from "../lib/formatos";
 import { closeProjectionCmd, onProjectionReady, onProjectionState, openProjectionCmd, projectionMonitors, setProjectionCmd } from "../lib/api";
 import type { Contexto, Get, Set } from "./contexto";
-import { filasDeLista } from "./selectores";
-import { estrofasEnPantalla, filasProyectadas, precargaDe, rutaProyectable, salidaDelCulto } from "../lib/proyeccion";
+import { elementosDeLista } from "./selectores";
+import { estrofasEnPantalla, filasProyectadas, precargaDe, rutaDeElemento, salidaDelCulto } from "../lib/proyeccion";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // La salida al proyector.
@@ -183,7 +183,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
           if (st.proyeccionIdx >= 0 && filasProyectadas(st).length > st.proyeccionIdx) {
             set({ proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
             get().proyectar(salidaDelCulto(get(), st.proyeccionIdx, true));
-          } else if (filasDeLista(st).length > 0) {
+          } else if (elementosDeLista(st).length > 0) {
             get().proyectarElemento(0);
           } else {
             get().proyeccionNegro();
@@ -203,7 +203,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
     proyectarElemento: (idx) => {
       // Se proyecta desde la lista abierta, y a partir de aquí esa pasa a ser
       // la que está en el aire.
-      if (idx < 0 || idx >= filasDeLista(get()).length) return;
+      if (idx < 0 || idx >= elementosDeLista(get()).length) return;
       // Y se calla lo que estuviera sonando en el portátil. Hay una sola salida
       // de audio: dos cosas a la vez por los altavoces del culto no es algo que
       // nadie quiera, y ahora que el video suena dentro de la app es fácil
@@ -294,7 +294,11 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
         // Lo que llega de un archivo que ya no está en pantalla es de antes de
         // pasar de elemento y se descarta: escribirlo pondría el tiempo de la
         // canción anterior debajo de la que acaba de empezar.
-        if (!actual || !st.proyectando || rutaProyectable(actual) !== e.src) return;
+        // Un momento sin música no tiene archivo, así que nada de lo que llegue
+        // es suyo: tampoco un `fin` rezagado de la canción de antes, que lo
+        // haría avanzar solo en mitad de la oración (#145).
+        if (actual?.clase !== "pista" || !st.proyectando || rutaDeElemento(actual) !== e.src) return;
+        const pista = actual.pista;
         if (e.fin) {
           // Se acabó lo que había en pantalla.
           //
@@ -317,16 +321,16 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
           return;
         }
         if (e.error !== undefined) {
-          const motivo = motivoDeError(e.error, actual.path);
-          set((prev) => ({ proyeccionFallos: { ...prev.proyeccionFallos, [actual.id]: motivo } }));
-          toast(motivo, { detalle: `«${actual.titulo}» no llega al proyector.`, tipo: "error" });
+          const motivo = motivoDeError(e.error, pista.path);
+          set((prev) => ({ proyeccionFallos: { ...prev.proyeccionFallos, [pista.id]: motivo } }));
+          toast(motivo, { detalle: `«${pista.titulo}» no llega al proyector.`, tipo: "error" });
           return;
         }
         set((prev) => {
           // Un archivo que va se quita de la lista de fallos: pasa al
           // reapuntarlo o al convertirlo sin cerrar la app.
-          const fallos = prev.proyeccionFallos[actual.id]
-            ? Object.fromEntries(Object.entries(prev.proyeccionFallos).filter(([k]) => k !== actual.id))
+          const fallos = prev.proyeccionFallos[pista.id]
+            ? Object.fromEntries(Object.entries(prev.proyeccionFallos).filter(([k]) => k !== pista.id))
             : prev.proyeccionFallos;
           return { proyeccionPos: e.pos, proyeccionDur: e.dur || prev.proyeccionDur, proyeccionFallos: fallos };
         });

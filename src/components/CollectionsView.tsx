@@ -1,5 +1,6 @@
 import { FileInput, Layers, ListMusic, Plus } from "lucide-react";
 import { cultos as cultosPorUso, plantillas as plantillasDe, plDur, useStore } from "../store";
+import { resumenDeOrden } from "../lib/momentos";
 import { gradientFor, inicialDe } from "../lib/covers";
 import { botonPrimario, botonSecundario, emptyBtnPrimary, emptyBtnSecondary } from "../lib/styles";
 import Empty from "./Empty";
@@ -105,7 +106,7 @@ export default function CollectionsView() {
                   </div>
                 )}
                 <div style={{ fontSize: "11.5px", color: "var(--text-3)", marginTop: 3, fontWeight: 500 }}>
-                  {ids.length} pistas · {plDur({ tracks }, ids)}
+                  {resumenDeOrden(ids)} · {plDur({ tracks }, ids)}
                 </div>
               </div>
             </div>

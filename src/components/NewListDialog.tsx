@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Layers, ListMusic, Pencil } from "lucide-react";
 import { plantillas as plantillasSel, sugerenciasDeOcasion, useStore } from "../store";
+import { resumenDeOrden, soloPistas } from "../lib/momentos";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
@@ -112,7 +113,7 @@ function ListForm({
                     type="button"
                     onClick={() => elegirPlantilla(p.id)}
                     aria-pressed={puesta}
-                    aria-label={`${p.nombre}, ${p.ids.length} ${p.ids.length === 1 ? "pista" : "pistas"}`}
+                    aria-label={`${p.nombre}, ${resumenDeOrden(p.ids)}`}
                     className="hb-s2"
                     style={{
                       display: "flex",
@@ -130,7 +131,7 @@ function ListForm({
                   >
                     <Layers size={14} />
                     {p.nombre}
-                    <span aria-hidden style={{ color: "var(--text-3)", fontWeight: 500 }}>{p.ids.length}</span>
+                    <span aria-hidden style={{ color: "var(--text-3)", fontWeight: 500 }}>{soloPistas(p.ids).length}</span>
                   </button>
                 );
               })}

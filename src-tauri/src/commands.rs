@@ -611,8 +611,48 @@ pub fn set_playlist_template(
 pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let pid = playlist.parse::<i64>().map_err(e)?;
-    let numeric: Vec<i64> = ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
-    db::set_playlist_order(&conn, pid, &numeric).map_err(e)
+    // Pistas y momentos (#145), cada uno por su clave: `12` o `m:12`.
+    let orden: Vec<db::Elemento> = ids.iter().filter_map(|s| db::Elemento::de_clave(s)).collect();
+    db::set_playlist_order(&conn, pid, &orden).map_err(e)
+}
+
+/// El id de fila de un momento a partir de su clave (`m:12`).
+fn id_de_momento(clave: &str) -> CmdResult<i64> {
+    match db::Elemento::de_clave(clave) {
+        Some(db::Elemento::Momento(id)) => Ok(id),
+        _ => Err(format!("«{clave}» no es un momento del culto")),
+    }
+}
+
+/// Añadir un momento sin música —una oración, una lectura— al final de un
+/// culto (#145). Contesta con las listas, como agregar pistas.
+#[tauri::command(async)]
+pub fn add_playlist_momento(
+    db: State<Db>,
+    playlist: String,
+    tipo: String,
+    titulo: String,
+    texto: String,
+) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::add_playlist_momento(&conn, playlist.parse::<i64>().map_err(e)?, &tipo, &titulo, &texto)
+        .map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
+}
+
+/// Cambiar lo que dice un momento del culto. Su sitio en el orden no se toca.
+#[tauri::command(async)]
+pub fn update_playlist_momento(
+    db: State<Db>,
+    momento: String,
+    tipo: String,
+    titulo: String,
+    texto: String,
+) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::update_playlist_momento(&conn, id_de_momento(&momento)?, &tipo, &titulo, &texto)
+        .map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
 }
 
 #[tauri::command(async)]
