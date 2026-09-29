@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::compartir;
 use crate::db::{self, Db};
-use crate::models::{DuplicateGroup, Folder, Playlist, Sheet, Track};
+use crate::models::{DuplicateGroup, Folder, LyricHit, Playlist, Sheet, Track};
 use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
 
 /// Everything the frontend needs to hydrate its store.
@@ -397,6 +397,13 @@ pub fn update_track_sheet(
 ) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     db::set_track_sheet(&conn, id.parse::<i64>().map_err(e)?, &letra, &acordes).map_err(e)
+}
+
+/// The tracks whose sheet holds every word searched for (#144).
+#[tauri::command(async)]
+pub fn search_lyrics(db: State<Db>, consulta: String) -> CmdResult<Vec<LyricHit>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::search_lyrics(&conn, &consulta).map_err(e)
 }
 
 /// Re-check every indexed file on disk. Called after startup so tracks deleted
