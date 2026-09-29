@@ -26,11 +26,13 @@ Este proyecto se rige por el [Código de Conducta](CODE_OF_CONDUCT.md).
 - 🐛 **[Bugs](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Abug)** — cada uno explica cómo falla y dónde.
 - ✨ **[Funciones](https://github.com/xlCyanz/cantoral/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)** — propuestas con el plan técnico esbozado.
 
-Los issues están repartidos en cinco
-[fases](https://github.com/xlCyanz/cantoral/milestones), en orden: primero que la app
-no pierda datos, luego que haga lo que promete, después que aguante una biblioteca
-grande, y encima de eso el flujo del culto y la distribución. Si dudas por dónde
-entrar, la fase abierta más baja es la respuesta.
+Los issues están repartidos en
+[milestones](https://github.com/xlCyanz/cantoral/milestones). Las cinco fases con las
+que arrancó el proyecto están cerradas (el README cuenta qué resolvió cada una); los
+milestones abiertos son los de ahora: la fiabilidad en vivo, la deuda técnica, la UX
+y la accesibilidad, la documentación, y las propuestas que todavía hay que decidir.
+Si dudas por dónde entrar, el milestone abierto de número más bajo es la respuesta;
+los de «Propuestas por decidir» esperan una decisión antes que código.
 
 Antes de ponerte con algo grande, comenta en el issue para que no coincidamos dos
 personas en el mismo archivo. Si lo que quieres hacer no tiene issue, ábrelo primero:
@@ -124,12 +126,20 @@ Otras convenciones que conviene respetar:
 
   Un respaldo con una versión mayor que `SCHEMA_VERSION` (de una Cantoral más nueva) se
   rechaza antes de tocar la biblioteca (`db::validate_backup`).
-- **Los campos que edita el usuario** (`tono`, `bpm`, `ocasion`, `fav`, etiquetas)
-  **no se pisan al re-escanear**. Hay una prueba que lo garantiza
-  (`upsert_preserves_user_edited_fields_on_rescan`); si tocas `upsert_track`, no la rompas.
+- **Lo que escribe el usuario no se pisa al re-escanear**: `ocasion`, `fav`, la letra
+  y los acordes, y el `artista` cuando se corrigió a mano (lo marca `artista_manual`;
+  si no, manda lo que diga el archivo). El `bpm` de una base anterior tampoco se toca,
+  aunque ya no se edita (ver [#141](https://github.com/xlCyanz/cantoral/issues/141)).
+  Hay una prueba que lo garantiza (`upsert_preserves_user_edited_fields_on_rescan`);
+  si tocas `upsert_track`, no la rompas.
 - **Los textos visibles van en español**; el código, los comentarios y los mensajes
   de commit, en inglés.
-- **Nada de red.** La app es local por diseño: sin telemetría, sin cuentas, sin llamadas externas.
+- **Ninguna llamada de red nueva.** La app es local por diseño: sin telemetría, sin
+  cuentas. La única petición que hace por su cuenta es la comprobación de
+  actualizaciones al abrir (`src-tauri/src/updates.rs`), que se puede apagar en
+  Configuración y está descrita en el README (**Actualizaciones automáticas**) y en
+  [SECURITY.md](SECURITY.md). Cualquier otra necesita su issue, y cambiar lo que
+  dicen esos dos documentos.
 
 ## Flujo de trabajo
 
@@ -225,7 +235,8 @@ Además:
 - [ ] El PR hace **una** cosa. Si arreglas un bug y de paso reformateas medio archivo, sepáralos.
 - [ ] Hay pruebas para lo que cambiaste, si es comportamiento probable.
 - [ ] Probaste en la app real (`pnpm tauri dev`), no solo en el navegador, si tocaste el backend.
-- [ ] Actualizaste el `README.md` si cambió algo que ahí se describe.
+- [ ] Actualizaste `README.md`, `SECURITY.md` o este `CONTRIBUTING.md` si cambió algo
+      que ahí se describe (qué hace la app, qué toca la red, cómo se contribuye).
 - [ ] Añadiste una línea a `CHANGELOG.md` bajo `Unreleased`.
 - [ ] El PR referencia su issue (`Closes #N`).
 
@@ -257,8 +268,8 @@ versión. Es más barato descubrirlo ahí que en un release ya publicado.
 - Iconos: `lucide-react`. Los SVG en línea que hay son del diseño de referencia y no
   se amplían.
 - Suscríbete al store con selectores (`useStore(s => s.playing)`), no con `useStore()`
-  a secas. Varios componentes antiguos lo hacen mal y por eso existe el
-  [#5](https://github.com/xlCyanz/cantoral/issues/5); no añadas más.
+  a secas: suscribirse al store entero fue lo que hacía re-renderizarse la tabla varias
+  veces por segundo ([#5](https://github.com/xlCyanz/cantoral/issues/5)).
 - Nada de `any`: ESLint lo rechaza. Si el tipo es incómodo, ese suele ser el aviso
   de que el modelo necesita un ajuste.
 - Toda promesa se maneja: `@typescript-eslint/no-floating-promises` está en error,
@@ -312,9 +323,11 @@ Lo que más ayuda:
 
 > [!CAUTION]
 > Antes de experimentar con un fallo que toque la base de datos, haz una copia desde
-> **Configuración → Base de datos → Crear copia**. Restaurar y quitar carpetas son
-> operaciones destructivas sin confirmación todavía
-> ([#1](https://github.com/xlCyanz/cantoral/issues/1), [#2](https://github.com/xlCyanz/cantoral/issues/2)).
+> **Configuración → Base de datos → Crear copia**. Restaurar reemplaza la biblioteca
+> entera y quitar una carpeta borra sus pistas de los cultos: los dos piden
+> confirmación, pero lo que confirmas no se deshace. Si copias `cantoral.db` a mano,
+> cierra antes la app: con ella abierta, lo último escrito puede estar aún en
+> `cantoral.db-wal`.
 
 ## Proponer una función
 

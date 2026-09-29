@@ -2,9 +2,14 @@
 
 ## Versiones con soporte
 
-Cantoral se distribuye como app de escritorio sin actualizaciones automáticas
-todavía ([#19](https://github.com/xlCyanz/cantoral/issues/19)), así que solo se
-publican arreglos para la última versión.
+Cantoral se distribuye como app de escritorio con actualizaciones automáticas
+firmadas: cada instalación busca la última versión al abrirse y la instala desde
+**Configuración → Actualizaciones**. Por eso solo se publican arreglos para la
+última versión; la forma de recibir uno es actualizar.
+
+Dos excepciones, documentadas en el README (**Limitaciones conocidas**): los Mac
+Intel y las compilaciones sin la clave de firma del actualizador (un fork, por
+ejemplo) no se actualizan solos, y hay que instalar la última versión a mano.
 
 | Versión | Soporte |
 |---------|---------|
@@ -30,8 +35,11 @@ fecha de publicación y se te acredita en el aviso, salvo que prefieras lo contr
 
 ## Alcance
 
-Cantoral es una app **local**: sin servidor, sin cuentas, sin telemetría y sin
-llamadas de red. El modelo de amenaza relevante es, por tanto:
+Cantoral es una app **local**: sin servidor, sin cuentas y sin telemetría. La
+única petición de red que hace por su cuenta es la comprobación de actualizaciones
+al abrirse, que no envía datos del usuario y se puede apagar en Configuración (ver
+[La comprobación de actualizaciones](#la-comprobación-de-actualizaciones)). El
+modelo de amenaza relevante es, por tanto:
 
 **Dentro de alcance**
 
@@ -43,6 +51,9 @@ llamadas de red. El modelo de amenaza relevante es, por tanto:
   de carpeta) que acaben renderizados o exportados.
 - Corrupción o pérdida de la base de datos local provocada desde fuera.
 - Escalada de los permisos declarados en `src-tauri/capabilities/default.json`.
+- Que la app instale una actualización que no esté firmada con la clave del
+  proyecto, o que el actualizador pueda llevarse a otra URL que la configurada en
+  `src-tauri/tauri.conf.json`.
 
 **Fuera de alcance**
 
@@ -54,13 +65,26 @@ llamadas de red. El modelo de amenaza relevante es, por tanto:
 - Vulnerabilidades en dependencias sin una ruta de explotación en Cantoral; para eso
   están los PRs de Dependabot.
 
-## Endurecimiento en curso
+## Endurecimiento
 
-Hay un issue abierto y público sobre la configuración de seguridad de Tauri —CSP
-nula, alcance del protocolo `asset` y permisos del plugin `opener`—:
-[#14](https://github.com/xlCyanz/cantoral/issues/14). Está abierto porque no se
-conoce ninguna ruta de explotación hoy; si encuentras una, repórtala en privado por
-el canal de arriba en vez de comentar en ese issue.
+La configuración de seguridad de Tauri se endureció en
+[#14](https://github.com/xlCyanz/cantoral/issues/14) y hoy está así:
+
+- **CSP** estricta en `src-tauri/tauri.conf.json`: scripts y fuentes solo del propio
+  paquete, sin `eval`, y la webview no puede conectarse a ningún origen externo
+  (`connect-src` se limita al IPC de Tauri). La búsqueda de actualizaciones la hace
+  el núcleo en Rust, no la webview.
+- **Protocolo `asset`** con alcance vacío de partida: al arrancar se abre solo al
+  directorio de datos de la app y a las carpetas indexadas, y a una carpeta o un
+  archivo nuevos cuando el usuario los añade o localiza.
+- **Plugin `opener`** con sus permisos por defecto, que se usan para mostrar un
+  archivo en el Finder o el Explorador; los archivos multimedia no se le pasan a
+  otro programa, se reproducen dentro de la app.
+- El actualizador no expone ningún permiso a la webview: solo dos comandos
+  (`check_for_update`, `install_update`) implementados en `src-tauri/src/updates.rs`.
+
+Si encuentras una forma de saltarte algo de esto, repórtala en privado por el canal
+de arriba.
 
 ## Limitaciones conocidas
 
