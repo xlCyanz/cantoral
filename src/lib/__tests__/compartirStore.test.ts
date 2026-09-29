@@ -51,7 +51,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",

@@ -1,4 +1,4 @@
-import { Check, FileInput, Search, TriangleAlert } from "lucide-react";
+import { Check, FileInput, Hourglass, Search, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import type { PistaCompartida } from "../lib/compartir";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
@@ -61,6 +61,7 @@ export default function ImportListDialog() {
   const { encontradas, faltantes } = resultado;
   const total = archivo.pistas.length;
   const nada = encontradas.length === 0;
+  const momentos = archivo.momentos ?? [];
   // Por el título y la duración es la vía que puede fallar; si alguna vino
   // por ahí, el resumen lo cuenta para que se sepa si merece mirar (#139).
   const porTitulo = encontradas.filter((e) => e.por !== "archivo").length;
@@ -103,6 +104,24 @@ export default function ImportListDialog() {
                     one that can be wrong. */}
                 <span style={{ flex: "0 0 auto", fontSize: 10.5, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "2px 7px", borderRadius: 6 }}>
                   {por === "archivo" ? "mismo archivo" : "mismo título y duración"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Los momentos sin música no se buscan en ningún catálogo: vienen
+            enteros en el archivo y entran en su sitio (#145). */}
+        {momentos.length > 0 && (
+          <div>
+            <p style={seccion}>
+              <Hourglass size={13} color="var(--text-3)" />Momentos sin música: {momentos.length}
+            </p>
+            {momentos.map((m, i) => (
+              <div key={`${m.titulo}-${i}`} style={fila}>
+                <span style={{ flex: 1, minWidth: 0, fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {m.titulo}
+                  {m.texto && <span style={{ color: "var(--text-3)", fontStyle: "normal" }}> · {m.texto}</span>}
                 </span>
               </div>
             ))}

@@ -11,7 +11,6 @@ function track(over: Partial<Track> = {}): Track {
     album: "Himnos",
     dur: "3:48",
     durSec: 228,
-    bpm: 72,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
@@ -82,9 +81,11 @@ describe("playlistSheetHtml", () => {
     expect(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
   });
 
-  it("leaves the BPM cell blank when the track has none", () => {
-    const html = playlistSheetHtml(pl, [track({ bpm: 0 })], "4 min");
-    expect(html).toContain('<td class="num"></td>');
+  it("has five columns and no tempo one (#141)", () => {
+    const html = playlistSheetHtml(pl, [track()], "4 min");
+    expect(html.match(/<th[ >]/g)).toHaveLength(5);
+    expect(html.match(/<td[ >]/g)).toHaveLength(5);
+    expect(html).not.toMatch(/bpm/i);
   });
 
   it("declares utf-8 so Spanish accents survive the round trip", () => {

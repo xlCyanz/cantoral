@@ -17,7 +17,8 @@ import type { DuplicateReport, ScanProgressEvent, Sheet, Snapshot } from "../api
 import { buscarEnHojas } from "../buscarLetra";
 import { nombreDeCopia } from "../copias";
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "../seed";
-import type { Folder, Playlist, Track } from "../types";
+import { PREFIJO_MOMENTO, esMomento, tipoDeMomento } from "../momentos";
+import type { Folder, Momento, Playlist, Track } from "../types";
 import { NoDisponible } from "./tipos";
 import type { Backend } from "./tipos";
 
@@ -85,6 +86,32 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     do id = `${prefijo}${siguienteId++}`;
     while (usados.some((x) => x.id === id));
     return id;
+  };
+
+  /** Todos los momentos de todos los cultos: sus ids no se repiten entre listas. */
+  const todosLosMomentos = () => playlists.flatMap((p) => p.momentos ?? []);
+
+  /**
+   * El orden de un culto para empezar otro con él: las mismas pistas y copias
+   * de sus momentos, con ids nuevos en el mismo sitio. Como `copiar_pistas`.
+   */
+  const copiarOrden = (origen: Playlist | undefined): Pick<Playlist, "ids" | "momentos"> => {
+    if (!origen) return { ids: [], momentos: [] };
+    const momentos: Momento[] = [];
+    const ids = origen.ids.map((id) => {
+      const m = origen.momentos?.find((x) => x.id === id);
+      if (!m) return id;
+      const copia = { ...m, id: nuevoId(PREFIJO_MOMENTO, [...todosLosMomentos(), ...momentos]) };
+      momentos.push(copia);
+      return copia.id;
+    });
+    return { ids, momentos };
+  };
+
+  const tituloDeMomento = (titulo: string) => {
+    const limpio = titulo.trim();
+    if (!limpio) throw new Error("El momento necesita un título.");
+    return limpio;
   };
 
   /** Saca unas pistas del catálogo, de los cultos y sus letras: la cascada de SQLite. */
@@ -155,8 +182,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     setTracksFav: async (ids, fav) => {
       ids.forEach((id) => (pista(id).fav = fav));
     },
-    updateTrack: async (id, artista, bpm, ocasion) => {
-      Object.assign(pista(id), { artista, bpm, ocasion });
+    updateTrack: async (id, artista, ocasion) => {
+      Object.assign(pista(id), { artista, ocasion });
     },
     deleteTrack: async (id) => {
       quitarPistas([id]);
@@ -214,8 +241,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     getPlaylists: async () => listas(),
     createPlaylist: async (nombre, ocasion, desde) => {
       const id = nuevoId("p", playlists);
-      const ids = desde ? [...(playlists.find((p) => p.id === desde)?.ids ?? [])] : [];
-      playlists = [...playlists, { id, nombre, ocasion, ids, plantilla: false, tocada: ahora() }];
+      const orden = copiarOrden(desde ? playlists.find((p) => p.id === desde) : undefined);
+      playlists = [...playlists, { id, nombre, ocasion, ...orden, plantilla: false, tocada: ahora() }];
       return id;
     },
     duplicatePlaylist: async (id) => {
@@ -224,7 +251,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       const nombre = nombreDeCopia(origen.nombre, playlists.map((p) => p.nombre));
       playlists = [
         ...playlists,
-        { id: nuevo, nombre, ocasion: origen.ocasion, ids: [...origen.ids], plantilla: false, tocada: ahora() },
+        { id: nuevo, nombre, ocasion: origen.ocasion, ...copiarOrden(origen), plantilla: false, tocada: ahora() },
       ];
       return nuevo;
     },
@@ -236,7 +263,31 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       return listas();
     },
     setPlaylistOrder: async (playlist, ids) => {
-      lista(playlist).ids = [...ids];
+      const pl = lista(playlist);
+      // Como el núcleo: un momento que no viene en el orden se quitó, y uno que
+      // no es de este culto no se le roba a otro.
+      const propios = new Set((pl.momentos ?? []).map((m) => m.id));
+      pl.ids = ids.filter((id) => !esMomento(id) || propios.has(id));
+      const quedan = new Set(pl.ids);
+      pl.momentos = (pl.momentos ?? []).filter((m) => quedan.has(m.id));
+    },
+    addPlaylistMomento: async (playlist, tipo, titulo, texto) => {
+      const pl = lista(playlist);
+      const momento: Momento = {
+        id: nuevoId(PREFIJO_MOMENTO, todosLosMomentos()),
+        tipo: tipoDeMomento(tipo),
+        titulo: tituloDeMomento(titulo),
+        texto: texto.trim(),
+      };
+      pl.momentos = [...(pl.momentos ?? []), momento];
+      pl.ids = [...pl.ids, momento.id];
+      return listas();
+    },
+    updatePlaylistMomento: async (momento, tipo, titulo, texto) => {
+      const m = todosLosMomentos().find((x) => x.id === momento);
+      if (!m) throw new Error("Ese momento ya no está en el culto.");
+      Object.assign(m, { tipo: tipoDeMomento(tipo), titulo: tituloDeMomento(titulo), texto: texto.trim() });
+      return listas();
     },
     setPlaylistTemplate: async (playlist, plantilla) => {
       lista(playlist).plantilla = plantilla;
@@ -324,6 +375,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     restoreDatabase: async () => {
       throw new NoDisponible("Restaurar una copia solo funciona en la app de escritorio");
     },
+    // Sin disco no hay copias automáticas: la lista queda vacía, no es un fallo.
+    listAutoBackups: async () => [],
 
     saveSheet: async (nombre, html) => {
       descargar(nombre, html, "text/html");

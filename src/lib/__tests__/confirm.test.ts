@@ -29,6 +29,8 @@ describe("quitar una carpeta", () => {
     expect(req?.detail).toContain(String(folder.count));
     // The promise the whole app is built on has to be restated here.
     expect(req?.safe).toContain("archivos de audio no se tocan");
+    // Y que hay vuelta atrás: el núcleo guarda una copia antes (#143).
+    expect(req?.safe).toContain("copia automática");
   });
 
   it("no quita nada mientras la confirmación sigue abierta", () => {

@@ -17,6 +17,7 @@
 import type { ArchivoDeLista } from "../compartir";
 import type {
   BackupInfo,
+  CopiaAutomatica,
   DuplicateReport,
   LyricHit,
   Novedades,
@@ -24,7 +25,7 @@ import type {
   Sheet,
   Snapshot,
 } from "../api";
-import type { Playlist } from "../types";
+import type { Playlist, TipoMomento } from "../types";
 
 /**
  * Lo que un entorno no sabe hacer, dicho para quien lo pidió.
@@ -55,7 +56,7 @@ export interface Backend {
   reconcileLibrary(): Promise<Snapshot>;
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
-  updateTrack(id: string, artista: string, bpm: number, ocasion: string): Promise<void>;
+  updateTrack(id: string, artista: string, ocasion: string): Promise<void>;
   deleteTrack(id: string): Promise<Snapshot>;
   deleteTracks(ids: string[]): Promise<Snapshot>;
   /** Elige el archivo nuevo de una pista y la apunta a él; null si se canceló. */
@@ -81,6 +82,10 @@ export interface Backend {
   setPlaylistTemplate(playlist: string, plantilla: boolean): Promise<Playlist[]>;
   updatePlaylist(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]>;
   touchPlaylist(playlist: string): Promise<void>;
+  /** Añade un momento sin música al final del culto (#145). */
+  addPlaylistMomento(playlist: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
+  /** Cambia lo que dice un momento; su sitio en el orden no se toca. */
+  updatePlaylistMomento(momento: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
   deletePlaylist(playlist: string): Promise<Playlist[]>;
 
   // ---- letras y acordes
@@ -111,6 +116,8 @@ export interface Backend {
   pickBackup(): Promise<string | null>;
   inspectBackup(src: string): Promise<BackupInfo>;
   restoreDatabase(src: string): Promise<Snapshot>;
+  /** Las que el núcleo guardó antes de quitar, restaurar o fusionar (#143). */
+  listAutoBackups(): Promise<CopiaAutomatica[]>;
 
   // ---- archivos que salen y entran
   /**

@@ -7,6 +7,14 @@ import type { CantoralState } from "./tipos";
 // biblioteca, el tema que resulta de un modo, el detalle del aviso de escaneo.
 
 /**
+ * La línea que llevan las confirmaciones de quitar una carpeta, restaurar y
+ * fusionar: el núcleo guarda una copia antes de cada una (#143), y quien
+ * confirma tiene que saber que hay vuelta atrás y dónde está.
+ */
+export const AVISO_COPIA_AUTOMATICA =
+  "Antes de hacerlo se guarda una copia automática; podrás volver atrás desde Configuración.";
+
+/**
  * El detalle del aviso de escaneo, o nada.
  *
  * Debajo del «Biblioteca actualizada» y no pegado a él: son la misma noticia

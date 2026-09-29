@@ -394,14 +394,9 @@ export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;
   await inv("set_track_fav", { id, fav });
 }
-export async function updateTrackCmd(
-  id: string,
-  artista: string,
-  bpm: number,
-  ocasion: string,
-): Promise<void> {
+export async function updateTrackCmd(id: string, artista: string, ocasion: string): Promise<void> {
   if (!isTauri()) return;
-  await inv("update_track", { id, artista, bpm, ocasion });
+  await inv("update_track", { id, artista, ocasion });
 }
 export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Promise<void> {
   if (!isTauri()) return;
@@ -449,6 +444,24 @@ export async function touchPlaylistCmd(playlist: string): Promise<void> {
   if (!isTauri()) return;
   await inv("touch_playlist", { playlist });
 }
+/** Añadir un momento sin música al final de un culto (#145). */
+export async function addPlaylistMomentoCmd(
+  playlist: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("add_playlist_momento", { playlist, tipo, titulo, texto });
+}
+/** Cambiar lo que dice un momento del culto; `momento` es su id (`m:…`). */
+export async function updatePlaylistMomentoCmd(
+  momento: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("update_playlist_momento", { momento, tipo, titulo, texto });
+}
 export async function deletePlaylistCmd(playlist: string): Promise<Playlist[]> {
   return inv<Playlist[]>("delete_playlist", { playlist });
 }
@@ -485,6 +498,22 @@ export interface BackupInfo {
 /** Read a backup so the user can be told what they are about to replace. */
 export async function inspectBackup(src: string): Promise<BackupInfo> {
   return inv<BackupInfo>("inspect_backup", { src });
+}
+/**
+ * Una copia que el núcleo guardó solo antes de quitar una carpeta, restaurar o
+ * fusionar duplicados (#143). Se restaura como cualquier respaldo.
+ */
+export interface CopiaAutomatica {
+  ruta: string;
+  /** Hora local del equipo, `YYYY-MM-DDTHH:MM:SS`. */
+  fecha: string;
+  motivo: "quitar-carpeta" | "restaurar" | "fusionar";
+  tamano: number;
+}
+/** Las copias automáticas, de la más nueva a la más antigua. */
+export async function listAutoBackups(): Promise<CopiaAutomatica[]> {
+  if (!isTauri()) return [];
+  return inv<CopiaAutomatica[]>("list_auto_backups");
 }
 /** Native open dialog for a .db backup file. */
 export async function pickDbFile(): Promise<string | null> {

@@ -1,6 +1,7 @@
 import { CalendarDays, Clock, Heart, Library, Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import { cultos as cultosPorUso, useStore } from "../store";
+import { soloPistas } from "../lib/momentos";
 import { navBtn, navCount, subBtn } from "../lib/styles";
 import type { CSSProperties } from "react";
 
@@ -180,7 +181,7 @@ export default function Sidebar() {
                 }}
               >
                 <span style={{ ...recorta, minWidth: 0 }}>{p.nombre}</span>
-                <span style={navCount(true)}>{(plOrder[p.id] ?? p.ids).length}</span>
+                <span style={navCount(true)}>{soloPistas(plOrder[p.id] ?? p.ids).length}</span>
               </button>
             );
           })}

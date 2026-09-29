@@ -27,7 +27,7 @@ export const tauri: Backend = {
   reconcileLibrary: async () => requerido(await api.reconcileLibraryCmd(), "reconcile_library"),
   setTrackFav: (id, fav) => api.setTrackFav(id, fav),
   setTracksFav: (ids, fav) => api.setTracksFavCmd(ids, fav),
-  updateTrack: (id, artista, bpm, ocasion) => api.updateTrackCmd(id, artista, bpm, ocasion),
+  updateTrack: (id, artista, ocasion) => api.updateTrackCmd(id, artista, ocasion),
   deleteTrack: (id) => api.deleteTrackCmd(id),
   deleteTracks: async (ids) => requerido(await api.deleteTracksCmd(ids), "delete_tracks"),
   relocateTrack: async (id) => {
@@ -56,6 +56,8 @@ export const tauri: Backend = {
   setPlaylistTemplate: (playlist, plantilla) => api.setPlaylistTemplateCmd(playlist, plantilla),
   updatePlaylist: (playlist, nombre, ocasion) => api.updatePlaylistCmd(playlist, nombre, ocasion),
   touchPlaylist: (playlist) => api.touchPlaylistCmd(playlist),
+  addPlaylistMomento: (playlist, tipo, titulo, texto) => api.addPlaylistMomentoCmd(playlist, tipo, titulo, texto),
+  updatePlaylistMomento: (momento, tipo, titulo, texto) => api.updatePlaylistMomentoCmd(momento, tipo, titulo, texto),
   deletePlaylist: (playlist) => api.deletePlaylistCmd(playlist),
 
   getTrackSheet: async (id) => requerido(await api.getTrackSheet(id), "get_track_sheet"),
@@ -82,6 +84,7 @@ export const tauri: Backend = {
   pickBackup: () => api.pickDbFile(),
   inspectBackup: (src) => api.inspectBackup(src),
   restoreDatabase: (src) => api.restoreDatabaseCmd(src),
+  listAutoBackups: () => api.listAutoBackups(),
 
   saveSheet: async (nombre, html) => {
     const dest = await api.pickExportPath(nombre);

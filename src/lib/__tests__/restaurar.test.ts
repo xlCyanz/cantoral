@@ -35,7 +35,6 @@ function track(id: string): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    bpm: 80,
     ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
@@ -92,6 +91,25 @@ describe("la versión del respaldo en la confirmación", () => {
     expect(useStore.getState().confirm).toBeFalsy();
     expect(restoreDatabaseCmd).not.toHaveBeenCalled();
     silencio.mockRestore();
+  });
+});
+
+describe("restaurar una copia automática (#143)", () => {
+  it("va directo a la confirmación con números, sin pedir el archivo", async () => {
+    const ruta = "/datos/respaldos/cantoral-2026-09-29-213005-quitar-carpeta.db";
+    restoreDatabaseCmd.mockResolvedValue({ tracks: [track("a")], folders: [], playlists: [] });
+
+    useStore.getState().restore(ruta);
+    await vi.waitFor(() => expect(useStore.getState().confirm).toBeTruthy());
+
+    expect(pickDbFile).not.toHaveBeenCalled();
+    expect(inspectBackup).toHaveBeenCalledWith(ruta);
+    const c = useStore.getState().confirm!;
+    expect(c.detail).toContain("Respaldo: 3 pistas");
+    expect(c.safe).toContain("copia automática");
+
+    c.onConfirm();
+    await vi.waitFor(() => expect(restoreDatabaseCmd).toHaveBeenCalledWith(ruta));
   });
 });
 

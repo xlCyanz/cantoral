@@ -1,5 +1,6 @@
 import type { Playlist, Track } from "../lib/types";
 import { playlistSheetHtml, sheetFileName } from "../lib/exportSheet";
+import type { Elemento } from "../lib/momentos";
 import { assetUrl, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
@@ -214,7 +215,7 @@ export function crearContexto(set: Set, get: Get) {
    * it can build anything, and the waiting has two endings — with them, and
    * without them if they could not be read.
    */
-  const escribirHoja = (pl: Playlist, rows: Track[], ord: string[]) => {
+  const escribirHoja = (pl: Playlist, rows: readonly Elemento[], ord: string[]) => {
     const s = get();
     const html = playlistSheetHtml(pl, rows, plDur(s, ord), s.sheets);
     const name = sheetFileName(pl.nombre);
@@ -274,7 +275,7 @@ export function crearContexto(set: Set, get: Get) {
     if (!t) return;
 
     backend()
-      .updateTrack(t.id, t.artista, t.bpm, t.ocasion)
+      .updateTrack(t.id, t.artista, t.ocasion)
       .then(() => {
         // Only report success for the track still on screen; a stale reply from
         // a track the user has moved on from must not relabel this one.

@@ -12,7 +12,6 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub bpm: i64,
     pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
@@ -79,6 +78,26 @@ pub struct Playlist {
     pub plantilla: bool,
     /// RFC3339, UTC: la última vez que se abrió o se cambió. Lo que ordena.
     pub tocada: String,
+    /// Los momentos sin música del culto (#145). Su sitio en el orden lo dice
+    /// `ids`, donde aparecen por su `id` («m:12») entre los de las pistas.
+    #[serde(default)]
+    pub momentos: Vec<Momento>,
+}
+
+/// Un momento del culto que no es una pista: una oración, una lectura, los
+/// anuncios (#145). En la proyección sale su título sobre negro y la cola se
+/// detiene ahí hasta que quien opera pulsa «Siguiente».
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Momento {
+    /// `m:` y el id de la fila, para que no se confunda con el de una pista
+    /// dentro del orden del culto.
+    pub id: String,
+    /// «oracion», «lectura», «anuncios», «ofrenda», «mensaje» u «otro».
+    pub tipo: String,
+    pub titulo: String,
+    /// Opcional: la cita de la lectura, quién predica.
+    pub texto: String,
 }
 
 /// One track inside a group of suspected duplicates.

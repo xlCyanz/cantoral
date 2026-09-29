@@ -1,9 +1,14 @@
 import { useEffect } from "react";
 import { MonitorX, Pause, Presentation, Square } from "lucide-react";
 import type { CSSProperties } from "react";
-import { estrofasEnPantalla, filasDeLista, useStore } from "../store";
+import { elementosDeLista, estrofasEnPantalla, useStore } from "../store";
 import { motivoNoProyectable } from "../lib/formatos";
 import { fmt } from "../lib/covers";
+import type { Elemento } from "../lib/momentos";
+import IconoDeMomento from "./IconoDeMomento";
+
+/** El título de un elemento de la cola, sea pista o momento. */
+const tituloDe = (e: Elemento) => (e.clase === "pista" ? e.pista.titulo : e.momento.titulo);
 
 /**
  * El panel de mandos de la proyección.
@@ -133,7 +138,9 @@ export default function ProjectionView() {
   const pos = useStore((s) => s.proyeccionPos);
   const dur = useStore((s) => s.proyeccionDur);
   const fallos = useStore((s) => s.proyeccionFallos);
-  const filas = useStore(filasDeLista);
+  // La cola entera: las pistas y los momentos sin música en los que la
+  // proyección se detiene (#145).
+  const filas = useStore(elementosDeLista);
   const cargarMonitores = useStore((s) => s.cargarMonitores);
   const elegirMonitor = useStore((s) => s.elegirMonitor);
   const alternarProyeccion = useStore((s) => s.alternarProyeccion);
@@ -161,7 +168,7 @@ export default function ProjectionView() {
   // Las letras no viajan con el catálogo —serían megabytes en cada refresco—,
   // así que se piden al entrar aquí: sin ellas, proyectar la letra no tendría
   // nada que proyectar.
-  const ids = filas.map((t) => t.id).join(",");
+  const ids = filas.map((e) => e.id).join(",");
   useEffect(() => {
     if (ids) void loadSheets(ids.split(","));
   }, [ids, loadSheets]);
@@ -220,33 +227,42 @@ export default function ProjectionView() {
                 No hay ningún culto abierto. Abre uno en Cultos y su orden se proyecta desde aquí.
               </p>
             ) : (
-              filas.map((t, i) => {
-                const fallo = fallos[t.id] ?? motivoNoProyectable(t);
+              filas.map((e, i) => {
+                const t = e.clase === "pista" ? e.pista : undefined;
+                const fallo = t ? (fallos[t.id] ?? motivoNoProyectable(t)) : null;
                 const aqui = proyectando && i === idx && !enNegro;
                 const estado = fallo
                   ? fallo
                   : aqui
                     ? "en pantalla"
                     : proyectando && i === idx + 1
-                      ? "cargado en pausa"
+                      ? (t ? "cargado en pausa" : "a continuación")
                       : proyectando && idx >= 0 && (i < idx || (i === idx && enNegro))
                         ? "terminado"
                         : "";
                 return (
                   <button
-                    key={`${t.id}-${i}`}
+                    key={`${e.id}-${i}`}
                     onClick={() => proyectarElemento(i)}
                     disabled={!proyectando}
                     aria-current={aqui ? "true" : undefined}
                     className={aqui ? undefined : "hb-s2"}
                     style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 9px", borderBottom: "1px solid var(--border)", background: aqui ? "var(--primary-soft)" : "transparent", textAlign: "left", cursor: proyectando ? "pointer" : "default" }}
                   >
-                    <span style={{ width: 26, height: 20, flex: "0 0 auto", borderRadius: 4, background: t.video ? "#1b1b1b" : "var(--surface-3)", color: t.video ? "rgba(255,255,255,.8)" : "var(--text-3)", display: "grid", placeItems: "center", fontSize: 8, fontWeight: 700, letterSpacing: ".04em" }}>
-                      {t.video ? "VID" : "AUD"}
-                    </span>
+                    {t ? (
+                      <span style={{ width: 26, height: 20, flex: "0 0 auto", borderRadius: 4, background: t.video ? "#1b1b1b" : "var(--surface-3)", color: t.video ? "rgba(255,255,255,.8)" : "var(--text-3)", display: "grid", placeItems: "center", fontSize: 8, fontWeight: 700, letterSpacing: ".04em" }}>
+                        {t.video ? "VID" : "AUD"}
+                      </span>
+                    ) : (
+                      // Un momento sin música: su icono sobre un hueco
+                      // punteado, que no se confunda con un archivo.
+                      <span title="Momento sin música: la proyección se detiene aquí" style={{ width: 26, height: 20, flex: "0 0 auto", borderRadius: 4, border: "1px dashed var(--border-2)", color: "var(--text-3)", display: "grid", placeItems: "center" }}>
+                        {e.clase === "momento" && <IconoDeMomento tipo={e.momento.tipo} size={11} />}
+                      </span>
+                    )}
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: "11.5px", fontWeight: 500, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {t.titulo}
+                      <span style={{ display: "block", fontSize: "11.5px", fontWeight: 500, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(t ? {} : { fontStyle: "italic" }) }}>
+                        {tituloDe(e)}
                       </span>
                       {estado && (
                         <span style={{ display: "block", fontSize: 10, fontWeight: fallo || aqui ? 600 : 400, color: fallo ? "var(--danger)" : aqui ? "var(--primary)" : "var(--text-3)" }}>
@@ -254,7 +270,7 @@ export default function ProjectionView() {
                         </span>
                       )}
                     </span>
-                    <span style={{ fontSize: "10.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</span>
+                    <span style={{ fontSize: "10.5px", color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{t ? t.dur : "espera"}</span>
                   </button>
                 );
               })
@@ -275,10 +291,14 @@ export default function ProjectionView() {
               <div style={{ flex: 1, minHeight: 0, borderRadius: 9, background: "#000", border: "1px solid var(--border-2)", position: "relative", overflow: "hidden", display: "grid", placeItems: "center" }}>
                 <div style={{ padding: 20, textAlign: "center", opacity: enPantalla ? 1 : 0, transition: "opacity 220ms" }}>
                   <div className="display" style={{ fontSize: 27, color: "rgba(255,255,255,.94)", lineHeight: 1.2, textWrap: "balance" }}>
-                    {enPantalla?.titulo ?? ""}
+                    {enPantalla ? tituloDe(enPantalla) : ""}
                   </div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 8 }}>
-                    {enPantalla ? `${enPantalla.video ? "video" : "audio"} · ${fmt(pos)} de ${dur > 0 ? fmt(dur) : enPantalla.dur}` : ""}
+                    {enPantalla?.clase === "pista"
+                      ? `${enPantalla.pista.video ? "video" : "audio"} · ${fmt(pos)} de ${dur > 0 ? fmt(dur) : enPantalla.pista.dur}`
+                      : enPantalla
+                        ? `${enPantalla.momento.texto ? `${enPantalla.momento.texto} · ` : ""}sin música · espera a «Siguiente»`
+                        : ""}
                   </div>
                   {enPantalla && estrofas.length > 1 && (
                     <div style={{ fontSize: "10.5px", color: "rgba(255,255,255,.4)", marginTop: 4 }}>
@@ -300,12 +320,14 @@ export default function ProjectionView() {
                     <Pause size={12} />
                   </div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,.82)", fontWeight: 500 }}>
-                    {siguiente ? siguiente.titulo : "Nada después"}
+                    {siguiente ? tituloDe(siguiente) : "Nada después"}
                   </div>
                   <div style={{ fontSize: "10.5px", color: "rgba(255,255,255,.45)", marginTop: 3 }}>
-                    {siguiente
-                      ? motivoNoProyectable(siguiente) ?? "listo en 0:00 · arranca sin parpadeo"
-                      : "el culto termina aquí"}
+                    {siguiente?.clase === "momento"
+                      ? "sin música · la proyección se detiene aquí"
+                      : siguiente
+                        ? motivoNoProyectable(siguiente.pista) ?? "listo en 0:00 · arranca sin parpadeo"
+                        : "el culto termina aquí"}
                   </div>
                 </div>
               </div>
@@ -389,7 +411,7 @@ export default function ProjectionView() {
             proyectando && estrofa + 1 < estrofas.length
               ? `Pasar a la estrofa ${estrofa + 2} de ${estrofas.length}`
               : siguiente
-                ? `Pasar a «${siguiente.titulo}»`
+                ? `Pasar a «${tituloDe(siguiente)}»`
                 : "Cerrar el culto y dejar el proyector en negro"
           }
           className="hb-s2"

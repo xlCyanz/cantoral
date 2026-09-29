@@ -173,6 +173,7 @@ describe("fusionar", () => {
       const c = useStore.getState().confirm!;
       expect(c.detail).not.toContain("se perderá");
       expect(c.safe).toContain("la letra y los acordes");
+      expect(c.safe).toContain("copia automática");
     });
   });
 

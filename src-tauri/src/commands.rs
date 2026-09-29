@@ -3,6 +3,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::compartir;
+use crate::copias::{self, Motivo};
 use crate::db::{self, Db};
 use crate::models::{DuplicateGroup, Folder, LyricHit, Playlist, Sheet, Track};
 use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
@@ -264,7 +265,12 @@ pub async fn find_duplicates(app: AppHandle) -> CmdResult<DuplicateReport> {
 
 /// Fold the copies into the one the user chose to keep.
 #[tauri::command(async)]
-pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdResult<Snapshot> {
+pub fn merge_duplicates(
+    db: State<Db>,
+    db_path: State<DbPath>,
+    keep: String,
+    drop: Vec<String>,
+) -> CmdResult<Snapshot> {
     let keep_id = keep.parse::<i64>().map_err(e)?;
     let drop_ids = drop
         .iter()
@@ -272,9 +278,21 @@ pub fn merge_duplicates(db: State<Db>, keep: String, drop: Vec<String>) -> CmdRe
         .collect::<std::result::Result<Vec<i64>, _>>()
         .map_err(e)?;
     let conn = db.0.lock().map_err(e)?;
-    db::merge_tracks(&conn, keep_id, &drop_ids).map_err(e)?;
+    fusionar(&conn, &copias::carpeta(&db_path.0), keep_id, &drop_ids).map_err(e)?;
     log::info!("merged {} copies into track {keep}", drop_ids.len());
     snapshot(&conn).map_err(e)
+}
+
+/// Fusionar, con la copia automática antes (#143). Si la copia no se puede
+/// guardar, no se fusiona nada.
+fn fusionar(
+    conn: &Connection,
+    copias: &std::path::Path,
+    keep: i64,
+    drop: &[i64],
+) -> anyhow::Result<()> {
+    copias::guardar(conn, copias, Motivo::Fusionar, None)?;
+    db::merge_tracks(conn, keep, drop)
 }
 
 /// Remember that a group is not duplicates after all.
@@ -427,11 +445,25 @@ pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
 }
 
 #[tauri::command(async)]
-pub fn remove_folder(db: State<Db>, slot: State<ScanSlot>, id: String) -> CmdResult<Snapshot> {
+pub fn remove_folder(
+    db: State<Db>,
+    db_path: State<DbPath>,
+    slot: State<ScanSlot>,
+    id: String,
+) -> CmdResult<Snapshot> {
     let _claim = tomar(&slot, Tarea::QuitarCarpeta)?;
     let conn = db.0.lock().map_err(e)?;
-    db::remove_folder(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
+    quitar_carpeta(&conn, &copias::carpeta(&db_path.0), id.parse::<i64>().map_err(e)?)
+        .map_err(e)?;
     snapshot(&conn).map_err(e)
+}
+
+/// Quitar una carpeta, con la copia automática antes (#143). La toma de la
+/// ranura de escaneo ya la hizo quien llama, así que la copia nunca se hace
+/// con un escaneo escribiendo a medias (#127).
+fn quitar_carpeta(conn: &Connection, copias: &std::path::Path, id: i64) -> anyhow::Result<()> {
+    copias::guardar(conn, copias, Motivo::QuitarCarpeta, None)?;
+    db::remove_folder(conn, id)
 }
 
 /// Point a track at the file's new location, keeping what it carries.
@@ -488,16 +520,10 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 }
 
 #[tauri::command(async)]
-pub fn update_track(
-    db: State<Db>,
-    id: String,
-    artista: String,
-    bpm: i64,
-    ocasion: String,
-) -> CmdResult<()> {
+pub fn update_track(db: State<Db>, id: String, artista: String, ocasion: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &artista, bpm, &ocasion).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista, &ocasion).map_err(e)?;
     Ok(())
 }
 
@@ -585,8 +611,48 @@ pub fn set_playlist_template(
 pub fn set_playlist_order(db: State<Db>, playlist: String, ids: Vec<String>) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let pid = playlist.parse::<i64>().map_err(e)?;
-    let numeric: Vec<i64> = ids.iter().filter_map(|s| s.parse::<i64>().ok()).collect();
-    db::set_playlist_order(&conn, pid, &numeric).map_err(e)
+    // Pistas y momentos (#145), cada uno por su clave: `12` o `m:12`.
+    let orden: Vec<db::Elemento> = ids.iter().filter_map(|s| db::Elemento::de_clave(s)).collect();
+    db::set_playlist_order(&conn, pid, &orden).map_err(e)
+}
+
+/// El id de fila de un momento a partir de su clave (`m:12`).
+fn id_de_momento(clave: &str) -> CmdResult<i64> {
+    match db::Elemento::de_clave(clave) {
+        Some(db::Elemento::Momento(id)) => Ok(id),
+        _ => Err(format!("«{clave}» no es un momento del culto")),
+    }
+}
+
+/// Añadir un momento sin música —una oración, una lectura— al final de un
+/// culto (#145). Contesta con las listas, como agregar pistas.
+#[tauri::command(async)]
+pub fn add_playlist_momento(
+    db: State<Db>,
+    playlist: String,
+    tipo: String,
+    titulo: String,
+    texto: String,
+) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::add_playlist_momento(&conn, playlist.parse::<i64>().map_err(e)?, &tipo, &titulo, &texto)
+        .map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
+}
+
+/// Cambiar lo que dice un momento del culto. Su sitio en el orden no se toca.
+#[tauri::command(async)]
+pub fn update_playlist_momento(
+    db: State<Db>,
+    momento: String,
+    tipo: String,
+    titulo: String,
+    texto: String,
+) -> CmdResult<Vec<Playlist>> {
+    let conn = db.0.lock().map_err(e)?;
+    db::update_playlist_momento(&conn, id_de_momento(&momento)?, &tipo, &titulo, &texto)
+        .map_err(e)?;
+    db::list_playlists(&conn).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -778,6 +844,26 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
     // or write into nothing. It waits here instead.
     let mut guard = db.0.lock().map_err(e)?;
 
+    restaurar(&mut guard, live, src, &copias::carpeta(live))?;
+    let snap = snapshot(&guard).map_err(e)?;
+    conceder_alcance(app, &guard);
+    log::info!("database restored from {}", src.display());
+    Ok(snap)
+}
+
+/// El reemplazo de la base en sí, sin Tauri de por medio para poder probarlo.
+///
+/// Primero la copia automática de la biblioteca actual (#143): si no se puede
+/// guardar, no se restaura nada. El respaldo que se restaura queda protegido de
+/// la rotación, porque puede ser una de esas mismas copias.
+fn restaurar(
+    guard: &mut Connection,
+    live: &std::path::Path,
+    src: &std::path::Path,
+    dir_copias: &std::path::Path,
+) -> CmdResult<()> {
+    copias::guardar(guard, dir_copias, Motivo::Restaurar, Some(src)).map_err(e)?;
+
     // Fold the WAL back into the main file and release it, so the restore can
     // move it aside (an open handle makes that fail on Windows).
     let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -785,11 +871,8 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
 
     match db::restore_from_backup(live, src) {
         Ok(conn) => {
-            let snap = snapshot(&conn).map_err(e)?;
-            conceder_alcance(app, &conn);
             *guard = conn;
-            log::info!("database restored from {}", src.display());
-            Ok(snap)
+            Ok(())
         }
         Err(err) => {
             // `restore_from_backup` already put the previous database back; all
@@ -811,6 +894,14 @@ fn restore_database_bloqueante(app: &AppHandle, src: String) -> CmdResult<Snapsh
             }
         }
     }
+}
+
+/// Las copias automáticas que se guardaron antes de quitar una carpeta,
+/// restaurar o fusionar, de la más nueva a la más antigua (#143). Se restauran
+/// por el camino de siempre: `inspect_backup` y `restore_database`.
+#[tauri::command(async)]
+pub fn list_auto_backups(db_path: State<DbPath>) -> CmdResult<Vec<copias::CopiaAutomatica>> {
+    copias::listar(&copias::carpeta(&db_path.0)).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -912,8 +1003,12 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{copiar_respaldo, export_playlist, export_playlist_json, rutas_con_alcance};
-    use crate::db;
+    use super::{
+        copiar_respaldo, export_playlist, export_playlist_json, fusionar, quitar_carpeta,
+        restaurar, rutas_con_alcance,
+    };
+    use crate::{copias, db};
+    use std::path::Path;
 
     /// A temp directory of this test's own, cleared when it goes out of scope.
     ///
@@ -1043,5 +1138,151 @@ mod tests {
         let mut rutas = rutas_con_alcance(&restaurada).unwrap();
         rutas.sort();
         assert_eq!(rutas, ["/otro-pc/Coros", "/otro-pc/Himnos"]);
+    }
+
+    // ---- copia automática antes de lo que no se deshace (#143)
+
+    /// Una base en disco con una carpeta de `n` pistas, en `dir/nombre`.
+    fn base_con(
+        dir: &Dir,
+        nombre: &str,
+        n: usize,
+    ) -> (std::path::PathBuf, rusqlite::Connection, i64) {
+        let ruta = std::path::PathBuf::from(dir.path(nombre));
+        let conn = db::open_and_migrate(&ruta).unwrap();
+        let fid = db::add_folder(&conn, &format!("/m/{nombre}"), "m", true).unwrap();
+        for i in 0..n {
+            db::upsert_track(
+                &conn,
+                fid,
+                &format!("/m/{nombre}/{i}.mp3"),
+                "t",
+                "a",
+                "al",
+                1,
+                "MP3",
+                false,
+                1,
+                1,
+            )
+            .unwrap();
+        }
+        (ruta, conn, fid)
+    }
+
+    fn pistas_en(copia: &str) -> i64 {
+        db::inspect_backup(Path::new(copia)).unwrap().tracks
+    }
+
+    #[test]
+    fn removing_a_folder_saves_a_copy_first_and_the_copy_brings_it_back() {
+        let dir = Dir::new("copia-quitar");
+        let (live, mut conn, fid) = base_con(&dir, "cantoral.db", 4);
+        db::set_track_sheet(&conn, 1, "Letra a mano", "").unwrap();
+        let respaldos = copias::carpeta(&live);
+
+        quitar_carpeta(&conn, &respaldos, fid).unwrap();
+        assert!(db::list_tracks(&conn).unwrap().is_empty());
+
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista.len(), 1);
+        assert_eq!(lista[0].motivo, "quitar-carpeta");
+        assert_eq!(pistas_en(&lista[0].ruta), 4, "la copia es de antes de quitarla");
+
+        // Restaurarla es el «deshacer»: vuelven las pistas y la letra.
+        let src = std::path::PathBuf::from(&lista[0].ruta);
+        restaurar(&mut conn, &live, &src, &respaldos).unwrap();
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 4);
+        assert_eq!(db::track_sheet(&conn, 1).unwrap().letra, "Letra a mano");
+    }
+
+    #[test]
+    fn a_folder_is_not_removed_when_its_copy_cannot_be_saved() {
+        let dir = Dir::new("copia-quitar-falla");
+        let (_live, conn, fid) = base_con(&dir, "cantoral.db", 2);
+        let bloqueo = std::path::PathBuf::from(dir.path("respaldos"));
+        std::fs::write(&bloqueo, b"no soy una carpeta").unwrap();
+
+        let err = quitar_carpeta(&conn, &bloqueo, fid).unwrap_err();
+
+        assert!(err.to_string().contains("no se quitó la carpeta"), "{err}");
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 2, "no se quitó nada");
+    }
+
+    #[test]
+    fn merging_saves_a_copy_first() {
+        let dir = Dir::new("copia-fusionar");
+        let (live, conn, _) = base_con(&dir, "cantoral.db", 3);
+        let respaldos = copias::carpeta(&live);
+
+        fusionar(&conn, &respaldos, 1, &[2, 3]).unwrap();
+
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 1);
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista[0].motivo, "fusionar");
+        assert_eq!(pistas_en(&lista[0].ruta), 3);
+    }
+
+    #[test]
+    fn a_merge_is_not_done_when_its_copy_cannot_be_saved() {
+        let dir = Dir::new("copia-fusionar-falla");
+        let (_live, conn, _) = base_con(&dir, "cantoral.db", 3);
+        let bloqueo = std::path::PathBuf::from(dir.path("respaldos"));
+        std::fs::write(&bloqueo, b"x").unwrap();
+
+        assert!(fusionar(&conn, &bloqueo, 1, &[2, 3]).is_err());
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn restoring_saves_the_current_library_first() {
+        let dir = Dir::new("copia-restaurar");
+        let (live, mut conn, _) = base_con(&dir, "cantoral.db", 2);
+        let (backup, otra, _) = base_con(&dir, "respaldo.db", 5);
+        otra.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+        drop(otra);
+        let respaldos = copias::carpeta(&live);
+
+        restaurar(&mut conn, &live, &backup, &respaldos).unwrap();
+
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 5, "se restauró");
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista[0].motivo, "restaurar");
+        assert_eq!(pistas_en(&lista[0].ruta), 2, "la copia es la biblioteca de antes");
+    }
+
+    #[test]
+    fn a_restore_is_not_done_when_its_copy_cannot_be_saved() {
+        let dir = Dir::new("copia-restaurar-falla");
+        let (live, mut conn, _) = base_con(&dir, "cantoral.db", 2);
+        let (backup, otra, _) = base_con(&dir, "respaldo.db", 5);
+        drop(otra);
+        let bloqueo = std::path::PathBuf::from(dir.path("respaldos"));
+        std::fs::write(&bloqueo, b"x").unwrap();
+
+        let err = restaurar(&mut conn, &live, &backup, &bloqueo).unwrap_err();
+
+        assert!(err.contains("no se restauró el respaldo"), "{err}");
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 2, "la biblioteca sigue igual");
+    }
+
+    #[test]
+    fn restoring_the_oldest_automatic_copy_does_not_rotate_it_away() {
+        let dir = Dir::new("copia-restaurar-vieja");
+        let (live, mut conn, fid) = base_con(&dir, "cantoral.db", 3);
+        let respaldos = copias::carpeta(&live);
+        // Una de antes de quitar la carpeta, y detrás tantas como caben.
+        quitar_carpeta(&conn, &respaldos, fid).unwrap();
+        for _ in 1..copias::CONSERVAR {
+            copias::guardar(&conn, &respaldos, copias::Motivo::Fusionar, None).unwrap();
+        }
+        let lista = copias::listar(&respaldos).unwrap();
+        assert_eq!(lista.len(), copias::CONSERVAR);
+        assert_eq!(lista.last().unwrap().motivo, "quitar-carpeta");
+        let mas_vieja = std::path::PathBuf::from(&lista.last().unwrap().ruta);
+
+        restaurar(&mut conn, &live, &mas_vieja, &respaldos).unwrap();
+
+        assert_eq!(db::list_tracks(&conn).unwrap().len(), 3);
     }
 }

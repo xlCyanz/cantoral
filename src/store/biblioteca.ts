@@ -221,8 +221,8 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
             ? "¿Quitar esta pista de la biblioteca?"
             : `¿Quitar ${ids.length} pistas de la biblioteca?`,
         message: cultos
-          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos, tempo, ocasión y la letra que tengan escrita.`
-          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos, tempo, ocasión y la letra que tengan escrita.`,
+          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos, ocasiones y la letra que tengan escrita.`
+          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos, ocasiones y la letra que tengan escrita.`,
         safe: "Los archivos no se tocan. Siguen en el disco, en su carpeta, con su nombre. Si vuelves a escanear la carpeta, reaparecen.",
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
@@ -290,7 +290,7 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
         title: "¿Quitar esta pista de la biblioteca?",
         message: `«${t.titulo}» dejará de aparecer en el catálogo.`,
         detail:
-          `Se pierden su favorito, tempo, ocasión y la letra que tenga escrita.` +
+          `Se pierden su favorito, su ocasión y la letra que tenga escrita.` +
           (listas.length
             ? ` También sale de ${listas.length === 1 ? "la lista" : "las listas"} ${listas
                 .map((p) => `«${p.nombre}»`)
