@@ -127,10 +127,16 @@ export default function PlayerBar() {
   // elementos no reclamen el mismo archivo a la vez.
   const audioRef = useRef<HTMLAudioElement>(null);
   const manejadores = useReproductor(audioRef, track, !!track && !track.video);
+  const haSonado = useStore((s) => s.haSonado);
+  const audio = <audio ref={audioRef} preload="metadata" {...manejadores} style={{ display: "none" }} />;
+
+  // Sin nada que haya sonado, solo el `<audio>`: es el que reproduce, y tiene
+  // que estar montado para la primera pista que se ponga a sonar.
+  if (!haSonado) return audio;
 
   return (
     <footer style={{ height: 60, flex: "0 0 auto", background: "var(--bg-2)", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, padding: "0 14px", zIndex: 6 }}>
-      <audio ref={audioRef} preload="metadata" {...manejadores} style={{ display: "none" }} />
+      {audio}
 
       {/* lo que suena */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, width: 190, minWidth: 0 }}>

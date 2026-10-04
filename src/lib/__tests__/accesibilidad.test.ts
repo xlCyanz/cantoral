@@ -38,7 +38,7 @@ const html = (c: Parameters<typeof createElement>[0]) => renderToStaticMarkup(cr
 
 describe("los deslizadores del reproductor", () => {
   it("son deslizadores que el teclado alcanza y que dicen dónde están", () => {
-    estado = { ...estado, volume: 0.6, muted: false };
+    estado = { ...estado, volume: 0.6, muted: false, haSonado: true };
     const h = html(PlayerBar);
 
     expect(h.match(/role="slider"/g)).toHaveLength(2);
@@ -61,6 +61,7 @@ describe("los deslizadores del reproductor", () => {
   });
 
   it("los botones de transporte tienen nombre, no solo `title`", () => {
+    estado = { ...estado, haSonado: true };
     const h = html(PlayerBar);
     for (const nombre of ["Anterior", "Siguiente", "Reproducir", "Silenciar", "Favorita"]) {
       expect(h).toContain(`aria-label="${nombre}"`);
