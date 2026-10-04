@@ -51,6 +51,10 @@ export default function TopBar() {
   const isLista = view === "lista";
   const pageTitle = isLista ? listaTitulo : titleMap[view] || "";
   const showFilterBar = view === "biblioteca" && libState === "content";
+  // En Configuración la tarjeta «Carpetas de música» ya tiene su «Agregar»,
+  // justo encima de la lista a la que se agrega; el botón grande de arriba era
+  // el mismo dos veces en la misma pantalla.
+  const showAgregarCarpeta = view !== "config";
 
   // Occasions come from the catalogue itself; a lone «Todas» chip would be
   // noise, so the row only appears once there is something to filter by.
@@ -128,6 +132,7 @@ export default function TopBar() {
         <div style={{ flex: 1 }} />
 
         {/* add folder */}
+        {showAgregarCarpeta && (
         <button
           onClick={openAddFolder}
           disabled={scanning}
@@ -154,6 +159,7 @@ export default function TopBar() {
           <FolderPlus size={16} strokeWidth={2.2} />
           Agregar carpeta
         </button>
+        )}
       </div>
 
       {/* filter bar — o la barra de selección, que se queda con la fila
