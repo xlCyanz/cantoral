@@ -17,6 +17,7 @@ import { toastPresentation } from "../lib/toast";
 export default function Toast() {
   const toast = useStore((s) => s.toast);
   const closeToast = useStore((s) => s.closeToast);
+  const conBarra = useStore((s) => s.haSonado);
   if (!toast) return null;
   const { color, role, ariaLive } = toastPresentation(toast.type);
 
@@ -27,8 +28,8 @@ export default function Toast() {
       style={{
         position: "fixed",
         right: 14,
-        // Por encima de la barra del reproductor, que mide 60.
-        bottom: 72,
+        // Por encima de la barra del reproductor, que mide 60, cuando está.
+        bottom: conBarra ? 72 : 14,
         zIndex: 70,
         display: "flex",
         alignItems: "flex-start",
