@@ -13,6 +13,7 @@ import { crearProyeccion } from "./proyeccion";
 import { crearHojas } from "./hojas";
 import { crearDuplicados } from "./duplicados";
 import { crearActualizaciones } from "./actualizaciones";
+import { crearSistema } from "./sistema";
 import type { CantoralState } from "./tipos";
 
 // El store de Cantoral, partido por dominios (#134).
@@ -35,6 +36,7 @@ export type { ProyeccionSlice } from "./proyeccion";
 export type { HojasSlice } from "./hojas";
 export type { DuplicadosSlice } from "./duplicados";
 export type { ActualizacionesSlice } from "./actualizaciones";
+export type { SistemaSlice } from "./sistema";
 
 export const useStore = create<CantoralState>((set, get) => {
   const ctx = crearContexto(set, get);
@@ -49,6 +51,7 @@ export const useStore = create<CantoralState>((set, get) => {
     ...crearHojas(set, get, ctx),
     ...crearDuplicados(set, get, ctx),
     ...crearActualizaciones(set, get, ctx),
+    ...crearSistema(set, get, ctx),
   };
 });
 

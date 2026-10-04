@@ -39,6 +39,15 @@ pub fn run() {
             // tienda y el plugin ni siquiera compila.
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            // Abrir Cantoral al encender el equipo. En macOS como agente de
+            // inicio de sesión, que no necesita AppleScript ni pedir permiso
+            // para controlar «System Events». Lo enciende y lo apaga el
+            // usuario desde Configuración; de fábrica está apagado.
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_autostart::init(
+                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+                None,
+            ))?;
 
             // Lo primero que se lee de un log mandado desde otra PC: qué versión,
             // en qué sistema y con qué webview. En Windows el webview es
@@ -128,6 +137,8 @@ pub fn run() {
             commands::inspect_backup,
             commands::restore_database,
             commands::list_auto_backups,
+            commands::get_autostart,
+            commands::set_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

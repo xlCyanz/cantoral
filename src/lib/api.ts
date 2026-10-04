@@ -615,6 +615,22 @@ export async function onUpdateProgress(cb: (p: UpdateProgress) => void): Promise
   return listen<UpdateProgress>("update-progress", (e) => cb(e.payload));
 }
 
+// ---------- abrir con el sistema ----------
+
+/**
+ * Si Cantoral se abre solo al encender el equipo. `null` donde no hay tal
+ * cosa: en el navegador, y en una compilación móvil.
+ */
+export async function getAutostartCmd(): Promise<boolean | null> {
+  if (!isTauri()) return null;
+  return inv<boolean | null>("get_autostart");
+}
+
+/** Lo enciende o lo apaga, y devuelve cómo lo dejó el sistema. */
+export async function setAutostartCmd(activar: boolean): Promise<boolean> {
+  return inv<boolean>("set_autostart", { activar });
+}
+
 // ---------- proyección ----------
 
 /** Una pantalla del sistema, como se ofrece para elegir la salida. */

@@ -758,6 +758,52 @@ pub async fn install_update(app: AppHandle) -> CmdResult<()> {
     }
 }
 
+/// Whether Cantoral opens by itself when the user signs in to the computer.
+///
+/// Asked of the system every time rather than kept in the settings: the user
+/// can also turn it off from the system (the Windows Task Manager, macOS
+/// Login Items), and then the system is the one that is right. `None` where
+/// there is no such thing — mobile.
+#[tauri::command]
+pub fn get_autostart(app: AppHandle) -> CmdResult<Option<bool>> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        app.autolaunch().is_enabled().map(Some).map_err(e)
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+/// Turn opening with the system on or off, and return how it was left.
+///
+/// Answers with what the system says afterwards, not with what was asked: if
+/// a policy on a church PC refuses the change, the checkbox shows the truth.
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, activar: bool) -> CmdResult<bool> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let lanzador = app.autolaunch();
+        if activar {
+            lanzador.enable().map_err(e)?;
+        } else {
+            lanzador.disable().map_err(e)?;
+        }
+        let quedo = lanzador.is_enabled().map_err(e)?;
+        log::info!("autostart: asked {activar}, system says {quedo}");
+        Ok(quedo)
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, activar);
+        Err("En este sistema Cantoral no se puede abrir al encender el equipo.".into())
+    }
+}
+
 /// Write a playlist as the `.cantoral.json` another installation can import.
 ///
 /// Its own command rather than a looser `export_playlist`: that one is capped
