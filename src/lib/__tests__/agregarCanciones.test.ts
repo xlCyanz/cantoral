@@ -254,6 +254,19 @@ describe("dónde se abre", () => {
     expect(html(PlaylistView)).toContain("Agregar canciones…");
   });
 
+  it("la fila de acciones baja a otra línea antes que salirse de la cabecera", () => {
+    // A 800 px «Agregar canciones…» se partía en dos líneas y empujaba
+    // «Imprimir» fuera de la fila. Cada botón va en una línea y la fila envuelve.
+    const h = html(PlaylistView);
+    const fila = h.match(/<div data-acciones-culto="true" style="([^"]*)">([\s\S]*?)<div style="position:relative;flex:0 0 auto">/);
+
+    expect(fila).not.toBeNull();
+    expect(fila![1]).toContain("flex-wrap:wrap");
+    const botones = fila![2].match(/<button[^>]*>/g) ?? [];
+    expect(botones).toHaveLength(5);
+    for (const b of botones) expect(b).toMatch(/white-space:nowrap;flex:0 0 auto/);
+  });
+
   it("y en un culto vacío, como la acción principal", () => {
     estado = { ...estado, plOrder: { ...(estado.plOrder as object), p1: [] } };
     const h = html(PlaylistView);
