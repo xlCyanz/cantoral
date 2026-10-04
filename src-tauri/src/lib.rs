@@ -4,6 +4,7 @@ mod commands;
 mod compartir;
 mod copias;
 mod db;
+mod miniaturas;
 mod models;
 mod proyeccion;
 mod scanner;
@@ -111,6 +112,8 @@ pub fn run() {
             commands::registrar,
             commands::ruta_del_log,
             commands::update_track_duration,
+            commands::save_video_thumbnail,
+            commands::mark_video_thumbnail_failed,
             commands::check_for_update,
             commands::projection_monitors,
             commands::open_projection,

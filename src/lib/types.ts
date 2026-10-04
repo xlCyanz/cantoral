@@ -62,6 +62,11 @@ export interface Track {
    * Un reescaneo sin novedades no deja ninguna marcada.
    */
   nueva?: boolean;
+  /**
+   * Si es un video del que no se pudo sacar miniatura (backend only). No se
+   * vuelve a intentar hasta que el archivo cambie o se reubique.
+   */
+  miniaturaFallida?: boolean;
 }
 
 export interface Folder {
