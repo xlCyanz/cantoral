@@ -9,21 +9,48 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
-## [0.5.0] - 2026-10-03
+## [0.5.0] - 2026-10-04
 
-**Cantoral se abre solo.** Para el PC de la iglesia que se enciende el domingo
-y del que nadie quiere acordarse de abrir nada.
+**Menos clics para preparar el domingo.** Un culto se arma agregando varias
+canciones de una vez, los videos traen su miniatura, la proyección sale por la
+pantalla que se eligió, y Cantoral puede abrirse solo al encender el equipo.
 
 ### Añadido
 
+- **Agregar varias canciones a un culto de una vez.** «Agregar canciones…»,
+  en el culto, abre la biblioteca entera con su buscador: se marcan las que
+  hagan falta y entran todas al final, en el orden en que se marcaron. Las que
+  ya están en el culto salen marcadas y no se repiten. Funciona también con el
+  teclado.
+- **Miniatura para cada video.** Al agregarse, cada video toma un cuadro como
+  carátula, y los que ya estaban en la biblioteca la reciben poco a poco, de
+  uno en uno y sin frenar la app. Se ve en la biblioteca, el culto, el panel de
+  detalle y la barra del reproductor.
 - **Abrir Cantoral al encender el equipo**, en Configuración → «Al encender el
   equipo». Viene apagado. La casilla dice lo que dice el sistema: si se quita
   desde Ítems de inicio de sesión (macOS) o el Administrador de tareas
   (Windows), aquí sale quitado, y si una política del equipo no deja
   cambiarlo, se avisa.
+- **Créditos con enlace a GitHub** de cada persona.
+
+### Cambiado
+
+- **La barra del reproductor aparece cuando suena algo.** Al abrir ya no
+  enseña una canción que no está sonando; en pausa se queda, para poder
+  reanudar.
+- **La búsqueda de la biblioteca no distingue acentos**: «senor» encuentra
+  «Señor».
+- **Un culto vacío ofrece «Agregar canciones…»** en lugar de mandar a la
+  biblioteca.
+- **Configuración ya no repite «Agregar carpeta»** arriba: está en la tarjeta
+  de carpetas.
 
 ### Corregido
 
+- **La proyección sale por la pantalla elegida.** Con la pantalla escalada
+  —Retina, o el 125–150 % de casi todo portátil con Windows— salía siempre por
+  la principal. Cambiar de pantalla con la proyección en marcha ya no deja la
+  salida invisible, y la pantalla elegida se recuerda al volver a Proyección.
 - **El README vuelve a decir la verdad sobre la red.** En la 0.4.0 se perdió
   parte de la documentación al resolver un conflicto, y volvió a afirmar que
   Cantoral no hace ninguna petición de red. La única es buscar actualizaciones,
