@@ -9,6 +9,11 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.5.0] - 2026-10-03
+
+**Cantoral se abre solo.** Para el PC de la iglesia que se enciende el domingo
+y del que nadie quiere acordarse de abrir nada.
+
 ### Añadido
 
 - **Abrir Cantoral al encender el equipo**, en Configuración → «Al encender el
@@ -16,6 +21,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   desde Ítems de inicio de sesión (macOS) o el Administrador de tareas
   (Windows), aquí sale quitado, y si una política del equipo no deja
   cambiarlo, se avisa.
+
+### Corregido
+
+- **El README vuelve a decir la verdad sobre la red.** En la 0.4.0 se perdió
+  parte de la documentación al resolver un conflicto, y volvió a afirmar que
+  Cantoral no hace ninguna petición de red. La única es buscar actualizaciones,
+  y se puede apagar. También vuelven «Recién agregadas», el menú de cada fila,
+  «Fijar» y las notas sobre los archivos `-wal` y `-shm` de la base.
 
 ## [0.4.0] - 2026-09-29
 
@@ -1159,7 +1172,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.4.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/xlCyanz/cantoral/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/xlCyanz/cantoral/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/xlCyanz/cantoral/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/xlCyanz/cantoral/compare/v0.3.0...v0.3.1
