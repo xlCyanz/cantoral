@@ -33,6 +33,9 @@ pub struct Track {
     /// Whether it came in with the latest scan: what «Recién agregadas» shows
     /// (#139). A rescan that finds nothing new leaves no track marked.
     pub nueva: bool,
+    /// Si es un video del que la webview no pudo sacar miniatura. No se vuelve
+    /// a intentar hasta que el archivo cambie.
+    pub miniatura_fallida: bool,
 }
 
 /// The lyrics and chords of one track, fetched only when something shows them.
