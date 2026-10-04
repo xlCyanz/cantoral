@@ -758,6 +758,26 @@ pub async fn install_update(app: AppHandle) -> CmdResult<()> {
     }
 }
 
+/// The GitHub profiles the credits link to, by username.
+///
+/// A fixed list on purpose: the window has no permission to open URLs (#142),
+/// and this command must not become a way around that. It opens these and
+/// nothing else, whatever the frontend sends.
+const PERFILES_DE_CREDITOS: &[&str] = &["xlCyanz", "elorenzog"];
+
+/// The profile URL for a credited username, if it is one of the credited.
+fn perfil_de_github(usuario: &str) -> Option<String> {
+    PERFILES_DE_CREDITOS.iter().find(|u| **u == usuario).map(|u| format!("https://github.com/{u}"))
+}
+
+/// Open a credited person's GitHub profile in the browser.
+#[tauri::command]
+pub fn open_credit_profile(app: AppHandle, usuario: String) -> CmdResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let url = perfil_de_github(&usuario).ok_or("Ese perfil no está en los créditos.")?;
+    app.opener().open_url(url, None::<&str>).map_err(e)
+}
+
 /// Whether Cantoral opens by itself when the user signs in to the computer.
 ///
 /// Asked of the system every time rather than kept in the settings: the user
@@ -1330,5 +1350,21 @@ mod tests {
         restaurar(&mut conn, &live, &mas_vieja, &respaldos).unwrap();
 
         assert_eq!(db::list_tracks(&conn).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn credits_open_only_the_credited_profiles() {
+        assert_eq!(
+            super::perfil_de_github("xlCyanz").as_deref(),
+            Some("https://github.com/xlCyanz")
+        );
+        assert_eq!(
+            super::perfil_de_github("elorenzog").as_deref(),
+            Some("https://github.com/elorenzog")
+        );
+        // Nothing else: not another user, not a URL, not a path.
+        for otro in ["torvalds", "https://evil.example", "xlCyanz/../x", "", "XLCYANZ"] {
+            assert!(super::perfil_de_github(otro).is_none(), "{otro} must be refused");
+        }
     }
 }

@@ -139,6 +139,7 @@ pub fn run() {
             commands::list_auto_backups,
             commands::get_autostart,
             commands::set_autostart,
+            commands::open_credit_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
