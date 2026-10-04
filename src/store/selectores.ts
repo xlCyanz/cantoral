@@ -5,7 +5,7 @@ import type { Elemento } from "../lib/momentos";
 import { enOrden, vigentes } from "../lib/selection";
 import type { CantoralState } from "./tipos";
 import { recordar } from "../lib/memo";
-import { buscaEnLetras } from "../lib/buscarLetra";
+import { buscaEnLetras, coincideEnCampos, sinTildes } from "../lib/buscarLetra";
 
 // ============================================================
 // Derived selectors (pure) — used by components against a state snapshot.
@@ -235,11 +235,6 @@ export function playQueue(s: CantoralState): string[] {
   return live.length ? live : applyFilters(s).map((t) => t.id);
 }
 
-/** Si lo buscado (ya en minúsculas) está en el título, el artista, el álbum o la ocasión. */
-function coincideEnCampos(t: Track, q: string): boolean {
-  return [t.titulo, t.artista, t.album, t.ocasion].join(" ").toLowerCase().includes(q);
-}
-
 /**
  * Los fragmentos de la última búsqueda en las hojas, si valen para lo que está
  * escrito ahora; null si no.
@@ -267,7 +262,7 @@ export const fragmentosDeLetra = recordar(
   (s: CantoralState): ReadonlyMap<string, string> => {
     const porLetra = letrasVigentes(s);
     if (!porLetra) return SIN_FRAGMENTOS;
-    const q = s.query.toLowerCase();
+    const q = sinTildes(s.query);
     const mapa = new Map<string, string>();
     for (const t of s.tracks) {
       const f = porLetra[t.id];
@@ -289,7 +284,7 @@ export const applyFilters = recordar(
     else if (s.qf === "recent") list = list.filter((t) => t.nueva).sort((a, b) => b.added - a.added);
     if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
     if (s.query) {
-      const q = s.query.toLowerCase();
+      const q = sinTildes(s.query);
       // Lo que coincide en los campos sale al instante; lo que solo está en la
       // letra, cuando el núcleo contesta (#144).
       const porLetra = letrasVigentes(s);

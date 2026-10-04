@@ -1,10 +1,10 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, ListMusic, ListPlus, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { elementosDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { etiquetaDeTipo, resumenDeOrden } from "../lib/momentos";
-import { botonPrimario, botonSecundario, emptyBtnSecondary, ocasionBadge, ocupadoStyle } from "../lib/styles";
+import { botonPrimario, botonSecundario, emptyBtnPrimary, emptyBtnSecondary, ocasionBadge, ocupadoStyle } from "../lib/styles";
 import type { Momento, Track } from "../lib/types";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
@@ -24,6 +24,13 @@ const menuItem = {
   fontWeight: 600,
   textAlign: "left",
 } as const;
+
+/**
+ * Un botón de la fila de acciones del culto: su rótulo en una línea, sin
+ * encogerse. Lo que no cabe baja entero a la siguiente fila; partido en dos
+ * líneas empujaba «Imprimir» fuera de la cabecera a 800 px.
+ */
+const enUnaLinea: CSSProperties = { whiteSpace: "nowrap", flex: "0 0 auto" };
 
 /** Shared empty order, so an absent list does not hand out a fresh array each read. */
 const VACIA: string[] = [];
@@ -258,7 +265,7 @@ export default function PlaylistView() {
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
   const toggleCurrentTemplate = useStore((s) => s.toggleCurrentTemplate);
   const shareCurrentList = useStore((s) => s.shareCurrentList);
-  const showBiblioteca = useStore((s) => s.showBiblioteca);
+  const abrirAgregarCanciones = useStore((s) => s.abrirAgregarCanciones);
   const reorderNotice = useStore((s) => s.reorderNotice);
   const arrastrandoDesdeBiblioteca = useStore((s) => s.dragFromLibrary.length);
   const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
@@ -275,7 +282,7 @@ export default function PlaylistView() {
             <span className="display" style={{ fontSize: 58, color: "rgba(255,255,255,.9)" }}>{inicialDe(pl?.nombre ?? "")}</span>
           </div>
         </div>
-        <div style={{ minWidth: 0, paddingBottom: 2 }}>
+        <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
           {/* El sobrescrito dice la ocasión, no «Lista para culto». Eso último
               lo sabe cualquiera que esté mirando esta pantalla; la ocasión es
               lo que distingue un domingo de un ensayo. Una lista sin ocasión
@@ -288,29 +295,34 @@ export default function PlaylistView() {
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
             <span>{resumenDeOrden(order)} · {duracion}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
-            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ ...botonPrimario(42), fontWeight: 700, transition: "background .14s,transform .08s" }}>
+          <div data-acciones-culto style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 18 }}>
+            <button onClick={playAll} className="hb-primary hb-active-scale" style={{ ...botonPrimario(42), ...enUnaLinea, fontWeight: 700, transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
+            </button>
+            {/* Armar el culto sin salir de él: elegir varias de la biblioteca de
+                una vez, en lugar de ir y volver por cada canción. */}
+            <button onClick={abrirAgregarCanciones} className="hb-s2" title="Elegir varias canciones de la biblioteca" style={{ ...botonSecundario(42), ...enUnaLinea }}>
+              <ListPlus size={16} />Agregar canciones…
             </button>
             {/* El documento pone «Proyectar» aquí, entre reproducir e
                 imprimir. En la etapa 4 se quedó fuera porque no había a dónde
                 ir; ahora sí, y es la única puerta: se proyecta el culto que
                 está abierto. */}
             <button onClick={() => showProyeccion()} className="hb-s2" title="Sacar el culto por el proyector"
-              style={botonSecundario(42)}>
+              style={{ ...botonSecundario(42), ...enUnaLinea }}>
               <MonitorPlay size={16} />Proyectar
             </button>
-            <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={botonSecundario(42)}>
+            <button onClick={openService} className="hb-s2" title="Letras y acordes a pantalla completa" style={{ ...botonSecundario(42), ...enUnaLinea }}>
               <Presentation size={16} />Modo culto
             </button>
             {/* Era «Exportar», que escribía un .html y lo abría en el
                 navegador para que allí alguien pulsara Cmd/Ctrl+P. Lo que se
                 quería era la hoja; el archivo suelto era el peaje. Guardar el
                 .html sigue estando, dentro de la vista previa. */}
-            <button onClick={openPrintPreview} className="hb-s2" style={botonSecundario(42)}>
+            <button onClick={openPrintPreview} className="hb-s2" style={{ ...botonSecundario(42), ...enUnaLinea }}>
               <Printer size={16} />Imprimir
             </button>
-            <div style={{ position: "relative" }}>
+            <div style={{ position: "relative", flex: "0 0 auto" }}>
               <button title="Más acciones" onClick={() => setMenuOpen((v) => !v)} className="hb-s2t" style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
                 <EllipsisVertical size={18} />
               </button>
@@ -354,11 +366,13 @@ export default function PlaylistView() {
           compact
           icon={<ListMusic size={42} strokeWidth={1.6} />}
           title="Esta lista está vacía"
-          desc="Agrega pistas desde la Biblioteca para armar el repertorio de este culto."
+          desc="Elige de la biblioteca las canciones de este culto; puedes marcar varias de una vez."
           action={
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-              <button onClick={showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
-                <Library size={16} />Ir a la biblioteca
+              {/* Era «Ir a la biblioteca», que sacaba de aquí para ir trayendo
+                  las canciones de una en una. Esto las trae sin salir. */}
+              <button onClick={abrirAgregarCanciones} className="hb-primary" style={emptyBtnPrimary}>
+                <ListPlus size={16} />Agregar canciones…
               </button>
               <button onClick={nuevoMomento} className="hb-s2" style={emptyBtnSecondary}>
                 <Hourglass size={16} />Añadir un momento…
@@ -402,7 +416,10 @@ export default function PlaylistView() {
           </p>
           {/* Una oración, una lectura, los anuncios: lo que pasa entre canción y
               canción. Entra al final y se arrastra a su sitio como una pista. */}
-          <div style={{ padding: "10px 8px 0" }}>
+          <div style={{ padding: "10px 8px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={abrirAgregarCanciones} className="hb-s2" style={{ ...botonSecundario(38), height: 34, fontSize: "12.5px" }}>
+              <ListPlus size={14} />Agregar canciones…
+            </button>
             <button onClick={nuevoMomento} className="hb-s2" style={{ ...botonSecundario(38), height: 34, fontSize: "12.5px" }}>
               <Hourglass size={14} />Añadir un momento…
             </button>
