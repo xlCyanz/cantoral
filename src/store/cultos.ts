@@ -56,6 +56,13 @@ export interface CultosSlice {
   updateList: (nombre: string, ocasion: string) => void;
   openAddToList: () => void;
   addToListConfirm: (playlistId: string) => void;
+  /**
+   * Abrir, desde el culto abierto, el diálogo que elige varias canciones de la
+   * biblioteca de una vez. La dirección contraria a «Agregar a un culto».
+   */
+  abrirAgregarCanciones: () => void;
+  /** Agregar al final del culto abierto lo elegido en ese diálogo, y cerrarlo. */
+  agregarAlCultoAbierto: (ids: readonly string[]) => void;
   deleteCurrentList: () => void;
   /** Copy a list with its whole order and open the copy. */
   duplicateList: (id: string) => void;
@@ -161,6 +168,19 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       // ya está hecho, y dejarla puesta deja la fila de herramientas ocupada
       // por una barra que ya no tiene trabajo.
       set({ dialog: null, selection: [], selAnchor: null });
+    },
+
+    abrirAgregarCanciones: () => {
+      if (!get().playlists.some((p) => p.id === get().curPlaylist)) return;
+      set({ dialog: "agregarCanciones", rowMenu: null });
+    },
+
+    agregarAlCultoAbierto: (ids) => {
+      set({ dialog: null });
+      // `agregarPistas` ya avisa de cuántas entraron y no repite las que
+      // estaban; la selección de la biblioteca no se toca, porque esto no
+      // salió de ella.
+      get().agregarPistas(get().curPlaylist, ids);
     },
 
     playAll: () => {

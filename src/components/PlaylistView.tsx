@@ -1,10 +1,10 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, Library, ListMusic, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, ListMusic, ListPlus, MonitorPlay, Pencil, Play, Presentation, Printer, Trash2, Video } from "lucide-react";
 import { elementosDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { etiquetaDeTipo, resumenDeOrden } from "../lib/momentos";
-import { botonPrimario, botonSecundario, emptyBtnSecondary, ocasionBadge, ocupadoStyle } from "../lib/styles";
+import { botonPrimario, botonSecundario, emptyBtnPrimary, emptyBtnSecondary, ocasionBadge, ocupadoStyle } from "../lib/styles";
 import type { Momento, Track } from "../lib/types";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
@@ -258,7 +258,7 @@ export default function PlaylistView() {
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
   const toggleCurrentTemplate = useStore((s) => s.toggleCurrentTemplate);
   const shareCurrentList = useStore((s) => s.shareCurrentList);
-  const showBiblioteca = useStore((s) => s.showBiblioteca);
+  const abrirAgregarCanciones = useStore((s) => s.abrirAgregarCanciones);
   const reorderNotice = useStore((s) => s.reorderNotice);
   const arrastrandoDesdeBiblioteca = useStore((s) => s.dragFromLibrary.length);
   const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
@@ -291,6 +291,11 @@ export default function PlaylistView() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
             <button onClick={playAll} className="hb-primary hb-active-scale" style={{ ...botonPrimario(42), fontWeight: 700, transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
+            </button>
+            {/* Armar el culto sin salir de él: elegir varias de la biblioteca de
+                una vez, en lugar de ir y volver por cada canción. */}
+            <button onClick={abrirAgregarCanciones} className="hb-s2" title="Elegir varias canciones de la biblioteca" style={botonSecundario(42)}>
+              <ListPlus size={16} />Agregar canciones…
             </button>
             {/* El documento pone «Proyectar» aquí, entre reproducir e
                 imprimir. En la etapa 4 se quedó fuera porque no había a dónde
@@ -354,11 +359,13 @@ export default function PlaylistView() {
           compact
           icon={<ListMusic size={42} strokeWidth={1.6} />}
           title="Esta lista está vacía"
-          desc="Agrega pistas desde la Biblioteca para armar el repertorio de este culto."
+          desc="Elige de la biblioteca las canciones de este culto; puedes marcar varias de una vez."
           action={
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-              <button onClick={showBiblioteca} className="hb-s2" style={emptyBtnSecondary}>
-                <Library size={16} />Ir a la biblioteca
+              {/* Era «Ir a la biblioteca», que sacaba de aquí para ir trayendo
+                  las canciones de una en una. Esto las trae sin salir. */}
+              <button onClick={abrirAgregarCanciones} className="hb-primary" style={emptyBtnPrimary}>
+                <ListPlus size={16} />Agregar canciones…
               </button>
               <button onClick={nuevoMomento} className="hb-s2" style={emptyBtnSecondary}>
                 <Hourglass size={16} />Añadir un momento…
@@ -402,7 +409,10 @@ export default function PlaylistView() {
           </p>
           {/* Una oración, una lectura, los anuncios: lo que pasa entre canción y
               canción. Entra al final y se arrastra a su sitio como una pista. */}
-          <div style={{ padding: "10px 8px 0" }}>
+          <div style={{ padding: "10px 8px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={abrirAgregarCanciones} className="hb-s2" style={{ ...botonSecundario(38), height: 34, fontSize: "12.5px" }}>
+              <ListPlus size={14} />Agregar canciones…
+            </button>
             <button onClick={nuevoMomento} className="hb-s2" style={{ ...botonSecundario(38), height: 34, fontSize: "12.5px" }}>
               <Hourglass size={14} />Añadir un momento…
             </button>

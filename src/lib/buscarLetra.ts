@@ -7,6 +7,7 @@
 // acordes fuera.
 
 import type { LyricHit, Sheet } from "./api";
+import type { Track } from "./types";
 
 /**
  * Desde cuántas letras escritas se busca también en las hojas.
@@ -25,6 +26,26 @@ const LARGO_FRAGMENTO = 80;
 /** Minúsculas y sin tildes: «Señor» y «senor» se leen igual. */
 export function sinTildes(texto: string): string {
   return texto.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+/** Lo que se busca de cada pista, ya sin tildes; uno por pista, no uno por tecla. */
+const camposSinTildes = new WeakMap<Track, string>();
+
+/**
+ * Si lo buscado está en el título, el artista, el álbum o la ocasión.
+ *
+ * `q` llega ya pasado por `sinTildes`, una vez por búsqueda. Con las mismas
+ * reglas que la letra: quien escribe «senor» encuentra «Señor». La biblioteca
+ * y el diálogo de «Agregar canciones» buscan con esto, así que lo que aparece
+ * en uno aparece en el otro.
+ */
+export function coincideEnCampos(t: Track, q: string): boolean {
+  let campos = camposSinTildes.get(t);
+  if (campos === undefined) {
+    campos = sinTildes([t.titulo, t.artista, t.album, t.ocasion].join(" "));
+    camposSinTildes.set(t, campos);
+  }
+  return campos.includes(q);
 }
 
 /** Las palabras de lo escrito, como las ve FTS5: sin signos ni comillas. */
