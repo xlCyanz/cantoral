@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpCircle, Check, CircleCheck, Download, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
-import { getDbInfo, isMacOS, type CopiaAutomatica, type DbInfo } from "../lib/api";
+import { getDbInfo, isMacOS, openCreditProfile, type CopiaAutomatica, type DbInfo } from "../lib/api";
 import { backend } from "../lib/backend";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { ThemeMode } from "../lib/types";
@@ -97,8 +97,8 @@ function ThemeCard({ value, label }: { value: ThemeMode; label: string }) {
 }
 
 const PEOPLE = [
-  { initials: "JS", name: "Johan Sierra Linares", role: "Desarrollo y diseño" },
-  { initials: "EL", name: "Eliezer Lorenzo", role: "Colaborador" },
+  { initials: "JS", name: "Johan Sierra Linares", role: "Desarrollo y diseño", github: "xlCyanz" },
+  { initials: "EL", name: "Eliezer Lorenzo", role: "Desarrollo", github: "elorenzog" },
 ];
 
 export default function ConfigView() {
@@ -284,6 +284,18 @@ export default function ConfigView() {
               <div style={{ fontSize: 12, fontWeight: 600 }}>{p.name}</div>
               <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{p.role}</div>
             </div>
+            {/* Un botón y no un `<a href>`: la ventana no abre enlaces por su
+                cuenta (#142); el perfil lo abre el núcleo, que solo conoce
+                estos dos. */}
+            <button
+              onClick={() => void openCreditProfile(p.github).catch((err) => console.error("could not open the profile", err))}
+              aria-label={`Perfil de GitHub de ${p.name}`}
+              title={`github.com/${p.github}`}
+              className="hb-s2"
+              style={{ ...botonFila, height: 24, padding: "0 9px", borderRadius: 6, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, flex: "0 0 auto" }}
+            >
+              <ExternalLink size={12} />@{p.github}
+            </button>
           </div>
         ))}
       </div>

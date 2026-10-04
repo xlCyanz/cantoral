@@ -615,6 +615,20 @@ export async function onUpdateProgress(cb: (p: UpdateProgress) => void): Promise
   return listen<UpdateProgress>("update-progress", (e) => cb(e.payload));
 }
 
+// ---------- créditos ----------
+
+/**
+ * Abre el perfil de GitHub de alguien de los créditos. El núcleo solo abre los
+ * de su lista; en el navegador es un enlace normal.
+ */
+export async function openCreditProfile(usuario: string): Promise<void> {
+  if (!isTauri()) {
+    window.open(`https://github.com/${usuario}`, "_blank", "noopener");
+    return;
+  }
+  await inv("open_credit_profile", { usuario });
+}
+
 // ---------- abrir con el sistema ----------
 
 /**
