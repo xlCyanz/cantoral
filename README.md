@@ -76,6 +76,7 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. Cantoral **no hace ni una petición de red**: hasta las tipografías van dentro del paquete, así que funciona igual en un equipo sin conexión.
 - 🎨 **Claro y oscuro** — sigue el tema de macOS o de Windows, también cuando cambia con la app abierta, o se fija a mano.
 - 🖥️ **Multiplataforma** — controles de ventana completos: semáforo nativo en macOS, barra de título propia en Windows.
+- 🔌 **Abrir al encender** — en **Configuración → Al encender el equipo**, Cantoral se abre solo al iniciar sesión, para el PC de la iglesia que se enciende el domingo y nadie quiere acordarse de abrir nada. Viene apagado, y se puede quitar también desde el sistema (Ítems de inicio de sesión en macOS, Aplicaciones de arranque en Windows).
 - ⌨️ **Teclado** — ver la tabla de atajos abajo.
 
 ### Atajos de teclado

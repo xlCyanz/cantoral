@@ -9,6 +9,7 @@ import type { ProyeccionSlice } from "./proyeccion";
 import type { HojasSlice } from "./hojas";
 import type { DuplicadosSlice } from "./duplicados";
 import type { ActualizacionesSlice } from "./actualizaciones";
+import type { SistemaSlice } from "./sistema";
 
 // Parte del store (#134). Ver src/store/index.ts.
 
@@ -75,4 +76,5 @@ export type CantoralState = InterfazSlice &
   ProyeccionSlice &
   HojasSlice &
   DuplicadosSlice &
-  ActualizacionesSlice;
+  ActualizacionesSlice &
+  SistemaSlice;

@@ -9,6 +9,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Abrir Cantoral al encender el equipo**, en Configuración → «Al encender el
+  equipo». Viene apagado. La casilla dice lo que dice el sistema: si se quita
+  desde Ítems de inicio de sesión (macOS) o el Administrador de tareas
+  (Windows), aquí sale quitado, y si una política del equipo no deja
+  cambiarlo, se avisa.
+
 ## [0.4.0] - 2026-09-29
 
 **El culto entero, no solo las canciones.** Los momentos sin música —oración,

@@ -269,6 +269,8 @@ export default function ConfigView() {
         </button>
       </div>
 
+      <AbrirConElSistema />
+
       {/* actualizaciones */}
       <Actualizaciones />
 
@@ -299,6 +301,55 @@ export default function ConfigView() {
 /** `12345678` → `12,3 MB`, para una descarga en curso. */
 function megas(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * Abrir Cantoral al encender el equipo.
+ *
+ * Para el PC de la iglesia que se enciende el domingo y del que nadie quiere
+ * acordarse de abrir nada. Apagado de fábrica: una app que se mete sola en el
+ * arranque sin que nadie lo pidiera es justo lo que molesta. Lo que se ve es
+ * lo que dice el sistema, que se pregunta cada vez que se abre esta pantalla.
+ * Donde no existe —el navegador— la tarjeta no sale.
+ */
+function AbrirConElSistema() {
+  const activo = useStore((s) => s.abrirConElSistema);
+  const cambiando = useStore((s) => s.cambiandoAbrirConElSistema);
+  const leer = useStore((s) => s.leerAbrirConElSistema);
+  const cambiar = useStore((s) => s.setAbrirConElSistema);
+
+  useEffect(() => {
+    void leer();
+  }, [leer]);
+
+  if (activo === null) return null;
+
+  return (
+    <div style={tarjeta}>
+      <h2 style={h2Style}>Al encender el equipo</h2>
+      <label className="casilla" style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 9, marginTop: 8, cursor: cambiando ? "progress" : "pointer" }}>
+        <input
+          type="checkbox"
+          className="solo-lector"
+          checked={activo}
+          disabled={cambiando}
+          onChange={(e) => void cambiar(e.target.checked)}
+          aria-describedby="abrir-con-el-sistema-ayuda"
+        />
+        <div aria-hidden className="casilla-marca" style={{ width: 16, height: 16, borderRadius: 5, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(activo ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
+          {activo && <Check size={11} color="var(--on-primary)" strokeWidth={3} />}
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>Abrir Cantoral al iniciar sesión en este equipo</div>
+          <div id="abrir-con-el-sistema-ayuda" style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>
+            {isMacOS()
+              ? "Se puede quitar también desde Ajustes del Sistema → General → Ítems de inicio de sesión."
+              : "Se puede quitar también desde el Administrador de tareas → Aplicaciones de arranque."}
+          </div>
+        </div>
+      </label>
+    </div>
+  );
 }
 
 /**
