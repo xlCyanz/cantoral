@@ -422,6 +422,22 @@ export async function updateTrackDuration(id: string, path: string, duration: nu
   if (!isTauri()) return;
   await inv("update_track_duration", { id, path, duration });
 }
+
+/**
+ * Guardar la miniatura de un video. Devuelve la ruta en disco, o null si la
+ * pista ya no es ese video. Va como lista de números: un `Uint8Array` se
+ * serializaría como un objeto y el núcleo no lo reconocería.
+ */
+export async function saveVideoThumbnail(id: string, path: string, imagen: Uint8Array): Promise<string | null> {
+  if (!isTauri()) return null;
+  return inv<string | null>("save_video_thumbnail", { id, path, bytes: Array.from(imagen) });
+}
+
+/** Apuntar que de un video no salió miniatura, para no reintentarlo. */
+export async function markVideoThumbnailFailed(id: string, path: string): Promise<void> {
+  if (!isTauri()) return;
+  await inv("mark_video_thumbnail_failed", { id, path });
+}
 /** `desde` is the template to copy the order from, if the user picked one. */
 export async function createPlaylistCmd(nombre: string, ocasion: string, desde?: string): Promise<string> {
   return inv<string>("create_playlist", { nombre, ocasion, desde: desde ?? null });

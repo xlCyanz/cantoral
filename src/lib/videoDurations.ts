@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { isTauri, registrar, toAssetUrl, updateTrackDuration } from "./api";
 import { fmt } from "./covers";
 import { useStore } from "../store";
+import { enTurno } from "./turnoDeVideo";
 
 /** Lo que dejó leer un video: su duración, o por qué no se pudo. */
 export type Sondeo = { dur: number } | { dur: null; motivo: string };
@@ -122,7 +123,7 @@ export function crearRelleno(d: Dependencias) {
 }
 
 const relleno = crearRelleno({
-  sondear: videoDuration,
+  sondear: (path) => enTurno(() => videoDuration(path)),
   guardar: updateTrackDuration,
   aplicar: (id, path, dur) =>
     useStore.setState((s) => ({

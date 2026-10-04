@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { flushUiPrefs, useStore } from "./store";
 import { registerShortcuts } from "./lib/shortcuts";
 import { useVideoDurations } from "./lib/videoDurations";
+import { useMiniaturasDeVideo } from "./lib/miniaturas";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
@@ -30,6 +31,7 @@ import Toast from "./components/Toast";
 
 export default function App() {
   useVideoDurations();
+  useMiniaturasDeVideo();
   const theme = useStore((s) => s.theme);
   const view = useStore((s) => s.view);
   const tick = useStore((s) => s.tick);

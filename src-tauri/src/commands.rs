@@ -572,6 +572,33 @@ pub fn update_track_duration(
     db::update_track_duration(&conn, id.parse::<i64>().map_err(e)?, &path, duration).map_err(e)
 }
 
+/// Guardar la miniatura que la webview sacó de un video.
+///
+/// Lo que llega son los bytes de la imagen y nada más: dónde se escribe lo
+/// decide el núcleo (ver `miniaturas::guardar`). Devuelve la ruta para que la
+/// fila la enseñe sin recargar el catálogo, o `None` si la pista ya no es ese
+/// video.
+#[tauri::command(async)]
+pub fn save_video_thumbnail(
+    app: AppHandle,
+    db: State<Db>,
+    id: String,
+    path: String,
+    bytes: Vec<u8>,
+) -> CmdResult<Option<String>> {
+    let cover_dir = app.path().app_data_dir().map_err(e)?.join("covers");
+    let id = id.parse::<i64>().map_err(e)?;
+    let conn = db.0.lock().map_err(e)?;
+    crate::miniaturas::guardar(&conn, &cover_dir, id, &path, &bytes).map_err(e)
+}
+
+/// Apuntar que de un video no salió miniatura, para no intentarlo otra vez.
+#[tauri::command(async)]
+pub fn mark_video_thumbnail_failed(db: State<Db>, id: String, path: String) -> CmdResult<()> {
+    let conn = db.0.lock().map_err(e)?;
+    db::mark_thumbnail_failed(&conn, id.parse::<i64>().map_err(e)?, &path).map_err(e)
+}
+
 /// Create a playlist, optionally with the track order of `desde` (a template).
 #[tauri::command(async)]
 pub fn create_playlist(

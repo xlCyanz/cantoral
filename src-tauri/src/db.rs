@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   missing   INTEGER NOT NULL DEFAULT 0,
   video     INTEGER NOT NULL DEFAULT 0,
   cover_path TEXT,
+  -- 1 cuando la webview no pudo sacar un fotograma de este video: ver
+  -- `mark_thumbnail_failed`.
+  miniatura_fallida INTEGER NOT NULL DEFAULT 0,
   added_at  TEXT NOT NULL,
   mtime     INTEGER NOT NULL DEFAULT 0,
   fsize     INTEGER NOT NULL DEFAULT 0,
@@ -197,6 +200,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
          CREATE INDEX IF NOT EXISTS idx_playlist_momentos_orden
            ON playlist_momentos(playlist_id, position);",
     ),
+    // Las miniaturas de los videos: el fotograma va a `cover_path`, como una
+    // carátula más, y esto apunta los que no se dejaron leer para no volver a
+    // intentarlos en cada arranque.
+    (13, "ALTER TABLE tracks ADD COLUMN miniatura_fallida INTEGER NOT NULL DEFAULT 0"),
 ];
 
 /// The schema version this build writes and understands: the last migration.
@@ -310,7 +317,8 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
                 COALESCE(f.nombre,''),
                 t.cover_path,
                 {CON_HOJA},
-                t.added_at >= COALESCE((SELECT value FROM settings WHERE key='{ULTIMO_ESCANEO}'), '~')
+                t.added_at >= COALESCE((SELECT value FROM settings WHERE key='{ULTIMO_ESCANEO}'), '~'),
+                t.miniatura_fallida
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
          WHERE t.id > ?1
          ORDER BY t.id"
@@ -336,6 +344,7 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
             cover: r.get::<_, Option<String>>(12)?,
             tiene_hoja: r.get::<_, i64>(13)? != 0,
             nueva: r.get::<_, i64>(14)? != 0,
+            miniatura_fallida: r.get::<_, i64>(15)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -378,6 +387,11 @@ pub fn update_track_duration(conn: &Connection, id: i64, path: &str, duration: i
 
 /// Insert or update a scanned track by path. Preserves user-edited church
 /// fields (ocasion/fav) on re-scan. Returns the track row id.
+///
+/// Solo llega aquí un archivo nuevo o que cambió desde el último escaneo. La
+/// carátula se queda —un video no trae ninguna incrustada, y su miniatura no
+/// se puede volver a sacar desde aquí—, pero un video que no se dejó leer
+/// vuelve a la cola: el archivo ya es otro.
 #[allow(clippy::too_many_arguments)]
 pub fn upsert_track(
     conn: &Connection,
@@ -399,7 +413,8 @@ pub fn upsert_track(
            folder_id=excluded.folder_id, titulo=excluded.titulo,
            artista=CASE WHEN tracks.artista_manual=1 THEN tracks.artista ELSE excluded.artista END,
            album=excluded.album, dur_sec=excluded.dur_sec, formato=excluded.formato,
-           video=excluded.video, missing=0, mtime=excluded.mtime, fsize=excluded.fsize",
+           video=excluded.video, missing=0, mtime=excluded.mtime, fsize=excluded.fsize,
+           miniatura_fallida=0",
         params![folder_id, path, titulo, artista, album, dur_sec, formato, video as i64, now(), mtime, fsize],
     )?;
     let id: i64 =
@@ -440,6 +455,40 @@ pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()
             let _ = std::fs::remove_file(viejo);
         }
     }
+    Ok(())
+}
+
+/// Si la pista `id` sigue siendo un video en `path`.
+///
+/// La webview tarda lo suyo en sacar un fotograma, y en ese rato alguien pudo
+/// reubicar la pista o quitarla: lo que trae ya no es de ella.
+pub fn sigue_siendo_video(conn: &Connection, id: i64, path: &str) -> Result<bool> {
+    Ok(conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM tracks WHERE id=?1 AND path=?2 AND video=1)",
+        params![id, path],
+        |r| r.get(0),
+    )?)
+}
+
+/// Apuntar a un video la miniatura que la webview sacó de él. Va a la misma
+/// columna que las carátulas, así que se enseña, se quita con la pista y
+/// sobrevive a un reescaneo igual que ellas.
+pub fn set_video_thumbnail(conn: &Connection, id: i64, cover_path: &str) -> Result<()> {
+    set_cover_path(conn, id, cover_path)?;
+    conn.execute("UPDATE tracks SET miniatura_fallida=0 WHERE id=?1", params![id])?;
+    Ok(())
+}
+
+/// Apuntar que de este video no salió miniatura, para no volver a intentarlo.
+///
+/// Lo que congeló Windows en 0.3.2 fue reintentar en cada arranque los videos
+/// que no se dejaban leer. Se borra la marca si el archivo cambia o se
+/// reubica: ver `upsert_track` y `relocate_track`.
+pub fn mark_thumbnail_failed(conn: &Connection, id: i64, path: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE tracks SET miniatura_fallida=1 WHERE id=?1 AND path=?2 AND video=1",
+        params![id, path],
+    )?;
     Ok(())
 }
 
@@ -523,11 +572,14 @@ pub fn relocate_track(conn: &Connection, id: i64, new_path: &Path) -> Result<()>
 
     match folder_id {
         Some(fid) => conn.execute(
-            "UPDATE tracks SET path=?1, mtime=?2, fsize=?3, missing=0, folder_id=?4 WHERE id=?5",
+            "UPDATE tracks SET path=?1, mtime=?2, fsize=?3, missing=0, folder_id=?4,
+                    miniatura_fallida=0
+              WHERE id=?5",
             params![new_str, mtime, fsize, fid, id],
         )?,
         None => conn.execute(
-            "UPDATE tracks SET path=?1, mtime=?2, fsize=?3, missing=0 WHERE id=?4",
+            "UPDATE tracks SET path=?1, mtime=?2, fsize=?3, missing=0, miniatura_fallida=0
+              WHERE id=?4",
             params![new_str, mtime, fsize, id],
         )?,
     };
