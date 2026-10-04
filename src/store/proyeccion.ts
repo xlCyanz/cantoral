@@ -16,6 +16,12 @@ export interface ProyeccionSlice {
    *  enchufar o desenchufar una, así que recordarlo entre arranques apuntaría
    *  a la de al lado. */
   monitorSalida: number;
+  /**
+   * Si `monitorSalida` lo eligió quien opera. Mientras no, cada vez que se
+   * miran las pantallas se vuelve a decidir la de por defecto; en cuanto
+   * elige una, esa se respeta mientras siga conectada.
+   */
+  monitorElegido: boolean;
   /** Si la ventana de salida está abierta. */
   proyectando: boolean;
   /**
@@ -107,6 +113,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
   return {
     monitores: [],
     monitorSalida: 0,
+    monitorElegido: false,
     proyectando: false,
     proyeccionIdx: -1,
     proyeccionLista: "",
@@ -140,17 +147,24 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
         // ventana: en un culto el proyector es siempre la otra. Si solo hay
         // una, se queda esa y quien opera verá la salida encima — que es lo
         // que pasa cuando se prepara sin el proyector conectado.
+        //
+        // Pero la que eligió quien opera, o por la que ya se está saliendo,
+        // se queda mientras siga conectada. Antes solo se respetaba
+        // proyectando: elegir «Pantalla 1», ir al culto a buscar algo y volver
+        // a Proyección la devolvía a la de por defecto sin decir nada.
         monitorSalida:
-          lista.some((m) => m.indice === st.monitorSalida) && st.proyectando
+          lista.some((m) => m.indice === st.monitorSalida) && (st.proyectando || st.monitorElegido)
             ? st.monitorSalida
             : (lista.find((m) => !m.principal) ?? lista[0])?.indice ?? 0,
       }));
     },
 
     elegirMonitor: (indice) => {
-      set({ monitorSalida: indice });
-      // En marcha, elegir otra pantalla la mueve: pedir que se cierre y se
-      // vuelva a abrir sería un parpadeo delante de la congregación.
+      set({ monitorSalida: indice, monitorElegido: true });
+      // En marcha, elegir otra pantalla la mueve. El núcleo la cierra y la
+      // abre allí —mover una pantalla completa de un monitor a otro no es
+      // fiable en macOS—, y la ventana nueva, al avisar que está lista, recibe
+      // lo que se estaba proyectando.
       if (get().proyectando) {
         void openProjectionCmd(indice).catch((err) => {
           console.error("open_projection failed", err);

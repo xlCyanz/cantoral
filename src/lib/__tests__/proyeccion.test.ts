@@ -104,6 +104,36 @@ describe("elegir pantalla", () => {
     expect(useStore.getState().monitorSalida).toBe(PROYECTOR.indice);
   });
 
+  it("la que eligió quien opera se respeta al volver a mirar, aunque no se esté proyectando", async () => {
+    // Elegir el portátil para probar, ir al culto a buscar una canción y volver
+    // a Proyección no puede devolverla al proyector sin decir nada.
+    await useStore.getState().cargarMonitores();
+    useStore.getState().elegirMonitor(PORTATIL.indice);
+
+    await useStore.getState().cargarMonitores();
+
+    expect(useStore.getState().monitorSalida).toBe(PORTATIL.indice);
+  });
+
+  it("y si la elegida se desconecta, vuelve a la de por defecto", async () => {
+    await useStore.getState().cargarMonitores();
+    useStore.getState().elegirMonitor(PROYECTOR.indice);
+    projectionMonitors.mockResolvedValue([PORTATIL]);
+
+    await useStore.getState().cargarMonitores();
+
+    expect(useStore.getState().monitorSalida).toBe(PORTATIL.indice);
+  });
+
+  it("proyectar abre la salida en la pantalla elegida", async () => {
+    await useStore.getState().cargarMonitores();
+    useStore.getState().elegirMonitor(PORTATIL.indice);
+
+    useStore.getState().alternarProyeccion();
+
+    expect(openProjectionCmd).toHaveBeenCalledWith(PORTATIL.indice);
+  });
+
   it("que el núcleo falle deja la lista vacía, no revienta la vista", async () => {
     projectionMonitors.mockRejectedValue(new Error("sin ventana"));
     vi.spyOn(console, "error").mockImplementation(() => {});
