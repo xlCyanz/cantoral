@@ -12,7 +12,7 @@
 //! la única ventana que se puede abrir es esta, con esta configuración.
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
 
 /// La etiqueta de la ventana de salida. También la usa su archivo de
 /// capacidades, que le da mucho menos permiso que a la principal.
@@ -67,26 +67,49 @@ pub fn monitores(app: &AppHandle) -> Result<Vec<Monitor>, String> {
 
 /// Abre —o mueve— la salida en la pantalla pedida.
 ///
-/// Se posiciona antes de ponerla a pantalla completa: en X11 y en Windows,
-/// «pantalla completa» se aplica al monitor donde la ventana ya está, así que
-/// crearla en el centro y luego pedir pantalla completa la dejaría tapando el
-/// portátil del operador en vez del proyector.
+/// La pantalla completa se pide *para ese monitor* (`set_fullscreen_on_monitor`)
+/// y no «donde esté la ventana». Antes se colocaba la ventana en la posición
+/// del monitor y luego se pedía pantalla completa a secas, que en Tauri es
+/// pantalla completa en el monitor actual de la ventana. Pero la posición del
+/// monitor viene en píxeles físicos y el constructor la toma como lógicos: con
+/// la pantalla escalada (Retina, o el 125–150 % de casi todo portátil con
+/// Windows) la ventana nacía fuera del monitor elegido, el sistema la devolvía
+/// a la principal, y la salida acababa en el portátil fuera cual fuera la
+/// pantalla elegida.
+///
+/// Corre fuera del hilo principal (el comando es `async`): para mover la
+/// salida de pantalla espera a que la ventana anterior se cierre.
 pub fn abrir(app: &AppHandle, indice: usize) -> Result<(), String> {
     let pantallas = app.available_monitors().map_err(|e| e.to_string())?;
     let destino =
         pantallas.get(indice).ok_or_else(|| format!("no hay ninguna pantalla {}", indice + 1))?;
-    let posicion = *destino.position();
+    let fisica = *destino.position();
+    let objetivo = PhysicalPosition::new(fisica.x as f64, fisica.y as f64);
 
     if let Some(ventana) = app.get_webview_window(ETIQUETA) {
-        // Ya existía: cambiar de pantalla pide salir de pantalla completa
-        // primero, porque mover una ventana que ya lo está no hace nada.
-        ventana.set_fullscreen(false).map_err(|e| e.to_string())?;
-        ventana.set_position(posicion).map_err(|e| e.to_string())?;
-        ventana.set_fullscreen(true).map_err(|e| e.to_string())?;
-        ventana.show().map_err(|e| e.to_string())?;
-        return Ok(());
+        // Ya está en esa pantalla: no hay nada que mover.
+        let donde = ventana.current_monitor().ok().flatten().map(|m| *m.position());
+        if donde == Some(fisica) {
+            ventana.show().map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+        // En otra: se cierra y se abre de nuevo allí. Mover una ventana a
+        // pantalla completa de un monitor a otro no es fiable en macOS: salir
+        // de pantalla completa es una animación asíncrona, la petición de
+        // entrar en el otro monitor llega antes de que empiece, y las dos
+        // chocan —la salida se quedaba en 0×0, y alguna vez la app se cerró—.
+        // Recrearla deja el proyector un instante en negro, y la ventana
+        // nueva pide lo que hay que mostrar en cuanto está lista.
+        ventana.destroy().map_err(|e| e.to_string())?;
+        esperar_cierre(app)?;
+        log::info!("projection window closed to move it to monitor {indice}");
     }
 
+    // El constructor quiere píxeles lógicos: se convierten con la escala del
+    // monitor de destino para que la ventana nazca ya dentro de él. La
+    // pantalla completa de abajo no depende de esto, pero así no aparece un
+    // instante en otro sitio.
+    let logica = fisica.to_logical::<f64>(destino.scale_factor());
     let ventana =
         WebviewWindowBuilder::new(app, ETIQUETA, WebviewUrl::App("index.html?salida".into()))
             .title("Cantoral — proyección")
@@ -97,14 +120,31 @@ pub fn abrir(app: &AppHandle, indice: usize) -> Result<(), String> {
             // medio dibujada delante de la congregación.
             .visible(false)
             .background_color(tauri::window::Color(0, 0, 0, 255))
-            .position(posicion.x as f64, posicion.y as f64)
+            .position(logica.x, logica.y)
             .build()
             .map_err(|e| e.to_string())?;
 
-    ventana.set_fullscreen(true).map_err(|e| e.to_string())?;
+    ventana.set_fullscreen_on_monitor(objetivo).map_err(|e| e.to_string())?;
     ventana.show().map_err(|e| e.to_string())?;
-    log::info!("projection window opened on monitor {indice}");
+    log::info!(
+        "projection window opened on monitor {indice} at {fisica:?} (scale {})",
+        destino.scale_factor()
+    );
     Ok(())
+}
+
+/// Espera a que la ventana de salida termine de cerrarse, para poder abrir
+/// otra con la misma etiqueta. La cierra el bucle de eventos, en el hilo
+/// principal; este comando corre fuera de él, así que esperar aquí no lo
+/// bloquea.
+fn esperar_cierre(app: &AppHandle) -> Result<(), String> {
+    for _ in 0..60 {
+        if app.get_webview_window(ETIQUETA).is_none() {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    Err("la ventana de proyección no terminó de cerrarse".into())
 }
 
 /// Cierra la salida.
