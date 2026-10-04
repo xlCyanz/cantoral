@@ -115,3 +115,16 @@ useStore.subscribe((s, previo) => {
   if (modulo.letrasTimer) clearTimeout(modulo.letrasTimer);
   modulo.letrasTimer = setTimeout(() => void useStore.getState().buscarEnLetras(), ESPERA_BUSQUEDA_LETRA_MS);
 });
+
+// ============================================================
+// La barra del reproductor aparece al sonar algo
+// ============================================================
+
+/**
+ * Mirando `playing` y no desde `play` o `togglePlay`, porque se pone a sonar
+ * desde muchos sitios —la barra, el doble clic, Espacio, el culto, la
+ * proyección—, y la barra tiene que aparecer en todos.
+ */
+useStore.subscribe((s) => {
+  if (s.playing && !s.haSonado) useStore.setState({ haSonado: true });
+});
