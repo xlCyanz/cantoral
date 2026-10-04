@@ -21,6 +21,13 @@ export interface ReproductorSlice {
   // ---- player ----
   playerId: string;
   playing: boolean;
+  /**
+   * Si algo ha sonado en esta sesión. Hasta entonces la barra del reproductor
+   * no se muestra: enseñaba una canción cualquiera que no estaba sonando. Una
+   * vez que suena algo se queda, también en pausa, porque es desde donde se
+   * reanuda.
+   */
+  haSonado: boolean;
   posSec: number;
   volume: number;
   muted: boolean;
@@ -52,6 +59,7 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
 
     playerId: "",
     playing: false,
+    haSonado: false,
     posSec: 0,
     volume: 0.72,
     muted: false,
