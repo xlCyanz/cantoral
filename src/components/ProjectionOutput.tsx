@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import type { EstadoProyeccion, SalidaProyeccion, VistaProyeccion } from "../lib/api";
+import type { EstadoProyeccion, MensajeProyeccion, OrdenProyeccion, SalidaProyeccion, VistaProyeccion } from "../lib/api";
 import { ERROR_AUTOPLAY } from "../lib/formatos";
 
 /**
@@ -47,6 +47,14 @@ export default function ProjectionOutput() {
    *  resuelta: el navegador la convierte en absoluta y dejaría de coincidir. */
   const cargado = useRef<{ a: string | null; b: string | null }>({ a: null, b: null });
   const [activo, setActivo] = useState<"a" | "b">("a");
+  // Lo mismo que `activo` y `salida`, para quien escucha los eventos: se
+  // suscribe una vez y vería siempre los del primer dibujo.
+  const activoRef = useRef(activo);
+  const salidaRef = useRef(salida);
+  useEffect(() => {
+    activoRef.current = activo;
+    salidaRef.current = salida;
+  }, [activo, salida]);
 
   /** Los temporizadores de la transición en curso, para poder cortarla. */
   const relojes = useRef<number[]>([]);
@@ -60,7 +68,29 @@ export default function ProjectionOutput() {
       relojes.current.push(window.setTimeout(fn, ms));
     };
 
-    const aplicar = (p: SalidaProyeccion) => {
+    /**
+     * Saltar a un segundo de lo que está en pantalla, sin tocar qué se ve.
+     *
+     * Solo si lo que se ve es el archivo al que se refiere: una orden que
+     * llega tarde, con lo siguiente ya en pantalla, no lo puede mover.
+     */
+    const buscar = (o: OrdenProyeccion) => {
+      const cual = activoRef.current;
+      const el = (cual === "a" ? refA : refB).current;
+      if (!el || cargado.current[cual] !== o.src) return;
+      el.currentTime = o.pos;
+      // Un video que ya había terminado se queda parado al rebobinarlo; si lo
+      // que se pide es que suene, se arranca.
+      const v = salidaRef.current.vista;
+      if (v.modo === "media" && v.reproduciendo && el.paused) void el.play().catch(() => {});
+    };
+
+    const aplicar = (m: MensajeProyeccion) => {
+      if ("orden" in m) {
+        buscar(m);
+        return;
+      }
+      const p = m;
       // Lo que llegue corta la transición que hubiera: un «negro» pulsado en
       // mitad de una cuenta atrás tiene que cortar ya, no dentro de dos
       // segundos.
@@ -93,7 +123,7 @@ export default function ProjectionOutput() {
     };
 
     let soltar: (() => void) | undefined;
-    void listen<SalidaProyeccion>("proyeccion", (e) => aplicar(e.payload)).then((f) => {
+    void listen<MensajeProyeccion>("proyeccion", (e) => aplicar(e.payload)).then((f) => {
       soltar = f;
       // Después de suscribirse y no antes: lo que conteste la ventana
       // principal tiene que encontrar a alguien escuchando.
