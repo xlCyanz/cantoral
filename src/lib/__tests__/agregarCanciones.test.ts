@@ -48,7 +48,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     ...over,
   };
 }
@@ -83,7 +82,7 @@ describe("el buscador del diálogo", () => {
   it("encuentra lo mismo que la biblioteca", () => {
     // La tabla y el diálogo comparten la coincidencia: lo que se encuentra en
     // uno se encuentra en el otro.
-    const s = { ...useStore.getState(), tracks, qf: null, ocasion: null, letras: null, sortKey: "titulo", sortDir: "asc" } as never;
+    const s = { ...useStore.getState(), tracks, qf: null, ocasion: null, sortKey: "titulo", sortDir: "asc" } as never;
     for (const q of ["santo", "jerusalen", "ESTÁ", "comunion"]) {
       expect(applyFilters({ ...(s as object), query: q } as never).map((t: Track) => t.id)).toEqual(buscarCanciones(tracks, q).map((t) => t.id));
     }

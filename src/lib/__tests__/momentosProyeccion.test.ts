@@ -3,9 +3,8 @@
 // El criterio de la propuesta, tal cual: un culto «Adoración 1 → Oración →
 // Adoración 2» proyectado con «Pasar al siguiente». La primera canción acaba,
 // sale «Oración» sobre negro y se queda; «Siguiente» arranca la segunda. Y lo
-// que va alrededor: que «Reproducir todo» pase de largo, que el atril no pida
-// letras de un momento, y que importar un culto con momentos los deje en su
-// sitio.
+// que va alrededor: que «Reproducir todo» pase de largo y que importar un
+// culto con momentos los deje en su sitio.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EstadoProyeccion, SalidaProyeccion } from "../api";
@@ -44,7 +43,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     path: `/m/${id}.mp3`,
     ...over,
   };
@@ -130,16 +128,6 @@ describe("un momento en la proyección", () => {
     expect(ultimo().transicion).toBe("cuenta");
   });
 
-  it("no tiene estrofas: «Siguiente» no se queda recorriendo una letra que no hay", () => {
-    culto();
-    useStore.setState({ salidaDeAudio: "letra" });
-    useStore.getState().proyectarElemento(1);
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(useStore.getState().proyeccionIdx).toBe(2);
-  });
-
   it("con el momento sin texto, sale solo el título", () => {
     culto();
     useStore.setState({ playlists: [{ ...useStore.getState().playlists[0], momentos: [{ ...ORACION, texto: "" }] }] });
@@ -157,16 +145,6 @@ describe("fuera de la proyección", () => {
     useStore.getState().playAll();
 
     expect(useStore.getState().queue).toEqual(["1", "2"]);
-  });
-
-  it("el atril no pide la letra de un momento", async () => {
-    culto();
-    const hojas = vi.fn(async () => []);
-    usarBackend({ ...crearMemoria(), getSheets: hojas });
-
-    await useStore.getState().loadSheets(["1", "m:1", "2"]);
-
-    expect(hojas).toHaveBeenCalledWith(["1", "2"]);
   });
 
   it("quitar un momento de la tabla lo saca del culto", async () => {

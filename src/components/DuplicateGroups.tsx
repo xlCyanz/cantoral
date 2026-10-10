@@ -128,9 +128,8 @@ export default function DuplicateGroups() {
           <h2 style={h2Style}>Pistas duplicadas</h2>
           <p style={pStyle}>
             La misma canción suele acabar dos veces en la biblioteca: el MP3 y el WAV, la que bajó cada
-            quien en su carpeta. Al fusionarlas, la que se queda hereda el favorito, la letra y
-            los acordes, y el sitio en las listas para culto de las demás. Tus archivos no se
-            borran del disco.
+            quien en su carpeta. Al fusionarlas, la que se queda hereda el favorito y el sitio en
+            las listas para culto de las demás. Tus archivos no se borran del disco.
           </p>
         </div>
         <button

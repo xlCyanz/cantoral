@@ -21,8 +21,8 @@
 </div>
 
 **Cantoral** prepara y proyecta el culto. Arma el repertorio una vez, dale a
-proyectar y corre entero en la otra pantalla —el video tal cual, o la letra
-estrofa a estrofa— pasando solo de un canto al siguiente. Detrás, una biblioteca
+proyectar y corre entero en la otra pantalla —el video tal cual, o el título
+sobre la portada— pasando solo de un canto al siguiente. Detrás, una biblioteca
 con toda la música de la iglesia que se busca, se filtra por ocasión y se agrupa
 por la carpeta del disco.
 
@@ -62,15 +62,14 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 
 - 📋 **Cultos** — un culto es una lista preparada: se arma una vez, se le da a proyectar y corre entero, pasando solo de un elemento al siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
 - 🙏 **Momentos sin música** — una oración, una lectura, los anuncios: añádelos al culto con «Añadir un momento…» y reordénalos como una pista más. En el proyector sale su título sobre negro y la proyección se detiene ahí hasta que pulses «Siguiente»; en la hoja impresa sale en su sitio, y «Reproducir todo» pasa de largo.
-- 📽️ **Proyección** — una ventana propia a pantalla completa en la otra pantalla: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El video sale tal cual; una pista de audio saca la letra —las estrofas las pasa quien opera—, la letra sobre la portada o negro. Entre un elemento y otro, medio segundo de negro o una cuenta atrás; al acabar cada uno pasa solo al siguiente, y <kbd>B</kbd> deja la pantalla en negro al instante.
-- 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y sácalos en la hoja impresa, con los acordes sobre la sílaba donde caen.
+- 📽️ **Proyección** — una ventana propia a pantalla completa en la otra pantalla: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El video sale tal cual; una pista de audio saca su título sobre la portada, o negro. Entre un elemento y otro, medio segundo de negro o una cuenta atrás; al acabar cada uno pasa solo al siguiente, y <kbd>B</kbd> deja la pantalla en negro al instante.
 - ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
-- 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a un culto, ver el detalle, letra y acordes, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
+- 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a un culto, ver el detalle, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
 - 🎼 **Artista y ocasión** — corrígelos desde el panel de detalle, con sugerencias de las ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, el agrupar por ocasión y la hoja imprimible. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo. **Fijar** deja el panel abierto: <kbd>Esc</kbd> ya no lo cierra, para ir pista por pista sin perder el sitio.
 - ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
 - 🔁 **Duplicar y plantillas** — duplica un culto con su orden, o guárdalo como plantilla para partir de él.
 - 📤 **Compartir una lista** — mándala a otra instalación de Cantoral en un `.cantoral.json` y ábrela allí. No viaja el audio ni la ruta de tu disco, solo lo justo para volver a encontrar cada pista; al importar, una pantalla dice qué se encontró y qué falta antes de crear nada.
-- 🖨️ **Imprimir** — la hoja de la lista (título, artista, ocasión, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». Eliges entre solo el repertorio o con las letras y acordes detrás, una canción por página; y puedes guardar el `.html` si prefieres mandarla por correo.
+- 🖨️ **Imprimir** — la hoja de la lista (título, artista, ocasión, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». También puedes guardar el `.html` si prefieres mandarla por correo.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder lo que lleva escrito, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. La **única** petición de red que hace por su cuenta es buscar actualizaciones: al abrirse pide a GitHub el archivo con la última versión, sin mandar ningún dato tuyo ni de tu biblioteca, y se puede apagar en **Configuración → Actualizaciones** (detalle en [Qué se pide al abrir, y cómo apagarlo](#qué-se-pide-al-abrir-y-cómo-apagarlo)). Todo lo demás —tipografías incluidas— va dentro del paquete, así que sin conexión funciona igual.
@@ -402,11 +401,11 @@ cantoral/
 │   │                       # ventana del proyector), diálogos, …
 │   ├── lib/                # api (puente con Tauri) · backend (Tauri o en
 │   │                       # memoria) · seed (datos de ejemplo) ·
-│   │                       # estrofas · chords · formatos · media · compartir ·
+│   │                       # buscar · formatos · media · compartir ·
 │   │                       # exportSheet · shortcuts · … · __tests__/
 │   ├── store/              # Estado global (Zustand), un slice por dominio:
 │   │                       # biblioteca · cultos · reproductor · proyeccion ·
-│   │                       # hojas · … · selectores (puros) · index (los junta)
+│   │                       # duplicados · … · selectores (puros) · index (los junta)
 │   └── styles/global.css   # Tokens de diseño (claro/oscuro), fuentes, keyframes
 └── src-tauri/src/          # Núcleo (Rust)
     ├── models.rs           # Structs (Track, Folder, Playlist, …)
@@ -490,7 +489,7 @@ vuelve a abrir la app: al arrancar se re-verifica todo el catálogo. Si los
 archivos cambiaron de sitio, **Localizar…** en el panel de detalle apunta la pista
 a su archivo nuevo, y en Configuración cada carpeta se puede apuntar entera a su
 nueva ubicación —cuando el disco cambia de letra, por ejemplo—. Las dos cosas
-conservan favoritos, letras y el sitio en los cultos.
+conservan favoritos y el sitio en los cultos.
 </details>
 
 <details>

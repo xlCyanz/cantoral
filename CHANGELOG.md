@@ -15,6 +15,21 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   botón «Modo culto» en cada culto y las flechas <kbd>↑</kbd> / <kbd>↓</kbd>
   para pasar de canción en ella. Se quita a pedido de quienes usan la app en
   la iglesia; la proyección y la hoja impresa siguen como estaban.
+- **La letra y los acordes.** Ya no hay editor de letra y acordes («Letra y
+  acordes» en el menú de cada fila y en el panel de detalle, con su marca
+  «escrita»), ni se busca por la letra en la biblioteca, ni la hoja impresa
+  ofrece «Con letras y acordes»: imprime el repertorio, como antes. Lo que se
+  hubiera escrito no se borra: sigue guardado en la base de datos y en las
+  copias de seguridad, y al fusionar duplicados pasa a la pista que se queda.
+
+### Cambiado
+
+- **Qué sale por el proyector con una pista de solo audio.** Las opciones son
+  ahora «Negro» y «Portada» —el título sobre la carátula de la pista, o sobre
+  negro si no tiene—, que es la de fábrica. «Portada y letra» y «Solo la letra»
+  desaparecen, y «Siguiente» ya no recorre estrofas: pasa directamente al
+  elemento de después. Quien tenía elegida «Solo la letra» pasa a «Portada»;
+  «Portada y letra» se queda en «Portada».
 
 ## [0.5.0] - 2026-10-04
 

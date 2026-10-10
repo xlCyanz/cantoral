@@ -36,9 +36,8 @@ const GUARDADAS: UiPrefs = {
   groupBy: "ocasion",
   view: "colecciones",
   curPlaylist: "p2",
-  printWithLyrics: true,
   densidad: "compacta",
-  salidaDeAudio: "portada",
+  salidaDeAudio: "negro",
   transicionProyeccion: "cuenta",
   avanceProyeccion: "siguiente",
   buscarActualizacionesAlAbrir: false,
@@ -91,11 +90,11 @@ describe("parsePrefs", () => {
   });
 
   it("recuerda los ajustes de la proyección", () => {
-    // Una iglesia elige una vez si proyecta la letra o deja el negro, y no
+    // Una iglesia elige una vez si proyecta la portada o deja el negro, y no
     // quiere volver a decidirlo cada domingo antes de empezar.
-    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "portada", transicionProyeccion: "cuenta" });
 
-    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "portada", transicionProyeccion: "cuenta" });
   });
 
   it("y recuerda si la proyección avanza sola", () => {
@@ -103,10 +102,20 @@ describe("parsePrefs", () => {
     expect(parsePrefs(JSON.stringify({ avanceProyeccion: "negro" }))).toEqual({ avanceProyeccion: "negro" });
   });
 
-  it("y acepta los tres modos de salida de audio", () => {
-    for (const modo of ["negro", "portada", "letra"] as const) {
+  it("y acepta los dos modos de salida de audio", () => {
+    for (const modo of ["negro", "portada"] as const) {
       expect(parsePrefs(JSON.stringify({ salidaDeAudio: modo }))).toEqual({ salidaDeAudio: modo });
     }
+  });
+
+  it("una salida «letra» guardada por una versión anterior vuelve a la de fábrica", () => {
+    // La letra ya no se proyecta: quien la tenía elegida ve la portada, que
+    // con una pista sin carátula es el título sobre negro, como antes.
+    expect(parsePrefs(JSON.stringify({ salidaDeAudio: "letra", densidad: "compacta" }))).toEqual({ densidad: "compacta" });
+  });
+
+  it("y olvida «con letras» de la hoja impresa", () => {
+    expect(parsePrefs(JSON.stringify({ printWithLyrics: true }))).toEqual({});
   });
 
   it("clamps a volume outside the range instead of dropping it", () => {
@@ -199,8 +208,8 @@ describe("guardar los cambios", () => {
 
   it("y también los ajustes de la proyección", async () => {
     // Van por el mismo vigilante que el resto: si no estuvieran en la lista de
-    // campos observados, se elegiría «Solo la letra» un domingo y el siguiente
-    // volvería a estar en negro.
+    // campos observados, se elegiría «Negro» un domingo y el siguiente
+    // volvería a estar la portada.
     useStore.getState().setSalidaDeAudio("negro");
     useStore.getState().setTransicionProyeccion("cuenta");
     useStore.getState().setAvanceProyeccion("siguiente");

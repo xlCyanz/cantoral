@@ -237,7 +237,7 @@ export default function ProjectionOutput() {
 }
 
 /**
- * Lo que va encima del negro: la letra, el título, o nada.
+ * Lo que va encima del negro: el título, sobre la carátula si la lleva, o nada.
  *
  * Un video no pasa por aquí —ya llena la pantalla—, y con «Negro» elegido
  * tampoco se pinta nada: hay cultos donde lo que se quiere mientras suena la
@@ -250,61 +250,38 @@ function Contenido({ vista }: { vista: VistaProyeccion }) {
   const audio = vista.modo === "media" ? vista.audio : undefined;
   if (audio?.tipo === "negro") return null;
 
-  const lineas = audio?.lineas ?? [];
-  if (lineas.length > 0) {
-    return <Letra lineas={lineas} etiqueta={audio?.etiqueta} portada={audio?.portada} />;
-  }
-
-  // Sin letra escrita —o una pista cuyo archivo no se puede abrir— se cae al
-  // título. Es mejor que un negro con el que nadie sabe si la app se colgó.
+  // El título —también el de una pista cuyo archivo no se puede abrir—. Es
+  // mejor que un negro con el que nadie sabe si la app se colgó.
   const sub = vista.modo === "titulo" || vista.modo === "media" ? vista.sub : undefined;
   return (
-    <div style={{ position: "relative", padding: 40, textAlign: "center", maxWidth: "80vw" }}>
-      <div className="display" style={{ fontSize: "5vw", lineHeight: 1.15, textWrap: "balance" }}>
-        {vista.titulo}
+    <>
+      {audio?.portada && <Portada src={audio.portada} />}
+      <div style={{ position: "relative", padding: 40, textAlign: "center", maxWidth: "80vw" }}>
+        <div className="display" style={{ fontSize: "5vw", lineHeight: 1.15, textWrap: "balance" }}>
+          {vista.titulo}
+        </div>
+        {sub && <div style={{ marginTop: "1.2vw", fontSize: "1.8vw", color: "rgba(255,255,255,.55)" }}>{sub}</div>}
       </div>
-      {sub && <div style={{ marginTop: "1.2vw", fontSize: "1.8vw", color: "rgba(255,255,255,.55)" }}>{sub}</div>}
-    </div>
+    </>
   );
 }
 
-/** Una estrofa a pantalla completa, con su carátula de fondo si la lleva. */
-function Letra({ lineas, etiqueta, portada }: { lineas: string[]; etiqueta?: string; portada?: string }) {
-  // El cuerpo sale de cuántas líneas hay: una estrofa de dos se lee desde el
-  // fondo del salón, una de ocho no cabría con ese mismo tamaño. El tope de
-  // arriba evita que una línea suelta salga tan grande que parezca un error.
-  const tam = Math.min(8, 70 / (lineas.length * 1.35));
-
+/** La carátula de la pista a pantalla completa, de fondo para el título. */
+function Portada({ src }: { src: string }) {
   return (
-    <>
-      {portada && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: `url(${portada})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            // Apagada y desenfocada: es un fondo para que la letra se lea
-            // encima, no una foto que compita con ella.
-            filter: "brightness(.32) blur(6px)",
-            transform: "scale(1.06)",
-          }}
-        />
-      )}
-      <div style={{ position: "relative", padding: "4vh 6vw", textAlign: "center", maxWidth: "92vw" }}>
-        {etiqueta && (
-          <div style={{ fontSize: "1.6vh", fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(255,255,255,.42)", marginBottom: "2.4vh" }}>
-            {etiqueta}
-          </div>
-        )}
-        {lineas.map((l, i) => (
-          <div key={i} className="display" style={{ fontSize: `${tam}vh`, lineHeight: 1.3, textWrap: "balance" }}>
-            {l}
-          </div>
-        ))}
-      </div>
-    </>
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        backgroundImage: `url(${src})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        // Apagada y desenfocada: es un fondo para que el título se lea
+        // encima, no una foto que compita con él.
+        filter: "brightness(.32) blur(6px)",
+        transform: "scale(1.06)",
+      }}
+    />
   );
 }

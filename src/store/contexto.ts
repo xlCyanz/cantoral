@@ -6,7 +6,6 @@ import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
 import type { CantoralState, ToastType } from "./tipos";
 import { ultimoId, cur, plDur } from "./selectores";
-import { buscaEnLetras } from "../lib/buscarLetra";
 
 // Parte del store (#134). Ver src/store/index.ts.
 //
@@ -29,21 +28,12 @@ export const modulo = {
   dragId: null as string | null,
   /** Action to re-run from the error state — set whenever a backend call fails. */
   lastFailedAction: null as (() => void) | null,
-  /** Debounce for a sheet being typed into the editor. */
-  sheetTimer: null as ReturnType<typeof setTimeout> | null,
-  /** Id of the track whose sheet is waiting out that debounce, if any. */
-  pendingSheet: null as string | null,
-
   /** Debounce for track edits, which now write themselves. */
   saveTimer: null as ReturnType<typeof setTimeout> | null,
   /** Id of the track whose edit is waiting out the debounce, if any. */
   pendingSave: null as string | null,
   /** Debounce for writing the interface preferences back. */
   prefsTimer: null as ReturnType<typeof setTimeout> | null,
-  /** Retardo entre la última tecla del buscador y preguntar por la letra (#144). */
-  letrasTimer: null as ReturnType<typeof setTimeout> | null,
-  /** Sube con cada búsqueda en las hojas, para descartar respuestas viejas. */
-  letrasGen: 0,
   /** Si el escaneo que está acabando lo canceló el usuario. */
   escaneoCancelado: false,
 
@@ -208,16 +198,9 @@ export function crearContexto(set: Set, get: Get) {
     modulo.refreshTimer = null;
   };
 
-  /**
-   * Build the printable page for a list and hand it wherever it goes.
-   *
-   * Split out of `exportPl` because that now has to wait for the lyrics before
-   * it can build anything, and the waiting has two endings — with them, and
-   * without them if they could not be read.
-   */
+  /** Build the printable page for a list and hand it wherever it goes. */
   const escribirHoja = (pl: Playlist, rows: readonly Elemento[], ord: string[]) => {
-    const s = get();
-    const html = playlistSheetHtml(pl, rows, plDur(s, ord), s.sheets);
+    const html = playlistSheetHtml(pl, rows, plDur(get(), ord));
     const name = sheetFileName(pl.nombre);
     backend()
       .saveSheet(name, html)
@@ -227,37 +210,6 @@ export function crearContexto(set: Set, get: Get) {
         if (dest) toast("Hoja guardada", { detalle: dest });
       })
       .catch((err) => avisarFallo(err, "No se pudo guardar la hoja"));
-  };
-
-  /** Write the sheet waiting out its debounce, reading the latest text. */
-  const writePendingSheet = () => {
-    const id = modulo.pendingSheet;
-    modulo.pendingSheet = null;
-    if (modulo.sheetTimer) clearTimeout(modulo.sheetTimer);
-    modulo.sheetTimer = null;
-    if (!id) return;
-    const hoja = get().sheets[id];
-    if (!hoja) return;
-    backend()
-      .updateTrackSheet(id, hoja.letra, hoja.acordes)
-      .then(() => {
-        if (get().sheetDialog === id) set({ sheetState: "saved" });
-        // Lo escrito ya está en el índice: si hay una búsqueda puesta, que lo
-        // vea sin tener que volver a teclearla.
-        if (buscaEnLetras(get().query)) void get().buscarEnLetras();
-      })
-      .catch((err) => {
-        console.error("update_track_sheet failed", err);
-        if (get().sheetDialog === id) set({ sheetState: "error" });
-        toast("No se pudo guardar la letra", { tipo: "error" });
-      });
-  };
-
-  const scheduleSheetSave = (id: string) => {
-    if (modulo.pendingSheet && modulo.pendingSheet !== id) writePendingSheet();
-    modulo.pendingSheet = id;
-    if (modulo.sheetTimer) clearTimeout(modulo.sheetTimer);
-    modulo.sheetTimer = setTimeout(writePendingSheet, 600);
   };
 
   /**
@@ -338,7 +290,7 @@ export function crearContexto(set: Set, get: Get) {
     backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
-  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingSheet, scheduleSheetSave, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
+  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
 }
 
 export type Contexto = ReturnType<typeof crearContexto>;

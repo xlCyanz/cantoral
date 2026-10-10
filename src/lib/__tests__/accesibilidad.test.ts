@@ -134,7 +134,7 @@ describe("Proyección", () => {
 
     // Cada botón apunta a su explicación, que está en la página.
     const descritos = [...h.matchAll(/aria-describedby="(proy-[^"]+)"/g)].map((m) => m[1]);
-    expect(descritos.length).toBe(7);
+    expect(descritos.length).toBe(6);
     for (const id of descritos) expect(h).toContain(`id="${id}"`);
     // Y la del elegido se ve.
     expect(h).toContain("Al acabarse un elemento, arranca solo el de después.");

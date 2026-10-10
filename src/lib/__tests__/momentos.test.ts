@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Momento, Playlist, Track } from "../types";
-import { elementosDe, esMomento, pistasDe, resumenDeOrden, soloPistas, tipoDeMomento } from "../momentos";
+import { elementosDe, esMomento, resumenDeOrden, soloPistas, tipoDeMomento } from "../momentos";
 import {
   VERSION,
   VERSION_SIN_MOMENTOS,
@@ -33,7 +33,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     path: `/m/${id}.mp3`,
     ...over,
   };
@@ -70,7 +69,6 @@ describe("el orden de un culto con momentos", () => {
     const elementos = elementosDe(["a", "m:1", "b"], pistas, momentos);
 
     expect(elementos.map((e) => `${e.clase}:${e.id}`)).toEqual(["pista:a", "momento:m:1", "pista:b"]);
-    expect(pistasDe(elementos).map((t) => t.id)).toEqual(["a", "b"]);
   });
 
   it("se salta lo que ya no existe, pista o momento", () => {
@@ -113,14 +111,6 @@ describe("la hoja impresa", () => {
     const html = playlistSheetHtml(culto(), elementos, "6 min");
 
     expect(html).toContain("2 pistas · 1 momento · 6 min");
-  });
-
-  it("un momento no aporta página de letra", () => {
-    const html = playlistSheetHtml(culto(), elementos, "6 min", {
-      "m:2": { trackId: "m:2", letra: "no debería salir", acordes: "" },
-    });
-
-    expect(html).not.toContain("no debería salir");
   });
 });
 

@@ -17,7 +17,7 @@ export function esMomento(id: string): boolean {
   return id.startsWith(PREFIJO_MOMENTO);
 }
 
-/** Solo las pistas de un orden: lo que se reproduce, se cuenta como «pistas» o lleva letra. */
+/** Solo las pistas de un orden: lo que se reproduce o se cuenta como «pistas». */
 export function soloPistas(ids: readonly string[]): string[] {
   return ids.filter((id) => !esMomento(id));
 }
@@ -68,11 +68,6 @@ export function elementosDe(
     }
   }
   return fuera;
-}
-
-/** Las pistas de una lista de elementos, en su orden. */
-export function pistasDe(elementos: readonly Elemento[]): Track[] {
-  return elementos.flatMap((e) => (e.clase === "pista" ? [e.pista] : []));
 }
 
 /**

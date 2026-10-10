@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
-import { applyFilters, buildGroups, escaneoAPantallaCompleta, fragmentosDeLetra, seleccionVigente, useStore } from "../store";
+import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
 import { coverStyle } from "../lib/covers";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
@@ -48,8 +48,6 @@ const TrackRow = memo(function TrackRow({ t, num, fila, densidad }: { t: Track; 
   const openRowMenu = useStore((s) => s.openRowMenu);
   const startLibraryDrag = useStore((s) => s.startLibraryDrag);
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
-  // El verso por el que salió, si salió solo por la letra (#144).
-  const verso = useStore((s) => fragmentosDeLetra(s).get(t.id));
 
   const compacta = densidad === "compacta";
   // Una fila compacta no tiene sitio para el artista *y* el aviso: si hay
@@ -84,7 +82,7 @@ const TrackRow = memo(function TrackRow({ t, num, fila, densidad }: { t: Track; 
       role="row"
       aria-rowindex={fila}
       tabIndex={0}
-      aria-label={`${t.titulo}, ${t.artista}, ${t.dur}${t.missing ? ", sin archivo" : ""}${verso ? `, en la letra: ${verso}` : ""}`}
+      aria-label={`${t.titulo}, ${t.artista}, ${t.dur}${t.missing ? ", sin archivo" : ""}`}
       aria-selected={elegida}
       draggable
       onDragStart={(e) => {
@@ -157,14 +155,7 @@ const TrackRow = memo(function TrackRow({ t, num, fila, densidad }: { t: Track; 
               archivo importa más que quién la canta. */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, marginTop: compacta ? 0 : 1, ...(compacta ? { flex: "0 0 auto", ...(muestraArtista ? { maxWidth: "34%", overflow: "hidden" } : {}) } : {}) }}>
             {muestraArtista && (
-              <span style={{ fontSize: compacta ? "11.5px" : 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...(verso ? { flex: "0 1 auto", maxWidth: "40%" } : {}) }}>{t.artista}</span>
-            )}
-            {/* Encontrada por la letra: el verso es lo que confirma que es esa.
-                Al lado del artista y no debajo, porque la fila tiene alto fijo. */}
-            {verso && !compacta && (
-              <span title={verso} style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, fontStyle: "italic", color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                «{verso}»
-              </span>
+              <span style={{ fontSize: compacta ? "11.5px" : 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artista}</span>
             )}
             {t.missing && (
               <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: "10.5px", fontWeight: 600, color: "var(--danger)", background: "var(--danger-soft)", padding: "1px 6px", borderRadius: 5 }}>
@@ -497,7 +488,7 @@ function Tabla() {
         // Decir dónde se buscó es la respuesta a la pregunta que se hace
         // cualquiera al ver esto: «¿lo estoy escribiendo mal, o de verdad no
         // está?». La lista de campos es la que `applyFilters` recorre.
-        desc={`Se buscó en el título, el artista, el álbum, la ocasión y la letra de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
+        desc={`Se buscó en el título, el artista, el álbum y la ocasión de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
         action={
           <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null })} className="hb-s2" style={emptyBtnSecondary}>
             Quitar la búsqueda y los filtros

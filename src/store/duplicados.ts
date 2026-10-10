@@ -1,4 +1,4 @@
-import { type DuplicateGroup, type DuplicateTrack } from "../lib/api";
+import { type DuplicateGroup } from "../lib/api";
 import { backend } from "../lib/backend";
 import type { Contexto, Get, Set } from "./contexto";
 import { AVISO_COPIA_AUTOMATICA } from "./reglas";
@@ -53,30 +53,12 @@ export function crearDuplicados(set: Set, get: Get, ctx: Contexto): DuplicadosSl
       const copias = grupo.tracks.filter((t) => t.id !== keepId);
       if (copias.length === 0) return;
 
-      // The core hands a sheetless survivor the sheet of the first copy that has
-      // one (lowest id) and never overwrites the survivor's own. Any other copy
-      // with a sheet loses it, and hand-written lyrics are the one thing here
-      // the disk cannot give back — so it is said before, copy by copy (#126).
-      // The duplicate report does not carry the flag; the catalogue does.
-      const conHoja = (id: string) => get().tracks.find((t) => t.id === id)?.tieneHoja ?? false;
-      const copiasConHoja = copias.filter((c) => conHoja(c.id)).sort((a, b) => Number(a.id) - Number(b.id));
-      const heredada = conHoja(keepId) ? undefined : copiasConHoja[0];
-      // By file name: the copies often share title, format and folder.
-      const cual = (c: DuplicateTrack) => `«${c.path.split(/[\\/]/).pop()}» (${c.formato} · ${c.carpeta})`;
-      const avisoHojas = copiasConHoja
-        .filter((c) => c !== heredada)
-        .map(
-          (c) =>
-            `La copia ${cual(c)} tiene una letra escrita que se perderá: ` +
-            (heredada ? `se queda la de ${cual(heredada)}.` : "la que se queda ya tiene la suya."),
-        );
-
       get().askConfirm({
         title: "¿Fusionar estas copias?",
         message: `Se queda «${queda.titulo}» (${queda.formato}, ${queda.carpeta}). Las demás salen de la biblioteca.`,
-        detail: [...copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`), ...avisoHojas].join("\n\n"),
+        detail: copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`).join("\n\n"),
         safe:
-          "Su favorito, la letra y los acordes, y su sitio en las listas para culto pasan a la que se queda. " +
+          "Su favorito y su sitio en las listas para culto pasan a la que se queda. " +
           "Los archivos de audio no se borran del disco. " +
           AVISO_COPIA_AUTOMATICA,
         confirmLabel: "Fusionar",

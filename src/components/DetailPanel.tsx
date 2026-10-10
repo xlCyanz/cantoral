@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, FileText, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { sugerenciasDeOcasion, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle } from "../lib/covers";
@@ -73,7 +73,6 @@ export default function DetailPanel() {
   const play = useStore((s) => s.play);
   const setEdit = useStore((s) => s.setEdit);
   const revealTrack = useStore((s) => s.revealTrack);
-  const openSheetEditor = useStore((s) => s.openSheetEditor);
   const detailFijado = useStore((s) => s.detailFijado);
   const toggleDetailFijado = useStore((s) => s.toggleDetailFijado);
   const estrecho = useEstrecho(300);
@@ -221,22 +220,6 @@ export default function DetailPanel() {
             </datalist>
           </div>
         </div>
-
-        {/* Letra y acordes: una línea con su estado a la derecha. Escrita o
-            sin escribir es lo único que hace falta saber desde aquí; lo demás
-            está dentro del editor. */}
-        <button
-          onClick={() => openSheetEditor(sel.id)}
-          className="hb-s2"
-          style={{ width: "100%", height: 32, display: "flex", alignItems: "center", gap: 8, padding: "0 10px", borderRadius: 7, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12, fontWeight: 600, marginBottom: 14 }}
-        >
-          <FileText size={13} color={sel.tieneHoja ? "var(--primary)" : "var(--text-3)"} />
-          Letra y acordes
-          <div style={{ flex: 1 }} />
-          <span style={{ fontSize: "10.5px", fontWeight: 600, padding: "2px 7px", borderRadius: 10, background: sel.tieneHoja ? "var(--primary-soft)" : "var(--surface-3)", color: sel.tieneHoja ? "var(--primary)" : "var(--text-3)" }}>
-            {sel.tieneHoja ? "escrita" : "sin escribir"}
-          </span>
-        </button>
 
         {/* El archivo: lo que hay que saber para encontrarlo, no una ficha
             técnica. El álbum y la duración ya están en la tabla de al lado. */}

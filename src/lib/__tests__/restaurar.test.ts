@@ -40,7 +40,6 @@ function track(id: string): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
   };
 }

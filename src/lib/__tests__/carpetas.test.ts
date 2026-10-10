@@ -21,7 +21,6 @@ function pista(path: string, over: Partial<Track> = {}): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     path,
     ...over,

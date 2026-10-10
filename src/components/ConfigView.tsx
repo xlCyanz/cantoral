@@ -197,7 +197,7 @@ export default function ConfigView() {
       <div style={tarjeta}>
         <h2 style={h2Style}>Base de datos</h2>
         <p style={{ ...pStyle, marginBottom: 10 }}>
-          Tu catálogo, tus listas y las letras que escribas viven en un solo archivo.{" "}
+          Tu catálogo y tus listas viven en un solo archivo.{" "}
           {dbInfo ? (
             <span title={dbInfo.path} style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: "10.5px", color: "var(--text-3)" }}>
               {dbInfo.path} · {formatSize(dbInfo.size)}

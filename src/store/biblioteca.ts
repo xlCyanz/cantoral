@@ -3,8 +3,6 @@ import { cultosAfectados } from "../lib/afectados";
 import { alHacerClic } from "../lib/selection";
 import type { Modificadores } from "../lib/selection";
 import { backend } from "../lib/backend";
-import { buscaEnLetras } from "../lib/buscarLetra";
-import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
 import { seleccionVigente, applyFilters } from "./selectores";
 import { estadoDeLaBiblioteca } from "./reglas";
@@ -20,14 +18,6 @@ export interface BibliotecaSlice {
 
   // ---- library filters ----
   query: string;
-  /**
-   * Lo último que contestó la búsqueda en las hojas (#144): para qué consulta
-   * y, por id de pista, el trozo de letra donde apareció.
-   *
-   * Aparte de `query` porque llega después, del núcleo y con retardo: el
-   * título se filtra al teclear, la letra cuando el núcleo contesta.
-   */
-  letras: { consulta: string; fragmentos: Record<string, string> } | null;
   qf: QuickFilter;
   ocasion: string | null;
   groupBy: GroupBy;
@@ -60,8 +50,6 @@ export interface BibliotecaSlice {
 
   onQuery: (v: string) => void;
   clearQuery: () => void;
-  /** Busca ya lo escrito en las hojas. Lo llama, con retardo, quien mira `query`. */
-  buscarEnLetras: () => Promise<void>;
   onQuickFilter: (q: Exclude<QuickFilter, null>) => void;
   onOcasion: (o: string) => void;
   onGroupBy: (g: GroupBy) => void;
@@ -103,7 +91,6 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
     libState: "empty",
 
     query: "",
-    letras: null,
     qf: null,
     ocasion: null,
     groupBy: "none",
@@ -119,27 +106,6 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
 
     onQuery: (v) => set({ query: v }),
     clearQuery: () => set({ query: "" }),
-    buscarEnLetras: async () => {
-      if (modulo.letrasTimer) clearTimeout(modulo.letrasTimer);
-      modulo.letrasTimer = null;
-      const consulta = get().query.trim();
-      // Cada búsqueda deja atrás a las que siguen en camino: si contestan
-      // tarde, su respuesta es de algo que ya no está escrito.
-      const turno = ++modulo.letrasGen;
-      if (!buscaEnLetras(consulta)) {
-        if (get().letras) set({ letras: null });
-        return;
-      }
-      try {
-        const hits = await backend().searchLyrics(consulta);
-        if (turno !== modulo.letrasGen) return;
-        set({ letras: { consulta, fragmentos: Object.fromEntries(hits.map((h) => [h.trackId, h.fragmento])) } });
-      } catch (err) {
-        // Sin aviso: la búsqueda por título, artista y álbum sigue funcionando,
-        // y un aviso por tecla sería peor que la letra que no se encontró.
-        console.error("search_lyrics failed", err);
-      }
-    },
     onQuickFilter: (q) =>
       set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: estadoDeLaBiblioteca(s) })),
     onOcasion: (o) => set((s) => ({ ocasion: s.ocasion === o ? null : o || null })),
@@ -221,8 +187,8 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
             ? "¿Quitar esta pista de la biblioteca?"
             : `¿Quitar ${ids.length} pistas de la biblioteca?`,
         message: cultos
-          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos, ocasiones y la letra que tengan escrita.`
-          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos, ocasiones y la letra que tengan escrita.`,
+          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos y ocasiones.`
+          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos y ocasiones.`,
         safe: "Los archivos no se tocan. Siguen en el disco, en su carpeta, con su nombre. Si vuelves a escanear la carpeta, reaparecen.",
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
@@ -290,7 +256,7 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
         title: "¿Quitar esta pista de la biblioteca?",
         message: `«${t.titulo}» dejará de aparecer en el catálogo.`,
         detail:
-          `Se pierden su favorito, su ocasión y la letra que tenga escrita.` +
+          `Se pierden su favorito y su ocasión.` +
           (listas.length
             ? ` También sale de ${listas.length === 1 ? "la lista" : "las listas"} ${listas
                 .map((p) => `«${p.nombre}»`)

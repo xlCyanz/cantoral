@@ -19,10 +19,8 @@ import type {
   BackupInfo,
   CopiaAutomatica,
   DuplicateReport,
-  LyricHit,
   Novedades,
   ScanProgressEvent,
-  Sheet,
   Snapshot,
 } from "../api";
 import type { Playlist, TipoMomento } from "../types";
@@ -87,17 +85,6 @@ export interface Backend {
   /** Cambia lo que dice un momento; su sitio en el orden no se toca. */
   updatePlaylistMomento(momento: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
   deletePlaylist(playlist: string): Promise<Playlist[]>;
-
-  // ---- letras y acordes
-  getTrackSheet(id: string): Promise<Sheet>;
-  /** Solo las que tienen algo escrito. */
-  getSheets(ids: string[]): Promise<Sheet[]>;
-  updateTrackSheet(id: string, letra: string, acordes: string): Promise<void>;
-  /**
-   * Las pistas cuya hoja tiene todas las palabras de `consulta`, sin mirar
-   * mayúsculas ni tildes, con el trozo donde aparecen (#144).
-   */
-  searchLyrics(consulta: string): Promise<LyricHit[]>;
 
   // ---- duplicados
   findDuplicates(): Promise<DuplicateReport>;

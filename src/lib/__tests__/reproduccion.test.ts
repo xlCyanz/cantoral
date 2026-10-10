@@ -38,7 +38,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     path: `/m/${id}.mp3`,
     ...over,
   };

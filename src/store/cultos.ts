@@ -41,14 +41,6 @@ export interface CultosSlice {
   exportPl: () => void;
   /** Show the sheet as it will be printed, before anything leaves the app. */
   openPrintPreview: () => void;
-  /**
-   * Whether the printed sheet carries the lyrics and chords.
-   *
-   * Remembered between sessions: whoever prints for the music stand prints for
-   * the music stand every week.
-   */
-  printWithLyrics: boolean;
-  setPrintWithLyrics: (con: boolean) => void;
   newList: () => void;
   /** `desde` is the id of the template whose order the new list starts from. */
   createList: (nombre: string, ocasion: string, desde?: string) => void;
@@ -102,7 +94,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     playlists: [],
     plOrder: {},
     importPreview: null,
-    printWithLyrics: false,
     momentoEditado: null,
 
     curPlaylist: "",
@@ -201,36 +192,17 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         toast("La lista está vacía");
         return;
       }
-      // The sheets are not part of the catalogue, so they are fetched for this
-      // list before the page is built. Whoever prints this is the person who
-      // wanted the lyrics on paper.
-      void get()
-        .loadSheets(ord)
-        .then(() => escribirHoja(pl, rows, ord))
-        .catch((err) => {
-          console.error("could not read the lyrics for the export", err);
-          // The table is still worth printing without them.
-          escribirHoja(pl, rows, ord);
-        });
+      escribirHoja(pl, rows, ord);
     },
     openPrintPreview: () => {
       const s = get();
-      const ord = s.plOrder[s.curPlaylist] || [];
       const hay = elementosDeLista(s).length > 0;
       if (!s.playlists.some((p) => p.id === s.curPlaylist) || !hay) {
         toast("La lista está vacía");
         return;
       }
-      // Open first, fetch after: the table is the whole sheet for a list with
-      // nothing written, and waiting on a round trip to show it would make the
-      // button feel broken.
       set({ dialog: "printPreview" });
-      // `loadSheets` answers for its own failure — it logs and tells the user —
-      // and never rejects, so there is nothing here to catch. The preview stays
-      // open either way: the table is what whoever leads the service reads.
-      void get().loadSheets(ord);
     },
-    setPrintWithLyrics: (con) => set({ printWithLyrics: con }),
     newList: () => set({ dialog: "newList" }),
     createList: (nombre, ocasion, desde) => {
       set({ dialog: null });

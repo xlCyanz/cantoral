@@ -250,45 +250,6 @@ export async function deleteTracksCmd(ids: string[]): Promise<Snapshot | null> {
   return inv<Snapshot>("delete_tracks", { ids });
 }
 
-/** The lyrics and chords of one track. */
-export interface Sheet {
-  trackId: string;
-  letra: string;
-  /** ChordPro, e.g. `[Sol]Sublime [Do]gracia`. */
-  acordes: string;
-}
-
-/** One track's sheet. Null in the browser, where the seed stands in. */
-export async function getTrackSheet(id: string): Promise<Sheet | null> {
-  if (!isTauri()) return null;
-  return inv<Sheet>("get_track_sheet", { id });
-}
-
-/** The sheets of a whole service list, in one round trip. */
-export async function getSheets(ids: string[]): Promise<Sheet[] | null> {
-  if (!isTauri()) return null;
-  return inv<Sheet[]>("get_sheets", { ids });
-}
-
-/** Write a track's lyrics and chords. */
-export async function updateTrackSheet(id: string, letra: string, acordes: string): Promise<void> {
-  if (!isTauri()) return;
-  await inv("update_track_sheet", { id, letra, acordes });
-}
-
-/** A track the search found by its sheet (#144). */
-export interface LyricHit {
-  trackId: string;
-  /** Where the words appear, chords stripped, on one line. */
-  fragmento: string;
-}
-
-/** Tracks whose lyrics or chords hold every word of `consulta`. */
-export async function searchLyrics(consulta: string): Promise<LyricHit[] | null> {
-  if (!isTauri()) return null;
-  return inv<LyricHit[]>("search_lyrics", { consulta });
-}
-
 /** One candidate inside a group of suspected duplicates. */
 export interface DuplicateTrack {
   id: string;
@@ -688,15 +649,12 @@ export type VistaProyeccion =
       /**
        * Qué dibujar mientras suena, cuando el archivo no trae imagen.
        *
-       * Ausente en un video: ahí la pantalla ya está llena. Sin `lineas` —una
-       * pista sin letra escrita— la salida cae al título, que es mejor que un
-       * negro con el que nadie sabe si la app se colgó.
+       * Ausente en un video: ahí la pantalla ya está llena. Salvo con «Negro»,
+       * la salida pone el título, que es mejor que un negro con el que nadie
+       * sabe si la app se colgó.
        */
       audio?: {
         tipo: SalidaDeAudio;
-        /** «Coro», «Puente»… de la estrofa que está en pantalla. */
-        etiqueta?: string;
-        lineas?: string[];
         /** URL `asset://` de la carátula, para el fondo. */
         portada?: string;
       };
@@ -717,8 +675,7 @@ export interface SalidaProyeccion {
   /**
    * Qué hacer antes de enseñar esto.
    *
-   * Solo viene al cambiar de elemento del culto. Pasar de una estrofa a otra,
-   * cortar a negro o cambiar un ajuste en marcha no llevan transición: serían
+   * Solo viene al cambiar de elemento del culto. Cortar a negro o cambiar un ajuste en marcha no llevan transición: serían
    * medio segundo de negro en mitad de una canción.
    *
    * La cuenta la lleva la ventana de salida y no esta: es la que tiene el

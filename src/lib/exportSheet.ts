@@ -2,10 +2,6 @@
 // no external CSS, fonts or images — that opens in the system browser, where
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
-import { createElement } from "react";
-import HojaAcordes from "../components/HojaAcordes";
-import { aHtml } from "./aHtml";
-import type { Sheet } from "./api";
 import type { Playlist, Track } from "./types";
 import { etiquetaDeTipo } from "./momentos";
 import type { Elemento } from "./momentos";
@@ -38,70 +34,12 @@ export function sheetFileName(nombre: string): string {
 /**
  * Render the playlist as a printable sheet.
  *
- * `tracks` must already be in service order, with any pending edits applied.
+ * `filas` must already be in service order, with any pending edits applied.
  */
-/**
- * The lyrics of the repertoire, each song on its own page.
- *
- * Printed after the table rather than instead of it: the table is what the
- * person running the service reads, and this is what the musicians read. Songs
- * with nothing written are left out rather than printed as a blank page.
- */
-function lyricsHtml(tracks: Track[], sheets: Record<string, Sheet>): string {
-  const paginas = tracks
-    .map((t) => {
-      const hoja = sheets[t.id];
-      const acordes = hoja?.acordes?.trim() ?? "";
-      const letra = hoja?.letra?.trim() ?? "";
-      if (!escrita(hoja)) return "";
-      const cuerpo = acordes ? lineasHtml(acordes) : `<pre class="letra">${esc(letra)}</pre>`;
-      return `  <section class="hoja">
-    <h2>${esc(t.titulo)}</h2>
-    <p class="meta">${esc(t.artista)}</p>
-${cuerpo}
-  </section>`;
-    })
-    .filter(Boolean);
-  return paginas.join("\n");
-}
-
-/**
- * Whether a sheet would print anything.
- *
- * A sheet that was opened and closed again holds newlines, not words, and a
- * page with nothing on it is worse than no page.
- */
-function escrita(hoja: Sheet | undefined): boolean {
-  return !!(hoja?.acordes?.trim() || hoja?.letra?.trim());
-}
-
-/**
- * Whether this list has any lyrics to print at all.
- *
- * Decides whether the preview may offer «con letras y acordes»: an option that
- * changes nothing is an option that makes the user wonder what they missed.
- */
-export function hayLetras(tracks: readonly Track[], sheets: Record<string, Sheet>): boolean {
-  return tracks.some((t) => escrita(sheets[t.id]));
-}
-
-/**
- * One ChordPro sheet as chords stacked over the words they fall on.
- *
- * Drawn by the same component as the editor preview and modo culto, so the
- * three cannot drift apart, and written out by `aHtml`, which escapes every
- * piece of text the way React does — what the user typed is never read as
- * markup here either.
- */
-function lineasHtml(acordes: string): string {
-  return `    ${aHtml(createElement(HojaAcordes, { acordes, tamano: "impresion" }))}`;
-}
-
 export function playlistSheetHtml(
   pl: Playlist,
   filas: readonly FilaDeHoja[],
   durLabel: string,
-  sheets: Record<string, Sheet> = {},
 ): string {
   const elementos = filas.map(comoElemento);
   const tracks = elementos.flatMap((e) => (e.clase === "pista" ? [e.pista] : []));
@@ -139,7 +77,6 @@ export function playlistSheetHtml(
     })
     .join("\n");
 
-  const lyrics = lyricsHtml(tracks, sheets);
   const meta = [
     pl.ocasion,
     `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`,
@@ -183,10 +120,6 @@ export function playlistSheetHtml(
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th.num { text-align: right; }
   footer { margin-top: 26px; font-size: 10.5px; color: #8d95a1; }
-  .hoja { page-break-before: always; margin-top: 34px; }
-  .hoja h2 { font-size: 19px; margin: 0 0 2px; }
-  .hoja .meta { font-size: 11px; color: #8d95a1; margin: 0 0 14px; }
-  pre.letra { font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 0; }
   @media print { body { padding: 0; } }
 </style>
 </head>
@@ -210,7 +143,6 @@ export function playlistSheetHtml(
 ${rows}
     </tbody>
   </table>
-${lyrics}
   <footer>Generado por Cantoral · Imprime esta hoja o guárdala como PDF (Cmd/Ctrl + P).</footer>
 </body>
 </html>

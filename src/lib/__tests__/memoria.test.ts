@@ -22,7 +22,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     path: `C:\\Himnos\\${id}.mp3`,
     ...over,
@@ -43,7 +42,6 @@ beforeEach(() => {
       { id: "f2", nombre: "Coros", ruta: "C:\\Coros", count: 1 },
     ],
     playlists: [lista("p1", ["a", "b"]), lista("p2", ["c", "a"])],
-    sheets: { b: { trackId: "b", letra: "Santo", acordes: "" } },
   });
 });
 
@@ -68,11 +66,10 @@ describe("lo que devuelve es una copia", () => {
 describe("quitar pistas, como SQLite", () => {
   // La divergencia que abrió el issue: en el navegador, quitar una pista la
   // dejaba en los cultos. Aquí hay una sola regla para las dos formas.
-  it("una pista sale también de los cultos y se lleva su letra", async () => {
+  it("una pista sale también de los cultos", async () => {
     await b.deleteTrack("b");
 
     expect(await orden("p1")).toEqual(["a"]);
-    expect((await b.getTrackSheet("b")).letra).toBe("");
   });
 
   it("varias a la vez, igual", async () => {
@@ -123,26 +120,12 @@ describe("cultos", () => {
   });
 });
 
-describe("letras", () => {
-  it("solo devuelve las que tienen algo escrito", async () => {
-    const hojas = await b.getSheets(["a", "b"]);
-
-    expect(hojas.map((h) => h.trackId)).toEqual(["b"]);
-  });
-
-  it("escribir una marca la pista como con letra", async () => {
-    await b.updateTrackSheet("a", "", "[G]Amén");
-
-    expect((await b.getLibrary()).tracks.find((t) => t.id === "a")?.tieneHoja).toBe(true);
-  });
-});
-
 describe("duplicados", () => {
   beforeEach(() => {
     b = crearMemoria();
   });
 
-  it("fusionar pasa el favorito, la letra y el sitio en los cultos a la que se queda", async () => {
+  it("fusionar pasa el favorito y el sitio en los cultos a la que se queda", async () => {
     const [grupo] = (await b.findDuplicates()).groups;
     const [queda, copia] = grupo.tracks.map((t) => t.id);
     await b.addTracksToPlaylist("p2", [copia]);

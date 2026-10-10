@@ -5,7 +5,7 @@
 // Así se pueden probar sin DOM, y el componente solo las pinta.
 
 import type { Track } from "./types";
-import { coincideEnCampos, sinTildes } from "./buscarLetra";
+import { coincideEnCampos, sinTildes } from "./buscar";
 
 /** Alto de cada fila, pinchado como en la tabla: la ventana se calcula sin medir el DOM. */
 export const ALTO_FILA = 50;
@@ -18,8 +18,7 @@ export const ALTO_LISTA = 360;
  * Toda la biblioteca, sin los filtros que tenga puestos la tabla: quien arma
  * un culto busca en todo lo que hay, no en lo último que estuvo mirando. La
  * coincidencia es la misma que la de la biblioteca —título, artista, álbum,
- * ocasión, sin tildes—; la letra no entra, porque eso es una pregunta al
- * núcleo y aquí se filtra a cada tecla.
+ * ocasión, sin tildes—.
  */
 export function buscarCanciones(tracks: readonly Track[], consulta: string): Track[] {
   const q = sinTildes(consulta.trim());

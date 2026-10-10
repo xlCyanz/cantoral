@@ -4,7 +4,7 @@ import { motivoDeError } from "../lib/formatos";
 import { closeProjectionCmd, onProjectionReady, onProjectionState, openProjectionCmd, projectionMonitors, setProjectionCmd } from "../lib/api";
 import type { Contexto, Get, Set } from "./contexto";
 import { elementosDeLista } from "./selectores";
-import { estrofasEnPantalla, filasProyectadas, precargaDe, rutaDeElemento, salidaDelCulto } from "../lib/proyeccion";
+import { filasProyectadas, precargaDe, rutaDeElemento, salidaDelCulto } from "../lib/proyeccion";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // La salida al proyector.
@@ -53,13 +53,6 @@ export interface ProyeccionSlice {
    * sigue ahí para volver.
    */
   proyeccionEnNegro: boolean;
-  /**
-   * En qué estrofa de la letra va lo que está en pantalla.
-   *
-   * Solo cuenta con una pista de audio proyectada como letra. `0` es la
-   * primera; una pista sin letra tiene cero estrofas y se queda en `0`.
-   */
-  proyeccionEstrofa: number;
   /** Qué sale por el proyector con una pista de solo audio. Se recuerda. */
   salidaDeAudio: SalidaDeAudio;
   /** Qué pasa entre un elemento del culto y el siguiente. Se recuerda. */
@@ -118,8 +111,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
     proyeccionIdx: -1,
     proyeccionLista: "",
     proyeccionEnNegro: true,
-    proyeccionEstrofa: 0,
-    salidaDeAudio: "letra",
+    salidaDeAudio: "portada",
     transicionProyeccion: "negro",
     // Un culto es una lista preparada para darle y que corra entera: pasar
     // solo al siguiente es lo que se espera, y el negro entre elementos, la
@@ -228,7 +220,6 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
         proyeccionIdx: idx,
         proyeccionLista: get().curPlaylist,
         proyeccionEnNegro: false,
-        proyeccionEstrofa: 0,
         proyeccionPos: 0,
         proyeccionDur: 0,
       });
@@ -242,16 +233,6 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
 
     proyeccionSiguiente: () => {
       const st = get();
-      // Primero la letra, después la cola. «Siguiente» es un solo botón y una
-      // sola tecla porque desde el atril no se quiere elegir entre dos: se
-      // quiere pasar a lo que viene, sea la estrofa de abajo o la canción de
-      // después.
-      const trozos = estrofasEnPantalla(st);
-      if (!st.proyeccionEnNegro && st.proyeccionEstrofa + 1 < trozos.length) {
-        set({ proyeccionEstrofa: st.proyeccionEstrofa + 1 });
-        get().proyectar(salidaDelCulto(get(), st.proyeccionIdx, true));
-        return;
-      }
       const filas = filasProyectadas(st);
       const siguiente = st.proyeccionIdx + 1;
       if (siguiente >= filas.length) {
@@ -260,7 +241,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
         get().proyeccionNegro();
         return;
       }
-      set({ proyeccionIdx: siguiente, proyeccionEnNegro: false, proyeccionEstrofa: 0, proyeccionPos: 0, proyeccionDur: 0 });
+      set({ proyeccionIdx: siguiente, proyeccionEnNegro: false, proyeccionPos: 0, proyeccionDur: 0 });
       get().proyectar({ ...salidaDelCulto(get(), siguiente, true), transicion: get().transicionProyeccion });
     },
 

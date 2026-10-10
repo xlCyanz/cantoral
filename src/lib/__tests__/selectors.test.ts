@@ -15,7 +15,6 @@ function track(over: Partial<Track> & { id: string }): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     ...over,
   };

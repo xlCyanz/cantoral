@@ -38,9 +38,6 @@ export function registerShortcuts(): () => void {
       if (s.confirm) {
         e.preventDefault();
         s.closeConfirm();
-      } else if (s.sheetDialog) {
-        e.preventDefault();
-        s.closeSheetEditor();
       } else if (s.dialog) {
         e.preventDefault();
         s.closeDialog();
@@ -91,7 +88,7 @@ export function registerShortcuts(): () => void {
     if (mod && (e.key === "a" || e.key === "A")) {
       // Only in the library, and never while typing — where ⌘A means «select
       // this text» and taking it would be infuriating.
-      if (isTyping(e.target) || s.view !== "biblioteca" || s.dialog || s.confirm || s.sheetDialog) return;
+      if (isTyping(e.target) || s.view !== "biblioteca" || s.dialog || s.confirm) return;
       e.preventDefault();
       s.selectAllVisible();
       return;
@@ -105,7 +102,7 @@ export function registerShortcuts(): () => void {
 
     // Everything below is a bare key, so never while typing or in a dialog —
     // pressing space to pause must not reach through a confirmation.
-    if (isTyping(e.target) || s.dialog || s.confirm || s.sheetDialog) return;
+    if (isTyping(e.target) || s.dialog || s.confirm) return;
 
     // La vista de proyección se queda con las teclas de la barra de abajo
     // mientras está delante: `B` para el negro y `→` para pasar al siguiente

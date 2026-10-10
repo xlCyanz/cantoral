@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hayLetras, playlistSheetHtml, sheetFileName } from "../exportSheet";
-import type { Sheet } from "../api";
+import { playlistSheetHtml, sheetFileName } from "../exportSheet";
 import type { Playlist, Track } from "../types";
 
 function track(over: Partial<Track> = {}): Track {
@@ -16,7 +15,6 @@ function track(over: Partial<Track> = {}): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     ...over,
   };
@@ -95,128 +93,12 @@ describe("playlistSheetHtml", () => {
   });
 });
 
-describe("las letras en la hoja impresa", () => {
-  const hoja = (over: Partial<Sheet> = {}): Record<string, Sheet> => ({
-    "1": { trackId: "1", letra: "", acordes: "", ...over },
-  });
-
-  it("imprime los acordes encima de la sílaba donde caen", () => {
-    const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ acordes: "[Sol]Sublime [Do]gracia" }));
-
-    // The chord's span comes straight before the words it sits over, inside
-    // the same stack; the styling is HojaAcordes' and is checked there.
-    expect(html).toMatch(/<span style="[^"]*">Sol<\/span><span style="[^"]*">Sublime <\/span>/);
-    expect(html).toMatch(/<span style="[^"]*">Do<\/span><span style="[^"]*">gracia<\/span>/);
-  });
-
-  it("encabeza cada hoja con el título y el artista", () => {
-    const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ letra: "Aleluya" }));
-
-    expect(html).toContain("<h2>Santo, Santo, Santo</h2>");
-    expect(html).toContain('<p class="meta">Ensamble Getsemaní</p>');
-  });
-
-  it("imprime la letra sola cuando no hay acordes", () => {
-    const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ letra: "Aleluya\nAmén" }));
-
-    expect(html).toContain('<pre class="letra">Aleluya\nAmén</pre>');
-  });
-
-  it("no imprime una página en blanco por una pista sin letra", () => {
-    const html = playlistSheetHtml(pl, [track()], "4 min", hoja());
-
-    expect(html).not.toContain('class="hoja"');
-  });
-
-  it("tampoco cuando no se le pasan letras en absoluto", () => {
-    // La tabla sola es lo que se imprimía hasta ahora, y sigue valiendo.
+describe("sin letras", () => {
+  it("la hoja es solo el repertorio: ninguna página de letra detrás", () => {
     const html = playlistSheetHtml(pl, [track()], "4 min");
 
     expect(html).not.toContain('class="hoja"');
     expect(html).toContain("Santo, Santo, Santo");
-  });
-
-  it("escapa la letra, que es texto que el usuario escribe", () => {
-    const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ letra: "<script>alert(1)</script>" }));
-
-    expect(html).not.toContain("<script>alert(1)</script>");
-    expect(html).toContain("&lt;script&gt;");
-  });
-
-  it("marca las secciones que la hoja declara", () => {
-    const html = playlistSheetHtml(pl, [track()], "4 min", hoja({ acordes: "{Coro}\n[Sol]Santo" }));
-
-    expect(html).toMatch(/<h3 style="[^"]*">Coro<\/h3>/);
-  });
-
-  it("escapa también los acordes y los encabezados, que se escriben igual a mano", () => {
-    const html = playlistSheetHtml(
-      pl,
-      [track()],
-      "4 min",
-      hoja({ acordes: '{<img src=x onerror="alert(1)">}\n[Sol]<script>alert(1)</script>' }),
-    );
-
-    expect(html).not.toContain("<script>alert(1)</script>");
-    expect(html).not.toContain("<img");
-    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
-    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
-  });
-});
-
-// Ofrecer «con letras y acordes» cuando no hay nada escrito produce una hoja
-// idéntica a la otra, y quien la pide se queda pensando qué se perdió.
-describe("hayLetras", () => {
-  const hoja = (over: Partial<Sheet> = {}): Sheet => ({
-    trackId: "1",
-    letra: "",
-    acordes: "",
-    ...over,
-  });
-
-  it("es cierto si alguna pista tiene letra", () => {
-    expect(hayLetras([track({ id: "1" })], { "1": hoja({ letra: "Sublime gracia" }) })).toBe(true);
-  });
-
-  it("también con solo acordes", () => {
-    expect(hayLetras([track({ id: "1" })], { "1": hoja({ acordes: "[Sol]Sublime" }) })).toBe(true);
-  });
-
-  it("basta con que una de varias tenga algo", () => {
-    const pistas = [track({ id: "1" }), track({ id: "2" }), track({ id: "3" })];
-
-    expect(hayLetras(pistas, { "2": hoja({ letra: "algo" }) })).toBe(true);
-  });
-
-  it("una hoja abierta y cerrada no cuenta", () => {
-    // Lo que queda dentro son saltos de línea, y una página en blanco es peor
-    // que ninguna página.
-    expect(hayLetras([track({ id: "1" })], { "1": hoja({ letra: "\n\n  \t" }) })).toBe(false);
-  });
-
-  it("sin hojas cargadas, no hay letras", () => {
-    expect(hayLetras([track({ id: "1" })], {})).toBe(false);
-    expect(hayLetras([], { "1": hoja({ letra: "algo" }) })).toBe(false);
-  });
-
-  it("dice lo mismo que acaba imprimiéndose", () => {
-    // Si esto y la hoja no coincidieran, la opción saldría activa y no
-    // cambiaría nada.
-    const pistas = [track({ id: "1", titulo: "Santo" })];
-    const soloBlancos = { "1": hoja({ letra: "\n\n" }) };
-
-    expect(hayLetras(pistas, soloBlancos)).toBe(false);
-    expect(playlistSheetHtml(pl, pistas, "4 min", soloBlancos)).toBe(
-      playlistSheetHtml(pl, pistas, "4 min", {}),
-    );
-  });
-
-  it("y cuando dice que sí, la hoja crece", () => {
-    const pistas = [track({ id: "1" })];
-    const conLetra = { "1": hoja({ letra: "Sublime gracia del Señor" }) };
-
-    expect(hayLetras(pistas, conLetra)).toBe(true);
-    expect(playlistSheetHtml(pl, pistas, "4 min", conLetra)).toContain("Sublime gracia del Señor");
   });
 });
 
