@@ -7,6 +7,7 @@
 // field is checked on its own and whatever does not hold up is dropped, leaving
 // that preference at its default instead of poisoning the whole load.
 
+import { esIdentidad, type IdentidadPantalla } from "./pantallas";
 import type { AvanceProyeccion, Densidad, GroupBy, SalidaDeAudio, SortDir, SortKey, TransicionProyeccion, View } from "./types";
 
 /** What is remembered between sessions. */
@@ -50,6 +51,15 @@ export interface UiPrefs {
    * con una política de red estricta; «Buscar ahora» sigue funcionando igual.
    */
   buscarActualizacionesAlAbrir: boolean;
+  /**
+   * Por qué pantalla sale la proyección —un culto o un video que se pone a
+   * sonar—, o `null` si nadie la ha elegido y vale la de por defecto.
+   *
+   * Por lo que la describe y no por su índice: ver `lib/pantallas.ts`.
+   */
+  pantallaProyeccion: IdentidadPantalla | null;
+  /** Si poner un video a sonar lo saca por la pantalla de proyección. */
+  proyectarVideos: boolean;
 }
 
 /** The settings key it is stored under. */
@@ -85,6 +95,8 @@ export const PREF_FIELDS = [
   "transicionProyeccion",
   "avanceProyeccion",
   "buscarActualizacionesAlAbrir",
+  "pantallaProyeccion",
+  "proyectarVideos",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -104,6 +116,8 @@ export function serialisePrefs(s: UiPrefs): string {
     transicionProyeccion: s.transicionProyeccion,
     avanceProyeccion: s.avanceProyeccion,
     buscarActualizacionesAlAbrir: s.buscarActualizacionesAlAbrir,
+    pantallaProyeccion: s.pantallaProyeccion,
+    proyectarVideos: s.proyectarVideos,
   };
   return JSON.stringify(limpio);
 }
@@ -159,6 +173,12 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (esBooleano(o.buscarActualizacionesAlAbrir)) {
     out.buscarActualizacionesAlAbrir = o.buscarActualizacionesAlAbrir;
   }
+  if (o.pantallaProyeccion === null) out.pantallaProyeccion = null;
+  else if (esIdentidad(o.pantallaProyeccion)) {
+    const g = o.pantallaProyeccion;
+    out.pantallaProyeccion = { sistema: g.sistema, ancho: g.ancho, alto: g.alto, x: g.x, y: g.y };
+  }
+  if (esBooleano(o.proyectarVideos)) out.proyectarVideos = o.proyectarVideos;
   return out;
 }
 

@@ -670,6 +670,11 @@ export interface MonitorInfo {
   ancho: number;
   alto: number;
   principal: boolean;
+  /** El nombre que da el sistema: no se enseña, sirve para reconocerla otro día. */
+  sistema: string;
+  /** Dónde empieza en el escritorio, en píxeles físicos. */
+  x: number;
+  y: number;
 }
 
 /** Lo que la ventana de salida está mostrando. */
@@ -728,6 +733,25 @@ export interface SalidaProyeccion {
   transicion?: TransicionProyeccion;
 }
 
+/**
+ * Una orden sobre lo que ya está en la salida, sin cambiarlo.
+ *
+ * Viaja por el mismo camino que `SalidaProyeccion` —el núcleo no mira lo que
+ * pasa—, y se distingue por `orden`. Saltar a un segundo no se puede decir
+ * reenviando la vista: la vista dice *qué* se ve, no *por dónde* va.
+ * `src` es a qué archivo se refiere: una orden que llega tarde, cuando ya se
+ * pasó a otro, no mueve el que se está viendo.
+ */
+export interface OrdenProyeccion {
+  orden: "buscar";
+  src: string;
+  /** El segundo al que saltar. */
+  pos: number;
+}
+
+/** Todo lo que puede recibir la ventana de salida. */
+export type MensajeProyeccion = SalidaProyeccion | OrdenProyeccion;
+
 /** Lo que la salida devuelve sobre lo que está reproduciendo. */
 export interface EstadoProyeccion {
   /** La `src` a la que se refiere, para descartar lo que llega tarde. */
@@ -761,7 +785,7 @@ export async function closeProjectionCmd(): Promise<void> {
   await inv<void>("close_projection");
 }
 
-export async function setProjectionCmd(contenido: SalidaProyeccion): Promise<void> {
+export async function setProjectionCmd(contenido: MensajeProyeccion): Promise<void> {
   if (!isTauri()) return;
   await inv<void>("set_projection", { contenido });
 }

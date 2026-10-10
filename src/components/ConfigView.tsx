@@ -4,6 +4,7 @@ import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Fo
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
+import SelectorDePantalla from "./SelectorDePantalla";
 import { getDbInfo, isMacOS, openCreditProfile, type CopiaAutomatica, type DbInfo } from "../lib/api";
 import { backend } from "../lib/backend";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
@@ -150,6 +151,8 @@ export default function ConfigView() {
           <ThemeCard value="system" label="Seguir al sistema" />
         </div>
       </div>
+
+      <AjustesDeProyeccion />
 
       <div style={tarjeta}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
@@ -324,6 +327,50 @@ function megas(bytes: number): string {
  * lo que dice el sistema, que se pregunta cada vez que se abre esta pantalla.
  * Donde no existe —el navegador— la tarjeta no sale.
  */
+/**
+ * La pantalla de proyección, y si un video que se pone a sonar sale por ella.
+ *
+ * Aquí y no solo en Proyección porque se elige una vez —el día que se instala
+ * el proyector— y no cada domingo; la de Proyección es la misma, para
+ * cambiarla en marcha.
+ */
+function AjustesDeProyeccion() {
+  const cargarMonitores = useStore((s) => s.cargarMonitores);
+  const proyectarVideos = useStore((s) => s.proyectarVideos);
+  const setProyectarVideos = useStore((s) => s.setProyectarVideos);
+
+  // Se vuelven a mirar al entrar: el proyector se conecta con la app abierta.
+  useEffect(() => {
+    void cargarMonitores();
+  }, [cargarMonitores]);
+
+  return (
+    <div style={tarjeta}>
+      <h2 style={h2Style}>Proyección</h2>
+      <p style={{ ...pStyle, marginBottom: 8 }}>La pantalla por la que sale un culto y cualquier video que pongas a sonar. Se recuerda aunque desconectes el proyector.</p>
+      <SelectorDePantalla />
+      <label className="casilla" style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 9, marginTop: 10, cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          className="solo-lector"
+          checked={proyectarVideos}
+          onChange={(e) => setProyectarVideos(e.target.checked)}
+          aria-describedby="proyectar-videos-ayuda"
+        />
+        <div aria-hidden className="casilla-marca" style={{ width: 16, height: 16, borderRadius: 5, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(proyectarVideos ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
+          {proyectarVideos && <Check size={11} color="var(--on-primary)" strokeWidth={3} />}
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>Proyectar los videos al reproducirlos</div>
+          <div id="proyectar-videos-ayuda" style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>
+            Sin tener que preparar un culto. Si no hay otra pantalla conectada, el video se ve en el panel de la pista.
+          </div>
+        </div>
+      </label>
+    </div>
+  );
+}
+
 function AbrirConElSistema() {
   const activo = useStore((s) => s.abrirConElSistema);
   const cambiando = useStore((s) => s.cambiandoAbrirConElSistema);
