@@ -31,6 +31,39 @@ pub struct Monitor {
     pub alto: u32,
     /// Si es la pantalla donde está la ventana principal.
     pub principal: bool,
+    /// El nombre que da el sistema. No se enseña —ver `monitores`—, pero es
+    /// lo más estable que hay para reconocer la pantalla otro día: el índice
+    /// cambia en cuanto se enchufa o se desenchufa otra.
+    pub sistema: String,
+    /// Dónde empieza en el escritorio, en píxeles físicos. Junto con el nombre
+    /// y la resolución distingue dos pantallas del mismo modelo, y sirve
+    /// cuando Windows renumera `\\.\DISPLAYn` al reconectar.
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Lo que se le ofrece a quien opera de una pantalla del sistema.
+///
+/// Aparte de `monitores` para poder probarlo sin pantallas de verdad: lo que
+/// importa fijar es que el índice, la identidad y cuál es la principal salen
+/// de los mismos datos.
+fn describir(
+    indice: usize,
+    sistema: Option<&str>,
+    (ancho, alto): (u32, u32),
+    (x, y): (i32, i32),
+    actual: Option<&str>,
+) -> Monitor {
+    Monitor {
+        indice,
+        principal: actual.is_some() && actual == sistema,
+        nombre: format!("Pantalla {}", indice + 1),
+        ancho,
+        alto,
+        sistema: sistema.unwrap_or_default().to_string(),
+        x,
+        y,
+    }
 }
 
 /// Las pantallas conectadas.
@@ -54,13 +87,14 @@ pub fn monitores(app: &AppHandle) -> Result<Vec<Monitor>, String> {
         .enumerate()
         .map(|(indice, m)| {
             let tam = m.size();
-            Monitor {
+            let pos = m.position();
+            describir(
                 indice,
-                principal: actual.is_some() && actual == m.name().cloned(),
-                nombre: format!("Pantalla {}", indice + 1),
-                ancho: tam.width,
-                alto: tam.height,
-            }
+                m.name().map(String::as_str),
+                (tam.width, tam.height),
+                (pos.x, pos.y),
+                actual.as_deref(),
+            )
         })
         .collect())
 }
@@ -177,4 +211,44 @@ pub fn emitir(app: &AppHandle, contenido: serde_json::Value) -> Result<(), Strin
         return Ok(());
     }
     app.emit_to(ETIQUETA, "proyeccion", contenido).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn numera_desde_uno_y_guarda_la_identidad_del_sistema() {
+        let m = describir(1, Some("DELL P2219H"), (1920, 1080), (2560, -120), None);
+        assert_eq!(m.nombre, "Pantalla 2");
+        assert_eq!(m.sistema, "DELL P2219H");
+        assert_eq!((m.ancho, m.alto, m.x, m.y), (1920, 1080, 2560, -120));
+        assert!(!m.principal);
+    }
+
+    #[test]
+    fn la_principal_es_la_que_tiene_la_ventana() {
+        let m = describir(0, Some("Built-in"), (2880, 1800), (0, 0), Some("Built-in"));
+        assert!(m.principal);
+        let otra = describir(1, Some("DELL"), (1920, 1080), (2880, 0), Some("Built-in"));
+        assert!(!otra.principal);
+    }
+
+    #[test]
+    fn sin_nombre_no_es_principal_ni_inventa_uno() {
+        // Sin saber dónde está la ventana no se marca ninguna: decir que la
+        // del proyector es la del operador mandaría la salida al portátil.
+        let m = describir(0, None, (1920, 1080), (0, 0), None);
+        assert!(!m.principal);
+        assert_eq!(m.sistema, "");
+    }
+
+    #[test]
+    fn se_manda_en_camel_case_con_la_identidad() {
+        let m = describir(0, Some("X"), (800, 600), (10, 20), None);
+        let v = serde_json::to_value(&m).unwrap();
+        for campo in ["indice", "nombre", "ancho", "alto", "principal", "sistema", "x", "y"] {
+            assert!(v.get(campo).is_some(), "falta {campo}");
+        }
+    }
 }

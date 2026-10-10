@@ -1,6 +1,8 @@
 import { backend } from "../lib/backend";
 import type { Contexto, Get, Set } from "./contexto";
 import { cur, queueForView, playQueue } from "./selectores";
+import type { CantoralState } from "./tipos";
+import { modoDeLaBarra, rutaProyectable } from "../lib/proyeccion";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // El reproductor y su cola.
@@ -53,6 +55,17 @@ export interface ReproductorSlice {
 
 export function crearReproductor(set: Set, get: Get, ctx: Contexto): ReproductorSlice {
   const { toast } = ctx;
+
+  /**
+   * Poner el transporte en una pista.
+   *
+   * Un video abre el panel de detalle, que es donde se ve si no sale por el
+   * proyector y donde se mira de cerca la pista que suena si sale.
+   */
+  const patchDeIrA = (id: string): Partial<CantoralState> => {
+    const t = get().tracks.find((x) => x.id === id);
+    return t?.video ? { playerId: id, posSec: 0, detailOpen: true, selId: id } : { playerId: id, posSec: 0 };
+  };
   return {
     queue: [],
     queueOrigen: "biblioteca",
@@ -80,16 +93,30 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       // pasaba al reproductor del sistema, que en mitad de un culto significaba
       // otra ventana encima de la proyección, otro volumen y otra cola — con la
       // lista del culto quedándose atrás.
-      set({ queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true });
-      get().irAPista(id);
+      //
+      // Todo de una vez y no «play» y luego la pista: quien vigila el play
+      // para sacar un video por el proyector vería un instante la pista de
+      // antes sonando, y la proyectaría.
+      set({ queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true, ...patchDeIrA(id) });
+      // Volver a darle al mismo video que ya estaba en el proyector lo empieza
+      // otra vez, como a cualquier pista: la pista no cambia, así que la
+      // salida no se entera sola.
+      if (s.proyeccionPista === id) get().proyectar({ orden: "buscar", src: rutaProyectable(t), pos: 0 });
     },
     togglePlay: () => {
       const s = get();
+      // Con una pista del culto en el aire, la barra y Espacio pausan esa: es
+      // la que está sonando.
+      if (modoDeLaBarra(s) === "culto") {
+        get().alternarPausaProyeccion();
+        return;
+      }
       const t = cur(s);
       // Reanudar un video que se pausó al cerrar el panel (#125): sin el panel
       // no hay `<video>` que suene, así que se vuelve a abrir en esa pista, como
-      // hace `irAPista` al llegar a un video.
-      if (!s.playing && t?.video && !(s.detailOpen && s.selId === t.id)) {
+      // hace `irAPista` al llegar a un video. Uno que está en el proyector no
+      // depende del panel.
+      if (!s.playing && t?.video && s.proyeccionPista !== t.id && !(s.detailOpen && s.selId === t.id)) {
         if (s.selId !== t.id) get().flushEdit();
         set({ playing: true, detailOpen: true, selId: t.id, saveState: "idle" });
         return;
@@ -126,19 +153,22 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       get().irAPista(n);
     },
 
-    irAPista: (id) => {
-      // La única superficie de video de esta ventana está en el panel de
-      // detalle, así que llegar a un video sin el panel abierto sería llegar a
-      // una pista que suena y no se ve. Se abre solo, y en la pista que toca.
-      const t = get().tracks.find((x) => x.id === id);
-      set(t?.video ? { playerId: id, posSec: 0, detailOpen: true, selId: id } : { playerId: id, posSec: 0 });
-    },
+    irAPista: (id) => set(patchDeIrA(id)),
     toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
     toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
     toggleMute: () => set((s) => ({ muted: !s.muted })),
     seekToFraction: (f) => {
-      const t = cur(get());
-      if (t) set({ posSec: Math.round(Math.min(1, Math.max(0, f)) * t.durSec) });
+      const s = get();
+      if (modoDeLaBarra(s) === "culto") {
+        get().buscarEnProyeccion(f);
+        return;
+      }
+      const t = cur(s);
+      if (!t) return;
+      const pos = Math.round(Math.min(1, Math.max(0, f)) * t.durSec);
+      set({ posSec: pos });
+      // Un video en el proyector lo mueve la salida, que es la que lo tiene.
+      if (s.proyeccionPista === t.id) get().proyectar({ orden: "buscar", src: rutaProyectable(t), pos });
     },
     setVolume: (f) => set({ volume: Math.min(1, Math.max(0, f)), muted: false }),
 
