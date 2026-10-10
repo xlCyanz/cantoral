@@ -8,7 +8,7 @@ import type { Playlist } from "../types";
 
 const duplicatePlaylistCmd = vi.fn<(playlist: string) => Promise<string>>();
 const setPlaylistTemplateCmd = vi.fn<(playlist: string, plantilla: boolean) => Promise<Playlist[]>>();
-const createPlaylistCmd = vi.fn<(n: string, o: string, desde?: string) => Promise<string>>();
+const createPlaylistCmd = vi.fn<(n: string, desde?: string) => Promise<string>>();
 const getPlaylistsCmd = vi.fn<() => Promise<Playlist[]>>();
 
 vi.mock("../api", async (importOriginal) => ({
@@ -16,7 +16,7 @@ vi.mock("../api", async (importOriginal) => ({
   duplicatePlaylistCmd: (playlist: string) => duplicatePlaylistCmd(playlist),
   setPlaylistTemplateCmd: (playlist: string, plantilla: boolean) =>
     setPlaylistTemplateCmd(playlist, plantilla),
-  createPlaylistCmd: (n: string, o: string, desde?: string) => createPlaylistCmd(n, o, desde),
+  createPlaylistCmd: (n: string, desde?: string) => createPlaylistCmd(n, desde),
   getPlaylistsCmd: () => getPlaylistsCmd(),
   touchPlaylistCmd: async () => {},
 }));
@@ -28,7 +28,7 @@ const { tauri } = await import("../backend/tauri");
 const initial = useStore.getState();
 
 function lista(id: string, over: Partial<Playlist> = {}): Playlist {
-  return { id, nombre: `Lista ${id}`, tocada: "", ocasion: "", ids: [], plantilla: false, ...over };
+  return { id, nombre: `Lista ${id}`, tocada: "", ids: [], plantilla: false, ...over };
 }
 
 /** A library with one past service and one template. */
@@ -36,12 +36,10 @@ function conListas() {
   const culto = lista("p1", {
     nombre: "Culto",
     tocada: "",
-    ocasion: "Servicio dominical",
     ids: ["a", "b", "c"],
   });
   const plantilla = lista("p9", {
     nombre: "Dominical",
-    ocasion: "Servicio dominical",
     ids: ["b", "a"],
     plantilla: true,
   });
@@ -76,14 +74,13 @@ beforeEach(() => {
 });
 
 describe("duplicar una lista, en el navegador", () => {
-  it("copia el orden y la ocasión", async () => {
+  it("copia el orden", async () => {
     useStore.getState().duplicateList("p1");
 
     await vi.waitFor(() => expect(useStore.getState().curPlaylist).not.toBe("p1"));
     const copia = abierta();
     expect(copia.id).not.toBe("p1");
     expect(copia.nombre).toBe("Culto (copia)");
-    expect(copia.ocasion).toBe("Servicio dominical");
     expect(useStore.getState().plOrder[copia.id]).toEqual(["a", "b", "c"]);
   });
 
@@ -143,7 +140,7 @@ describe("duplicar una lista, en la app", () => {
 
 describe("partir de una plantilla", () => {
   it("la lista nueva empieza con el repertorio de la plantilla", async () => {
-    useStore.getState().createList("Culto 11 Ene", "Servicio dominical", "p9");
+    useStore.getState().createList("Culto 11 Ene", "p9");
 
     await vi.waitFor(() => expect(abierta().nombre).toBe("Culto 11 Ene"));
     const nueva = abierta();
@@ -153,14 +150,14 @@ describe("partir de una plantilla", () => {
   });
 
   it("sin plantilla la lista nace vacía", async () => {
-    useStore.getState().createList("Culto 11 Ene", "Servicio dominical");
+    useStore.getState().createList("Culto 11 Ene");
 
     await vi.waitFor(() => expect(abierta().nombre).toBe("Culto 11 Ene"));
     expect(useStore.getState().plOrder[abierta().id]).toEqual([]);
   });
 
   it("copiar la plantilla no la vacía ni comparte su arreglo", async () => {
-    useStore.getState().createList("Culto 11 Ene", "", "p9");
+    useStore.getState().createList("Culto 11 Ene", "p9");
 
     await vi.waitFor(() => expect(abierta().nombre).toBe("Culto 11 Ene"));
     const { plOrder, curPlaylist } = useStore.getState();
@@ -172,10 +169,10 @@ describe("partir de una plantilla", () => {
     usarBackend(tauri);
     createPlaylistCmd.mockResolvedValue("77");
 
-    useStore.getState().createList("Culto", "Servicio dominical", "p9");
+    useStore.getState().createList("Culto", "p9");
 
     await vi.waitFor(() => expect(useStore.getState().curPlaylist).toBe("77"));
-    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto", "Servicio dominical", "p9");
+    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto", "p9");
   });
 });
 

@@ -19,10 +19,8 @@ import type {
   BackupInfo,
   CopiaAutomatica,
   DuplicateReport,
-  LyricHit,
   Novedades,
   ScanProgressEvent,
-  Sheet,
   Snapshot,
 } from "../api";
 import type { Playlist, TipoMomento } from "../types";
@@ -56,7 +54,7 @@ export interface Backend {
   reconcileLibrary(): Promise<Snapshot>;
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
-  updateTrack(id: string, artista: string, ocasion: string): Promise<void>;
+  updateTrack(id: string, artista: string): Promise<void>;
   deleteTrack(id: string): Promise<Snapshot>;
   deleteTracks(ids: string[]): Promise<Snapshot>;
   /** Elige el archivo nuevo de una pista y la apunta a él; null si se canceló. */
@@ -75,29 +73,18 @@ export interface Backend {
 
   // ---- cultos
   getPlaylists(): Promise<Playlist[]>;
-  createPlaylist(nombre: string, ocasion: string, desde?: string): Promise<string>;
+  createPlaylist(nombre: string, desde?: string): Promise<string>;
   duplicatePlaylist(id: string): Promise<string>;
   addTracksToPlaylist(playlist: string, ids: string[]): Promise<Playlist[]>;
   setPlaylistOrder(playlist: string, ids: string[]): Promise<void>;
   setPlaylistTemplate(playlist: string, plantilla: boolean): Promise<Playlist[]>;
-  updatePlaylist(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]>;
+  updatePlaylist(playlist: string, nombre: string): Promise<Playlist[]>;
   touchPlaylist(playlist: string): Promise<void>;
   /** Añade un momento sin música al final del culto (#145). */
   addPlaylistMomento(playlist: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
   /** Cambia lo que dice un momento; su sitio en el orden no se toca. */
   updatePlaylistMomento(momento: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;
   deletePlaylist(playlist: string): Promise<Playlist[]>;
-
-  // ---- letras y acordes
-  getTrackSheet(id: string): Promise<Sheet>;
-  /** Solo las que tienen algo escrito. */
-  getSheets(ids: string[]): Promise<Sheet[]>;
-  updateTrackSheet(id: string, letra: string, acordes: string): Promise<void>;
-  /**
-   * Las pistas cuya hoja tiene todas las palabras de `consulta`, sin mirar
-   * mayúsculas ni tildes, con el trozo donde aparecen (#144).
-   */
-  searchLyrics(consulta: string): Promise<LyricHit[]>;
 
   // ---- duplicados
   findDuplicates(): Promise<DuplicateReport>;

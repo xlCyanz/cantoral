@@ -9,7 +9,7 @@ export type View = "biblioteca" | "colecciones" | "lista" | "config" | "proyecci
  */
 export type LibState = "content" | "empty" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
-export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
+export type GroupBy = "none" | "album" | "carpeta";
 /**
  * Cuánto respira la tabla de la biblioteca.
  *
@@ -19,12 +19,12 @@ export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
  */
 export type Densidad = "comoda" | "compacta";
 /** Qué sale por el proyector cuando la pista es solo audio. */
-export type SalidaDeAudio = "negro" | "portada" | "letra";
+export type SalidaDeAudio = "negro" | "portada";
 /** Qué pasa por el proyector entre un elemento del culto y el siguiente. */
 export type TransicionProyeccion = "negro" | "cuenta";
 /** Qué hace la proyección cuando un elemento del culto se termina. */
 export type AvanceProyeccion = "negro" | "siguiente";
-export type SortKey = "titulo" | "album" | "ocasion" | "dur";
+export type SortKey = "titulo" | "album" | "dur";
 export type SortDir = "asc" | "desc";
 
 export interface Track {
@@ -35,7 +35,6 @@ export interface Track {
   /** Human-readable duration, e.g. "4:12". */
   dur: string;
   durSec: number;
-  ocasion: string;
   /** File format label, e.g. "MP3", "WAV", "MP4". */
   formato: string;
   /** Folder friendly name this track belongs to. */
@@ -49,14 +48,6 @@ export interface Track {
   path?: string;
   /** Cover art URL (asset:// in the app), if the file had embedded art. */
   cover?: string;
-  /**
-   * Whether this track has lyrics or chords written down.
-   *
-   * A flag, not the sheet: the catalogue travels whole on every refresh, and a
-   * few thousand sheets would make every snapshot megabytes of text that the
-   * screen asking for it is not going to read.
-   */
-  tieneHoja: boolean;
   /**
    * Si entró con el último escaneo: lo que enseña «Recién agregadas» (#139).
    * Un reescaneo sin novedades no deja ninguna marcada.
@@ -83,7 +74,6 @@ export interface Folder {
 export interface Playlist {
   id: string;
   nombre: string;
-  ocasion: string;
   /**
    * Default order (live order is kept in store.plOrder): track ids, and the
    * ids of its momentos (`m:…`) where they fall (#145).
@@ -111,8 +101,7 @@ export type TipoMomento = "oracion" | "lectura" | "anuncios" | "ofrenda" | "mens
  * Un elemento del culto que no es una pista (#145).
  *
  * En la proyección sale su título sobre negro y la cola se detiene ahí hasta
- * que quien opera pulsa «Siguiente»; en el atril, una página que avisa de que
- * no se toca; en la hoja, una fila sin duración.
+ * que quien opera pulsa «Siguiente»; en la hoja, una fila sin duración.
  */
 export interface Momento {
   /** Empieza por `m:`, así nunca se confunde con el id de una pista en el orden. */
@@ -124,4 +113,4 @@ export interface Momento {
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */
-export type TrackEdit = Partial<Pick<Track, "artista" | "ocasion">>;
+export type TrackEdit = Partial<Pick<Track, "artista">>;

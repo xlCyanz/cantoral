@@ -107,7 +107,7 @@ Otras convenciones que conviene respetar:
   encaja, pregúntate antes si no es un dominio nuevo. Ningún archivo debería pasar de
   ~600 líneas. Los componentes siguen importando de `../store` como siempre.
 - **Los selectores de `src/store/selectores.ts` son funciones puras** sobre un snapshot del estado
-  (`applyFilters`, `buildGroups`, `ocasiones`, `playQueue`…). Son las que se prueban
+  (`applyFilters`, `buildGroups`, `playQueue`…). Son las que se prueban
   en `src/lib/__tests__/selectors.test.ts`; mantenlas sin efectos.
 - **Las migraciones son aditivas y numeradas**: la base guarda su versión de esquema en
   `PRAGMA user_version`, y `db::open_and_migrate` aplica, cada una en su transacción, solo
@@ -126,11 +126,11 @@ Otras convenciones que conviene respetar:
 
   Un respaldo con una versión mayor que `SCHEMA_VERSION` (de una Cantoral más nueva) se
   rechaza antes de tocar la biblioteca (`db::validate_backup`).
-- **Lo que escribe el usuario no se pisa al re-escanear**: `ocasion`, `fav`, la letra
-  y los acordes, y el `artista` cuando se corrigió a mano (lo marca `artista_manual`;
-  si no, manda lo que diga el archivo). La columna `bpm` sigue en la base aunque la app
-  ya no la lee ni la muestra, y lo que tenga no se toca (ver
-  [#141](https://github.com/xlCyanz/cantoral/issues/141)).
+- **Lo que escribe el usuario no se pisa al re-escanear**: `fav` y el `artista` cuando
+  se corrigió a mano (lo marca `artista_manual`; si no, manda lo que diga el archivo).
+  Las columnas `bpm` ([#141](https://github.com/xlCyanz/cantoral/issues/141)),
+  `ocasion`, `letra` y `acordes` siguen en la base aunque la app ya no las lee ni las
+  muestra, y lo que tengan no se toca.
   Hay una prueba que lo garantiza (`upsert_preserves_user_edited_fields_on_rescan`);
   si tocas `upsert_track`, no la rompas.
 - **Los textos visibles van en español**; el código, los comentarios y los mensajes

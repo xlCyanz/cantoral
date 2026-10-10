@@ -33,12 +33,11 @@ const GUARDADAS: UiPrefs = {
   repeat: true,
   sortKey: "album",
   sortDir: "desc",
-  groupBy: "ocasion",
+  groupBy: "carpeta",
   view: "colecciones",
   curPlaylist: "p2",
-  printWithLyrics: true,
   densidad: "compacta",
-  salidaDeAudio: "portada",
+  salidaDeAudio: "negro",
   transicionProyeccion: "cuenta",
   avanceProyeccion: "siguiente",
   buscarActualizacionesAlAbrir: false,
@@ -90,12 +89,20 @@ describe("parsePrefs", () => {
     expect(parsePrefs(JSON.stringify({ sortKey: "bpm", sortDir: "desc" }))).toEqual({ sortDir: "desc" });
   });
 
-  it("recuerda los ajustes de la proyección", () => {
-    // Una iglesia elige una vez si proyecta la letra o deja el negro, y no
-    // quiere volver a decidirlo cada domingo antes de empezar.
-    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+  it("olvida el orden y el agrupado por ocasión de una versión anterior", () => {
+    // La ocasión salió de la app: la biblioteca vuelve al orden y al agrupado
+    // por defecto en vez de quedarse sobre un campo que ya no se ve.
+    expect(parsePrefs(JSON.stringify({ sortKey: "ocasion", groupBy: "ocasion", sortDir: "desc" }))).toEqual({
+      sortDir: "desc",
+    });
+  });
 
-    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "negro", transicionProyeccion: "cuenta" });
+  it("recuerda los ajustes de la proyección", () => {
+    // Una iglesia elige una vez si proyecta la portada o deja el negro, y no
+    // quiere volver a decidirlo cada domingo antes de empezar.
+    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "portada", transicionProyeccion: "cuenta" });
+
+    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "portada", transicionProyeccion: "cuenta" });
   });
 
   it("y recuerda si la proyección avanza sola", () => {
@@ -103,10 +110,20 @@ describe("parsePrefs", () => {
     expect(parsePrefs(JSON.stringify({ avanceProyeccion: "negro" }))).toEqual({ avanceProyeccion: "negro" });
   });
 
-  it("y acepta los tres modos de salida de audio", () => {
-    for (const modo of ["negro", "portada", "letra"] as const) {
+  it("y acepta los dos modos de salida de audio", () => {
+    for (const modo of ["negro", "portada"] as const) {
       expect(parsePrefs(JSON.stringify({ salidaDeAudio: modo }))).toEqual({ salidaDeAudio: modo });
     }
+  });
+
+  it("una salida «letra» guardada por una versión anterior vuelve a la de fábrica", () => {
+    // La letra ya no se proyecta: quien la tenía elegida ve la portada, que
+    // con una pista sin carátula es el título sobre negro, como antes.
+    expect(parsePrefs(JSON.stringify({ salidaDeAudio: "letra", densidad: "compacta" }))).toEqual({ densidad: "compacta" });
+  });
+
+  it("y olvida «con letras» de la hoja impresa", () => {
+    expect(parsePrefs(JSON.stringify({ printWithLyrics: true }))).toEqual({});
   });
 
   it("clamps a volume outside the range instead of dropping it", () => {
@@ -124,7 +141,7 @@ describe("parsePrefs", () => {
   });
 
   it("keeps nothing it was not asked to keep", () => {
-    const con_extras = JSON.stringify({ volume: 0.5, query: "santo", qf: "fav", ocasion: "Navidad" });
+    const con_extras = JSON.stringify({ volume: 0.5, query: "santo", qf: "fav" });
 
     // Opening the app with the library filtered and no memory of why is worse
     // than not remembering the filter at all.
@@ -199,8 +216,8 @@ describe("guardar los cambios", () => {
 
   it("y también los ajustes de la proyección", async () => {
     // Van por el mismo vigilante que el resto: si no estuvieran en la lista de
-    // campos observados, se elegiría «Solo la letra» un domingo y el siguiente
-    // volvería a estar en negro.
+    // campos observados, se elegiría «Negro» un domingo y el siguiente
+    // volvería a estar la portada.
     useStore.getState().setSalidaDeAudio("negro");
     useStore.getState().setTransicionProyeccion("cuenta");
     useStore.getState().setAvanceProyeccion("siguiente");
@@ -226,13 +243,13 @@ describe("guardar los cambios", () => {
   it("recoge el cambio venga de donde venga", async () => {
     useStore.getState().toggleShuffle();
     useStore.getState().onGroupBy("album");
-    useStore.getState().onSortHeader("ocasion");
+    useStore.getState().onSortHeader("dur");
     await vi.advanceTimersByTimeAsync(400);
 
     const g = ultimoGuardado();
     expect(g.shuffle).toBe(true);
     expect(g.groupBy).toBe("album");
-    expect(g.sortKey).toBe("ocasion");
+    expect(g.sortKey).toBe("dur");
   });
 
   it("recuerda la densidad: se elige una vez y vale para siempre", async () => {
@@ -256,7 +273,6 @@ describe("guardar los cambios", () => {
   it("no guarda los filtros de la biblioteca", async () => {
     useStore.getState().onQuery("santo");
     useStore.getState().onQuickFilter("fav");
-    useStore.getState().onOcasion("Navidad");
     await vi.advanceTimersByTimeAsync(400);
 
     expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(0);
@@ -294,8 +310,8 @@ describe("restaurar al arrancar", () => {
       tracks: [],
       folders: [],
       playlists: [
-        { id: "p1", nombre: "Uno", tocada: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Uno", tocada: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ids: [], plantilla: false },
       ],
     });
     reconcileLibraryCmd.mockReset();
@@ -317,7 +333,7 @@ describe("restaurar al arrancar", () => {
     expect(s.repeat).toBe(true);
     expect(s.sortKey).toBe("album");
     expect(s.sortDir).toBe("desc");
-    expect(s.groupBy).toBe("ocasion");
+    expect(s.groupBy).toBe("carpeta");
     expect(s.view).toBe("colecciones");
     expect(s.curPlaylist).toBe("p2");
   });

@@ -48,7 +48,6 @@ describe("el recuento", () => {
 describe("el agrupado", () => {
   it("se dice cuando lo hay, con el nombre en castellano", () => {
     expect(encabezadoBiblioteca(null, 19, 19, "carpeta", false).subtitulo).toBe("19 pistas · agrupadas por carpeta");
-    expect(encabezadoBiblioteca(null, 19, 19, "ocasion", false).subtitulo).toContain("agrupadas por ocasión");
     expect(encabezadoBiblioteca(null, 19, 19, "album", false).subtitulo).toContain("agrupadas por álbum");
   });
 

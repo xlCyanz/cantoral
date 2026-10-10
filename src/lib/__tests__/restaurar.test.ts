@@ -35,12 +35,10 @@ function track(id: string): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
   };
 }

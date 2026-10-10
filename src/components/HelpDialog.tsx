@@ -7,7 +7,7 @@ import Modal from "./Modal";
 
 const STEPS: { icon: ReactNode; title: string; desc: string }[] = [
   { icon: <FolderPlus size={19} />, title: "Agrega tu música", desc: "Pulsa «Agregar carpeta» y elige dónde están tus pistas y coros. Cantoral los indexa sin moverlos ni copiarlos." },
-  { icon: <Search size={19} />, title: "Explora la biblioteca", desc: "Busca por título, artista o álbum; filtra por ocasión y ordena o agrupa la lista." },
+  { icon: <Search size={19} />, title: "Explora la biblioteca", desc: "Busca por título, artista o álbum; filtra, ordena o agrupa la lista." },
   { icon: <ListMusic size={19} />, title: "Arma listas para cultos", desc: "Crea una lista, agrega pistas desde su detalle y reordénalas arrastrando." },
   { icon: <Play size={19} />, title: "Reproduce", desc: "Todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle, y por el proyector desde Proyección." },
   { icon: <Database size={19} />, title: "Respalda", desc: "En Configuración → Base de datos puedes crear una copia y restaurarla cuando quieras." },

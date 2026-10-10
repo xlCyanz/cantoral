@@ -3,9 +3,8 @@
 // El criterio de la propuesta, tal cual: un culto «Adoración 1 → Oración →
 // Adoración 2» proyectado con «Pasar al siguiente». La primera canción acaba,
 // sale «Oración» sobre negro y se queda; «Siguiente» arranca la segunda. Y lo
-// que va alrededor: que «Reproducir todo» pase de largo, que el atril no pida
-// letras de un momento, y que importar un culto con momentos los deje en su
-// sitio.
+// que va alrededor: que «Reproducir todo» pase de largo y que importar un
+// culto con momentos los deje en su sitio.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EstadoProyeccion, SalidaProyeccion } from "../api";
@@ -38,13 +37,11 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Música",
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     path: `/m/${id}.mp3`,
     ...over,
   };
@@ -55,7 +52,7 @@ const ORACION: Momento = { id: "m:1", tipo: "oracion", titulo: "Oración", texto
 /** «Adoración 1 → Oración → Adoración 2», abierto y con la salida en marcha. */
 function culto() {
   const tracks = [pista("1"), pista("2")];
-  const pl: Playlist = { id: "p1", nombre: "Domingo", ocasion: "", ids: ["1", "m:1", "2"], momentos: [ORACION], plantilla: false, tocada: "" };
+  const pl: Playlist = { id: "p1", nombre: "Domingo", ids: ["1", "m:1", "2"], momentos: [ORACION], plantilla: false, tocada: "" };
   useStore.setState({
     tracks,
     playlists: [pl],
@@ -130,16 +127,6 @@ describe("un momento en la proyección", () => {
     expect(ultimo().transicion).toBe("cuenta");
   });
 
-  it("no tiene estrofas: «Siguiente» no se queda recorriendo una letra que no hay", () => {
-    culto();
-    useStore.setState({ salidaDeAudio: "letra" });
-    useStore.getState().proyectarElemento(1);
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(useStore.getState().proyeccionIdx).toBe(2);
-  });
-
   it("con el momento sin texto, sale solo el título", () => {
     culto();
     useStore.setState({ playlists: [{ ...useStore.getState().playlists[0], momentos: [{ ...ORACION, texto: "" }] }] });
@@ -157,16 +144,6 @@ describe("fuera de la proyección", () => {
     useStore.getState().playAll();
 
     expect(useStore.getState().queue).toEqual(["1", "2"]);
-  });
-
-  it("el atril no pide la letra de un momento", async () => {
-    culto();
-    const hojas = vi.fn(async () => []);
-    usarBackend({ ...crearMemoria(), getSheets: hojas });
-
-    await useStore.getState().loadSheets(["1", "m:1", "2"]);
-
-    expect(hojas).toHaveBeenCalledWith(["1", "2"]);
   });
 
   it("quitar un momento de la tabla lo saca del culto", async () => {
@@ -210,10 +187,10 @@ describe("fuera de la proyección", () => {
       importPreview: {
         archivo: {
           cantoral: 2,
-          lista: { nombre: "Importado", ocasion: "", plantilla: false },
+          lista: { nombre: "Importado", plantilla: false },
           pistas: [
-            { titulo: "Adoración 1", artista: "Coro", album: "", durSec: 180, ocasion: "", archivo: "1.mp3" },
-            { titulo: "Adoración 2", artista: "Coro", album: "", durSec: 180, ocasion: "", archivo: "2.mp3" },
+            { titulo: "Adoración 1", artista: "Coro", album: "", durSec: 180, archivo: "1.mp3" },
+            { titulo: "Adoración 2", artista: "Coro", album: "", durSec: 180, archivo: "2.mp3" },
           ],
           momentos: [{ trasPistas: 1, tipo: "lectura", titulo: "Lectura", texto: "Salmo 23" }],
           exportado: "",

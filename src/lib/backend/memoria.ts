@@ -6,17 +6,16 @@
 // sola simulación, que contesta exactamente lo que contesta el núcleo, con las
 // mismas reglas que SQLite hace cumplir allí: agregar a un culto no repite,
 // quitar una pista la saca también de los cultos, fusionar copias pasa el
-// favorito, la letra y el sitio en los cultos a la que se queda.
+// favorito y el sitio en los cultos a la que se queda.
 //
 // Lo que un navegador no puede hacer —mostrar un archivo en el disco,
 // restaurar una base— contesta con `NoDisponible`, que el store enseña como
 // un aviso.
 
 import { leerArchivoDelNavegador } from "../api";
-import type { DuplicateReport, ScanProgressEvent, Sheet, Snapshot } from "../api";
-import { buscarEnHojas } from "../buscarLetra";
+import type { DuplicateReport, ScanProgressEvent, Snapshot } from "../api";
 import { nombreDeCopia } from "../copias";
-import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_SHEETS, SEED_TRACKS, seedDuplicates } from "../seed";
+import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "../seed";
 import { PREFIJO_MOMENTO, esMomento, tipoDeMomento } from "../momentos";
 import type { Folder, Momento, Playlist, Track } from "../types";
 import { NoDisponible } from "./tipos";
@@ -38,15 +37,11 @@ function descargar(nombre: string, contenido: string, tipo: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Si una hoja tiene algo escrito, como lo decide el núcleo. */
-const tieneTexto = (h: Sheet | undefined) => !!h && !!(h.letra.trim() || h.acordes.trim());
-
 /** Con qué datos empieza una base en memoria. */
 export interface Semilla {
   tracks: Track[];
   folders: Folder[];
   playlists: Playlist[];
-  sheets: Record<string, Sheet>;
 }
 
 /**
@@ -58,7 +53,6 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
   const tracks: Track[] = structuredClone(semilla.tracks ?? SEED_TRACKS);
   let folders: Folder[] = structuredClone(semilla.folders ?? SEED_FOLDERS);
   let playlists: Playlist[] = structuredClone(semilla.playlists ?? SEED_PLAYLISTS);
-  const sheets: Record<string, Sheet> = structuredClone(semilla.sheets ?? SEED_SHEETS);
   const settings = new Map<string, string>();
   const descartados = new Set<string>();
   const oyentes = new Set<(p: ScanProgressEvent) => void>();
@@ -114,12 +108,11 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     return limpio;
   };
 
-  /** Saca unas pistas del catálogo, de los cultos y sus letras: la cascada de SQLite. */
+  /** Saca unas pistas del catálogo y de los cultos: la cascada de SQLite. */
   const quitarPistas = (ids: readonly string[]) => {
     const fuera = new Set(ids);
     for (let i = tracks.length - 1; i >= 0; i--) if (fuera.has(tracks[i].id)) tracks.splice(i, 1);
     playlists = playlists.map((p) => ({ ...p, ids: p.ids.filter((id) => !fuera.has(id)) }));
-    ids.forEach((id) => delete sheets[id]);
   };
 
   const informe = (): DuplicateReport => {
@@ -182,8 +175,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     setTracksFav: async (ids, fav) => {
       ids.forEach((id) => (pista(id).fav = fav));
     },
-    updateTrack: async (id, artista, ocasion) => {
-      Object.assign(pista(id), { artista, ocasion });
+    updateTrack: async (id, artista) => {
+      Object.assign(pista(id), { artista });
     },
     deleteTrack: async (id) => {
       quitarPistas([id]);
@@ -239,10 +232,10 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     },
 
     getPlaylists: async () => listas(),
-    createPlaylist: async (nombre, ocasion, desde) => {
+    createPlaylist: async (nombre, desde) => {
       const id = nuevoId("p", playlists);
       const orden = copiarOrden(desde ? playlists.find((p) => p.id === desde) : undefined);
-      playlists = [...playlists, { id, nombre, ocasion, ...orden, plantilla: false, tocada: ahora() }];
+      playlists = [...playlists, { id, nombre, ...orden, plantilla: false, tocada: ahora() }];
       return id;
     },
     duplicatePlaylist: async (id) => {
@@ -251,7 +244,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       const nombre = nombreDeCopia(origen.nombre, playlists.map((p) => p.nombre));
       playlists = [
         ...playlists,
-        { id: nuevo, nombre, ocasion: origen.ocasion, ...copiarOrden(origen), plantilla: false, tocada: ahora() },
+        { id: nuevo, nombre, ...copiarOrden(origen), plantilla: false, tocada: ahora() },
       ];
       return nuevo;
     },
@@ -293,8 +286,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       lista(playlist).plantilla = plantilla;
       return listas();
     },
-    updatePlaylist: async (playlist, nombre, ocasion) => {
-      Object.assign(lista(playlist), { nombre, ocasion });
+    updatePlaylist: async (playlist, nombre) => {
+      Object.assign(lista(playlist), { nombre });
       return listas();
     },
     touchPlaylist: async (playlist) => {
@@ -305,35 +298,11 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       return listas();
     },
 
-    getTrackSheet: async (id) => structuredClone(sheets[id] ?? { trackId: id, letra: "", acordes: "" }),
-    getSheets: async (ids) => structuredClone(ids.map((id) => sheets[id]).filter(tieneTexto) as Sheet[]),
-    updateTrackSheet: async (id, letra, acordes) => {
-      sheets[id] = { trackId: id, letra, acordes };
-      pista(id).tieneHoja = tieneTexto(sheets[id]);
-    },
-    // Como el índice del núcleo: solo lo que está en el catálogo.
-    searchLyrics: async (consulta) => {
-      const hay = new Set(tracks.map((t) => t.id));
-      return buscarEnHojas(
-        Object.values(sheets).filter((h) => hay.has(h.trackId)),
-        consulta,
-      );
-    },
-
     findDuplicates: async () => informe(),
     mergeDuplicates: async (keep, drop) => {
       const queda = pista(keep);
       const fuera = new Set(drop);
       drop.forEach((id) => (queda.fav = queda.fav || pista(id).fav));
-      // Una que se queda sin letra hereda la de la primera copia que tenga, y
-      // nunca pierde la suya (#126).
-      if (!tieneTexto(sheets[keep])) {
-        const heredada = [...drop].sort((a, b) => a.localeCompare(b, "es", { numeric: true })).find((id) => tieneTexto(sheets[id]));
-        if (heredada) {
-          sheets[keep] = { ...sheets[heredada], trackId: keep };
-          queda.tieneHoja = true;
-        }
-      }
       // Los cultos siguen a la que se queda, y un culto que tenía dos copias
       // acaba con la canción una vez, no dos.
       playlists = playlists.map((p) => {

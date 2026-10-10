@@ -27,7 +27,7 @@ export const tauri: Backend = {
   reconcileLibrary: async () => requerido(await api.reconcileLibraryCmd(), "reconcile_library"),
   setTrackFav: (id, fav) => api.setTrackFav(id, fav),
   setTracksFav: (ids, fav) => api.setTracksFavCmd(ids, fav),
-  updateTrack: (id, artista, ocasion) => api.updateTrackCmd(id, artista, ocasion),
+  updateTrack: (id, artista) => api.updateTrackCmd(id, artista),
   deleteTrack: (id) => api.deleteTrackCmd(id),
   deleteTracks: async (ids) => requerido(await api.deleteTracksCmd(ids), "delete_tracks"),
   relocateTrack: async (id) => {
@@ -48,22 +48,17 @@ export const tauri: Backend = {
   },
 
   getPlaylists: async () => requerido(await api.getPlaylistsCmd(), "get_playlists"),
-  createPlaylist: (nombre, ocasion, desde) => api.createPlaylistCmd(nombre, ocasion, desde),
+  createPlaylist: (nombre, desde) => api.createPlaylistCmd(nombre, desde),
   duplicatePlaylist: (id) => api.duplicatePlaylistCmd(id),
   addTracksToPlaylist: async (playlist, ids) =>
     requerido(await api.addTracksToPlaylistCmd(playlist, ids), "add_tracks_to_playlist"),
   setPlaylistOrder: (playlist, ids) => api.setPlaylistOrderCmd(playlist, ids),
   setPlaylistTemplate: (playlist, plantilla) => api.setPlaylistTemplateCmd(playlist, plantilla),
-  updatePlaylist: (playlist, nombre, ocasion) => api.updatePlaylistCmd(playlist, nombre, ocasion),
+  updatePlaylist: (playlist, nombre) => api.updatePlaylistCmd(playlist, nombre),
   touchPlaylist: (playlist) => api.touchPlaylistCmd(playlist),
   addPlaylistMomento: (playlist, tipo, titulo, texto) => api.addPlaylistMomentoCmd(playlist, tipo, titulo, texto),
   updatePlaylistMomento: (momento, tipo, titulo, texto) => api.updatePlaylistMomentoCmd(momento, tipo, titulo, texto),
   deletePlaylist: (playlist) => api.deletePlaylistCmd(playlist),
-
-  getTrackSheet: async (id) => requerido(await api.getTrackSheet(id), "get_track_sheet"),
-  getSheets: async (ids) => (await api.getSheets(ids)) ?? [],
-  updateTrackSheet: (id, letra, acordes) => api.updateTrackSheet(id, letra, acordes),
-  searchLyrics: async (consulta) => requerido(await api.searchLyrics(consulta), "search_lyrics"),
 
   findDuplicates: async () => requerido(await api.findDuplicatesCmd(), "find_duplicates"),
   mergeDuplicates: async (keep, drop) => requerido(await api.mergeDuplicatesCmd(keep, drop), "merge_duplicates"),

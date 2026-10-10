@@ -20,8 +20,6 @@ export interface UiPrefs {
   groupBy: GroupBy;
   view: View;
   curPlaylist: string;
-  /** Whether the print preview includes the lyrics and chords. */
-  printWithLyrics: boolean;
   /** How tall the library rows are. */
   densidad: Densidad;
   /**
@@ -29,7 +27,7 @@ export interface UiPrefs {
    * un elemento y el siguiente.
    *
    * Se recuerdan, al contrario que el resto del estado de proyección: una
-   * iglesia elige una vez si proyecta la letra o deja el negro, y no quiere
+   * iglesia elige una vez si proyecta la portada o deja el negro, y no quiere
    * volver a decidirlo cada domingo antes de empezar.
    */
   salidaDeAudio: SalidaDeAudio;
@@ -55,16 +53,20 @@ export interface UiPrefs {
 /** The settings key it is stored under. */
 export const UI_PREFS_KEY = "ui";
 
-const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "dur"];
+// «ocasion» se fue con la ocasión (como «bpm» antes): una preferencia guardada
+// con ella no pasa de aquí y queda la de por defecto.
+const SORT_KEYS: SortKey[] = ["titulo", "album", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
-const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
+const GROUP_BYS: GroupBy[] = ["none", "album", "carpeta"];
 // «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde
 // en la pantalla de proyectar, sin proyector conectado, no es donde nadie
 // quiere aterrizar. Se recuerda dónde se estaba trabajando, no lo que se
 // estaba haciendo en vivo.
 const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
 const DENSIDADES: Densidad[] = ["comoda", "compacta"];
-const SALIDAS_DE_AUDIO: SalidaDeAudio[] = ["negro", "portada", "letra"];
+// «letra» y la portada con la letra encima se fueron con las letras: una
+// preferencia guardada con «letra» no pasa de aquí y queda la de por defecto.
+const SALIDAS_DE_AUDIO: SalidaDeAudio[] = ["negro", "portada"];
 const TRANSICIONES: TransicionProyeccion[] = ["negro", "cuenta"];
 const AVANCES: AvanceProyeccion[] = ["negro", "siguiente"];
 
@@ -79,7 +81,6 @@ export const PREF_FIELDS = [
   "groupBy",
   "view",
   "curPlaylist",
-  "printWithLyrics",
   "densidad",
   "salidaDeAudio",
   "transicionProyeccion",
@@ -98,7 +99,6 @@ export function serialisePrefs(s: UiPrefs): string {
     groupBy: s.groupBy,
     view: s.view,
     curPlaylist: s.curPlaylist,
-    printWithLyrics: s.printWithLyrics,
     densidad: s.densidad,
     salidaDeAudio: s.salidaDeAudio,
     transicionProyeccion: s.transicionProyeccion,
@@ -145,7 +145,6 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (GROUP_BYS.includes(o.groupBy as GroupBy)) out.groupBy = o.groupBy as GroupBy;
   if (VIEWS.includes(o.view as View)) out.view = o.view as View;
   if (typeof o.curPlaylist === "string") out.curPlaylist = o.curPlaylist;
-  if (esBooleano(o.printWithLyrics)) out.printWithLyrics = o.printWithLyrics;
   if (DENSIDADES.includes(o.densidad as Densidad)) out.densidad = o.densidad as Densidad;
   if (SALIDAS_DE_AUDIO.includes(o.salidaDeAudio as SalidaDeAudio)) {
     out.salidaDeAudio = o.salidaDeAudio as SalidaDeAudio;

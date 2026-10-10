@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Momento, Playlist, Track } from "../types";
-import { elementosDe, esMomento, pistasDe, resumenDeOrden, soloPistas, tipoDeMomento } from "../momentos";
+import { elementosDe, esMomento, resumenDeOrden, soloPistas, tipoDeMomento } from "../momentos";
 import {
   VERSION,
   VERSION_SIN_MOMENTOS,
@@ -27,13 +27,11 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Música",
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     path: `/m/${id}.mp3`,
     ...over,
   };
@@ -46,7 +44,6 @@ function culto(over: Partial<Playlist> = {}): Playlist {
   return {
     id: "p1",
     nombre: "Domingo",
-    ocasion: "",
     ids: ["a", "m:1", "b"],
     momentos: [ORACION],
     plantilla: false,
@@ -70,7 +67,6 @@ describe("el orden de un culto con momentos", () => {
     const elementos = elementosDe(["a", "m:1", "b"], pistas, momentos);
 
     expect(elementos.map((e) => `${e.clase}:${e.id}`)).toEqual(["pista:a", "momento:m:1", "pista:b"]);
-    expect(pistasDe(elementos).map((t) => t.id)).toEqual(["a", "b"]);
   });
 
   it("se salta lo que ya no existe, pista o momento", () => {
@@ -106,6 +102,8 @@ describe("la hoja impresa", () => {
     expect(filas[1]).toContain("Lectura");
     expect(filas[1]).toContain("Salmo 23");
     expect(filas[1]).not.toContain("3:00");
+    // Las mismas columnas que una pista, para que la tabla no se descuadre.
+    expect(filas[1].match(/<td[ >]/g)).toHaveLength(4);
     expect(html).toMatch(/tr\.momento td \{[^}]*font-style: italic/);
   });
 
@@ -113,14 +111,6 @@ describe("la hoja impresa", () => {
     const html = playlistSheetHtml(culto(), elementos, "6 min");
 
     expect(html).toContain("2 pistas · 1 momento · 6 min");
-  });
-
-  it("un momento no aporta página de letra", () => {
-    const html = playlistSheetHtml(culto(), elementos, "6 min", {
-      "m:2": { trackId: "m:2", letra: "no debería salir", acordes: "" },
-    });
-
-    expect(html).not.toContain("no debería salir");
   });
 });
 
@@ -205,7 +195,7 @@ describe("el archivo compartido", () => {
   });
 
   it("y un momento del final se queda al final", () => {
-    const pistas = [{ titulo: "A", artista: "", album: "", durSec: 0, ocasion: "", archivo: "a.mp3" }];
+    const pistas = [{ titulo: "A", artista: "", album: "", durSec: 0, archivo: "a.mp3" }];
     const orden = ordenDelImportado(pistas, [{ pista: pistas[0], id: "1", por: "archivo" }], [{ trasPistas: 1, id: "m:5" }]);
 
     expect(orden).toEqual(["1", "m:5"]);
@@ -281,7 +271,7 @@ describe("el backend del navegador", () => {
   it("y un culto nuevo desde una plantilla, también", async () => {
     await b.addPlaylistMomento("p1", "anuncios", "Anuncios", "");
 
-    const nuevo = await elCulto(await b.createPlaylist("Otro", "", "p1"));
+    const nuevo = await elCulto(await b.createPlaylist("Otro", "p1"));
 
     expect(nuevo.ids.slice(0, 2)).toEqual(["a", "b"]);
     expect(nuevo.momentos![0].titulo).toBe("Anuncios");
@@ -299,7 +289,7 @@ describe("el backend del navegador", () => {
   });
 
   it("un momento de otro culto no se cuela en este", async () => {
-    await b.createPlaylist("Otro", "", undefined);
+    await b.createPlaylist("Otro");
     const otro = (await b.getPlaylists()).find((p) => p.nombre === "Otro")!.id;
     await b.addPlaylistMomento(otro, "oracion", "Ajena", "");
     const ajeno = (await elCulto(otro)).ids[0];

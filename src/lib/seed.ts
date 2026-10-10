@@ -1,4 +1,4 @@
-import type { DuplicateGroup, DuplicateTrack, Sheet } from "./api";
+import type { DuplicateGroup, DuplicateTrack } from "./api";
 import type { Folder, Playlist, Track } from "./types";
 
 // Seed catalogue — transcribed verbatim from design/Cantoral.dc.html.
@@ -16,67 +16,32 @@ export const SCAN_FILES = [
   "Himnos\\En la Cruz.mp3",
 ];
 
-/**
- * A couple of sheets so the lyrics view has something to show in the browser.
- *
- * Written for the demo rather than taken from anywhere: what they are for is
- * showing the ChordPro shape — `[Sol]` over the syllable it falls on — and a
- * `{seccion}` heading.
- */
-export const SEED_SHEETS: Record<string, Sheet> = {
-  t1: {
-    trackId: "t1",
-    letra: [
-      "Cantaré de tu amor por siempre,",
-      "de tu gracia que no se acaba.",
-      "",
-      "Coro",
-      "Santo, santo es el Señor,",
-      "toda la tierra canta su honor.",
-    ].join("\n"),
-    acordes: [
-      "{Estrofa}",
-      "[Sol]Cantaré de tu [Do]amor por [Sol]siempre,",
-      "de tu [Mim]gracia que no se a[Re]caba.",
-      "",
-      "{Coro}",
-      "[Do]Santo, santo [Sol]es el Señor,",
-      "[Mim]toda la tierra [Re]canta su ho[Sol]nor.",
-    ].join("\n"),
-  },
-  t3: {
-    trackId: "t3",
-    letra: ["Firme en la roca estoy,", "nada me moverá."].join("\n"),
-    acordes: ["[Do]Firme en la [Fa]roca es[Do]toy,", "nada me mo[Sol]ve[Do]rá."].join("\n"),
-  },
-};
-
 export const SEED_FOLDERS: Folder[] = [
   { id: "f1", nombre: "Himnos", ruta: "C:\\Música\\Iglesia\\Himnos", count: 128 },
   { id: "f2", nombre: "Pistas 2025", ruta: "D:\\Alabanza\\Pistas 2025", count: 64 },
   { id: "f3", nombre: "Coros", ruta: "C:\\Users\\Alabanza\\Coros", count: 47 },
 ];
 
-const PISTAS: Omit<Track, "path" | "tieneHoja">[] = [
-  { id: "t1", titulo: "Sublime Gracia", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 1", dur: "4:12", durSec: 252, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", fav: true, missing: false, added: 6 },
-  { id: "t2", titulo: "Santo, Santo, Santo", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 1", dur: "3:48", durSec: 228, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 5 },
-  { id: "t3", titulo: "Castillo Fuerte", artista: "Coro Congregacional", album: "Herencia de la Reforma", dur: "3:20", durSec: 200, ocasion: "Alabanza", formato: "WAV", carpeta: "Coros", fav: false, missing: false, added: 4 },
-  { id: "t4", titulo: "Cuán Grande Es Él", artista: "Voces de Gracia", album: "Adoración en Vivo", dur: "5:02", durSec: 302, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", fav: true, missing: true, added: 9 },
-  { id: "t5", titulo: "Al Mundo Paz", artista: "Coro Navideño", album: "Navidad Congregacional", dur: "3:05", durSec: 185, ocasion: "Navidad", formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: false, added: 10 },
-  { id: "t6", titulo: "Roca de la Eternidad", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 2", dur: "4:30", durSec: 270, ocasion: "Comunión", formato: "FLAC", carpeta: "Himnos", fav: false, missing: false, added: 3 },
-  { id: "t7", titulo: "A Solas al Huerto", artista: "Adoración Central", album: "Momentos de Reflexión", dur: "4:44", durSec: 284, ocasion: "Reflexión", formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 2 },
-  { id: "t8", titulo: "Firmes y Adelante", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:12", durSec: 192, ocasion: "Alabanza", formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 7 },
-  { id: "t9", titulo: "Tuya Es la Gloria", artista: "Voces de Gracia", album: "Resurrección", dur: "3:58", durSec: 238, ocasion: "Resurrección", formato: "WAV", carpeta: "Pistas 2025", fav: true, missing: false, added: 8 },
-  { id: "t10", titulo: "Mil Voces Para Celebrar", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:30", durSec: 210, ocasion: "Alabanza", formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 1 },
-  { id: "t11", titulo: "Cariñoso Salvador", artista: "Adoración Central", album: "Comunión", dur: "4:08", durSec: 248, ocasion: "Comunión", formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 5 },
-  { id: "t12", titulo: "Dulce Comunión", artista: "Ensamble Getsemaní", album: "Comunión", dur: "3:36", durSec: 216, ocasion: "Comunión", formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 4 },
-  { id: "t13", titulo: "Cristo Ya Resucitó", artista: "Voces de Gracia", album: "Resurrección", dur: "3:22", durSec: 202, ocasion: "Resurrección", formato: "WAV", carpeta: "Pistas 2025", fav: false, missing: false, added: 8 },
-  { id: "t14", titulo: "Oh Dios, Nuestro Auxilio", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 2", dur: "4:00", durSec: 240, ocasion: "Adoración", formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 2 },
-  { id: "t15", titulo: "Alma, Bendice al Señor", artista: "Adoración Central", album: "Adoración en Vivo", dur: "4:20", durSec: 260, ocasion: "Adoración", formato: "MP3", carpeta: "Coros", fav: true, missing: false, added: 6 },
-  { id: "t16", titulo: "En la Cruz", artista: "Ensamble Getsemaní", album: "Momentos de Reflexión", dur: "4:55", durSec: 295, ocasion: "Reflexión", formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: true, added: 3 },
-  { id: "t17", titulo: "Sublime Gracia — Video con letra", artista: "Proyección", album: "Recursos de Proyección", dur: "4:20", durSec: 260, ocasion: "Adoración", formato: "MP4", carpeta: "Pistas 2025", fav: false, missing: false, added: 10, video: true },
-  { id: "t18", titulo: "Fondo de Adoración (loop)", artista: "Recurso Visual", album: "Recursos de Proyección", dur: "6:00", durSec: 360, ocasion: "Reflexión", formato: "MOV", carpeta: "Pistas 2025", fav: false, missing: false, added: 9, video: true },
-  { id: "t19", titulo: "Cristo Ya Resucitó — Video", artista: "Proyección", album: "Resurrección", dur: "3:22", durSec: 202, ocasion: "Resurrección", formato: "MP4", carpeta: "Coros", fav: false, missing: false, added: 7, video: true },
+const PISTAS: Omit<Track, "path">[] = [
+  { id: "t1", titulo: "Sublime Gracia", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 1", dur: "4:12", durSec: 252, formato: "MP3", carpeta: "Himnos", fav: true, missing: false, added: 6 },
+  { id: "t2", titulo: "Santo, Santo, Santo", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 1", dur: "3:48", durSec: 228, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 5 },
+  { id: "t3", titulo: "Castillo Fuerte", artista: "Coro Congregacional", album: "Herencia de la Reforma", dur: "3:20", durSec: 200, formato: "WAV", carpeta: "Coros", fav: false, missing: false, added: 4 },
+  { id: "t4", titulo: "Cuán Grande Es Él", artista: "Voces de Gracia", album: "Adoración en Vivo", dur: "5:02", durSec: 302, formato: "MP3", carpeta: "Himnos", fav: true, missing: true, added: 9 },
+  { id: "t5", titulo: "Al Mundo Paz", artista: "Coro Navideño", album: "Navidad Congregacional", dur: "3:05", durSec: 185, formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: false, added: 10 },
+  { id: "t6", titulo: "Roca de la Eternidad", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 2", dur: "4:30", durSec: 270, formato: "FLAC", carpeta: "Himnos", fav: false, missing: false, added: 3 },
+  { id: "t7", titulo: "A Solas al Huerto", artista: "Adoración Central", album: "Momentos de Reflexión", dur: "4:44", durSec: 284, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 2 },
+  { id: "t8", titulo: "Firmes y Adelante", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:12", durSec: 192, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 7 },
+  { id: "t9", titulo: "Tuya Es la Gloria", artista: "Voces de Gracia", album: "Resurrección", dur: "3:58", durSec: 238, formato: "WAV", carpeta: "Pistas 2025", fav: true, missing: false, added: 8 },
+  { id: "t10", titulo: "Mil Voces Para Celebrar", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:30", durSec: 210, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 1 },
+  { id: "t11", titulo: "Cariñoso Salvador", artista: "Adoración Central", album: "Comunión", dur: "4:08", durSec: 248, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 5 },
+  { id: "t12", titulo: "Dulce Comunión", artista: "Ensamble Getsemaní", album: "Comunión", dur: "3:36", durSec: 216, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 4 },
+  { id: "t13", titulo: "Cristo Ya Resucitó", artista: "Voces de Gracia", album: "Resurrección", dur: "3:22", durSec: 202, formato: "WAV", carpeta: "Pistas 2025", fav: false, missing: false, added: 8 },
+  { id: "t14", titulo: "Oh Dios, Nuestro Auxilio", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 2", dur: "4:00", durSec: 240, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 2 },
+  { id: "t15", titulo: "Alma, Bendice al Señor", artista: "Adoración Central", album: "Adoración en Vivo", dur: "4:20", durSec: 260, formato: "MP3", carpeta: "Coros", fav: true, missing: false, added: 6 },
+  { id: "t16", titulo: "En la Cruz", artista: "Ensamble Getsemaní", album: "Momentos de Reflexión", dur: "4:55", durSec: 295, formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: true, added: 3 },
+  { id: "t17", titulo: "Sublime Gracia — Video con letra", artista: "Proyección", album: "Recursos de Proyección", dur: "4:20", durSec: 260, formato: "MP4", carpeta: "Pistas 2025", fav: false, missing: false, added: 10, video: true },
+  { id: "t18", titulo: "Fondo de Adoración (loop)", artista: "Recurso Visual", album: "Recursos de Proyección", dur: "6:00", durSec: 360, formato: "MOV", carpeta: "Pistas 2025", fav: false, missing: false, added: 9, video: true },
+  { id: "t19", titulo: "Cristo Ya Resucitó — Video", artista: "Proyección", album: "Resurrección", dur: "3:22", durSec: 202, formato: "MP4", carpeta: "Coros", fav: false, missing: false, added: 7, video: true },
 ];
 
 /**
@@ -116,7 +81,6 @@ export const SEED_TRACKS: Track[] = PISTAS.map((t) => {
   return {
     ...t,
     path: `${carpeta}\\${t.titulo}.${t.formato.toLowerCase()}`,
-    tieneHoja: t.id in SEED_SHEETS,
     // Las de alta más reciente hacen de «último escaneo» en el navegador.
     nueva: t.added >= 9,
   };
@@ -125,19 +89,19 @@ export const SEED_TRACKS: Track[] = PISTAS.map((t) => {
 export const SEED_PLAYLISTS: Playlist[] = [
   // Sin fechas: un culto es una lista preparada para darle y que corra. Lo que
   // los ordena es cuándo se tocaron por última vez.
-  { id: "p1", nombre: "Culto dominical", ocasion: "Servicio dominical", ids: ["t2", "t15", "t1", "t6", "t12", "t8"], plantilla: false, tocada: "2026-09-20T18:00:00.000Z" },
-  { id: "p2", nombre: "Servicio de Jóvenes", ocasion: "Reunión juvenil", ids: ["t3", "t8", "t10", "t9", "t13", "t5"], plantilla: false, tocada: "2026-09-22T20:30:00.000Z" },
-  { id: "p3", nombre: "Santa Cena", ocasion: "Comunión", ids: ["t11", "t6", "t12", "t7", "t1"], plantilla: false, tocada: "2026-09-02T17:00:00.000Z" },
-  { id: "p4", nombre: "Ensayo del Coro", ocasion: "Ensayo", ids: ["t1", "t2", "t14", "t15", "t4", "t10", "t8"], plantilla: false, tocada: "2026-09-18T19:15:00.000Z" },
+  { id: "p1", nombre: "Culto dominical", ids: ["t2", "t15", "t1", "t6", "t12", "t8"], plantilla: false, tocada: "2026-09-20T18:00:00.000Z" },
+  { id: "p2", nombre: "Servicio de Jóvenes", ids: ["t3", "t8", "t10", "t9", "t13", "t5"], plantilla: false, tocada: "2026-09-22T20:30:00.000Z" },
+  { id: "p3", nombre: "Santa Cena", ids: ["t11", "t6", "t12", "t7", "t1"], plantilla: false, tocada: "2026-09-02T17:00:00.000Z" },
+  { id: "p4", nombre: "Ensayo del Coro", ids: ["t1", "t2", "t14", "t15", "t4", "t10", "t8"], plantilla: false, tocada: "2026-09-18T19:15:00.000Z" },
   // Una plantilla en el seed, para que «Nueva lista» pueda partir de ella y la
   // sección de plantillas tenga algo que mostrar.
-  { id: "p6", nombre: "Servicio dominical · plantilla", ocasion: "Servicio dominical", ids: ["t2", "t1", "t6", "t12"], plantilla: true, tocada: "2026-08-01T12:00:00.000Z" },
+  { id: "p6", nombre: "Servicio dominical · plantilla", ids: ["t2", "t1", "t6", "t12"], plantilla: true, tocada: "2026-08-01T12:00:00.000Z" },
   // Con dos momentos sin música entre las canciones (#145), para que la tabla,
-  // la hoja, el atril y la cola de la proyección tengan uno que enseñar.
+  // la hoja y la cola de la proyección tengan uno que enseñar.
   {
     id: "p5",
     nombre: "Noche de Adoración",
-    ocasion: "Adoración especial",
+   
     ids: ["t1", "t4", "m:1", "t15", "t6", "m:2", "t14", "t7"],
     momentos: [
       { id: "m:1", tipo: "oracion", titulo: "Oración", texto: "" },

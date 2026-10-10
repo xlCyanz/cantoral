@@ -12,7 +12,6 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
     pub carpeta: String,
@@ -24,37 +23,12 @@ pub struct Track {
     pub path: String,
     /// Absolute path to the extracted embedded cover art, if any.
     pub cover: Option<String>,
-    /// Whether this track has lyrics or chords written down.
-    ///
-    /// A flag rather than the sheet itself: the catalogue travels whole on
-    /// every refresh, and a few thousand sheets would turn every snapshot into
-    /// megabytes of text nothing on that screen is going to read.
-    pub tiene_hoja: bool,
     /// Whether it came in with the latest scan: what «Recién agregadas» shows
     /// (#139). A rescan that finds nothing new leaves no track marked.
     pub nueva: bool,
     /// Si es un video del que la webview no pudo sacar miniatura. No se vuelve
     /// a intentar hasta que el archivo cambie.
     pub miniatura_fallida: bool,
-}
-
-/// The lyrics and chords of one track, fetched only when something shows them.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Sheet {
-    pub track_id: String,
-    pub letra: String,
-    /// ChordPro, e.g. `[Sol]Sublime [Do]gracia`.
-    pub acordes: String,
-}
-
-/// Una pista que la búsqueda encontró por su hoja (#144).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LyricHit {
-    pub track_id: String,
-    /// El trozo de la letra donde aparece lo buscado, sin acordes, en una línea.
-    pub fragmento: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +49,6 @@ pub struct Folder {
 pub struct Playlist {
     pub id: String,
     pub nombre: String,
-    pub ocasion: String,
     pub ids: Vec<String>,
     /// A list kept as a starting point rather than as a service of its own.
     pub plantilla: bool,

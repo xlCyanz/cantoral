@@ -44,8 +44,6 @@ pub struct PlaylistFile {
 pub struct SharedPlaylist {
     pub nombre: String,
     #[serde(default)]
-    pub ocasion: String,
-    #[serde(default)]
     pub plantilla: bool,
 }
 
@@ -60,8 +58,6 @@ pub struct SharedTrack {
     pub album: String,
     #[serde(default)]
     pub dur_sec: i64,
-    #[serde(default)]
-    pub ocasion: String,
     /// File name only — never the path it sat at on the other machine.
     #[serde(default)]
     pub archivo: String,
@@ -165,17 +161,12 @@ mod tests {
         let dir = Dir::new("round-trip");
         let original = PlaylistFile {
             cantoral: VERSION,
-            lista: SharedPlaylist {
-                nombre: "Culto 4 Ene".into(),
-                ocasion: "Servicio dominical".into(),
-                plantilla: false,
-            },
+            lista: SharedPlaylist { nombre: "Culto 4 Ene".into(), plantilla: false },
             pistas: vec![SharedTrack {
                 titulo: "Sublime Gracia".into(),
                 artista: "Coro Congregacional".into(),
                 album: "Himnos".into(),
                 dur_sec: 252,
-                ocasion: "Adoración".into(),
                 archivo: "sublime.mp3".into(),
             }],
             momentos: vec![SharedMomento {
@@ -191,7 +182,6 @@ mod tests {
         let leido = leer(&p).unwrap();
 
         assert_eq!(leido.lista.nombre, "Culto 4 Ene");
-        assert_eq!(leido.lista.ocasion, "Servicio dominical");
         assert_eq!(leido.pistas.len(), 1);
         assert_eq!(leido.pistas[0].titulo, "Sublime Gracia");
         assert_eq!(leido.pistas[0].dur_sec, 252);
@@ -261,18 +251,19 @@ mod tests {
 
     #[test]
     fn a_file_from_before_services_lost_their_date_still_opens() {
-        // Una versión anterior mandaba `fecha`, y las etiquetas y el tono de
-        // cada pista. Nada de eso se lee ya, pero el archivo tiene que abrir:
+        // Una versión anterior mandaba `fecha` y la `ocasion`, y las etiquetas,
+        // el tono y la ocasión de cada pista. Nada de eso se lee ya, pero el
+        // archivo tiene que abrir:
         // quien lo recibe no eligió con qué versión se exportó.
         let dir = Dir::new("con-fecha");
         let viejo = r#"{"cantoral":1,
             "lista":{"nombre":"Culto","fecha":"2026-01-04","ocasion":"Santa Cena"},
-            "pistas":[{"titulo":"Santo","tono":"Re","etiquetas":["lenta"]}]}"#;
+            "pistas":[{"titulo":"Santo","tono":"Re","etiquetas":["lenta"],"ocasion":"Comunión"}]}"#;
         let p = dir.escribir("lista.json", viejo);
 
         let leido = leer(&p).unwrap();
 
-        assert_eq!(leido.lista.ocasion, "Santa Cena");
+        assert_eq!(leido.lista.nombre, "Culto");
         assert_eq!(leido.pistas[0].titulo, "Santo");
     }
 

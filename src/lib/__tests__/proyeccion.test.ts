@@ -230,13 +230,11 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Música",
     fav: false,
     missing: false,
     added: 0,
-    tieneHoja: false,
     path: `/m/${id}.mp3`,
     ...over,
   };
@@ -637,21 +635,17 @@ describe("cuando se acaba un elemento, con «Negro y esperar»", () => {
 
 // ------------------------------------------------ las opciones de la salida
 
-/** Un culto de dos pistas de audio, la primera con letra de tres estrofas. */
-function cultoConLetra() {
+/** Un culto de dos pistas de audio, la primera con carátula. */
+function cultoDeAudio() {
   const pistas = [pista("a", { cover: "asset://portada-a" }), pista("b")];
   useStore.setState({
     tracks: pistas,
     curPlaylist: "p1",
     plOrder: { p1: ["a", "b"] },
-    sheets: {
-      a: { letra: "Uno uno\nUno dos\n\nDos uno\n\nTres uno", acordes: "" } as never,
-    },
     proyectando: true,
     proyeccionIdx: -1,
     proyeccionLista: "",
-    proyeccionEstrofa: 0,
-    salidaDeAudio: "letra",
+    salidaDeAudio: "portada",
     transicionProyeccion: "negro",
   });
 }
@@ -663,27 +657,30 @@ const fondo = () => {
 };
 
 describe("qué sale con una pista de solo audio", () => {
-  it("con «Solo la letra», la primera estrofa", () => {
-    cultoConLetra();
+  it("de fábrica, la portada: el título sobre la carátula", () => {
+    useStore.setState({ salidaDeAudio: initial.salidaDeAudio });
+    cultoDeAudio();
+    useStore.setState({ salidaDeAudio: initial.salidaDeAudio });
 
     useStore.getState().proyectarElemento(0);
 
-    expect(fondo()).toMatchObject({ tipo: "letra", lineas: ["Uno uno", "Uno dos"] });
+    expect(initial.salidaDeAudio).toBe("portada");
+    expect(fondo()).toEqual({ tipo: "portada", portada: "asset://portada-a" });
+    expect(ultimo().vista).toMatchObject({ titulo: "Pista a" });
   });
 
-  it("con «Portada y letra», además la carátula de fondo", () => {
-    cultoConLetra();
-    useStore.setState({ salidaDeAudio: "portada" });
+  it("una pista sin carátula no manda portada: el título sale sobre el negro", () => {
+    cultoDeAudio();
 
-    useStore.getState().proyectarElemento(0);
+    useStore.getState().proyectarElemento(1);
 
-    expect(fondo()).toMatchObject({ tipo: "portada", portada: "asset://portada-a" });
+    expect(fondo()).toEqual({ tipo: "portada", portada: undefined });
   });
 
   it("y con «Negro» no se manda nada que dibujar", () => {
     // Hay cultos donde lo que se quiere mientras suena la ofrenda es una
     // pantalla apagada.
-    cultoConLetra();
+    cultoDeAudio();
     useStore.setState({ salidaDeAudio: "negro" });
 
     useStore.getState().proyectarElemento(0);
@@ -691,25 +688,8 @@ describe("qué sale con una pista de solo audio", () => {
     expect(fondo()).toEqual({ tipo: "negro" });
   });
 
-  it("la carátula no viaja si no se pidió la portada", () => {
-    cultoConLetra();
-
-    useStore.getState().proyectarElemento(0);
-
-    expect(fondo()?.portada).toBeUndefined();
-  });
-
-  it("una pista sin letra no manda líneas: la salida cae al título", () => {
-    cultoConLetra();
-
-    useStore.getState().proyectarElemento(1);
-
-    expect(fondo()?.lineas).toBeUndefined();
-  });
-
   it("un video no lleva nada de esto: ya llena la pantalla", () => {
     culto();
-    useStore.setState({ salidaDeAudio: "letra" });
 
     useStore.getState().proyectarElemento(1);
 
@@ -720,7 +700,7 @@ describe("qué sale con una pista de solo audio", () => {
 
   it("cambiar el ajuste en marcha se ve al momento", () => {
     // Quien lo toca lo toca para ver el efecto, no para la siguiente canción.
-    cultoConLetra();
+    cultoDeAudio();
     useStore.getState().proyectarElemento(0);
 
     useStore.getState().setSalidaDeAudio("negro");
@@ -729,7 +709,7 @@ describe("qué sale con una pista de solo audio", () => {
   });
 
   it("pero con el proyector en negro no se manda nada al tocarlo", () => {
-    cultoConLetra();
+    cultoDeAudio();
     useStore.getState().proyectarElemento(0);
     useStore.getState().proyeccionNegro();
     setProjectionCmd.mockClear();
@@ -738,75 +718,22 @@ describe("qué sale con una pista de solo audio", () => {
 
     expect(setProjectionCmd).not.toHaveBeenCalled();
   });
-});
 
-describe("pasar de estrofa", () => {
-  it("«Siguiente» recorre la letra antes de cambiar de canción", () => {
-    // Un solo botón y una sola tecla: desde el atril no se quiere elegir entre
-    // dos, se quiere pasar a lo que viene.
-    cultoConLetra();
-    useStore.getState().proyectarElemento(0);
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(useStore.getState().proyeccionIdx).toBe(0);
-    expect(useStore.getState().proyeccionEstrofa).toBe(1);
-    expect(fondo()?.lineas).toEqual(["Dos uno"]);
-  });
-
-  it("y al acabarse la letra sí pasa a la siguiente pista", () => {
-    cultoConLetra();
-    useStore.getState().proyectarElemento(0);
-    useStore.getState().proyeccionSiguiente();
-    useStore.getState().proyeccionSiguiente();
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(useStore.getState().proyeccionIdx).toBe(1);
-    expect(useStore.getState().proyeccionEstrofa).toBe(0);
-  });
-
-  it("con «Negro» elegido no hay estrofas que recorrer", () => {
-    cultoConLetra();
-    useStore.setState({ salidaDeAudio: "negro" });
+  it("«Siguiente» pasa directamente a la pista de después", () => {
+    cultoDeAudio();
     useStore.getState().proyectarElemento(0);
 
     useStore.getState().proyeccionSiguiente();
 
     expect(useStore.getState().proyeccionIdx).toBe(1);
-  });
-
-  it("desde el negro, «Siguiente» pasa de pista y no de estrofa", () => {
-    // Estando en negro no hay letra en pantalla que avanzar.
-    cultoConLetra();
-    useStore.getState().proyectarElemento(0);
-    useStore.getState().proyeccionNegro();
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(useStore.getState().proyeccionIdx).toBe(1);
-  });
-
-  it("volver a poner la misma pista empieza otra vez por la primera estrofa", () => {
-    cultoConLetra();
-    useStore.getState().proyectarElemento(0);
-    useStore.getState().proyeccionSiguiente();
-
-    useStore.getState().proyectarElemento(0);
-
-    expect(useStore.getState().proyeccionEstrofa).toBe(0);
   });
 });
 
 describe("la transición entre elementos", () => {
   it("cambiar de elemento la lleva", () => {
-    cultoConLetra();
+    cultoDeAudio();
     useStore.setState({ transicionProyeccion: "cuenta" });
     useStore.getState().proyectarElemento(0);
-    // Las tres estrofas primero: hasta que se acaba la letra, «Siguiente» no
-    // cambia de pista y por tanto no hay nada entre lo que transicionar.
-    useStore.getState().proyeccionSiguiente();
-    useStore.getState().proyeccionSiguiente();
 
     useStore.getState().proyeccionSiguiente();
 
@@ -814,18 +741,8 @@ describe("la transición entre elementos", () => {
     expect(ultimo().transicion).toBe("cuenta");
   });
 
-  it("pasar de estrofa no la lleva", () => {
-    // Serían medio segundo de negro en mitad de una canción.
-    cultoConLetra();
-    useStore.getState().proyectarElemento(0);
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(ultimo().transicion).toBeUndefined();
-  });
-
   it("volver a poner lo que ya estaba, tampoco", () => {
-    cultoConLetra();
+    cultoDeAudio();
     useStore.getState().proyectarElemento(0);
 
     useStore.getState().proyectarElemento(0);
@@ -834,7 +751,7 @@ describe("la transición entre elementos", () => {
   });
 
   it("pero volver del negro sí, porque se estaba viniendo de otra cosa", () => {
-    cultoConLetra();
+    cultoDeAudio();
     useStore.getState().proyectarElemento(0);
     useStore.getState().proyeccionNegro();
 
@@ -844,7 +761,7 @@ describe("la transición entre elementos", () => {
   });
 
   it("y el negro a mano no lleva transición: corta ya", () => {
-    cultoConLetra();
+    cultoDeAudio();
     useStore.getState().proyectarElemento(0);
 
     useStore.getState().proyeccionNegro();

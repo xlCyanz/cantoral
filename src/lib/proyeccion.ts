@@ -1,7 +1,5 @@
 import type { Track } from "./types";
 import { motivoNoProyectable } from "./formatos";
-import { estrofasDe } from "./estrofas";
-import type { Estrofa } from "./estrofas";
 import { assetUrl, type SalidaProyeccion, type VistaProyeccion } from "./api";
 import type { CantoralState } from "../store/tipos";
 import { momentosPorId, pistasPorId } from "../store/selectores";
@@ -102,38 +100,6 @@ export function salidaDelCulto(s: CantoralState, idx: number, reproduciendo: boo
 export function fondoDeAudio(s: CantoralState, t: Track): NonNullable<Extract<VistaProyeccion, { modo: "media" }>["audio"]> {
   const tipo = s.salidaDeAudio;
   if (tipo === "negro") return { tipo };
-  const trozos = estrofasDeLaPista(s, t.id);
-  const actual = trozos[Math.min(s.proyeccionEstrofa, Math.max(0, trozos.length - 1))];
-  return {
-    tipo,
-    etiqueta: actual?.etiqueta || undefined,
-    lineas: actual?.lineas,
-    // La carátula ya viene como `asset://` del catálogo.
-    portada: tipo === "portada" ? t.cover : undefined,
-  };
+  // La carátula ya viene como `asset://` del catálogo.
+  return { tipo, portada: t.cover };
 }
-
-/**
- * La letra de una pista, partida en estrofas.
- *
- * Recordada porque la mira cada mensaje que sale a la salida —y sale uno por
- * cada cambio de ajuste, de estrofa y de elemento—, y volver a leer la hoja
- * entera cada vez no hace falta.
- */
-export const estrofasDeLaPista = recordar(
-  (s: CantoralState, id: string): Estrofa[] => {
-    const hoja = s.sheets[id];
-    return estrofasDe(hoja?.letra, hoja?.acordes);
-  },
-  (s: CantoralState, id: string) => [s.sheets[id], id],
-);
-
-/** Cuántas estrofas tiene lo que está en pantalla, o 0 si no se proyecta letra. */
-export function estrofasEnPantalla(s: CantoralState): Estrofa[] {
-  if (s.salidaDeAudio === "negro" || s.proyeccionIdx < 0) return VACIO_ESTROFAS;
-  const e = filasProyectadas(s)[s.proyeccionIdx];
-  if (e?.clase !== "pista" || e.pista.video) return VACIO_ESTROFAS;
-  return estrofasDeLaPista(s, e.pista.id);
-}
-
-const VACIO_ESTROFAS: Estrofa[] = [];

@@ -9,6 +9,36 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Eliminado
+
+- **El modo culto.** La vista a pantalla completa para leer desde el atril, su
+  botón «Modo culto» en cada culto y las flechas <kbd>↑</kbd> / <kbd>↓</kbd>
+  para pasar de canción en ella. Se quita a pedido de quienes usan la app en
+  la iglesia; la proyección y la hoja impresa siguen como estaban.
+- **La letra y los acordes.** Ya no hay editor de letra y acordes («Letra y
+  acordes» en el menú de cada fila y en el panel de detalle, con su marca
+  «escrita»), ni se busca por la letra en la biblioteca, ni la hoja impresa
+  ofrece «Con letras y acordes»: imprime el repertorio, como antes. Lo que se
+  hubiera escrito no se borra: sigue guardado en la base de datos y en las
+  copias de seguridad, y al fusionar duplicados pasa a la pista que se queda.
+- **La ocasión.** Ya no se escribe ni se ve la ocasión de las pistas ni la de
+  los cultos: se van los chips de ocasión de la biblioteca, «Agrupar: Ocasión»,
+  su columna en la biblioteca, en el culto y en la hoja impresa, el campo del
+  panel de detalle y del diálogo de la lista, el rótulo encima del nombre del
+  culto y la búsqueda por ocasión. Quien tenía la biblioteca ordenada o
+  agrupada por ocasión la ve con el orden y el agrupado de fábrica. Lo escrito
+  se queda guardado en la base de datos, y las listas compartidas desde una
+  versión anterior se siguen importando.
+
+### Cambiado
+
+- **Qué sale por el proyector con una pista de solo audio.** Las opciones son
+  ahora «Negro» y «Portada» —el título sobre la carátula de la pista, o sobre
+  negro si no tiene—, que es la de fábrica. «Portada y letra» y «Solo la letra»
+  desaparecen, y «Siguiente» ya no recorre estrofas: pasa directamente al
+  elemento de después. Quien tenía elegida «Solo la letra» pasa a «Portada»;
+  «Portada y letra» se queda en «Portada».
+
 ## [0.5.0] - 2026-10-04
 
 **Menos clics para preparar el domingo.** Un culto se arma agregando varias

@@ -12,7 +12,7 @@ const pickShareExportPath = vi.fn<(nombre: string) => Promise<string | null>>();
 const pickPlaylistFile = vi.fn<() => Promise<string | null>>();
 const readPlaylistFileCmd = vi.fn<(src: string) => Promise<ArchivoDeLista>>();
 const leerArchivoDelNavegador = vi.fn<() => Promise<ArchivoDeLista | null>>();
-const createPlaylistCmd = vi.fn<(n: string, o: string) => Promise<string>>();
+const createPlaylistCmd = vi.fn<(n: string, desde?: string) => Promise<string>>();
 const setPlaylistOrderCmd = vi.fn<(pl: string, ids: string[]) => Promise<void>>();
 const getPlaylistsCmd = vi.fn<() => Promise<Playlist[]>>();
 
@@ -23,7 +23,7 @@ vi.mock("../api", async (importOriginal) => ({
   pickPlaylistFile: () => pickPlaylistFile(),
   readPlaylistFileCmd: (src: string) => readPlaylistFileCmd(src),
   leerArchivoDelNavegador: () => leerArchivoDelNavegador(),
-  createPlaylistCmd: (n: string, o: string) => createPlaylistCmd(n, o),
+  createPlaylistCmd: (n: string, desde?: string) => createPlaylistCmd(n, desde),
   setPlaylistOrderCmd: (pl: string, ids: string[]) => setPlaylistOrderCmd(pl, ids),
   getPlaylistsCmd: () => getPlaylistsCmd(),
   touchPlaylistCmd: async () => {},
@@ -51,12 +51,10 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     path: `/m/${id}.mp3`,
     ...over,
@@ -67,7 +65,6 @@ const lista: Playlist = {
   id: "p1",
   nombre: "Culto 4 Ene",
   tocada: "",
-  ocasion: "Servicio dominical",
   ids: ["a", "b"],
   plantilla: false,
 };
@@ -86,13 +83,12 @@ function conLista() {
 function archivoDe(titulos: string[], nombre = "Culto de otra iglesia"): ArchivoDeLista {
   return {
     cantoral: 1,
-    lista: { nombre, ocasion: "Comunión", plantilla: false },
+    lista: { nombre, plantilla: false },
     pistas: titulos.map((t) => ({
       titulo: t,
       artista: "Coro",
       album: "Album",
       durSec: 180,
-      ocasion: "Adoración",
       etiquetas: [],
       archivo: "",
     })),
@@ -115,7 +111,7 @@ beforeEach(() => {
   // El núcleo contesta las listas que ya había más la que acaba de crear.
   getPlaylistsCmd.mockImplementation(async () => [
     ...useStore.getState().playlists,
-    { id: "77", nombre: "Culto de otra iglesia", ocasion: "Comunión", ids: [], plantilla: false, tocada: "" },
+    { id: "77", nombre: "Culto de otra iglesia", ids: [], plantilla: false, tocada: "" },
   ]);
   setPlaylistOrderCmd.mockResolvedValue(undefined);
   exportPlaylistJsonCmd.mockResolvedValue(undefined);
@@ -255,7 +251,7 @@ describe("importar: crear la lista", () => {
     useStore.getState().confirmImport();
 
     await vi.waitFor(() => expect(setPlaylistOrderCmd).toHaveBeenCalled());
-    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto de otra iglesia", "Comunión");
+    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto de otra iglesia", undefined);
     expect(setPlaylistOrderCmd).toHaveBeenCalledWith("77", ["c", "a"]);
   });
 
@@ -345,7 +341,7 @@ describe("la vuelta entera", () => {
     useStore.getState().confirmImport();
 
     await vi.waitFor(() => expect(setPlaylistOrderCmd).toHaveBeenCalled());
-    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto 4 Ene", "Servicio dominical");
+    expect(createPlaylistCmd).toHaveBeenCalledWith("Culto 4 Ene", undefined);
     expect(setPlaylistOrderCmd).toHaveBeenCalledWith("77", ["b", "a"]);
   });
 });

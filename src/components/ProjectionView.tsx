@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { MonitorX, Pause, Presentation, Square } from "lucide-react";
 import type { CSSProperties } from "react";
-import { elementosDeLista, estrofasEnPantalla, useStore } from "../store";
+import { elementosDeLista, useStore } from "../store";
 import { motivoNoProyectable } from "../lib/formatos";
 import { fmt } from "../lib/covers";
 import type { Elemento } from "../lib/momentos";
@@ -67,8 +67,7 @@ const mini = (activo: boolean): CSSProperties => ({
 
 const OPCIONES_AUDIO = [
   { valor: "negro" as const, etiqueta: "Negro", ayuda: "La pantalla se queda apagada mientras suena." },
-  { valor: "portada" as const, etiqueta: "Portada y letra", ayuda: "La letra sobre la carátula de la pista, apagada de fondo." },
-  { valor: "letra" as const, etiqueta: "Solo la letra", ayuda: "La letra sobre el negro." },
+  { valor: "portada" as const, etiqueta: "Portada", ayuda: "El título sobre la carátula de la pista, apagada de fondo. Sin carátula, sobre el negro." },
 ];
 
 // «Pasar al siguiente» va primero porque es lo que viene puesto: un culto es
@@ -153,9 +152,6 @@ export default function ProjectionView() {
   const setTransicionProyeccion = useStore((s) => s.setTransicionProyeccion);
   const avanceProyeccion = useStore((s) => s.avanceProyeccion);
   const setAvanceProyeccion = useStore((s) => s.setAvanceProyeccion);
-  const estrofa = useStore((s) => s.proyeccionEstrofa);
-  const estrofas = useStore(estrofasEnPantalla);
-  const loadSheets = useStore((s) => s.loadSheets);
   const openPlaylist = useStore((s) => s.openPlaylist);
   const curPlaylist = useStore((s) => s.curPlaylist);
 
@@ -164,14 +160,6 @@ export default function ProjectionView() {
   useEffect(() => {
     void cargarMonitores();
   }, [cargarMonitores]);
-
-  // Las letras no viajan con el catálogo —serían megabytes en cada refresco—,
-  // así que se piden al entrar aquí: sin ellas, proyectar la letra no tendría
-  // nada que proyectar.
-  const ids = filas.map((e) => e.id).join(",");
-  useEffect(() => {
-    if (ids) void loadSheets(ids.split(","));
-  }, [ids, loadSheets]);
 
   const activo = monitores.find((m) => m.indice === monitorSalida);
   // El índice sólo señala una fila de esta cola si lo que está en el aire sale
@@ -300,11 +288,6 @@ export default function ProjectionView() {
                         ? `${enPantalla.momento.texto ? `${enPantalla.momento.texto} · ` : ""}sin música · espera a «Siguiente»`
                         : ""}
                   </div>
-                  {enPantalla && estrofas.length > 1 && (
-                    <div style={{ fontSize: "10.5px", color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                      Estrofa {Math.min(estrofa + 1, estrofas.length)} de {estrofas.length}
-                    </div>
-                  )}
                 </div>
                 <div style={{ position: "absolute", left: 8, bottom: 7, fontSize: "9.5px", color: "rgba(255,255,255,.4)", fontFamily: "ui-monospace, Menlo, monospace" }}>
                   {activo ? `${activo.ancho} × ${activo.alto} · sin controles ni barra de título` : "sin pantalla de salida"}
@@ -405,14 +388,11 @@ export default function ProjectionView() {
         <button
           onClick={proyeccionSiguiente}
           disabled={!proyectando || filas.length === 0}
-          // «Siguiente» es un solo botón porque desde el atril no se quiere
-          // elegir entre dos; el título dice a qué va a saltar esta vez.
+          // El título dice a qué va a saltar esta vez.
           title={
-            proyectando && estrofa + 1 < estrofas.length
-              ? `Pasar a la estrofa ${estrofa + 2} de ${estrofas.length}`
-              : siguiente
-                ? `Pasar a «${tituloDe(siguiente)}»`
-                : "Cerrar el culto y dejar el proyector en negro"
+            siguiente
+              ? `Pasar a «${tituloDe(siguiente)}»`
+              : "Cerrar el culto y dejar el proyector en negro"
           }
           className="hb-s2"
           style={{ ...botonBarra, opacity: proyectando && filas.length > 0 ? 1 : 0.45, cursor: proyectando && filas.length > 0 ? "pointer" : "not-allowed" }}
