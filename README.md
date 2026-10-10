@@ -61,9 +61,9 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 ## ✨ Funciones
 
 - 📋 **Cultos** — un culto es una lista preparada: se arma una vez, se le da a proyectar y corre entero, pasando solo de un elemento al siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
-- 🙏 **Momentos sin música** — una oración, una lectura, los anuncios: añádelos al culto con «Añadir un momento…» y reordénalos como una pista más. En el proyector sale su título sobre negro y la proyección se detiene ahí hasta que pulses «Siguiente»; en la hoja impresa y en el modo culto salen en su sitio, y «Reproducir todo» pasa de largo.
+- 🙏 **Momentos sin música** — una oración, una lectura, los anuncios: añádelos al culto con «Añadir un momento…» y reordénalos como una pista más. En el proyector sale su título sobre negro y la proyección se detiene ahí hasta que pulses «Siguiente»; en la hoja impresa sale en su sitio, y «Reproducir todo» pasa de largo.
 - 📽️ **Proyección** — una ventana propia a pantalla completa en la otra pantalla: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El video sale tal cual; una pista de audio saca la letra —las estrofas las pasa quien opera—, la letra sobre la portada o negro. Entre un elemento y otro, medio segundo de negro o una cuenta atrás; al acabar cada uno pasa solo al siguiente, y <kbd>B</kbd> deja la pantalla en negro al instante.
-- 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
+- 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y sácalos en la hoja impresa, con los acordes sobre la sílaba donde caen.
 - ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a un culto, ver el detalle, letra y acordes, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
 - 🎼 **Artista y ocasión** — corrígelos desde el panel de detalle, con sugerencias de las ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, el agrupar por ocasión y la hoja imprimible. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo. **Fijar** deja el panel abierto: <kbd>Esc</kbd> ya no lo cierra, para ir pista por pista sin perder el sitio.
@@ -94,7 +94,6 @@ La misma lista está dentro de la app: <kbd>?</kbd>.
 | <kbd>Mayús</kbd> / <kbd>⌘</kbd> + clic | Elegir un tramo o sumar pistas a la selección |
 | <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>A</kbd> | Seleccionar todo lo que muestra la biblioteca |
 | <kbd>A</kbd> | Agregar a un culto lo que esté elegido |
-| <kbd>↑</kbd> / <kbd>↓</kbd> | Canción anterior / siguiente en modo culto |
 | <kbd>→</kbd> | Pasar al siguiente elemento proyectado |
 | <kbd>B</kbd> | Dejar el proyector en negro |
 | <kbd>Esc</kbd> | Cerrar diálogo o panel; en Proyección, cortar la salida |
@@ -400,7 +399,7 @@ cantoral/
 ├── src/                    # Interfaz (React)
 │   ├── components/         # TitleBar, Sidebar, TopBar, LibraryView, DetailPanel,
 │   │                       # PlayerBar, ProjectionView, ProjectionOutput (la
-│   │                       # ventana del proyector), ServiceView, diálogos, …
+│   │                       # ventana del proyector), diálogos, …
 │   ├── lib/                # api (puente con Tauri) · backend (Tauri o en
 │   │                       # memoria) · seed (datos de ejemplo) ·
 │   │                       # estrofas · chords · formatos · media · compartir ·

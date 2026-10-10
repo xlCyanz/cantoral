@@ -1,7 +1,6 @@
 // Las hojas no viajan con el catálogo: se piden cuando alguien va a leerlas y
 // se guardan solas mientras se escriben. Lo que se fija aquí es que no se pidan
-// dos veces, que lo que se escribe no se pierda, y que el modo culto no lleve a
-// una canción el tono que se eligió para la anterior.
+// dos veces y que lo que se escribe no se pierda.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Sheet, Snapshot } from "../api";
@@ -41,18 +40,6 @@ function track(id: string, over: Partial<Track> = {}): Track {
     added: 1,
     ...over,
   };
-}
-
-const LISTA = ["a", "b", "c"];
-
-function conLista() {
-  useStore.setState({
-    tracks: LISTA.map((id) => track(id)),
-    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids: LISTA, plantilla: false }],
-    plOrder: { p1: LISTA },
-    curPlaylist: "p1",
-    playerId: "",
-  });
 }
 
 beforeEach(() => {
@@ -159,59 +146,5 @@ describe("escribir una hoja", () => {
     expect(useStore.getState().sheetState).toBe("error");
     // Y lo escrito sigue en pantalla: quitárselo sería perder su trabajo.
     expect(useStore.getState().sheets.a.letra).toBe("Aleluya");
-  });
-});
-
-describe("modo culto", () => {
-  beforeEach(conLista);
-
-  it("arranca en la canción que está sonando, si es de esta lista", () => {
-    useStore.setState({ playerId: "c" });
-
-    useStore.getState().openService();
-
-    expect(useStore.getState().serviceIdx).toBe(2);
-    expect(useStore.getState().serviceOpen).toBe(true);
-  });
-
-  it("arranca por el principio si lo que suena no es de la lista", () => {
-    useStore.setState({ playerId: "otra" });
-
-    useStore.getState().openService();
-
-    expect(useStore.getState().serviceIdx).toBe(0);
-  });
-
-  it("no se abre sobre una lista vacía", () => {
-    useStore.setState({ plOrder: { p1: [] } });
-
-    useStore.getState().openService();
-
-    expect(useStore.getState().serviceOpen).toBe(false);
-    expect(useStore.getState().toast?.titulo).toMatch(/vacía/i);
-  });
-
-  it("no se pasa de los extremos de la lista", () => {
-    useStore.getState().openService();
-
-    useStore.getState().serviceGo(-1);
-    expect(useStore.getState().serviceIdx).toBe(0);
-
-    useStore.getState().serviceGo(5);
-    expect(useStore.getState().serviceIdx).toBe(2);
-  });
-
-  it("mantiene el tamaño de letra dentro de lo legible", () => {
-    for (let i = 0; i < 40; i++) useStore.getState().scaleService(0.1);
-    expect(useStore.getState().serviceScale).toBe(2.4);
-
-    for (let i = 0; i < 40; i++) useStore.getState().scaleService(-0.1);
-    expect(useStore.getState().serviceScale).toBe(0.7);
-  });
-
-  it("pide las hojas de toda la lista al abrirse", () => {
-    useStore.getState().openService();
-
-    expect(getSheets).toHaveBeenCalledWith(LISTA);
   });
 });

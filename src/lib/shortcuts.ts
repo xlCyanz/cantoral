@@ -20,7 +20,6 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "A", label: "Agregar a un culto lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
   { keys: "Esc", label: "Cerrar diálogo o panel; en Proyección, cortar la salida" },
-  { keys: "↑ / ↓", label: "Canción anterior / siguiente en modo culto" },
   { keys: "B", label: "Dejar el proyector en negro" },
   { keys: "→", label: "Pasar al siguiente elemento proyectado" },
   { keys: "?", label: "Mostrar esta ayuda" },
@@ -42,9 +41,6 @@ export function registerShortcuts(): () => void {
       } else if (s.sheetDialog) {
         e.preventDefault();
         s.closeSheetEditor();
-      } else if (s.serviceOpen) {
-        e.preventDefault();
-        s.closeService();
       } else if (s.dialog) {
         e.preventDefault();
         s.closeDialog();
@@ -110,22 +106,6 @@ export function registerShortcuts(): () => void {
     // Everything below is a bare key, so never while typing or in a dialog —
     // pressing space to pause must not reach through a confirmation.
     if (isTyping(e.target) || s.dialog || s.confirm || s.sheetDialog) return;
-
-    // The service view takes the arrows while it is up: on the stand they walk
-    // the list being sung, not the play queue behind it. Space is left alone,
-    // because starting the track is exactly what it is wanted for.
-    if (s.serviceOpen) {
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
-        e.preventDefault();
-        s.serviceGo(1);
-        return;
-      }
-      if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
-        e.preventDefault();
-        s.serviceGo(-1);
-        return;
-      }
-    }
 
     // La vista de proyección se queda con las teclas de la barra de abajo
     // mientras está delante: `B` para el negro y `→` para pasar al siguiente

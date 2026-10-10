@@ -9,6 +9,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Eliminado
+
+- **El modo culto.** La vista a pantalla completa para leer desde el atril, su
+  botón «Modo culto» en cada culto y las flechas <kbd>↑</kbd> / <kbd>↓</kbd>
+  para pasar de canción en ella. Se quita a pedido de quienes usan la app en
+  la iglesia; la proyección y la hoja impresa siguen como estaban.
+
 ## [0.5.0] - 2026-10-04
 
 **Menos clics para preparar el domingo.** Un culto se arma agregando varias

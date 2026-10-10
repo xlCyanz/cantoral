@@ -5,7 +5,7 @@ import type { SaveState } from "./tipos";
 import type { Contexto, Get, Set } from "./contexto";
 
 // Parte del store (#134). Ver src/store/index.ts.
-// Letras y acordes: el editor y el modo culto.
+// Letras y acordes: el editor.
 
 export interface HojasSlice {
   // ---- lyrics and chords ----
@@ -21,17 +21,9 @@ export interface HojasSlice {
   /** How the sheet being edited is doing, reusing the panel's own states. */
   sheetState: SaveState;
 
-  // ---- service view ----
-  /** Whether the full-screen view for playing from the stand is up. */
-  serviceOpen: boolean;
-  /** Position within the open list's order. */
-  serviceIdx: number;
-  /** Text size multiplier, for the distance between the stand and the eyes. */
-  serviceScale: number;
-
   /** Fetch one track's sheet if it is not already in hand. */
   loadSheet: (id: string) => void;
-  /** Fetch the sheets of a whole list, for the service view and the export. */
+  /** Fetch the sheets of a whole list, for the export. */
   loadSheets: (ids: string[]) => Promise<void>;
   /** Open the sheet editor on a track. */
   openSheetEditor: (id: string) => void;
@@ -40,12 +32,6 @@ export interface HojasSlice {
   setSheet: (campo: "letra" | "acordes", valor: string) => void;
   /** Write a sheet still waiting out the debounce, right now. */
   flushSheet: () => void;
-
-  /** Open the full-screen view over the list that is open. */
-  openService: () => void;
-  closeService: () => void;
-  serviceGo: (delta: number) => void;
-  scaleService: (delta: number) => void;
 }
 
 export function crearHojas(set: Set, get: Get, ctx: Contexto): HojasSlice {
@@ -56,9 +42,6 @@ export function crearHojas(set: Set, get: Get, ctx: Contexto): HojasSlice {
     sheetDialog: null,
     sheetState: "idle",
 
-    serviceOpen: false,
-    serviceIdx: 0,
-    serviceScale: 1,
     loadSheet: (id) => {
       if (get().sheets[id]) return;
       backend()
@@ -122,30 +105,5 @@ export function crearHojas(set: Set, get: Get, ctx: Contexto): HojasSlice {
     },
 
     flushSheet: () => writePendingSheet(),
-
-    openService: () => {
-      const ids = get().plOrder[get().curPlaylist] || [];
-      if (ids.length === 0) {
-        toast("Esta lista está vacía", { tipo: "info" });
-        return;
-      }
-      void get().loadSheets(ids);
-      // Starts on whatever is playing if it belongs to this list, so opening
-      // the view mid-song lands on the song.
-      const enCurso = ids.indexOf(get().playerId);
-      set({ serviceOpen: true, serviceIdx: enCurso >= 0 ? enCurso : 0 });
-    },
-
-    closeService: () => set({ serviceOpen: false }),
-
-    serviceGo: (delta) => {
-      const ids = get().plOrder[get().curPlaylist] || [];
-      if (ids.length === 0) return;
-      const siguiente = Math.min(ids.length - 1, Math.max(0, get().serviceIdx + delta));
-      set({ serviceIdx: siguiente });
-    },
-
-    scaleService: (delta) =>
-      set((st) => ({ serviceScale: Math.max(0.7, Math.min(2.4, +(st.serviceScale + delta).toFixed(2))) })),
   };
 }

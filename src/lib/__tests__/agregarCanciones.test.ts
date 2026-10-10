@@ -263,7 +263,7 @@ describe("dónde se abre", () => {
     expect(fila).not.toBeNull();
     expect(fila![1]).toContain("flex-wrap:wrap");
     const botones = fila![2].match(/<button[^>]*>/g) ?? [];
-    expect(botones).toHaveLength(5);
+    expect(botones).toHaveLength(4);
     for (const b of botones) expect(b).toMatch(/white-space:nowrap;flex:0 0 auto/);
   });
 

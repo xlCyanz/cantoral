@@ -26,7 +26,6 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
 import RowMenu from "./components/RowMenu";
 import SheetDialog from "./components/SheetDialog";
-import ServiceView from "./components/ServiceView";
 import Toast from "./components/Toast";
 
 export default function App() {
@@ -147,7 +146,6 @@ export default function App() {
       <MomentoDialog />
       <HelpDialog />
       <ConfirmDialog />
-      <ServiceView />
       <SheetDialog />
       <RowMenu />
       <ScanProgress />
