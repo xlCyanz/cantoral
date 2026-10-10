@@ -9,6 +9,32 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Un video se proyecta al ponerlo a sonar.** Doble clic, el play, «Reproducir
+  todo» o el siguiente de la cola: si es un video y el proyector está
+  conectado, sale por él, sin tener que preparar un culto. Si después viene un
+  audio, suena en el equipo y el proyector se queda en negro hasta el próximo
+  video. Sin otra pantalla conectada, el video se ve en el panel como hasta
+  ahora. Se puede apagar en Configuración → Proyección.
+- **Configuración → Proyección**: la pantalla por la que sale todo lo que se
+  proyecta. Es la misma que se elige en la vista de Proyección, y ahora se
+  recuerda al cerrar la app, aunque se desenchufe el proyector o cambie el
+  orden de las pantallas.
+
+### Cambiado
+
+- **La barra del reproductor sigue a lo que se proyecta.** Proyectando un culto
+  o un video, dice qué está sonando y por dónde va, y sus botones pausan,
+  adelantan o pasan al siguiente en el proyector. Lleva además un botón para
+  cerrar la proyección desde cualquier parte de la app.
+
+### Corregido
+
+- **Al proyectar, la barra del reproductor no decía qué sonaba ni se podía
+  adelantar.** Ahora sí, y nunca suenan dos cosas a la vez: poner algo a sonar
+  en el equipo pausa lo que sonaba por el proyector.
+
 ## [0.5.0] - 2026-10-04
 
 **Menos clics para preparar el domingo.** Un culto se arma agregando varias
