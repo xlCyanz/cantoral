@@ -107,7 +107,7 @@ describe("la tabla de la biblioteca", () => {
 
     expect(h).toContain(`role="grid" aria-label="Biblioteca" aria-rowcount="${pistas + 1}"`);
     expect(h).toContain('role="row" aria-rowindex="1"');
-    expect(h.match(/role="columnheader"/g)).toHaveLength(6);
+    expect(h.match(/role="columnheader"/g)).toHaveLength(5);
   });
 
   it("cada pista es una fila numerada que dice si está elegida", () => {
@@ -117,14 +117,14 @@ describe("la tabla de la biblioteca", () => {
 
     expect(h).toMatch(/role="row" aria-rowindex="2" tabindex="0" aria-label="[^"]*" aria-selected="(true|false)"/);
     expect(h.match(/aria-selected="true"/g)).toHaveLength(1);
-    expect(h.match(/role="gridcell"/g)!.length).toBe((estado.tracks as unknown[]).length * 6);
+    expect(h.match(/role="gridcell"/g)!.length).toBe((estado.tracks as unknown[]).length * 5);
   });
 
   it("agrupada, la cabecera del grupo también es una fila", () => {
     estado = { ...estado, groupBy: "carpeta" };
     const h = html(LibraryView);
 
-    expect(h).toMatch(/<div role="row" aria-rowindex="2"><div role="gridcell" aria-colspan="6"><button[^>]*aria-expanded="true"/);
+    expect(h).toMatch(/<div role="row" aria-rowindex="2"><div role="gridcell" aria-colspan="5"><button[^>]*aria-expanded="true"/);
   });
 });
 
@@ -148,7 +148,5 @@ describe("las etiquetas de los formularios", () => {
 
     expect(h).toContain('for="lista-nombre"');
     expect(h).toContain('id="lista-nombre"');
-    expect(h).toContain('for="lista-ocasion"');
-    expect(h).toContain('id="lista-ocasion"');
   });
 });

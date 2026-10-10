@@ -26,14 +26,12 @@ export interface PistaCompartida {
   artista: string;
   album: string;
   durSec: number;
-  ocasion: string;
   /** Solo el nombre del archivo, nunca la ruta. */
   archivo: string;
 }
 
 export interface ListaCompartida {
   nombre: string;
-  ocasion: string;
   plantilla: boolean;
 }
 
@@ -78,7 +76,6 @@ export function armarArchivo(
     cantoral: momentos.length > 0 ? VERSION : VERSION_SIN_MOMENTOS,
     lista: {
       nombre: lista.nombre,
-      ocasion: lista.ocasion,
       plantilla: lista.plantilla,
     },
     pistas: pistas.map((t) => ({
@@ -86,7 +83,6 @@ export function armarArchivo(
       artista: t.artista,
       album: t.album,
       durSec: t.durSec,
-      ocasion: t.ocasion,
       archivo: soloElNombre(t.path),
     })),
     // Sin la clave cuando no hay ninguno: el archivo queda idéntico al de antes.
@@ -312,7 +308,8 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
     cantoral: v,
     lista: {
       nombre,
-      ocasion: texto_(lista.ocasion),
+      // Un archivo de antes puede traer `ocasion`, en la lista y en cada
+      // pista: ya no se lee, y no estorba.
       plantilla: lista.plantilla === true,
     },
     pistas: crudas.map((p) => {
@@ -322,7 +319,6 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
         artista: texto_(t.artista),
         album: texto_(t.album),
         durSec: typeof t.durSec === "number" && Number.isFinite(t.durSec) ? t.durSec : 0,
-        ocasion: texto_(t.ocasion),
         archivo: texto_(t.archivo),
       };
     }),

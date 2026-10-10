@@ -165,7 +165,7 @@ describe("video thumbnail queue", () => {
 
 describe("which videos still need one", () => {
   const base: Track = {
-    id: "1", titulo: "", artista: "", album: "", dur: "0:00", durSec: 0, ocasion: "", formato: "MP4",
+    id: "1", titulo: "", artista: "", album: "", dur: "0:00", durSec: 0, formato: "MP4",
     carpeta: "", fav: false, missing: false, added: 1, video: true, path: "/v.mp4",
   };
   it("skips audio, missing files, videos with a cover and those that failed", () => {

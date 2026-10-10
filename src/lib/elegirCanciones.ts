@@ -17,8 +17,8 @@ export const ALTO_LISTA = 360;
  *
  * Toda la biblioteca, sin los filtros que tenga puestos la tabla: quien arma
  * un culto busca en todo lo que hay, no en lo último que estuvo mirando. La
- * coincidencia es la misma que la de la biblioteca —título, artista, álbum,
- * ocasión, sin tildes—.
+ * coincidencia es la misma que la de la biblioteca —título, artista y
+ * álbum, sin tildes—.
  */
 export function buscarCanciones(tracks: readonly Track[], consulta: string): Track[] {
   const q = sinTildes(consulta.trim());

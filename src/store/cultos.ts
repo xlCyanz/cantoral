@@ -43,9 +43,9 @@ export interface CultosSlice {
   openPrintPreview: () => void;
   newList: () => void;
   /** `desde` is the id of the template whose order the new list starts from. */
-  createList: (nombre: string, ocasion: string, desde?: string) => void;
+  createList: (nombre: string, desde?: string) => void;
   editCurrentList: () => void;
-  updateList: (nombre: string, ocasion: string) => void;
+  updateList: (nombre: string) => void;
   openAddToList: () => void;
   addToListConfirm: (playlistId: string) => void;
   /**
@@ -204,11 +204,11 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       set({ dialog: "printPreview" });
     },
     newList: () => set({ dialog: "newList" }),
-    createList: (nombre, ocasion, desde) => {
+    createList: (nombre, desde) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
       backend()
-        .createPlaylist(name, ocasion, desde)
+        .createPlaylist(name, desde)
         .then(async (id) => {
           applyPlaylists(await backend().getPlaylists());
           set({ view: "lista", curPlaylist: id });
@@ -276,7 +276,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       if (!previo) return;
       const momentos = previo.archivo.momentos ?? [];
       if (previo.resultado.encontradas.length === 0) return;
-      const { nombre, ocasion } = previo.archivo.lista;
+      const { nombre } = previo.archivo.lista;
       set({ dialog: null, importPreview: null });
       const aviso = () => {
         const faltan = previo.resultado.faltantes.length;
@@ -289,7 +289,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         });
       };
       backend()
-        .createPlaylist(nombre, ocasion)
+        .createPlaylist(nombre)
         .then(async (id) => {
           // Los momentos se crean primero, uno a uno —cada uno entra al final—,
           // y después el orden los pone en su sitio entre las pistas.
@@ -330,12 +330,12 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         });
     },
     editCurrentList: () => set({ dialog: "editList" }),
-    updateList: (nombre, ocasion) => {
+    updateList: (nombre) => {
       const id = get().curPlaylist;
       const name = nombre.trim() || "Lista sin título";
       set({ dialog: null });
       backend()
-        .updatePlaylist(id, name, ocasion)
+        .updatePlaylist(id, name)
         .then((listas) => {
           applyPlaylists(listas);
           tocarCulto(id);

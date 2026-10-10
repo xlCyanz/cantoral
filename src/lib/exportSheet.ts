@@ -53,9 +53,7 @@ export function playlistSheetHtml(
         return `      <tr class="momento">
         <td class="num">${i + 1}</td>
         <td class="titulo">${esc(m.titulo)}</td>
-        <td>${esc(m.texto)}</td>
-        <td>${esc(etiquetaDeTipo(m.tipo))}</td>
-        <td class="num"></td>
+        <td>${[etiquetaDeTipo(m.tipo), m.texto].filter(Boolean).map(esc).join(" · ")}</td>
         <td class="num"></td>
       </tr>`;
       }
@@ -64,21 +62,18 @@ export function playlistSheetHtml(
         String(i + 1),
         esc(t.titulo),
         esc(t.artista),
-        esc(t.ocasion),
         esc(t.dur),
       ];
       return `      <tr>
         <td class="num">${cells[0]}</td>
         <td class="titulo">${cells[1]}</td>
         <td>${cells[2]}</td>
-        <td>${cells[3]}</td>
-        <td class="num">${cells[4]}</td>
+        <td class="num">${cells[3]}</td>
       </tr>`;
     })
     .join("\n");
 
   const meta = [
-    pl.ocasion,
     `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`,
     momentos > 0 ? `${momentos} ${momentos === 1 ? "momento" : "momentos"}` : "",
     durLabel,
@@ -135,7 +130,6 @@ export function playlistSheetHtml(
         <th class="num">#</th>
         <th>Título</th>
         <th>Artista</th>
-        <th>Ocasión</th>
         <th class="num">Dur.</th>
       </tr>
     </thead>

@@ -22,7 +22,6 @@ function track(id: string, over: Partial<Track> = {}): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
@@ -35,7 +34,7 @@ function track(id: string, over: Partial<Track> = {}): Track {
 function conLista(ids: string[] = ["a", "b"]) {
   useStore.setState({
     tracks: [track("a"), track("b")],
-    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ocasion: "", ids, plantilla: false }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ids, plantilla: false }],
     plOrder: { p1: ids },
     curPlaylist: "p1",
     view: "lista",

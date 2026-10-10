@@ -14,7 +14,7 @@ export interface DetalleSlice {
   saveState: SaveState;
 
   /** Change one field of the selected track. It writes itself, debounced. */
-  setEdit: (field: keyof TrackEdit, val: unknown) => void;
+  setEdit: (field: keyof TrackEdit, val: string) => void;
   closeDetail: () => void;
   /**
    * Si el panel de detalle aguanta un `Esc`.

@@ -59,64 +59,6 @@ export function cur(s: CantoralState): Track | null {
 }
 
 /**
- * Occasions actually present in the catalogue, for the filter chips.
- *
- * Derived rather than hardcoded so a custom occasion shows up as a filter as
- * soon as a track carries it — the detail panel writes occasions straight into
- * the catalogue, so there is no half-saved state to reason about here.
- */
-export const ocasiones = recordar(
-  (s: CantoralState): string[] => {
-    const found = new Set<string>();
-    s.tracks.forEach((t) => {
-      const o = t.ocasion?.trim();
-      if (o) found.add(o);
-    });
-    // Keep the active filter listed even if its last track just changed occasion,
-    // otherwise its chip vanishes and the filter can no longer be switched off.
-    if (s.ocasion) found.add(s.ocasion);
-    return [...found].sort((a, b) => a.localeCompare(b, "es"));
-  },
-  (s: CantoralState) => [s.tracks, s.ocasion],
-);
-
-/** Ocasiones que vale la pena sugerir aunque nada las lleve todavía. */
-const OCASIONES_DE_SIEMPRE = [
-  "Servicio dominical",
-  "Adoración",
-  "Alabanza",
-  "Comunión",
-  "Ofrenda",
-  "Reflexión",
-  "Navidad",
-  "Resurrección",
-  "Reunión juvenil",
-  "Ensayo",
-];
-
-/**
- * Lo que se sugiere al escribir una ocasión, en una pista o en un culto.
- *
- * Las que ya usa esta iglesia primero —en sus pistas y en sus cultos—, y
- * después las de siempre que aún no. Antes el panel de detalle y el diálogo
- * de nueva lista sugerían cosas distintas, y el diálogo ninguna del catálogo:
- * quien etiquetaba sus pistas «Culto de jóvenes» no lo veía al crear la
- * lista de ese culto (#139).
- */
-export const sugerenciasDeOcasion = recordar(
-  (s: CantoralState): string[] => {
-    const propias = new Set<string>();
-    for (const o of [...s.tracks.map((t) => t.ocasion), ...s.playlists.map((p) => p.ocasion)]) {
-      const limpia = o?.trim();
-      if (limpia) propias.add(limpia);
-    }
-    const suyas = [...propias].sort((a, b) => a.localeCompare(b, "es"));
-    return [...suyas, ...OCASIONES_DE_SIEMPRE.filter((o) => !propias.has(o))];
-  },
-  (s: CantoralState) => [s.tracks, s.playlists],
-);
-
-/**
  * Tracks of the open culto list, in its order, skipping ids whose track is gone.
  *
  * Remembered like the others: the view reads it on every render, and a fresh
@@ -186,7 +128,7 @@ export const seleccionVigente = recordar(
     const visibles = applyFilters(s).map((t) => t.id);
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir, s.selection],
+  (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
 /**
@@ -244,7 +186,6 @@ export const applyFilters = recordar(
     // Lo que trajo el último escaneo, todo, lo más nuevo arriba. Antes eran las
     // ocho de id más alto sin decirlo: quien indexaba cuarenta veía ocho (#139).
     else if (s.qf === "recent") list = list.filter((t) => t.nueva).sort((a, b) => b.added - a.added);
-    if (s.ocasion) list = list.filter((t) => t.ocasion === s.ocasion);
     if (s.query) {
       const q = sinTildes(s.query);
       list = list.filter((t) => coincideEnCampos(t, q));
@@ -265,7 +206,7 @@ export const applyFilters = recordar(
     }
     return list;
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.ocasion, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir],
 );
 
 export interface Group {

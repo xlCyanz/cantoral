@@ -19,7 +19,6 @@ export interface BibliotecaSlice {
   // ---- library filters ----
   query: string;
   qf: QuickFilter;
-  ocasion: string | null;
   groupBy: GroupBy;
   densidad: Densidad;
   /**
@@ -51,7 +50,6 @@ export interface BibliotecaSlice {
   onQuery: (v: string) => void;
   clearQuery: () => void;
   onQuickFilter: (q: Exclude<QuickFilter, null>) => void;
-  onOcasion: (o: string) => void;
   onGroupBy: (g: GroupBy) => void;
   setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
@@ -92,7 +90,6 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
 
     query: "",
     qf: null,
-    ocasion: null,
     groupBy: "none",
     densidad: "comoda",
     gruposColapsados: [],
@@ -108,7 +105,6 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
     clearQuery: () => set({ query: "" }),
     onQuickFilter: (q) =>
       set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: estadoDeLaBiblioteca(s) })),
-    onOcasion: (o) => set((s) => ({ ocasion: s.ocasion === o ? null : o || null })),
     // Cambiar el eje deja las claves plegadas sin sentido —«f1/Clásicos» no
     // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
     onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),
@@ -187,8 +183,8 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
             ? "¿Quitar esta pista de la biblioteca?"
             : `¿Quitar ${ids.length} pistas de la biblioteca?`,
         message: cultos
-          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos y ocasiones.`
-          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos y ocasiones.`,
+          ? `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral y de ${cultos}. Se pierden sus favoritos.`
+          : `${ids.length === 1 ? "Desaparece" : "Desaparecen"} de la biblioteca de Cantoral. Se pierden sus favoritos.`,
         safe: "Los archivos no se tocan. Siguen en el disco, en su carpeta, con su nombre. Si vuelves a escanear la carpeta, reaparecen.",
         confirmLabel: ids.length === 1 ? "Quitar pista" : `Quitar ${ids.length} pistas`,
         onConfirm: () => {
@@ -256,7 +252,7 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
         title: "¿Quitar esta pista de la biblioteca?",
         message: `«${t.titulo}» dejará de aparecer en el catálogo.`,
         detail:
-          `Se pierden su favorito y su ocasión.` +
+          `Se pierde su favorito.` +
           (listas.length
             ? ` También sale de ${listas.length === 1 ? "la lista" : "las listas"} ${listas
                 .map((p) => `«${p.nombre}»`)

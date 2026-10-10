@@ -33,7 +33,7 @@ const GUARDADAS: UiPrefs = {
   repeat: true,
   sortKey: "album",
   sortDir: "desc",
-  groupBy: "ocasion",
+  groupBy: "carpeta",
   view: "colecciones",
   curPlaylist: "p2",
   densidad: "compacta",
@@ -89,6 +89,14 @@ describe("parsePrefs", () => {
     expect(parsePrefs(JSON.stringify({ sortKey: "bpm", sortDir: "desc" }))).toEqual({ sortDir: "desc" });
   });
 
+  it("olvida el orden y el agrupado por ocasión de una versión anterior", () => {
+    // La ocasión salió de la app: la biblioteca vuelve al orden y al agrupado
+    // por defecto en vez de quedarse sobre un campo que ya no se ve.
+    expect(parsePrefs(JSON.stringify({ sortKey: "ocasion", groupBy: "ocasion", sortDir: "desc" }))).toEqual({
+      sortDir: "desc",
+    });
+  });
+
   it("recuerda los ajustes de la proyección", () => {
     // Una iglesia elige una vez si proyecta la portada o deja el negro, y no
     // quiere volver a decidirlo cada domingo antes de empezar.
@@ -133,7 +141,7 @@ describe("parsePrefs", () => {
   });
 
   it("keeps nothing it was not asked to keep", () => {
-    const con_extras = JSON.stringify({ volume: 0.5, query: "santo", qf: "fav", ocasion: "Navidad" });
+    const con_extras = JSON.stringify({ volume: 0.5, query: "santo", qf: "fav" });
 
     // Opening the app with the library filtered and no memory of why is worse
     // than not remembering the filter at all.
@@ -235,13 +243,13 @@ describe("guardar los cambios", () => {
   it("recoge el cambio venga de donde venga", async () => {
     useStore.getState().toggleShuffle();
     useStore.getState().onGroupBy("album");
-    useStore.getState().onSortHeader("ocasion");
+    useStore.getState().onSortHeader("dur");
     await vi.advanceTimersByTimeAsync(400);
 
     const g = ultimoGuardado();
     expect(g.shuffle).toBe(true);
     expect(g.groupBy).toBe("album");
-    expect(g.sortKey).toBe("ocasion");
+    expect(g.sortKey).toBe("dur");
   });
 
   it("recuerda la densidad: se elige una vez y vale para siempre", async () => {
@@ -265,7 +273,6 @@ describe("guardar los cambios", () => {
   it("no guarda los filtros de la biblioteca", async () => {
     useStore.getState().onQuery("santo");
     useStore.getState().onQuickFilter("fav");
-    useStore.getState().onOcasion("Navidad");
     await vi.advanceTimersByTimeAsync(400);
 
     expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(0);
@@ -303,8 +310,8 @@ describe("restaurar al arrancar", () => {
       tracks: [],
       folders: [],
       playlists: [
-        { id: "p1", nombre: "Uno", tocada: "", ocasion: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", tocada: "", ocasion: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Uno", tocada: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ids: [], plantilla: false },
       ],
     });
     reconcileLibraryCmd.mockReset();
@@ -326,7 +333,7 @@ describe("restaurar al arrancar", () => {
     expect(s.repeat).toBe(true);
     expect(s.sortKey).toBe("album");
     expect(s.sortDir).toBe("desc");
-    expect(s.groupBy).toBe("ocasion");
+    expect(s.groupBy).toBe("carpeta");
     expect(s.view).toBe("colecciones");
     expect(s.curPlaylist).toBe("p2");
   });

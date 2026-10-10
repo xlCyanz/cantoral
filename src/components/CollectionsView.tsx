@@ -88,9 +88,6 @@ export default function CollectionsView() {
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
                   <span className="display" style={{ fontSize: 34, color: "rgba(255,255,255,.9)" }}>{inicialDe(p.nombre)}</span>
                 </div>
-                <div style={{ position: "absolute", left: 9, top: 7, right: 9, fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(255,255,255,.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {p.ocasion}
-                </div>
                 {p.plantilla && (
                   <div title="Plantilla" style={{ position: "absolute", right: 8, bottom: 8, display: "grid", placeItems: "center", width: 20, height: 20, background: "rgba(0,0,0,.34)", color: "#fff", borderRadius: 6 }}>
                     <Layers size={11} />

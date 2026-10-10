@@ -53,9 +53,11 @@ export interface UiPrefs {
 /** The settings key it is stored under. */
 export const UI_PREFS_KEY = "ui";
 
-const SORT_KEYS: SortKey[] = ["titulo", "album", "ocasion", "dur"];
+// «ocasion» se fue con la ocasión (como «bpm» antes): una preferencia guardada
+// con ella no pasa de aquí y queda la de por defecto.
+const SORT_KEYS: SortKey[] = ["titulo", "album", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
-const GROUP_BYS: GroupBy[] = ["none", "ocasion", "album", "carpeta"];
+const GROUP_BYS: GroupBy[] = ["none", "album", "carpeta"];
 // «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde
 // en la pantalla de proyectar, sin proyector conectado, no es donde nadie
 // quiere aterrizar. Se recuerda dónde se estaba trabajando, no lo que se

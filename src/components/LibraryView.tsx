@@ -6,11 +6,11 @@ import { coverStyle } from "../lib/covers";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
 import { cuentaDeEscaneo } from "../lib/cuentaDeEscaneo";
-import { emptyBtnSecondary, favBtnStyle, ocasionBadge, thProps } from "../lib/styles";
+import { emptyBtnSecondary, favBtnStyle, thProps } from "../lib/styles";
 import { ALTOS, DESDE, altoTotal, aplanar, ventana } from "../lib/virtual";
 import type { Densidad, SortKey, Track } from "../lib/types";
 
-const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 104px 62px 72px";
+const GRID = "32px minmax(150px,3fr) minmax(90px,1.5fr) 62px 72px";
 
 function Equalizer() {
   const bar: CSSProperties = { width: 3, height: 14, background: "var(--primary)", borderRadius: 2, transformOrigin: "bottom" };
@@ -174,8 +174,6 @@ const TrackRow = memo(function TrackRow({ t, num, fila, densidad }: { t: Track; 
 
       {/* album */}
       <div role="gridcell" style={{ fontSize: "12.5px", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.album}</div>
-      {/* ocasion */}
-      <div role="gridcell"><span style={ocasionBadge}>{t.ocasion}</span></div>
       {/* dur */}
       <div role="gridcell" style={{ fontSize: "12.5px", color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</div>
       {/* actions */}
@@ -206,7 +204,7 @@ function GroupHeader({ clave, label, ruta, countLabel, colapsado, fila, densidad
   // in a cell that spans the columns.
   return (
     <div role="row" aria-rowindex={fila}>
-    <div role="gridcell" aria-colspan={6}>
+    <div role="gridcell" aria-colspan={5}>
     <button
       onClick={() => toggleGrupo(clave)}
       aria-expanded={!colapsado}
@@ -240,7 +238,6 @@ function ColumnHeader() {
   const cols: { key: SortKey; label: string; icon?: boolean }[] = [
     { key: "titulo", label: "Título" },
     { key: "album", label: "Álbum" },
-    { key: "ocasion", label: "Ocasión" },
     { key: "dur", label: "", icon: true },
   ];
   return (
@@ -488,9 +485,9 @@ function Tabla() {
         // Decir dónde se buscó es la respuesta a la pregunta que se hace
         // cualquiera al ver esto: «¿lo estoy escribiendo mal, o de verdad no
         // está?». La lista de campos es la que `applyFilters` recorre.
-        desc={`Se buscó en el título, el artista, el álbum y la ocasión de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
+        desc={`Se buscó en el título, el artista y el álbum de ${total} ${total === 1 ? "pista" : "pistas"} de la biblioteca.`}
         action={
-          <button onClick={() => useStore.setState({ query: "", qf: null, ocasion: null })} className="hb-s2" style={emptyBtnSecondary}>
+          <button onClick={() => useStore.setState({ query: "", qf: null })} className="hb-s2" style={emptyBtnSecondary}>
             Quitar la búsqueda y los filtros
           </button>
         }

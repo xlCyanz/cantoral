@@ -175,8 +175,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     setTracksFav: async (ids, fav) => {
       ids.forEach((id) => (pista(id).fav = fav));
     },
-    updateTrack: async (id, artista, ocasion) => {
-      Object.assign(pista(id), { artista, ocasion });
+    updateTrack: async (id, artista) => {
+      Object.assign(pista(id), { artista });
     },
     deleteTrack: async (id) => {
       quitarPistas([id]);
@@ -232,10 +232,10 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     },
 
     getPlaylists: async () => listas(),
-    createPlaylist: async (nombre, ocasion, desde) => {
+    createPlaylist: async (nombre, desde) => {
       const id = nuevoId("p", playlists);
       const orden = copiarOrden(desde ? playlists.find((p) => p.id === desde) : undefined);
-      playlists = [...playlists, { id, nombre, ocasion, ...orden, plantilla: false, tocada: ahora() }];
+      playlists = [...playlists, { id, nombre, ...orden, plantilla: false, tocada: ahora() }];
       return id;
     },
     duplicatePlaylist: async (id) => {
@@ -244,7 +244,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       const nombre = nombreDeCopia(origen.nombre, playlists.map((p) => p.nombre));
       playlists = [
         ...playlists,
-        { id: nuevo, nombre, ocasion: origen.ocasion, ...copiarOrden(origen), plantilla: false, tocada: ahora() },
+        { id: nuevo, nombre, ...copiarOrden(origen), plantilla: false, tocada: ahora() },
       ];
       return nuevo;
     },
@@ -286,8 +286,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       lista(playlist).plantilla = plantilla;
       return listas();
     },
-    updatePlaylist: async (playlist, nombre, ocasion) => {
-      Object.assign(lista(playlist), { nombre, ocasion });
+    updatePlaylist: async (playlist, nombre) => {
+      Object.assign(lista(playlist), { nombre });
       return listas();
     },
     touchPlaylist: async (playlist) => {

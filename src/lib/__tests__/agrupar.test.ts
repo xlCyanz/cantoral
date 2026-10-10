@@ -48,7 +48,7 @@ describe("plegar grupos", () => {
   it("incluso al volver al mismo eje: las claves ya se perdieron por el camino", () => {
     useStore.getState().onGroupBy("carpeta");
     useStore.getState().toggleGrupo("f1/Clásicos");
-    useStore.getState().onGroupBy("ocasion");
+    useStore.getState().onGroupBy("album");
     useStore.getState().onGroupBy("carpeta");
 
     expect(useStore.getState().gruposColapsados).toEqual([]);

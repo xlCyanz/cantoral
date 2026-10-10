@@ -25,7 +25,6 @@ const NOMBRE_FILTRO: Record<Exclude<QuickFilter, null>, string> = {
 
 const NOMBRE_GRUPO: Record<Exclude<GroupBy, "none">, string> = {
   carpeta: "carpeta",
-  ocasion: "ocasión",
   album: "álbum",
 };
 

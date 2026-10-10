@@ -13,7 +13,6 @@ function pista(over: Partial<Track> = {}): Track {
     album: "Himnos del Señor",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,

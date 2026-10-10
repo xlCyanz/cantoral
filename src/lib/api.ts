@@ -355,9 +355,9 @@ export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;
   await inv("set_track_fav", { id, fav });
 }
-export async function updateTrackCmd(id: string, artista: string, ocasion: string): Promise<void> {
+export async function updateTrackCmd(id: string, artista: string): Promise<void> {
   if (!isTauri()) return;
-  await inv("update_track", { id, artista, ocasion });
+  await inv("update_track", { id, artista });
 }
 export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Promise<void> {
   if (!isTauri()) return;
@@ -400,8 +400,8 @@ export async function markVideoThumbnailFailed(id: string, path: string): Promis
   await inv("mark_video_thumbnail_failed", { id, path });
 }
 /** `desde` is the template to copy the order from, if the user picked one. */
-export async function createPlaylistCmd(nombre: string, ocasion: string, desde?: string): Promise<string> {
-  return inv<string>("create_playlist", { nombre, ocasion, desde: desde ?? null });
+export async function createPlaylistCmd(nombre: string, desde?: string): Promise<string> {
+  return inv<string>("create_playlist", { nombre, desde: desde ?? null });
 }
 export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
   return inv<string>("duplicate_playlist", { playlist });
@@ -413,8 +413,8 @@ export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolea
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Playlist[]> {
   return inv<Playlist[]>("add_to_playlist", { playlist, track });
 }
-export async function updatePlaylistCmd(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]> {
-  return inv<Playlist[]>("update_playlist", { playlist, nombre, ocasion });
+export async function updatePlaylistCmd(playlist: string, nombre: string): Promise<Playlist[]> {
+  return inv<Playlist[]>("update_playlist", { playlist, nombre });
 }
 /** Apuntar que un culto se acaba de abrir o de cambiar. */
 export async function touchPlaylistCmd(playlist: string): Promise<void> {

@@ -17,7 +17,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
@@ -29,7 +28,7 @@ function pista(id: string, over: Partial<Track> = {}): Track {
 }
 
 function lista(id: string, ids: string[], over: Partial<Playlist> = {}): Playlist {
-  return { id, nombre: `Culto ${id}`, ocasion: "", ids, plantilla: false, tocada: "", ...over };
+  return { id, nombre: `Culto ${id}`, ids, plantilla: false, tocada: "", ...over };
 }
 
 let b: Backend;
@@ -96,7 +95,7 @@ describe("cultos", () => {
   });
 
   it("una lista nueva desde una plantilla copia su orden", async () => {
-    const id = await b.createPlaylist("Nueva", "Adoración", "p2");
+    const id = await b.createPlaylist("Nueva", "p2");
 
     const nueva = (await b.getPlaylists()).find((p) => p.id === id)!;
     expect(nueva.ids).toEqual(["c", "a"]);

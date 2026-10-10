@@ -54,7 +54,7 @@ export interface Backend {
   reconcileLibrary(): Promise<Snapshot>;
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
-  updateTrack(id: string, artista: string, ocasion: string): Promise<void>;
+  updateTrack(id: string, artista: string): Promise<void>;
   deleteTrack(id: string): Promise<Snapshot>;
   deleteTracks(ids: string[]): Promise<Snapshot>;
   /** Elige el archivo nuevo de una pista y la apunta a él; null si se canceló. */
@@ -73,12 +73,12 @@ export interface Backend {
 
   // ---- cultos
   getPlaylists(): Promise<Playlist[]>;
-  createPlaylist(nombre: string, ocasion: string, desde?: string): Promise<string>;
+  createPlaylist(nombre: string, desde?: string): Promise<string>;
   duplicatePlaylist(id: string): Promise<string>;
   addTracksToPlaylist(playlist: string, ids: string[]): Promise<Playlist[]>;
   setPlaylistOrder(playlist: string, ids: string[]): Promise<void>;
   setPlaylistTemplate(playlist: string, plantilla: boolean): Promise<Playlist[]>;
-  updatePlaylist(playlist: string, nombre: string, ocasion: string): Promise<Playlist[]>;
+  updatePlaylist(playlist: string, nombre: string): Promise<Playlist[]>;
   touchPlaylist(playlist: string): Promise<void>;
   /** Añade un momento sin música al final del culto (#145). */
   addPlaylistMomento(playlist: string, tipo: TipoMomento, titulo: string, texto: string): Promise<Playlist[]>;

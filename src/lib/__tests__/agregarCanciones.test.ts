@@ -42,7 +42,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Música",
     fav: false,
@@ -58,7 +57,7 @@ describe("el buscador del diálogo", () => {
   const tracks = [
     pista("1", { titulo: "Santo, santo, santo" }),
     pista("2", { titulo: "Al que está sentado", artista: "Marcos Witt" }),
-    pista("3", { titulo: "Cordero de Dios", ocasion: "Comunión" }),
+    pista("3", { titulo: "Cordero de Dios" }),
     pista("4", { titulo: "Bendito", album: "En vivo desde Jerusalén" }),
   ];
 
@@ -66,24 +65,22 @@ describe("el buscador del diálogo", () => {
     expect(buscarCanciones(tracks, "").map((t) => t.id)).toEqual(["2", "4", "3", "1"]);
   });
 
-  it("busca en título, artista, álbum y ocasión", () => {
+  it("busca en título, artista y álbum", () => {
     expect(buscarCanciones(tracks, "santo").map((t) => t.id)).toEqual(["1"]);
     expect(buscarCanciones(tracks, "witt").map((t) => t.id)).toEqual(["2"]);
     expect(buscarCanciones(tracks, "vivo").map((t) => t.id)).toEqual(["4"]);
-    expect(buscarCanciones(tracks, "comunion").map((t) => t.id)).toEqual(["3"]);
   });
 
   it("sin tildes ni mayúsculas, en los dos sentidos", () => {
     expect(buscarCanciones(tracks, "ESTÁ").map((t) => t.id)).toEqual(["2"]);
     expect(buscarCanciones(tracks, "jerusalen").map((t) => t.id)).toEqual(["4"]);
-    expect(buscarCanciones(tracks, "Cómunión").map((t) => t.id)).toEqual(["3"]);
   });
 
   it("encuentra lo mismo que la biblioteca", () => {
     // La tabla y el diálogo comparten la coincidencia: lo que se encuentra en
     // uno se encuentra en el otro.
-    const s = { ...useStore.getState(), tracks, qf: null, ocasion: null, sortKey: "titulo", sortDir: "asc" } as never;
-    for (const q of ["santo", "jerusalen", "ESTÁ", "comunion"]) {
+    const s = { ...useStore.getState(), tracks, qf: null, sortKey: "titulo", sortDir: "asc" } as never;
+    for (const q of ["santo", "jerusalen", "ESTÁ", "witt"]) {
       expect(applyFilters({ ...(s as object), query: q } as never).map((t: Track) => t.id)).toEqual(buscarCanciones(tracks, q).map((t) => t.id));
     }
   });
@@ -136,7 +133,6 @@ describe("en el store", () => {
   const culto: Playlist = {
     id: "p1",
     nombre: "Domingo",
-    ocasion: "",
     ids: ["a", "m:1"],
     momentos: [{ id: "m:1", tipo: "oracion", titulo: "Oración", texto: "" }],
     plantilla: false,

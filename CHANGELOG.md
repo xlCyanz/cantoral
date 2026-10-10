@@ -21,6 +21,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   ofrece «Con letras y acordes»: imprime el repertorio, como antes. Lo que se
   hubiera escrito no se borra: sigue guardado en la base de datos y en las
   copias de seguridad, y al fusionar duplicados pasa a la pista que se queda.
+- **La ocasión.** Ya no se escribe ni se ve la ocasión de las pistas ni la de
+  los cultos: se van los chips de ocasión de la biblioteca, «Agrupar: Ocasión»,
+  su columna en la biblioteca, en el culto y en la hoja impresa, el campo del
+  panel de detalle y del diálogo de la lista, el rótulo encima del nombre del
+  culto y la búsqueda por ocasión. Quien tenía la biblioteca ordenada o
+  agrupada por ocasión la ve con el orden y el agrupado de fábrica. Lo escrito
+  se queda guardado en la base de datos, y las listas compartidas desde una
+  versión anterior se siguen importando.
 
 ### Cambiado
 

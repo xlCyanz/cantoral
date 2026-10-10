@@ -37,7 +37,6 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     album: "",
     dur: "3:00",
     durSec: 180,
-    ocasion: "",
     formato: "MP3",
     carpeta: "Música",
     fav: false,
@@ -53,7 +52,7 @@ const ORACION: Momento = { id: "m:1", tipo: "oracion", titulo: "Oración", texto
 /** «Adoración 1 → Oración → Adoración 2», abierto y con la salida en marcha. */
 function culto() {
   const tracks = [pista("1"), pista("2")];
-  const pl: Playlist = { id: "p1", nombre: "Domingo", ocasion: "", ids: ["1", "m:1", "2"], momentos: [ORACION], plantilla: false, tocada: "" };
+  const pl: Playlist = { id: "p1", nombre: "Domingo", ids: ["1", "m:1", "2"], momentos: [ORACION], plantilla: false, tocada: "" };
   useStore.setState({
     tracks,
     playlists: [pl],
@@ -188,10 +187,10 @@ describe("fuera de la proyección", () => {
       importPreview: {
         archivo: {
           cantoral: 2,
-          lista: { nombre: "Importado", ocasion: "", plantilla: false },
+          lista: { nombre: "Importado", plantilla: false },
           pistas: [
-            { titulo: "Adoración 1", artista: "Coro", album: "", durSec: 180, ocasion: "", archivo: "1.mp3" },
-            { titulo: "Adoración 2", artista: "Coro", album: "", durSec: 180, ocasion: "", archivo: "2.mp3" },
+            { titulo: "Adoración 1", artista: "Coro", album: "", durSec: 180, archivo: "1.mp3" },
+            { titulo: "Adoración 2", artista: "Coro", album: "", durSec: 180, archivo: "2.mp3" },
           ],
           momentos: [{ trasPistas: 1, tipo: "lectura", titulo: "Lectura", texto: "Salmo 23" }],
           exportado: "",

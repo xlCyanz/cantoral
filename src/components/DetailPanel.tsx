@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Check, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
-import { sugerenciasDeOcasion, useStore } from "../store";
+import { useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
@@ -65,7 +65,6 @@ export default function DetailPanel() {
   const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
   const playlists = useStore((s) => s.playlists);
   const saveState = useStore((s) => s.saveState);
-  const sugerencias = useStore(sugerenciasDeOcasion);
 
   const closeDetail = useStore((s) => s.closeDetail);
   const relocateTrack = useStore((s) => s.relocateTrack);
@@ -185,13 +184,12 @@ export default function DetailPanel() {
 
         {/* datos del culto: lo que el equipo necesita saber de un vistazo */}
         <div style={{ marginBottom: 14 }}>
-          {/* Artista y ocasión, y nada más: es lo que pide el rediseño. */}
           <div style={{ ...sectionLabel, marginBottom: 8 }}>Datos del culto</div>
           {/* El artista, que hasta ahora se leía y no se podía corregir. En una
               biblioteca de iglesia media viene mal en las etiquetas del
               archivo —«Track 03», «Unknown Artist»— y no había dónde
               arreglarlo sin tocar el MP3. */}
-          <div style={{ marginBottom: 9 }}>
+          <div>
             <label htmlFor="det-artista" style={labelStyle}>Artista</label>
             <input
               id="det-artista"
@@ -201,23 +199,6 @@ export default function DetailPanel() {
               className="in-focus"
               style={{ ...fieldStyle, padding: "0 8px" }}
             />
-          </div>
-          <div>
-            <label htmlFor="det-ocasion" style={labelStyle}>Ocasión</label>
-            <input
-              id="det-ocasion"
-              value={sel.ocasion}
-              onChange={(e) => setEdit("ocasion", e.target.value)}
-              list="ocasiones-pista"
-              placeholder="Adoración"
-              className="in-focus"
-              style={{ ...fieldStyle, padding: "0 8px" }}
-            />
-            <datalist id="ocasiones-pista">
-              {sugerencias.map((o) => (
-                <option key={o} value={o} />
-              ))}
-            </datalist>
           </div>
         </div>
 

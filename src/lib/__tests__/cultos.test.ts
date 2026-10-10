@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Playlist } from "../types";
 
 const touchPlaylistCmd = vi.fn<(id: string) => Promise<void>>();
-const updatePlaylistCmd = vi.fn<(id: string, nombre: string, ocasion: string) => Promise<Playlist[]>>();
+const updatePlaylistCmd = vi.fn<(id: string, nombre: string) => Promise<Playlist[]>>();
 const setPlaylistOrderCmd = vi.fn<(id: string, ids: string[]) => Promise<void>>();
 const addTracksToPlaylistCmd = vi.fn<(id: string, ids: string[]) => Promise<Playlist[]>>();
-const createPlaylistCmd = vi.fn<(nombre: string, ocasion: string) => Promise<string>>();
+const createPlaylistCmd = vi.fn<(nombre: string, desde?: string) => Promise<string>>();
 const getPlaylistsCmd = vi.fn<() => Promise<Playlist[]>>();
 
 // Dentro de Tauri: el camino que corre en la app. El store ya no tiene otro.
@@ -17,10 +17,10 @@ vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
   isTauri: () => true,
   touchPlaylistCmd: (id: string) => touchPlaylistCmd(id),
-  updatePlaylistCmd: (id: string, nombre: string, ocasion: string) => updatePlaylistCmd(id, nombre, ocasion),
+  updatePlaylistCmd: (id: string, nombre: string) => updatePlaylistCmd(id, nombre),
   setPlaylistOrderCmd: (id: string, ids: string[]) => setPlaylistOrderCmd(id, ids),
   addTracksToPlaylistCmd: (id: string, ids: string[]) => addTracksToPlaylistCmd(id, ids),
-  createPlaylistCmd: (nombre: string, ocasion: string) => createPlaylistCmd(nombre, ocasion),
+  createPlaylistCmd: (nombre: string, desde?: string) => createPlaylistCmd(nombre, desde),
   getPlaylistsCmd: () => getPlaylistsCmd(),
 }));
 
@@ -34,7 +34,7 @@ const delNucleo = (cambio: (p: Playlist) => Playlist = (p) => p): Playlist[] => 
 };
 
 function lista(id: string, tocada: string, extra: Partial<Playlist> = {}): Playlist {
-  return { id, nombre: id, ocasion: "", ids: [], plantilla: false, tocada, ...extra };
+  return { id, nombre: id, ids: [], plantilla: false, tocada, ...extra };
 }
 
 const ids = () => cultos(useStore.getState()).map((p) => p.id);
@@ -47,8 +47,8 @@ beforeEach(() => {
   addTracksToPlaylistCmd.mockImplementation(async (id, nuevas) =>
     delNucleo((p) => (p.id === id ? { ...p, ids: [...p.ids, ...nuevas.filter((x) => !p.ids.includes(x))] } : p)),
   );
-  updatePlaylistCmd.mockImplementation(async (id, nombre, ocasion) =>
-    delNucleo((p) => (p.id === id ? { ...p, nombre, ocasion } : p)),
+  updatePlaylistCmd.mockImplementation(async (id, nombre) =>
+    delNucleo((p) => (p.id === id ? { ...p, nombre } : p)),
   );
   useStore.setState({
     playlists: [
@@ -133,7 +133,7 @@ describe("qué cuenta como tocar un culto", () => {
   it("cambiarle el nombre lo sube", async () => {
     useStore.setState({ curPlaylist: "jovenes" });
 
-    useStore.getState().updateList("Jóvenes", "Reunión juvenil");
+    useStore.getState().updateList("Jóvenes");
 
     await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Lista actualizada"));
     expect(ids()[0]).toBe("jovenes");
@@ -148,7 +148,7 @@ describe("qué cuenta como tocar un culto", () => {
     );
     useStore.setState({ curPlaylist: "jovenes" });
 
-    useStore.getState().updateList("Jóvenes", "");
+    useStore.getState().updateList("Jóvenes");
 
     await vi.waitFor(() => expect(useStore.getState().playlists.find((p) => p.id === "jovenes")?.nombre).toBe("Jóvenes"));
     expect(ids()[0]).toBe("jovenes");
@@ -161,7 +161,7 @@ describe("qué cuenta como tocar un culto", () => {
       lista("vigilia", new Date().toISOString(), { nombre: "Vigilia" }),
     ]);
 
-    useStore.getState().createList("Vigilia", "");
+    useStore.getState().createList("Vigilia");
 
     await vi.waitFor(() => expect(cultos(useStore.getState())[0].nombre).toBe("Vigilia"));
   });

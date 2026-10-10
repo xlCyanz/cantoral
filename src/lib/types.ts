@@ -9,7 +9,7 @@ export type View = "biblioteca" | "colecciones" | "lista" | "config" | "proyecci
  */
 export type LibState = "content" | "empty" | "error";
 export type QuickFilter = "fav" | "recent" | "missing" | null;
-export type GroupBy = "none" | "ocasion" | "album" | "carpeta";
+export type GroupBy = "none" | "album" | "carpeta";
 /**
  * Cuánto respira la tabla de la biblioteca.
  *
@@ -24,7 +24,7 @@ export type SalidaDeAudio = "negro" | "portada";
 export type TransicionProyeccion = "negro" | "cuenta";
 /** Qué hace la proyección cuando un elemento del culto se termina. */
 export type AvanceProyeccion = "negro" | "siguiente";
-export type SortKey = "titulo" | "album" | "ocasion" | "dur";
+export type SortKey = "titulo" | "album" | "dur";
 export type SortDir = "asc" | "desc";
 
 export interface Track {
@@ -35,7 +35,6 @@ export interface Track {
   /** Human-readable duration, e.g. "4:12". */
   dur: string;
   durSec: number;
-  ocasion: string;
   /** File format label, e.g. "MP3", "WAV", "MP4". */
   formato: string;
   /** Folder friendly name this track belongs to. */
@@ -75,7 +74,6 @@ export interface Folder {
 export interface Playlist {
   id: string;
   nombre: string;
-  ocasion: string;
   /**
    * Default order (live order is kept in store.plOrder): track ids, and the
    * ids of its momentos (`m:…`) where they fall (#145).
@@ -115,4 +113,4 @@ export interface Momento {
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */
-export type TrackEdit = Partial<Pick<Track, "artista" | "ocasion">>;
+export type TrackEdit = Partial<Pick<Track, "artista">>;

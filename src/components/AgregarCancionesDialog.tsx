@@ -173,7 +173,7 @@ function EleccionDeCanciones() {
               autoFocus
               aria-label="Buscar en la biblioteca"
               aria-controls="agregar-canciones-lista"
-              placeholder="Buscar por título, artista, álbum u ocasión…"
+              placeholder="Buscar por título, artista o álbum…"
               className="in-focus"
               style={{ width: "100%", height: 38, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 10, padding: "0 12px 0 36px", fontSize: 13, color: "var(--text)" }}
             />
@@ -261,7 +261,7 @@ function EleccionDeCanciones() {
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: "13.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.titulo}</span>
                       <span style={{ display: "block", fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {[t.artista, t.ocasion].filter(Boolean).join(" · ")}
+                        {t.artista}
                       </span>
                     </span>
                     {yaEsta ? (

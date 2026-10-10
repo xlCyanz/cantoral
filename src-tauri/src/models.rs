@@ -12,7 +12,6 @@ pub struct Track {
     /// Human-readable duration, e.g. "4:12".
     pub dur: String,
     pub dur_sec: i64,
-    pub ocasion: String,
     pub formato: String,
     /// Friendly name of the owning folder.
     pub carpeta: String,
@@ -50,7 +49,6 @@ pub struct Folder {
 pub struct Playlist {
     pub id: String,
     pub nombre: String,
-    pub ocasion: String,
     pub ids: Vec<String>,
     /// A list kept as a starting point rather than as a service of its own.
     pub plantilla: bool,

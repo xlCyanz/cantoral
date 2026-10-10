@@ -14,7 +14,7 @@ export function sinTildes(texto: string): string {
 const camposSinTildes = new WeakMap<Track, string>();
 
 /**
- * Si lo buscado está en el título, el artista, el álbum o la ocasión.
+ * Si lo buscado está en el título, el artista o el álbum.
  *
  * `q` llega ya pasado por `sinTildes`, una vez por búsqueda: quien escribe
  * «senor» encuentra «Señor».
@@ -22,7 +22,7 @@ const camposSinTildes = new WeakMap<Track, string>();
 export function coincideEnCampos(t: Track, q: string): boolean {
   let campos = camposSinTildes.get(t);
   if (campos === undefined) {
-    campos = sinTildes([t.titulo, t.artista, t.album, t.ocasion].join(" "));
+    campos = sinTildes([t.titulo, t.artista, t.album].join(" "));
     camposSinTildes.set(t, campos);
   }
   return campos.includes(q);

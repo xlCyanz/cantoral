@@ -10,7 +10,6 @@ function track(over: Partial<Track> = {}): Track {
     album: "Himnos",
     dur: "3:48",
     durSec: 228,
-    ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
@@ -24,7 +23,6 @@ const pl: Playlist = {
   id: "p1",
   nombre: "Culto Domingo",
   tocada: "",
-  ocasion: "Servicio dominical",
   ids: ["1"],
   plantilla: false,
 };
@@ -59,7 +57,7 @@ describe("playlistSheetHtml", () => {
   it("puts the playlist metadata in the header", () => {
     const html = playlistSheetHtml(pl, [track()], "24 min");
     expect(html).toContain("Culto Domingo");
-    expect(html).toContain("Servicio dominical · 1 pista · 24 min");
+    expect(html).toContain("1 pista · 24 min");
   });
 
   it("pluralises the track count", () => {
@@ -68,7 +66,7 @@ describe("playlistSheetHtml", () => {
   });
 
   it("omits empty metadata fields instead of leaving stray separators", () => {
-    const html = playlistSheetHtml({ ...pl, tocada: "", ocasion: "" }, [track()], "4 min");
+    const html = playlistSheetHtml({ ...pl, tocada: "" }, [track()], "4 min");
     expect(html).toContain("1 pista · 4 min");
     expect(html).not.toContain("· ·");
   });
@@ -79,11 +77,12 @@ describe("playlistSheetHtml", () => {
     expect(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
   });
 
-  it("has five columns and no tempo one (#141)", () => {
+  it("has four columns: no tempo (#141) and no occasion", () => {
     const html = playlistSheetHtml(pl, [track()], "4 min");
-    expect(html.match(/<th[ >]/g)).toHaveLength(5);
-    expect(html.match(/<td[ >]/g)).toHaveLength(5);
+    expect(html.match(/<th[ >]/g)).toHaveLength(4);
+    expect(html.match(/<td[ >]/g)).toHaveLength(4);
     expect(html).not.toMatch(/bpm/i);
+    expect(html).not.toContain("Ocasión");
   });
 
   it("declares utf-8 so Spanish accents survive the round trip", () => {
@@ -112,8 +111,8 @@ describe("la cabecera de la hoja", () => {
     expect(html).not.toContain("septiembre");
   });
 
-  it("sin ocasión no se imprime un hueco", () => {
-    const html = playlistSheetHtml({ ...pl, ocasion: "" }, [track()], "4 min");
+  it("dice cuántas pistas y cuánto dura, sin huecos", () => {
+    const html = playlistSheetHtml(pl, [track()], "4 min");
 
     expect(html).toContain("Culto Domingo");
     expect(html).not.toContain("· ·");

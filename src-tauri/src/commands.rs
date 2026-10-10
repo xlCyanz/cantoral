@@ -482,10 +482,10 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 }
 
 #[tauri::command(async)]
-pub fn update_track(db: State<Db>, id: String, artista: String, ocasion: String) -> CmdResult<()> {
+pub fn update_track(db: State<Db>, id: String, artista: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &artista, &ocasion).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista).map_err(e)?;
     Ok(())
 }
 
@@ -563,17 +563,12 @@ pub fn mark_video_thumbnail_failed(db: State<Db>, id: String, path: String) -> C
 
 /// Create a playlist, optionally with the track order of `desde` (a template).
 #[tauri::command(async)]
-pub fn create_playlist(
-    db: State<Db>,
-    nombre: String,
-    ocasion: String,
-    desde: Option<String>,
-) -> CmdResult<String> {
+pub fn create_playlist(db: State<Db>, nombre: String, desde: Option<String>) -> CmdResult<String> {
     let conn = db.0.lock().map_err(e)?;
     // An unparseable id means «no template», not an error: the list is what the
     // user asked for, and creating it empty beats refusing to create it.
     let origen = desde.and_then(|d| d.parse::<i64>().ok());
-    let id = db::create_playlist(&conn, &nombre, &ocasion, origen).map_err(e)?;
+    let id = db::create_playlist(&conn, &nombre, origen).map_err(e)?;
     Ok(id.to_string())
 }
 
@@ -661,11 +656,9 @@ pub fn update_playlist(
     db: State<Db>,
     playlist: String,
     nombre: String,
-    ocasion: String,
 ) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
-    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &ocasion)
-        .map_err(e)?;
+    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre).map_err(e)?;
     db::list_playlists(&conn).map_err(e)
 }
 
