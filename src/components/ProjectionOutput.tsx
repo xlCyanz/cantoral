@@ -3,6 +3,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import type { EstadoProyeccion, MensajeProyeccion, OrdenProyeccion, SalidaProyeccion, VistaProyeccion } from "../lib/api";
 import { ERROR_AUTOPLAY } from "../lib/formatos";
 import { hayQueReportar } from "../lib/estadoDeSalida";
+import { caratulaGrande } from "../lib/covers";
 
 /**
  * Lo que se ve por el proyector.
@@ -312,13 +313,17 @@ function Contenido({ vista }: { vista: VistaProyeccion }) {
 
 /** La carátula de la pista a pantalla completa, de fondo para el título. */
 function Portada({ src }: { src: string }) {
+  // La mediana encima y la pequeña debajo: si la mediana no está —una
+  // miniatura de video, o una carátula que la pasada única aún no redujo—, se
+  // ve la otra en vez del negro.
+  const grande = caratulaGrande(src);
   return (
     <div
       aria-hidden
       style={{
         position: "absolute",
         inset: 0,
-        backgroundImage: `url(${src})`,
+        backgroundImage: grande === src ? `url(${src})` : `url(${grande}), url(${src})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         // Apagada y desenfocada: es un fondo para que el título se lea

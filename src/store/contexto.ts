@@ -178,6 +178,26 @@ export function crearContexto(set: Set, get: Get) {
     if (alguna) set({ tracks });
   };
 
+  /**
+   * Apuntar las carátulas que la pasada única del núcleo acaba de reducir.
+   *
+   * Llegan antes de que se borren los archivos viejos, así que la fila cambia
+   * de imagen sin quedarse un momento en blanco. Solo las pistas que cambian
+   * son objetos nuevos; el resto del catálogo se queda como estaba.
+   */
+  const cambiarCaratulas = (lote: readonly { id: string; cover: string }[]) => {
+    if (lote.length === 0) return;
+    const porId = new Map(lote.map((c) => [c.id, assetUrl(c.cover)]));
+    let alguna = false;
+    const tracks = get().tracks.map((t) => {
+      const cover = porId.get(t.id);
+      if (cover === undefined || cover === t.cover) return t;
+      alguna = true;
+      return { ...t, cover };
+    });
+    if (alguna) set({ tracks });
+  };
+
   /** How often what a scan has indexed is pulled in while it runs. */
   const REFRESCO_MS = 2000;
   /** The longest the live refresh waits while nothing new is coming in. */
@@ -343,7 +363,7 @@ export function crearContexto(set: Set, get: Get) {
     backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
-  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, marcarFaltantes, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
+  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, marcarFaltantes, cambiarCaratulas, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
 }
 
 export type Contexto = ReturnType<typeof crearContexto>;

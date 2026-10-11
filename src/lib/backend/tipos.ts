@@ -17,6 +17,7 @@
 import type { ArchivoDeLista } from "../compartir";
 import type {
   BackupInfo,
+  CaratulaNueva,
   CopiaAutomatica,
   DuplicateReport,
   Novedades,
@@ -69,6 +70,8 @@ export interface Backend {
   rescanFolder(id: string): Promise<Snapshot>;
   cancelScan(): Promise<void>;
   onScanProgress(cb: (p: ScanProgressEvent) => void): Promise<() => void>;
+  /** Las carátulas que la pasada única del núcleo va reduciendo, por lotes. */
+  onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void): Promise<() => void>;
   removeFolder(id: string): Promise<Snapshot>;
   /** Elige la ubicación nueva de una carpeta y la reapunta; null si se canceló. */
   relocateFolder(id: string): Promise<Snapshot | null>;

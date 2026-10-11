@@ -56,7 +56,8 @@ export interface EscaneoSlice {
   ultimaCopia: string | null;
   ocultarTarjetaEscaneo: () => void;
   /**
-   * Seguir el progreso que manda el backend mientras escanea. Devuelve con qué
+   * Seguir el progreso que manda el backend mientras escanea, y las carátulas
+   * que reduce la pasada única de una biblioteca de antes. Devuelve con qué
    * dejar de escucharlo. Lo llama la app al montarse.
    */
   escucharEscaneo: () => Promise<() => void>;
@@ -100,7 +101,7 @@ function apuntarPrimerDibujo(pistas: number) {
 }
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
-  const { toast, avisarFallo, applySnapshot, marcarFaltantes, startLiveRefresh, stopLiveRefresh } = ctx;
+  const { toast, avisarFallo, applySnapshot, marcarFaltantes, cambiarCaratulas, startLiveRefresh, stopLiveRefresh } = ctx;
 
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
@@ -147,10 +148,15 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     arranqueListo: false,
     ultimaCopia: null,
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
-    escucharEscaneo: () =>
-      backend().onScanProgress((p) =>
-        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanIlegibles: p.ilegibles, scanHechos: p.added, scanTotal: p.total }),
-      ),
+    escucharEscaneo: async () => {
+      const soltar = await Promise.all([
+        backend().onScanProgress((p) =>
+          set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanIlegibles: p.ilegibles, scanHechos: p.added, scanTotal: p.total }),
+        ),
+        backend().onCaratulasReducidas(cambiarCaratulas),
+      ]);
+      return () => soltar.forEach((s) => s());
+    },
 
     openAddFolder: () => {
       // The buttons that get here are disabled while a scan runs, but the

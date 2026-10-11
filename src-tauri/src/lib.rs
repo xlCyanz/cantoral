@@ -1,5 +1,6 @@
 // Cantoral — Tauri backend entry point.
 
+mod caratulas;
 mod commands;
 mod compartir;
 mod copias;
@@ -78,6 +79,13 @@ pub fn run() {
             commands::conceder_alcance(app.handle(), &conn);
 
             app.manage(db::Db(Mutex::new(conn)));
+            // Las carátulas de una biblioteca de antes, a tamaño completo, se
+            // reducen una vez y en segundo plano.
+            caratulas::reducir_en_segundo_plano(
+                app.handle().clone(),
+                db_path.clone(),
+                dir.join("covers"),
+            );
             app.manage(commands::DbPath(db_path));
             app.manage(scanner::ScanSlot::new());
             vigia::vigilar(app.handle().clone());

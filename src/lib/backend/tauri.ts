@@ -41,6 +41,7 @@ export const tauri: Backend = {
   rescanFolder: (id) => api.rescanFolderCmd(id),
   cancelScan: () => api.cancelScanCmd(),
   onScanProgress: (cb) => api.onScanProgress(cb),
+  onCaratulasReducidas: (cb) => api.onCaratulasReducidas(cb),
   removeFolder: (id) => api.removeFolderCmd(id),
   relocateFolder: async (id) => {
     const path = await api.pickFolder();

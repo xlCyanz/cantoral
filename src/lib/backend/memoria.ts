@@ -220,6 +220,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       oyentes.add(cb);
       return () => oyentes.delete(cb);
     },
+    // Los datos de ejemplo no tienen carátulas a tamaño completo que reducir.
+    onCaratulasReducidas: async () => () => {},
     removeFolder: async (id) => {
       const f = folders.find((x) => x.id === id);
       if (!f) throw new Error(`No existe la carpeta ${id}`);

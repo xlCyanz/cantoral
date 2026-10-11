@@ -537,6 +537,21 @@ export async function onScanProgress(cb: (p: ScanProgressEvent) => void): Promis
   return listen<ScanProgressEvent>("scan-progress", (e) => cb(e.payload));
 }
 
+/** Una pista cuya carátula pasó a otro archivo (la ruta, sin `asset://`). */
+export interface CaratulaNueva {
+  id: string;
+  cover: string;
+}
+
+/**
+ * Seguir la pasada única que reduce las carátulas de una biblioteca de antes.
+ * Llega por lotes, antes de que se borren los archivos viejos.
+ */
+export async function onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen<CaratulaNueva[]>("caratulas-reducidas", (e) => cb(e.payload));
+}
+
 /**
  * Read a shared playlist file in a plain browser, with a file picker.
  *

@@ -30,6 +30,10 @@ walkdir = "2"
 lofty = "0.25"
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
+# Para reducir las carátulas incrustadas al escanear. Solo los formatos que
+# pueden venir dentro de un archivo de audio: sin AVIF, EXR, TIFF ni rayon,
+# que es casi todo lo que pesa el crate con sus valores de fábrica.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp"] }
 
 # El actualizador y el arranque con el sistema solo existen en escritorio: en
 # Android e iOS la app se actualiza por la tienda y no se abre sola, y los
