@@ -48,7 +48,9 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   biblioteca ya escaneada se achican solas, en segundo plano, la primera vez
   que se abre la app. Quitar pistas, fusionar copias, reubicar archivos y
   quitar carpetas responden antes, y la pantalla del proyector se abre más
-  rápido porque ya no carga la app entera.
+  rápido porque ya no carga la app entera. Con el tema oscuro, la app ya no
+  destella en claro al abrirse, y el orden y la vista guardados aparecen
+  desde el primer momento.
 
 ### Eliminado
 

@@ -2,7 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { registrar } from "./lib/api";
+import { aplicarTemaGuardado } from "./lib/temaGuardado";
 import "./styles/global.css";
+
+// El tema antes del primer dibujo, para no pintar claro a quien lo usa oscuro
+// mientras se leen los ajustes.
+aplicarTemaGuardado();
 
 // La ventana de salida tiene su propia página, `salida.html` (ver
 // `salida.tsx`): esta es solo la principal.
