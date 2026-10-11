@@ -23,12 +23,10 @@ function pista(over: Partial<Track> = {}): Track {
     album: "Himnos",
     dur: "4:12",
     durSec: 252,
-    ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     ...over,
   };
@@ -38,7 +36,6 @@ const lista: Playlist = {
   id: "p1",
   nombre: "Culto 4 Ene",
   tocada: "",
-  ocasion: "Servicio dominical",
   ids: ["1"],
   plantilla: false,
 };
@@ -83,7 +80,7 @@ describe("armarArchivo", () => {
     expect(p.titulo).toBe("Sublime Gracia");
     expect(p.artista).toBe("Coro Congregacional");
     expect(p.durSec).toBe(252);
-    expect(p.ocasion).toBe("Adoración");
+    expect(p).not.toHaveProperty("ocasion");
   });
 
   it("conserva los datos de la lista, plantilla incluida", () => {
@@ -91,7 +88,6 @@ describe("armarArchivo", () => {
 
     expect(archivo.lista).toEqual({
       nombre: "Culto 4 Ene",
-      ocasion: "Servicio dominical",
       plantilla: true,
     });
   });
@@ -276,9 +272,20 @@ describe("parsearArchivo", () => {
   it("los campos opcionales pueden faltar", () => {
     const leido = parsearArchivo(minimo);
 
-    expect(leido.lista.ocasion).toBe("");
     expect(leido.lista.plantilla).toBe(false);
     expect(leido.pistas).toEqual([]);
+  });
+
+  it("un archivo de antes, con ocasión, se sigue abriendo", () => {
+    const viejo =
+      '{"cantoral":1,"lista":{"nombre":"Culto","ocasion":"Santa Cena"},' +
+      '"pistas":[{"titulo":"Santo","ocasion":"Comunión","archivo":"santo.mp3"}]}';
+
+    const leido = parsearArchivo(viejo);
+
+    expect(leido.lista).toEqual({ nombre: "Culto", plantilla: false });
+    expect(leido.pistas[0]).not.toHaveProperty("ocasion");
+    expect(leido.pistas[0].archivo).toBe("santo.mp3");
   });
 
   it("lo que no es JSON lo dice", () => {

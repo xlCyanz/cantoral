@@ -63,7 +63,6 @@ export default function RowMenu() {
   const closeRowMenu = useStore((s) => s.closeRowMenu);
   const openAddToList = useStore((s) => s.openAddToList);
   const openDetail = useStore((s) => s.onRowClick);
-  const openSheetEditor = useStore((s) => s.openSheetEditor);
   const revealTrack = useStore((s) => s.revealTrack);
   const bulkDelete = useStore((s) => s.bulkDelete);
   const play = useStore((s) => s.play);
@@ -166,15 +165,9 @@ export default function RowMenu() {
         </button>
 
         {!varias && (
-          <>
-            <button role="menuitem" tabIndex={-1} onClick={hacer(() => openDetail(menu.id))} className="hb-s2" style={opcion()}>
-              <span>Ver el detalle</span>
-            </button>
-            <button role="menuitem" tabIndex={-1} onClick={hacer(() => openSheetEditor(menu.id))} className="hb-s2" style={opcion()}>
-              <span>Letra y acordes</span>
-              <span style={atajo}>{pista?.tieneHoja ? "escrita" : ""}</span>
-            </button>
-          </>
+          <button role="menuitem" tabIndex={-1} onClick={hacer(() => openDetail(menu.id))} className="hb-s2" style={opcion()}>
+            <span>Ver el detalle</span>
+          </button>
         )}
 
         {!varias && pista?.path && (

@@ -4,14 +4,16 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-use crate::models::{
-    fmt_dur, DuplicateGroup, DuplicateTrack, Folder, LyricHit, Momento, Playlist, Sheet, Track,
-};
+use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Momento, Playlist, Track};
 
 /// Tauri-managed database handle.
 pub struct Db(pub Mutex<Connection>);
 
 /// SQL that is true when a track has something written on its sheet.
+///
+/// The app no longer shows or edits sheets, but the text written before stays
+/// in `tracks`, and merging duplicates still carries it to the copy that is
+/// kept (see `merge_tracks`), so nothing anyone typed is lost.
 ///
 /// The blanks are spelled out because SQLite's one-argument `TRIM` only strips
 /// spaces: a sheet holding nothing but newlines — what the editor leaves behind
@@ -47,6 +49,7 @@ CREATE TABLE IF NOT EXISTS tracks (
   -- esquema para que una versión anterior siga abriendo esta base, y para no
   -- borrar lo que alguien hubiera apuntado.
   bpm       INTEGER NOT NULL DEFAULT 0,
+  -- Vestigial también: la ocasión salió de la app. Se queda por lo mismo.
   ocasion   TEXT NOT NULL DEFAULT '',
   fav       INTEGER NOT NULL DEFAULT 0,
   missing   INTEGER NOT NULL DEFAULT 0,
@@ -58,6 +61,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   added_at  TEXT NOT NULL,
   mtime     INTEGER NOT NULL DEFAULT 0,
   fsize     INTEGER NOT NULL DEFAULT 0,
+  -- Vestigiales: la letra y los acordes que se escribían en la app. Ya no se
+  -- leen ni se escriben desde la interfaz, pero se quedan para que una
+  -- versión anterior siga abriendo esta base y para no borrar lo escrito.
   letra     TEXT NOT NULL DEFAULT '',
   acordes   TEXT NOT NULL DEFAULT ''
 );
@@ -65,6 +71,7 @@ CREATE TABLE IF NOT EXISTS tracks (
 CREATE TABLE IF NOT EXISTS playlists (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre    TEXT NOT NULL,
+  -- Vestigial: la ocasión salió de la app; se queda para versiones anteriores.
   ocasion   TEXT NOT NULL DEFAULT '',
   es_plantilla INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
@@ -108,7 +115,10 @@ CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist_id, position);
 "#;
 
-/// El índice de búsqueda sobre las hojas (#144): una tabla FTS5 que lee la
+/// Historia: el índice de búsqueda sobre las hojas (#144), que ya no existe.
+/// Solo lo usa la migración 11, que no se puede tocar; la 14 lo quita.
+///
+/// Era una tabla FTS5 que leía la
 /// letra y los acordes de `tracks` y tres triggers que la mantienen al día,
 /// escriba quien escriba —el editor, la fusión de duplicados, la cascada al
 /// quitar una carpeta—.
@@ -145,9 +155,6 @@ macro_rules! letras_fts {
     };
 }
 
-/// Ver `letras_fts!`.
-pub const LETRAS_FTS: &str = letras_fts!();
-
 /// The schema changes made since the first release, in the order they
 /// happened. Entry `n` takes a database from `PRAGMA user_version` `n - 1` to
 /// `n`; `open_and_migrate` runs only the ones a database has not seen yet, each
@@ -156,7 +163,7 @@ pub const LETRAS_FTS: &str = letras_fts!();
 ///
 /// Append only: never edit, reorder or remove an entry that has shipped, or a
 /// database that already ran it would disagree with one that runs it now. The
-/// table definitions in `SCHEMA` (and `LETRAS_FTS`) must already include
+/// table definitions in `SCHEMA` must already include
 /// whatever these add — a brand-new database is created from them and stamped
 /// straight to `SCHEMA_VERSION` without running any of them.
 ///
@@ -204,6 +211,20 @@ const MIGRATIONS: &[(i64, &str)] = &[
     // carátula más, y esto apunta los que no se dejaron leer para no volver a
     // intentarlos en cada arranque.
     (13, "ALTER TABLE tracks ADD COLUMN miniatura_fallida INTEGER NOT NULL DEFAULT 0"),
+    // Sin búsqueda por la letra, el índice de la 11 sobra, y sus triggers
+    // seguían escribiendo en él con cada pista que entraba o salía. Se quitan
+    // el índice y los triggers; la letra y los acordes siguen en `tracks`.
+    //
+    // Una 0.5.0 que abra la base después no se rompe: ve una versión más nueva,
+    // la abre sin migrar, y su búsqueda por la letra falla en silencio (solo lo
+    // apunta en el registro); la del título sigue igual.
+    (
+        14,
+        "DROP TRIGGER IF EXISTS letras_fts_ai;
+         DROP TRIGGER IF EXISTS letras_fts_ad;
+         DROP TRIGGER IF EXISTS letras_fts_au;
+         DROP TABLE IF EXISTS letras_fts;",
+    ),
 ];
 
 /// The schema version this build writes and understands: the last migration.
@@ -247,7 +268,6 @@ pub fn open_and_migrate(path: &std::path::Path) -> Result<Connection> {
     conn.execute_batch(SCHEMA)?;
 
     if fresh {
-        conn.execute_batch(LETRAS_FTS)?;
         conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
         log::info!("new database created at schema version {SCHEMA_VERSION}");
         return Ok(conn);
@@ -313,10 +333,9 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
 pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
-                t.ocasion, t.fav, t.missing, t.video,
+                t.fav, t.missing, t.video,
                 COALESCE(f.nombre,''),
                 t.cover_path,
-                {CON_HOJA},
                 t.added_at >= COALESCE((SELECT value FROM settings WHERE key='{ULTIMO_ESCANEO}'), '~'),
                 t.miniatura_fallida
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
@@ -335,16 +354,14 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
             dur_sec,
             dur: fmt_dur(dur_sec),
             formato: r.get(6)?,
-            ocasion: r.get(7)?,
-            fav: r.get::<_, i64>(8)? != 0,
-            missing: r.get::<_, i64>(9)? != 0,
-            video: r.get::<_, i64>(10)? != 0,
-            carpeta: r.get(11)?,
+            fav: r.get::<_, i64>(7)? != 0,
+            missing: r.get::<_, i64>(8)? != 0,
+            video: r.get::<_, i64>(9)? != 0,
+            carpeta: r.get(10)?,
             added: id,
-            cover: r.get::<_, Option<String>>(12)?,
-            tiene_hoja: r.get::<_, i64>(13)? != 0,
-            nueva: r.get::<_, i64>(14)? != 0,
-            miniatura_fallida: r.get::<_, i64>(15)? != 0,
+            cover: r.get::<_, Option<String>>(11)?,
+            nueva: r.get::<_, i64>(12)? != 0,
+            miniatura_fallida: r.get::<_, i64>(13)? != 0,
         })
     })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -358,16 +375,14 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
 /// corrección duraría hasta el siguiente escaneo de la carpeta: se arreglaría
 /// el domingo y estaría mal otra vez el jueves.
 ///
-/// Sólo el artista la lleva. La ocasión no sale de las etiquetas del archivo,
-/// así que no hay nada que la pise.
-pub fn update_track_meta(conn: &Connection, id: i64, artista: &str, ocasion: &str) -> Result<()> {
+/// La ocasión ya no se edita: su columna se queda como estaba.
+pub fn update_track_meta(conn: &Connection, id: i64, artista: &str) -> Result<()> {
     conn.execute(
         "UPDATE tracks
             SET artista=?1,
-                artista_manual = CASE WHEN artista=?1 THEN artista_manual ELSE 1 END,
-                ocasion=?2
-          WHERE id=?3",
-        params![artista, ocasion, id],
+                artista_manual = CASE WHEN artista=?1 THEN artista_manual ELSE 1 END
+          WHERE id=?2",
+        params![artista, id],
     )?;
     Ok(())
 }
@@ -714,122 +729,6 @@ pub fn delete_tracks(conn: &Connection, ids: &[i64]) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------- sheets
-
-/// The lyrics and chords of one track.
-pub fn track_sheet(conn: &Connection, id: i64) -> Result<Sheet> {
-    let (letra, acordes): (String, String) =
-        conn.query_row("SELECT letra, acordes FROM tracks WHERE id=?1", params![id], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })?;
-    Ok(Sheet { track_id: id.to_string(), letra, acordes })
-}
-
-/// The sheets of several tracks at once, for a whole service list.
-///
-/// Only the tracks that actually have something written come back, so an
-/// eleven-song list with two sheets costs two rows rather than eleven.
-pub fn sheets_for(conn: &Connection, ids: &[i64]) -> Result<Vec<Sheet>> {
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-    let lista = lista_de_ids(ids);
-    let mut stmt = conn.prepare(&format!(
-        "SELECT id, letra, acordes FROM tracks
-         WHERE id IN ({lista}) AND {CON_HOJA}
-         ORDER BY id"
-    ))?;
-    let rows = stmt.query_map([], |r| {
-        Ok(Sheet {
-            track_id: r.get::<_, i64>(0)?.to_string(),
-            letra: r.get(1)?,
-            acordes: r.get(2)?,
-        })
-    })?;
-    Ok(rows.collect::<std::result::Result<_, _>>()?)
-}
-
-/// Write a track's lyrics and chords.
-pub fn set_track_sheet(conn: &Connection, id: i64, letra: &str, acordes: &str) -> Result<()> {
-    let filas = conn.execute(
-        "UPDATE tracks SET letra=?1, acordes=?2 WHERE id=?3",
-        params![letra, acordes, id],
-    )?;
-    if filas == 0 {
-        bail!("la pista ya no está en la biblioteca");
-    }
-    Ok(())
-}
-
-/// Lo que se le pasa a FTS5 para lo que alguien escribió en el buscador.
-///
-/// Cada palabra va entre comillas —así un `"`, un `-` o un `OR` escritos no son
-/// sintaxis de FTS5— y como prefijo, porque se busca mientras se teclea:
-/// «sublime gra» ya encuentra «sublime gracia». Todas tienen que estar, en
-/// cualquier orden. Sin ninguna palabra, `None`.
-fn consulta_fts(texto: &str) -> Option<String> {
-    let palabras: Vec<String> = texto
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|p| !p.is_empty())
-        .map(|p| format!("\"{p}\"*"))
-        .collect();
-    (!palabras.is_empty()).then(|| palabras.join(" "))
-}
-
-/// El fragmento de FTS5, sin los acordes.
-///
-/// `snippet` corta por palabras, y en una hoja de acordes una palabra puede ser
-/// el nombre del acorde: el fragmento puede empezar en «Sol]Sublime» o acabar
-/// en «gracia [Do». Se quitan los acordes enteros y los medios, y los saltos
-/// de línea se vuelven espacios, porque el fragmento se lee en una línea.
-fn fragmento_limpio(crudo: &str) -> String {
-    let (antes, resto) = crudo.strip_prefix('…').map_or(("", crudo), |r| ("…", r));
-    let (resto, despues) = resto.strip_suffix('…').map_or((resto, ""), |r| (r, "…"));
-    // Un `]` antes de cualquier `[` cierra un acorde que empezó fuera del corte.
-    let resto = match (resto.find(']'), resto.find('[')) {
-        (Some(cierre), abre) if abre.is_none_or(|a| cierre < a) => &resto[cierre + 1..],
-        _ => resto,
-    };
-    let mut limpio = String::with_capacity(resto.len());
-    let mut en_acorde = false;
-    for c in resto.chars() {
-        match c {
-            '[' => en_acorde = true,
-            ']' => en_acorde = false,
-            _ if !en_acorde => limpio.push(c),
-            _ => {}
-        }
-    }
-    let texto = limpio.split_whitespace().collect::<Vec<_>>().join(" ");
-    if texto.is_empty() {
-        return String::new();
-    }
-    format!("{antes}{texto}{despues}")
-}
-
-/// Las pistas cuya letra o acordes contienen todas las palabras buscadas, con
-/// el trozo de la hoja donde aparecen.
-///
-/// Sin distinguir mayúsculas ni tildes. El orden es el de relevancia de FTS5;
-/// quien las muestra las vuelve a ordenar a su manera.
-pub fn search_lyrics(conn: &Connection, consulta: &str) -> Result<Vec<LyricHit>> {
-    let Some(q) = consulta_fts(consulta) else {
-        return Ok(Vec::new());
-    };
-    let mut stmt = conn.prepare(
-        "SELECT rowid, snippet(letras_fts, -1, '', '', '…', 10)
-         FROM letras_fts WHERE letras_fts MATCH ?1
-         ORDER BY rank",
-    )?;
-    let filas = stmt.query_map(params![q], |r| {
-        Ok(LyricHit {
-            track_id: r.get::<_, i64>(0)?.to_string(),
-            fragmento: fragmento_limpio(&r.get::<_, String>(1)?),
-        })
-    })?;
-    Ok(filas.collect::<std::result::Result<_, _>>()?)
-}
-
 // ---------------------------------------------------------------- folders
 
 pub fn list_folders(conn: &Connection) -> Result<Vec<Folder>> {
@@ -939,11 +838,11 @@ pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
     // El último que se tocó, arriba. `id` desempata para que el orden no
     // cambie entre dos llamadas.
     let mut stmt = conn.prepare(
-        "SELECT id, nombre, ocasion, es_plantilla, tocada_at FROM playlists
+        "SELECT id, nombre, es_plantilla, tocada_at FROM playlists
          ORDER BY tocada_at DESC, id DESC",
     )?;
-    let base: Vec<(i64, String, String, bool, String)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+    let base: Vec<(i64, String, bool, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
         .collect::<std::result::Result<_, _>>()?;
 
     // Every list's order in one query, grouped here, instead of one query per
@@ -985,10 +884,9 @@ pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
 
     Ok(base
         .into_iter()
-        .map(|(id, nombre, ocasion, plantilla, tocada)| Playlist {
+        .map(|(id, nombre, plantilla, tocada)| Playlist {
             id: id.to_string(),
             nombre,
-            ocasion,
             ids: orden.remove(&id).unwrap_or_default(),
             plantilla,
             tocada,
@@ -1001,17 +899,12 @@ pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
 ///
 /// One transaction: a list that came back with half of the template is worse
 /// than one that was never created, because nothing says which half is missing.
-pub fn create_playlist(
-    conn: &Connection,
-    nombre: &str,
-    ocasion: &str,
-    origen: Option<i64>,
-) -> Result<i64> {
+pub fn create_playlist(conn: &Connection, nombre: &str, origen: Option<i64>) -> Result<i64> {
     let tx = conn.unchecked_transaction()?;
     let ahora = now();
     tx.execute(
-        "INSERT INTO playlists(nombre, ocasion, created_at, tocada_at) VALUES(?1,?2,?3,?3)",
-        params![nombre, ocasion, ahora],
+        "INSERT INTO playlists(nombre, created_at, tocada_at) VALUES(?1,?2,?2)",
+        params![nombre, ahora],
     )?;
     let id = tx.last_insert_rowid();
     if let Some(de) = origen {
@@ -1098,17 +991,15 @@ fn raiz_sin_copia(nombre: &str) -> &str {
 /// «Próximos» until somebody noticed.
 pub fn duplicate_playlist(conn: &Connection, id: i64) -> Result<i64> {
     let tx = conn.unchecked_transaction()?;
-    let (nombre, ocasion): (String, String) =
-        tx.query_row("SELECT nombre, ocasion FROM playlists WHERE id=?1", params![id], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })?;
+    let nombre: String =
+        tx.query_row("SELECT nombre FROM playlists WHERE id=?1", params![id], |r| r.get(0))?;
     let usados: Vec<String> = tx
         .prepare("SELECT nombre FROM playlists")?
         .query_map([], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
     tx.execute(
-        "INSERT INTO playlists(nombre, ocasion, created_at, tocada_at) VALUES(?1,?2,?3,?3)",
-        params![nombre_copia(&nombre, &usados), ocasion, now()],
+        "INSERT INTO playlists(nombre, created_at, tocada_at) VALUES(?1,?2,?2)",
+        params![nombre_copia(&nombre, &usados), now()],
     )?;
     let nuevo = tx.last_insert_rowid();
     copiar_pistas(&tx, id, nuevo)?;
@@ -1295,12 +1186,9 @@ pub fn add_to_playlist(conn: &Connection, playlist_id: i64, track_id: i64) -> Re
     Ok(())
 }
 
-/// Rename a playlist / change its occasion.
-pub fn update_playlist(conn: &Connection, id: i64, nombre: &str, ocasion: &str) -> Result<()> {
-    conn.execute(
-        "UPDATE playlists SET nombre=?1, ocasion=?2 WHERE id=?3",
-        params![nombre, ocasion, id],
-    )?;
+/// Rename a playlist.
+pub fn update_playlist(conn: &Connection, id: i64, nombre: &str) -> Result<()> {
+    conn.execute("UPDATE playlists SET nombre=?1 WHERE id=?2", params![nombre, id])?;
     Ok(())
 }
 
@@ -1767,8 +1655,8 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
         ),
         params![keep_id],
     )?;
-    // Church fields the survivor never got, taken from whichever copy has them.
-    // Never an overwrite: what the user typed on the copy they are keeping wins.
+    // The occasion is no longer shown, but one written before is kept: the
+    // survivor takes the first copy's if it has none, and never loses its own.
     tx.execute(
         &format!(
             "UPDATE tracks SET ocasion = COALESCE(
@@ -1778,12 +1666,10 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
         ),
         params![keep_id],
     )?;
-    // The sheet is the costliest thing in the library to produce, and it tends
-    // to be written on the copy the band plays — the MP3 — while the suggested
-    // survivor is the bigger WAV. A survivor with no sheet takes the first
-    // copy's; one that has its own keeps it, and the dialog warned about the
-    // copy's before getting here (#126). Letra and acordes travel together:
-    // mixing one copy's lyrics with another's chords would be neither sheet.
+    // The app no longer shows sheets, but what was written before is kept: a
+    // survivor with no sheet takes the first copy's; one that has its own
+    // keeps it (#126). Letra and acordes travel together: mixing one copy's
+    // lyrics with another's chords would be neither sheet.
     tx.execute(
         &format!(
             "UPDATE tracks SET
@@ -1844,7 +1730,6 @@ mod tests {
     fn mem() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(SCHEMA).unwrap();
-        conn.execute_batch(LETRAS_FTS).unwrap();
         conn
     }
 
@@ -1888,7 +1773,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[c, a, b]).unwrap();
 
@@ -1902,7 +1787,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, a).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[a, b]).unwrap();
@@ -1918,7 +1803,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, b).unwrap();
 
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
@@ -1936,7 +1821,7 @@ mod tests {
     #[test]
     fn adding_nothing_is_not_an_error() {
         let conn = mem();
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         assert_eq!(add_tracks_to_playlist(&conn, pl, &[]).unwrap(), 0);
     }
 
@@ -1964,7 +1849,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
 
         delete_tracks(&conn, &[a, c]).unwrap();
@@ -1978,7 +1863,7 @@ mod tests {
 
     /// Un culto con su «tocada» puesta a mano, para no depender del reloj.
     fn culto_tocado(conn: &Connection, nombre: &str, cuando: &str) -> i64 {
-        let id = create_playlist(conn, nombre, "", None).unwrap();
+        let id = create_playlist(conn, nombre, None).unwrap();
         conn.execute("UPDATE playlists SET tocada_at=?1 WHERE id=?2", params![cuando, id]).unwrap();
         id
     }
@@ -2014,7 +1899,7 @@ mod tests {
         let conn = mem();
         culto_tocado(&conn, "Viejo", "2020-01-01T00:00:00+00:00");
 
-        create_playlist(&conn, "Nuevo", "", None).unwrap();
+        create_playlist(&conn, "Nuevo", None).unwrap();
 
         assert_eq!(nombres(&conn)[0], "Nuevo");
     }
@@ -2039,258 +1924,6 @@ mod tests {
 
         assert_eq!(nombres(&conn), vec!["B", "A"], "el más nuevo gana el empate");
         assert_eq!(nombres(&conn), nombres(&conn));
-    }
-
-    // ---- lyrics and chords ----
-
-    // ---- búsqueda por la letra (#144) ----
-
-    fn encontradas(conn: &Connection, consulta: &str) -> Vec<i64> {
-        let mut ids: Vec<i64> = search_lyrics(conn, consulta)
-            .unwrap()
-            .into_iter()
-            .map(|h| h.track_id.parse().unwrap())
-            .collect();
-        ids.sort();
-        ids
-    }
-
-    #[test]
-    fn a_verse_finds_the_song_whatever_its_title() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/track03.mp3", "Track 03");
-        let otra = add_track(&conn, fid, "/m/otra.mp3", "Otra");
-        set_track_sheet(&conn, id, "Sublime gracia del Señor\nque a un infeliz salvó", "").unwrap();
-        set_track_sheet(&conn, otra, "Cuán grande es Él", "").unwrap();
-
-        assert_eq!(encontradas(&conn, "sublime gracia del"), vec![id]);
-        // En otro orden y a medio escribir, también.
-        assert_eq!(encontradas(&conn, "infeliz subl"), vec![id]);
-        assert!(encontradas(&conn, "sublime grande").is_empty(), "todas las palabras deben estar");
-    }
-
-    #[test]
-    fn accents_and_capitals_do_not_matter_either_way() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let con = add_track(&conn, fid, "/m/a.mp3", "A");
-        let sin = add_track(&conn, fid, "/m/b.mp3", "B");
-        set_track_sheet(&conn, con, "Te doy mi CORAZÓN, Señor", "").unwrap();
-        set_track_sheet(&conn, sin, "mi corazon te adora, senor", "").unwrap();
-
-        assert_eq!(encontradas(&conn, "corazon senor"), vec![con, sin]);
-        assert_eq!(encontradas(&conn, "Corazón Señor"), vec![con, sin]);
-    }
-
-    #[test]
-    fn chords_alone_are_searched_without_their_brackets() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_sheet(&conn, id, "", "[Sol]Sublime [Do]gracia del [Re]Señor").unwrap();
-
-        let hits = search_lyrics(&conn, "sublime gracia").unwrap();
-        assert_eq!(hits.len(), 1);
-        assert!(!hits[0].fragmento.contains('['), "{}", hits[0].fragmento);
-        assert!(!hits[0].fragmento.contains(']'), "{}", hits[0].fragmento);
-        assert!(hits[0].fragmento.contains("Sublime gracia"), "{}", hits[0].fragmento);
-    }
-
-    #[test]
-    fn the_fragment_is_the_verse_on_one_line() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-        let larga = "Uno dos tres cuatro cinco seis siete ocho nueve diez\n\
-                     sublime gracia del Señor\n\
-                     once doce trece catorce quince dieciséis diecisiete";
-        set_track_sheet(&conn, id, larga, "").unwrap();
-
-        let hits = search_lyrics(&conn, "sublime gracia").unwrap();
-        let f = &hits[0].fragmento;
-        assert!(f.contains("sublime gracia del Señor"), "{f}");
-        assert!(!f.contains('\n'), "{f}");
-        assert!(f.starts_with('…') || f.ends_with('…'), "a cut verse says so: {f}");
-    }
-
-    #[test]
-    fn editing_the_sheet_moves_the_result_with_it() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_sheet(&conn, id, "Santo, santo, santo", "").unwrap();
-        assert_eq!(encontradas(&conn, "santo"), vec![id]);
-
-        set_track_sheet(&conn, id, "Aleluya", "").unwrap();
-
-        assert!(encontradas(&conn, "santo").is_empty(), "lo borrado ya no se encuentra");
-        assert_eq!(encontradas(&conn, "aleluya"), vec![id]);
-    }
-
-    #[test]
-    fn a_track_that_leaves_takes_its_lyrics_out_of_the_index() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let sola = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_sheet(&conn, sola, "Aleluya", "").unwrap();
-        delete_track(&conn, sola).unwrap();
-        assert!(encontradas(&conn, "aleluya").is_empty());
-
-        // Y por la cascada de quitar la carpeta entera.
-        let otra = add_track(&conn, fid, "/m/b.mp3", "B");
-        set_track_sheet(&conn, otra, "Hosanna", "").unwrap();
-        remove_folder(&conn, fid).unwrap();
-        assert!(encontradas(&conn, "hosanna").is_empty());
-        let fts: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM letras_fts WHERE letras_fts MATCH 'hosanna'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(fts, 0);
-    }
-
-    #[test]
-    fn a_rescan_does_not_touch_the_index() {
-        // El escaneo reescribe la fila (upsert) sin tocar la hoja.
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_sheet(&conn, id, "Aleluya", "").unwrap();
-
-        add_track(&conn, fid, "/m/a.mp3", "A retitulada");
-
-        assert_eq!(encontradas(&conn, "aleluya"), vec![id]);
-        conn.execute("INSERT INTO letras_fts(letras_fts) VALUES('integrity-check')", []).unwrap();
-    }
-
-    #[test]
-    fn merging_duplicates_carries_the_lyrics_into_the_index() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let queda = add_track(&conn, fid, "/m/a.mp3", "A");
-        let va = add_track(&conn, fid, "/m/a (1).mp3", "A");
-        set_track_sheet(&conn, va, "Cristo ya resucitó", "").unwrap();
-
-        merge_tracks(&conn, queda, &[va]).unwrap();
-
-        assert_eq!(encontradas(&conn, "cristo resucito"), vec![queda]);
-        conn.execute("INSERT INTO letras_fts(letras_fts) VALUES('integrity-check')", []).unwrap();
-    }
-
-    #[test]
-    fn what_is_typed_is_never_fts5_syntax() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_sheet(&conn, id, "Gloria a Dios en las alturas", "").unwrap();
-
-        for raro in
-            ["\"gloria", "gloria OR", "gloria -dios", "NEAR(gloria", "gloria*", "(dios)", "a:b"]
-        {
-            assert!(search_lyrics(&conn, raro).is_ok(), "«{raro}» no debe romper la búsqueda");
-        }
-        assert_eq!(encontradas(&conn, "«gloria» — dios!"), vec![id]);
-        assert!(search_lyrics(&conn, "  ¡¿…?!  ").unwrap().is_empty());
-    }
-
-    #[test]
-    fn without_sheets_nothing_is_found() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        add_track(&conn, fid, "/m/a.mp3", "Sublime gracia");
-        assert!(encontradas(&conn, "sublime").is_empty(), "el título no es la letra");
-    }
-
-    #[test]
-    fn the_fragment_drops_chords_cut_in_half() {
-        assert_eq!(fragmento_limpio("…Sol]Sublime [Do]gracia [Re"), "…Sublime gracia");
-        assert_eq!(fragmento_limpio("Sublime\ngracia…"), "Sublime gracia…");
-        assert_eq!(fragmento_limpio("[Sol]"), "");
-    }
-
-    #[test]
-    fn a_sheet_goes_in_and_comes_back_out() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "Sublime Gracia");
-
-        set_track_sheet(&conn, id, "Sublime gracia del Señor", "[Sol]Sublime [Do]gracia").unwrap();
-
-        let hoja = track_sheet(&conn, id).unwrap();
-        assert_eq!(hoja.track_id, id.to_string());
-        assert_eq!(hoja.letra, "Sublime gracia del Señor");
-        assert_eq!(hoja.acordes, "[Sol]Sublime [Do]gracia");
-    }
-
-    #[test]
-    fn a_track_starts_with_no_sheet_at_all() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-
-        let hoja = track_sheet(&conn, id).unwrap();
-        assert_eq!((hoja.letra.as_str(), hoja.acordes.as_str()), ("", ""));
-        assert!(!list_tracks(&conn).unwrap()[0].tiene_hoja);
-    }
-
-    #[test]
-    fn the_catalogue_carries_whether_there_is_a_sheet_but_not_the_sheet() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let con = add_track(&conn, fid, "/m/a.mp3", "Con letra");
-        add_track(&conn, fid, "/m/b.mp3", "Sin nada");
-        set_track_sheet(&conn, con, "Aleluya", "").unwrap();
-
-        let tracks = list_tracks(&conn).unwrap();
-
-        assert!(tracks[0].tiene_hoja, "chords alone would do too");
-        assert!(!tracks[1].tiene_hoja);
-    }
-
-    #[test]
-    fn whitespace_is_not_a_sheet() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-
-        // Opening the editor and closing it must not light the indicator.
-        set_track_sheet(&conn, id, "   \n\n  ", "  ").unwrap();
-
-        assert!(!list_tracks(&conn).unwrap()[0].tiene_hoja);
-    }
-
-    #[test]
-    fn a_service_list_only_pays_for_the_sheets_that_exist() {
-        let conn = mem();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let uno = add_track(&conn, fid, "/m/a.mp3", "Uno");
-        let dos = add_track(&conn, fid, "/m/b.mp3", "Dos");
-        let tres = add_track(&conn, fid, "/m/c.mp3", "Tres");
-        set_track_sheet(&conn, uno, "letra de uno", "").unwrap();
-        set_track_sheet(&conn, tres, "", "[Sol]tres").unwrap();
-
-        let hojas = sheets_for(&conn, &[uno, dos, tres]).unwrap();
-
-        assert_eq!(
-            hojas.iter().map(|h| h.track_id.clone()).collect::<Vec<_>>(),
-            vec![uno.to_string(), tres.to_string()],
-            "the one with nothing written is not a row"
-        );
-    }
-
-    #[test]
-    fn asking_for_no_sheets_asks_the_database_nothing() {
-        let conn = mem();
-        assert!(sheets_for(&conn, &[]).unwrap().is_empty());
-    }
-
-    #[test]
-    fn writing_a_sheet_onto_a_track_that_is_gone_is_refused() {
-        let conn = mem();
-        assert!(set_track_sheet(&conn, 9_999, "letra", "").is_err());
     }
 
     #[test]
@@ -2358,26 +1991,51 @@ mod tests {
 
         let tracks = list_tracks(&conn).unwrap();
         assert_eq!(tracks.len(), 1);
-        assert!(!tracks[0].tiene_hoja);
         let id: i64 = tracks[0].id.parse().unwrap();
-        set_track_sheet(&conn, id, "letra nueva", "").unwrap();
-        assert_eq!(track_sheet(&conn, id).unwrap().letra, "letra nueva");
+        poner_hoja(&conn, id, "letra nueva", "");
+        assert_eq!(hoja_de(&conn, id).0, "letra nueva");
+    }
+
+    /// Escribe una hoja a mano: la app ya no lo hace, pero las bases viejas
+    /// las traen y nada de lo que hace la app puede perderlas.
+    fn poner_hoja(conn: &Connection, id: i64, letra: &str, acordes: &str) {
+        conn.execute(
+            "UPDATE tracks SET letra=?1, acordes=?2 WHERE id=?3",
+            params![letra, acordes, id],
+        )
+        .unwrap();
+    }
+
+    fn hoja_de(conn: &Connection, id: i64) -> (String, String) {
+        conn.query_row("SELECT letra, acordes FROM tracks WHERE id=?1", params![id], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap()
+    }
+
+    fn hay_en_el_esquema(conn: &Connection, nombre: &str) -> bool {
+        conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name=?1)",
+            params![nombre],
+            |r| r.get(0),
+        )
+        .unwrap()
     }
 
     #[test]
-    fn lyrics_written_before_the_index_existed_are_found_after_migrating() {
-        // Una biblioteca de la versión 10: hojas escritas, sin índice.
-        let dir = Dir::new("letras-fts-migration");
+    fn migrating_drops_the_lyrics_index_and_keeps_the_lyrics() {
+        // Una biblioteca de la 0.5.0: índice de la letra y hojas escritas.
+        let dir = Dir::new("letras-fts-fuera");
         let path = dir.path("cantoral.db");
         {
             let vieja = Connection::open(&path).unwrap();
             vieja.execute_batch(SCHEMA).unwrap();
+            vieja.execute_batch(letras_fts!()).unwrap();
             vieja
                 .execute_batch(
-                    "PRAGMA user_version = 10;
+                    "PRAGMA user_version = 13;
                      INSERT INTO tracks(path, titulo, added_at, letra, acordes)
-                     VALUES('/m/a.mp3','Track 03','2020-01-01','Sublime gracia del Señor',''),
-                           ('/m/b.mp3','Otra','2020-01-01','','[Sol]Cuán grande es Él');",
+                     VALUES('/m/a.mp3','Track 03','2020-01-01','Sublime gracia','[Sol]Sublime');",
                 )
                 .unwrap();
         }
@@ -2385,27 +2043,22 @@ mod tests {
         let conn = open_and_migrate(&path).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
-        assert_eq!(search_lyrics(&conn, "gracia senor").unwrap().len(), 1);
-        assert_eq!(search_lyrics(&conn, "cuan grande").unwrap().len(), 1);
-        // Y queda vivo: lo que se escribe después también se encuentra.
-        set_track_sheet(&conn, 1, "Aleluya", "").unwrap();
-        assert_eq!(search_lyrics(&conn, "aleluya").unwrap().len(), 1);
-        assert!(search_lyrics(&conn, "sublime").unwrap().is_empty());
-        drop(conn);
-        // Abrir otra vez no la vuelve a crear ni la duplica.
-        let conn = open_and_migrate(&path).unwrap();
-        assert_eq!(search_lyrics(&conn, "aleluya").unwrap().len(), 1);
+        for nombre in ["letras_fts", "letras_fts_ai", "letras_fts_ad", "letras_fts_au"] {
+            assert!(!hay_en_el_esquema(&conn, nombre), "{nombre} sigue ahí");
+        }
+        assert_eq!(hoja_de(&conn, 1), ("Sublime gracia".into(), "[Sol]Sublime".into()));
+        // Sin triggers, quitar la pista ya no toca ningún índice.
+        delete_tracks(&conn, &[1]).unwrap();
+        assert!(list_tracks(&conn).unwrap().is_empty());
     }
 
     #[test]
-    fn a_new_database_has_the_lyrics_index_from_the_start() {
+    fn a_new_database_has_no_lyrics_index() {
         let dir = Dir::new("letras-fts-nueva");
         let path = dir.path("cantoral.db");
         let conn = open_and_migrate(&path).unwrap();
-        let fid = add_folder(&conn, "/m", "m", true).unwrap();
-        let id = add_track(&conn, fid, "/m/a.mp3", "A");
-        set_track_sheet(&conn, id, "Aleluya", "").unwrap();
-        assert_eq!(search_lyrics(&conn, "aleluya").unwrap().len(), 1);
+        assert!(!hay_en_el_esquema(&conn, "letras_fts"));
+        assert!(!hay_en_el_esquema(&conn, "letras_fts_ai"));
     }
 
     // ---- schema version ----
@@ -2774,19 +2427,28 @@ mod tests {
 
     // ---- merging ----
 
+    /// La ocasión de una pista, que la app ya no lee: solo la base la guarda.
+    fn ocasion_de(conn: &Connection, id: i64) -> String {
+        conn.query_row("SELECT ocasion FROM tracks WHERE id=?1", params![id], |r| r.get(0)).unwrap()
+    }
+
+    /// Escribe una ocasión como la dejaba una versión anterior.
+    fn poner_ocasion(conn: &Connection, id: i64, ocasion: &str) {
+        conn.execute("UPDATE tracks SET ocasion=?1 WHERE id=?2", params![ocasion, id]).unwrap();
+    }
+
     #[test]
-    fn merging_fills_church_fields_the_survivor_never_got() {
+    fn merging_keeps_the_occasion_of_the_survivor() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        update_track_meta(&conn, queda, "Coro", "Adoración").unwrap();
-        update_track_meta(&conn, copia, "Coro", "Comunión").unwrap();
+        poner_ocasion(&conn, queda, "Adoración");
+        poner_ocasion(&conn, copia, "Comunión");
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
-        let t = &list_tracks(&conn).unwrap()[0];
-        assert_eq!(t.ocasion, "Adoración", "what the user typed on the copy they keep wins");
+        assert_eq!(ocasion_de(&conn, queda), "Adoración", "the one it had is not overwritten");
     }
 
     #[test]
@@ -2795,11 +2457,11 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        update_track_meta(&conn, copia, "Coro", "Comunión").unwrap();
+        poner_ocasion(&conn, copia, "Comunión");
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
-        assert_eq!(list_tracks(&conn).unwrap()[0].ocasion, "Comunión");
+        assert_eq!(ocasion_de(&conn, queda), "Comunión");
     }
 
     #[test]
@@ -2812,7 +2474,7 @@ mod tests {
         let id = add_track(&conn, fid, "/m/a.mp3", "A");
         conn.execute("UPDATE tracks SET bpm=72 WHERE id=?1", params![id]).unwrap();
 
-        update_track_meta(&conn, id, "Coro", "Adoración").unwrap();
+        update_track_meta(&conn, id, "Coro").unwrap();
         add_track(&conn, fid, "/m/a.mp3", "A");
 
         let bpm: i64 = conn
@@ -2827,15 +2489,15 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        // What the editor leaves when opened and closed: not a sheet.
-        set_track_sheet(&conn, queda, "\n\n", "").unwrap();
-        set_track_sheet(&conn, copia, "Santo, santo, santo", "[Re]Santo").unwrap();
+        // What the old editor left when opened and closed: not a sheet.
+        poner_hoja(&conn, queda, "\n\n", "");
+        poner_hoja(&conn, copia, "Santo, santo, santo", "[Re]Santo");
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
-        let hoja = track_sheet(&conn, queda).unwrap();
-        assert_eq!(hoja.letra, "Santo, santo, santo", "the copy's lyrics move across");
-        assert_eq!(hoja.acordes, "[Re]Santo", "and its chords with them");
+        let (letra, acordes) = hoja_de(&conn, queda);
+        assert_eq!(letra, "Santo, santo, santo", "the copy's lyrics move across");
+        assert_eq!(acordes, "[Re]Santo", "and its chords with them");
     }
 
     #[test]
@@ -2844,15 +2506,14 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        set_track_sheet(&conn, queda, "", "[Sol]Santo").unwrap();
-        set_track_sheet(&conn, copia, "Santo, santo, santo", "[Re]Santo").unwrap();
+        poner_hoja(&conn, queda, "", "[Sol]Santo");
+        poner_hoja(&conn, copia, "Santo, santo, santo", "[Re]Santo");
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
-        let hoja = track_sheet(&conn, queda).unwrap();
         assert_eq!(
-            (hoja.letra.as_str(), hoja.acordes.as_str()),
-            ("", "[Sol]Santo"),
+            hoja_de(&conn, queda),
+            ("".into(), "[Sol]Santo".into()),
             "the survivor's sheet stays whole, not patched with the copy's lyrics"
         );
     }
@@ -2863,7 +2524,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
-        update_track_meta(&conn, copia, "Coro Emanuel", "").unwrap();
+        update_track_meta(&conn, copia, "Coro Emanuel").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
         assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Coro Emanuel");
@@ -2883,8 +2544,8 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Unknown Artist", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
-        update_track_meta(&conn, queda, "Coro Emanuel", "").unwrap();
-        update_track_meta(&conn, copia, "Coro", "").unwrap();
+        update_track_meta(&conn, queda, "Coro Emanuel").unwrap();
+        update_track_meta(&conn, copia, "Coro").unwrap();
 
         merge_tracks(&conn, queda, &[copia]).unwrap();
 
@@ -2898,7 +2559,7 @@ mod tests {
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
         let otra = pista(&conn, fid, "/m/z.mp3", "Otra", "Coro", 100, "MP3", 1_000);
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, otra).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2918,7 +2579,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        let pl = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, queda).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2962,7 +2623,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
 
-        update_track_meta(&conn, id, "Coro Congregacional", "").unwrap();
+        update_track_meta(&conn, id, "Coro Congregacional").unwrap();
         // El escaneo vuelve a leer las etiquetas del archivo, que siguen mal.
         pista(&conn, fid, "/m/a.mp3", "Santo", "Unknown Artist", 300, "MP3", 4_000);
 
@@ -2971,17 +2632,16 @@ mod tests {
 
     #[test]
     fn an_artist_nobody_touched_still_follows_the_file() {
-        // La marca sólo la levanta corregirlo. Guardar la ocasión sin tocar el
-        // artista no puede congelar lo que diga el archivo.
+        // La marca sólo la levanta corregirlo. Guardar el mismo artista que ya
+        // tenía no puede congelar lo que diga el archivo.
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = pista(&conn, fid, "/m/a.mp3", "Santo", "Viejo", 300, "MP3", 4_000);
 
-        update_track_meta(&conn, id, "Viejo", "Adoración").unwrap();
+        update_track_meta(&conn, id, "Viejo").unwrap();
         pista(&conn, fid, "/m/a.mp3", "Santo", "Corregido en el archivo", 300, "MP3", 4_000);
 
         assert_eq!(list_tracks(&conn).unwrap()[0].artista, "Corregido en el archivo");
-        assert_eq!(list_tracks(&conn).unwrap()[0].ocasion, "Adoración");
     }
 
     #[test]
@@ -2990,16 +2650,17 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let id = add_track(&conn, fid, "/m/a.mp3", "A");
 
-        update_track_meta(&conn, id, "", "Adoración").unwrap();
+        poner_ocasion(&conn, id, "Adoración");
         set_fav(&conn, id, true).unwrap();
 
-        // A rescan re-reads tag metadata but must not clobber church fields.
+        // A rescan re-reads tag metadata but must not clobber church fields,
+        // nor the occasion an older version wrote.
         let again = add_track(&conn, fid, "/m/a.mp3", "A (retag)");
         assert_eq!(again, id);
 
         let t = &list_tracks(&conn).unwrap()[0];
         assert_eq!(t.titulo, "A (retag)");
-        assert_eq!(t.ocasion, "Adoración");
+        assert_eq!(ocasion_de(&conn, id), "Adoración");
         assert!(t.fav);
     }
 
@@ -3074,7 +2735,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", "Adoración", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
 
         add_to_playlist(&conn, pid, a).unwrap();
         add_to_playlist(&conn, pid, b).unwrap();
@@ -3093,7 +2754,7 @@ mod tests {
         let fid = add_folder(conn, "/m", "m", true).unwrap();
         let a = add_track(conn, fid, "/m/a.mp3", "A");
         let b = add_track(conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(conn, "Culto", "", None).unwrap();
+        let pl = create_playlist(conn, "Culto", None).unwrap();
         add_tracks_to_playlist(conn, pl, &[a, b]).unwrap();
         (pl, a, b)
     }
@@ -3189,7 +2850,7 @@ mod tests {
     fn a_moment_from_another_service_is_not_taken() {
         let conn = mem();
         let (pl, a, b) = culto_ab(&conn);
-        let otro = create_playlist(&conn, "Otro", "", None).unwrap();
+        let otro = create_playlist(&conn, "Otro", None).unwrap();
         let ajeno = add_playlist_momento(&conn, otro, "oracion", "Ajena", "").unwrap();
 
         set_playlist_order(
@@ -3250,7 +2911,7 @@ mod tests {
         .unwrap();
 
         let copia = el_culto(&conn, duplicate_playlist(&conn, pl).unwrap());
-        let desde = el_culto(&conn, create_playlist(&conn, "Nuevo", "", Some(pl)).unwrap());
+        let desde = el_culto(&conn, create_playlist(&conn, "Nuevo", Some(pl)).unwrap());
 
         for nueva in [copia, desde] {
             assert_eq!(nueva.ids.len(), 3);
@@ -3325,7 +2986,7 @@ mod tests {
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let mut esperado = Vec::new();
         for i in 0..40 {
-            let pid = create_playlist(&conn, &format!("Culto {i}"), "", None).unwrap();
+            let pid = create_playlist(&conn, &format!("Culto {i}"), None).unwrap();
             // Distintos órdenes, y alguna vacía, para que agrupar no pueda
             // mezclar una lista con la de al lado.
             let orden = match i % 3 {
@@ -3375,7 +3036,7 @@ mod tests {
             .collect();
         let listas: Vec<i64> = (0..40)
             .map(|i| {
-                let pl = create_playlist(&conn, &format!("Culto {i}"), "Adoración", None).unwrap();
+                let pl = create_playlist(&conn, &format!("Culto {i}"), None).unwrap();
                 let orden: Vec<i64> =
                     ids.iter().skip(i * 37).step_by(97).take(30).copied().collect();
                 set_playlist_order(&conn, pl, &orden).unwrap();
@@ -3425,27 +3086,30 @@ mod tests {
     }
 
     #[test]
-    fn update_playlist_changes_name_and_occasion() {
+    fn update_playlist_changes_the_name_and_leaves_an_old_occasion_alone() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Sin título", "", None).unwrap();
+        let pid = create_playlist(&conn, "Sin título", None).unwrap();
+        conn.execute("UPDATE playlists SET ocasion='Ensayo' WHERE id=?1", params![pid]).unwrap();
 
-        update_playlist(&conn, pid, "Jóvenes", "Ensayo").unwrap();
+        update_playlist(&conn, pid, "Jóvenes").unwrap();
 
-        let pl = &list_playlists(&conn).unwrap()[0];
-        assert_eq!(pl.nombre, "Jóvenes");
-        assert_eq!(pl.ocasion, "Ensayo");
+        assert_eq!(list_playlists(&conn).unwrap()[0].nombre, "Jóvenes");
+        let ocasion: String = conn
+            .query_row("SELECT ocasion FROM playlists WHERE id=?1", params![pid], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ocasion, "Ensayo", "lo que escribió una versión anterior no se borra");
     }
 
     // ---- duplicating and templates ----
 
     #[test]
-    fn a_copy_keeps_the_order_and_the_occasion() {
+    fn a_copy_keeps_the_order() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto", "Servicio dominical", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[c, a, b]).unwrap();
 
         let copia = duplicate_playlist(&conn, pid).unwrap();
@@ -3453,7 +3117,6 @@ mod tests {
         let listas = list_playlists(&conn).unwrap();
         let nueva = listas.iter().find(|p| p.id == copia.to_string()).unwrap();
         assert_eq!(nueva.nombre, "Culto (copia)");
-        assert_eq!(nueva.ocasion, "Servicio dominical");
         assert_eq!(nueva.ids, vec![c.to_string(), a.to_string(), b.to_string()]);
     }
 
@@ -3463,7 +3126,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
         let copia = duplicate_playlist(&conn, pid).unwrap();
 
@@ -3477,7 +3140,7 @@ mod tests {
     #[test]
     fn copying_the_same_list_twice_gives_two_names_you_can_tell_apart() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
 
         duplicate_playlist(&conn, pid).unwrap();
         duplicate_playlist(&conn, pid).unwrap();
@@ -3524,12 +3187,11 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let plantilla = create_playlist(&conn, "Dominical", "Servicio dominical", None).unwrap();
+        let plantilla = create_playlist(&conn, "Dominical", None).unwrap();
         set_playlist_order(&conn, plantilla, &[b, a]).unwrap();
         set_playlist_template(&conn, plantilla, true).unwrap();
 
-        let nueva =
-            create_playlist(&conn, "Culto 4 Ene", "Servicio dominical", Some(plantilla)).unwrap();
+        let nueva = create_playlist(&conn, "Culto 4 Ene", Some(plantilla)).unwrap();
 
         let listas = list_playlists(&conn).unwrap();
         let hecha = listas.iter().find(|p| p.id == nueva.to_string()).unwrap();
@@ -3543,14 +3205,14 @@ mod tests {
     fn starting_from_a_list_that_is_gone_leaves_no_list_behind() {
         let conn = mem();
 
-        assert!(create_playlist(&conn, "Culto", "", Some(9_999)).is_err());
+        assert!(create_playlist(&conn, "Culto", Some(9_999)).is_err());
         assert!(list_playlists(&conn).unwrap().is_empty());
     }
 
     #[test]
     fn a_template_can_stop_being_one() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Dominical", "", None).unwrap();
+        let pid = create_playlist(&conn, "Dominical", None).unwrap();
         set_playlist_template(&conn, pid, true).unwrap();
         assert!(list_playlists(&conn).unwrap()[0].plantilla);
 
@@ -3791,7 +3453,7 @@ mod tests {
         let conn = mem();
         let fid = add_folder(&conn, &files.s("Himnos"), "Himnos", true).unwrap();
         let id = add_track(&conn, fid, &files.s("Himnos/viejo.mp3"), "Sublime Gracia");
-        update_track_meta(&conn, id, "", "Adoración").unwrap();
+        poner_ocasion(&conn, id, "Adoración");
         set_fav(&conn, id, true).unwrap();
         conn.execute("UPDATE tracks SET missing=1", []).unwrap();
 
@@ -3802,7 +3464,7 @@ mod tests {
         assert_eq!(t.path, nuevo.to_string_lossy());
         assert!(!t.missing, "deja de estar marcada como faltante");
         // Lo que costó trabajo poner sigue ahí.
-        assert_eq!(t.ocasion, "Adoración");
+        assert_eq!(ocasion_de(&conn, id), "Adoración");
         assert!(t.fav);
         assert_eq!(t.titulo, "Sublime Gracia");
     }
@@ -3862,7 +3524,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
 
         delete_track(&conn, a).unwrap();
@@ -3916,7 +3578,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto", "", None).unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b, c]).unwrap();
 
         // 9999 no existe: la clave foránea hace fallar el tercer INSERT.

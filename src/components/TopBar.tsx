@@ -1,11 +1,9 @@
 import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { useRef } from "react";
-import { applyFilters, ocasiones, seleccionVigente, useStore } from "../store";
+import { applyFilters, seleccionVigente, useStore } from "../store";
 import SelectionBar from "./SelectionBar";
-import { chipStyle, ocupadoStyle, segmento } from "../lib/styles";
+import { ocupadoStyle, segmento } from "../lib/styles";
 import { encabezadoBiblioteca } from "../lib/encabezado";
-import { useArrastrarFila } from "../lib/arrastrarFila";
 import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
@@ -19,30 +17,24 @@ export default function TopBar() {
   // bar that read the whole store would re-filter the library along with it.
   const view = useStore((s) => s.view);
   const query = useStore((s) => s.query);
-  const ocasion = useStore((s) => s.ocasion);
   const groupBy = useStore((s) => s.groupBy);
   const libState = useStore((s) => s.libState);
   const scanning = useStore((s) => s.scanning);
   const listaTitulo = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist)?.nombre ?? "");
-  // `applyFilters` and `ocasiones` remember their last result, so calling them
-  // here costs nothing beyond what the library view already paid.
+  // `applyFilters` remembers its last result, so calling it here costs nothing
+  // beyond what the library view already paid.
   const total = useStore((s) => applyFilters(s).length);
   const indexadas = useStore((s) => s.tracks.length);
   const qf = useStore((s) => s.qf);
-  const ocs = useStore(ocasiones);
   const haySeleccion = useStore((s) => seleccionVigente(s).length > 0);
 
   const onQuery = useStore((s) => s.onQuery);
   const clearQuery = useStore((s) => s.clearQuery);
   const showColecciones = useStore((s) => s.showColecciones);
   const openAddFolder = useStore((s) => s.openAddFolder);
-  const onOcasion = useStore((s) => s.onOcasion);
   const onGroupBy = useStore((s) => s.onGroupBy);
   const densidad = useStore((s) => s.densidad);
   const setDensidad = useStore((s) => s.setDensidad);
-
-  const filaFiltros = useRef<HTMLDivElement>(null);
-  useArrastrarFila(filaFiltros);
 
   const showSearch = view === "biblioteca";
   // La biblioteca es la única vista cuyo nombre no cabía en la barra: ese
@@ -56,9 +48,6 @@ export default function TopBar() {
   // el mismo dos veces en la misma pantalla.
   const showAgregarCarpeta = view !== "config";
 
-  // Occasions come from the catalogue itself; a lone «Todas» chip would be
-  // noise, so the row only appears once there is something to filter by.
-  const chips = showFilterBar && ocs.length ? [{ value: "", label: "Todas" }, ...ocs.map((o) => ({ value: o, label: o }))] : [];
 
   return (
     <header
@@ -87,7 +76,7 @@ export default function TopBar() {
               data-search-input
               value={query}
               onChange={(e) => onQuery(e.target.value)}
-              placeholder="Buscar por título, artista, álbum u ocasión…"
+              placeholder="Buscar por título, artista o álbum…"
               className="in-focus"
               style={{
                 width: "100%",
@@ -168,18 +157,7 @@ export default function TopBar() {
       {showFilterBar && (
         <div style={{ height: 52, display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderTop: "1px solid var(--border)" }}>
           {haySeleccion && <SelectionBar />}
-          {!haySeleccion && (
-          <div ref={filaFiltros} className="fila-arrastrable" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", flex: 1, paddingBottom: 1 }}>
-            {chips.map((c) => {
-              const active = c.value ? ocasion === c.value : !ocasion;
-              return (
-                <button key={c.value || "all"} onClick={() => onOcasion(c.value)} aria-pressed={active} style={chipStyle(active)}>
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-          )}
+          {!haySeleccion && <div style={{ flex: 1 }} />}
           {!haySeleccion && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
@@ -190,7 +168,6 @@ export default function TopBar() {
                 style={selectStyle}
               >
                 <option value="none">Sin agrupar</option>
-                <option value="ocasion">Agrupar: Ocasión</option>
                 <option value="album">Agrupar: Álbum</option>
                 <option value="carpeta">Agrupar: Carpeta</option>
               </select>

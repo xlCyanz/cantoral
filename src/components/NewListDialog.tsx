@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Layers, ListMusic, Pencil } from "lucide-react";
-import { plantillas as plantillasSel, sugerenciasDeOcasion, useStore } from "../store";
+import { plantillas as plantillasSel, useStore } from "../store";
 import { resumenDeOrden, soloPistas } from "../lib/momentos";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
@@ -40,7 +40,6 @@ export default function NewListDialog() {
       key={editing ? `edit:${current?.id ?? ""}` : "new"}
       editing={editing}
       initialNombre={editing ? current?.nombre ?? "" : ""}
-      initialOcasion={editing ? current?.ocasion ?? "" : ""}
     />
   );
 }
@@ -48,38 +47,25 @@ export default function NewListDialog() {
 function ListForm({
   editing,
   initialNombre,
-  initialOcasion,
 }: {
   editing: boolean;
   initialNombre: string;
-  initialOcasion: string;
 }) {
   const closeDialog = useStore((s) => s.closeDialog);
   const createList = useStore((s) => s.createList);
   const updateList = useStore((s) => s.updateList);
   const plantillas = useStore(plantillasSel);
-  const sugerencias = useStore(sugerenciasDeOcasion);
 
   const [nombre, setNombre] = useState(initialNombre);
-  const [ocasion, setOcasion] = useState(initialOcasion);
   const [desde, setDesde] = useState("");
 
   const submit = () => {
     if (!nombre.trim()) return;
-    if (editing) updateList(nombre, ocasion);
-    else createList(nombre, ocasion, desde || undefined);
+    if (editing) updateList(nombre);
+    else createList(nombre, desde || undefined);
   };
 
-  /**
-   * Picking a template fills in the occasion when the field is still empty.
-   * Typed text is never overwritten: the user's own words outrank a default.
-   */
-  const elegirPlantilla = (id: string) => {
-    const siguiente = desde === id ? "" : id;
-    setDesde(siguiente);
-    const pl = plantillas.find((p) => p.id === siguiente);
-    if (pl?.ocasion && !ocasion.trim()) setOcasion(pl.ocasion);
-  };
+  const elegirPlantilla = (id: string) => setDesde(desde === id ? "" : id);
 
   return (
     <Modal labelledBy="list-dialog-title" onClose={closeDialog} maxWidth={480}>
@@ -92,7 +78,7 @@ function ListForm({
             {editing ? "Editar lista" : "Nueva lista para culto"}
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
-            {editing ? "Cambia el nombre o la ocasión." : "Dale un nombre y arma el repertorio."}
+            {editing ? "Cambia el nombre de la lista." : "Dale un nombre y arma el repertorio."}
           </p>
         </div>
       </div>
@@ -146,16 +132,6 @@ function ListForm({
         <div>
           <label htmlFor="lista-nombre" style={label}>Nombre</label>
           <input id="lista-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
-        </div>
-        <div>
-          <label htmlFor="lista-ocasion" style={label}>Ocasión <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-          <input id="lista-ocasion" value={ocasion} onChange={(e) => setOcasion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} list="ocasiones-lista" placeholder="Servicio dominical" className="in-focus" style={field} />
-          {/* Las mismas que el panel de detalle: las de esta iglesia primero. */}
-          <datalist id="ocasiones-lista">
-            {sugerencias.map((o) => (
-              <option key={o} value={o} />
-            ))}
-          </datalist>
         </div>
       </div>
 

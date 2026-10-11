@@ -6,7 +6,6 @@ import type { EscaneoSlice } from "./escaneo";
 import type { CultosSlice } from "./cultos";
 import type { ReproductorSlice } from "./reproductor";
 import type { ProyeccionSlice } from "./proyeccion";
-import type { HojasSlice } from "./hojas";
 import type { DuplicadosSlice } from "./duplicados";
 import type { ActualizacionesSlice } from "./actualizaciones";
 import type { SistemaSlice } from "./sistema";
@@ -74,7 +73,6 @@ export type CantoralState = InterfazSlice &
   CultosSlice &
   ReproductorSlice &
   ProyeccionSlice &
-  HojasSlice &
   DuplicadosSlice &
   ActualizacionesSlice &
   SistemaSlice;

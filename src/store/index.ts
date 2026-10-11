@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
-import { ESPERA_BUSQUEDA_LETRA_MS } from "../lib/buscarLetra";
 import { modoDeLaBarra } from "../lib/proyeccion";
 import { crearContexto, modulo } from "./contexto";
 import { crearInterfaz } from "./interfaz";
@@ -11,7 +10,6 @@ import { crearEscaneo } from "./escaneo";
 import { crearCultos } from "./cultos";
 import { crearReproductor } from "./reproductor";
 import { crearProyeccion } from "./proyeccion";
-import { crearHojas } from "./hojas";
 import { crearDuplicados } from "./duplicados";
 import { crearActualizaciones } from "./actualizaciones";
 import { crearSistema } from "./sistema";
@@ -26,7 +24,7 @@ import type { CantoralState } from "./tipos";
 export * from "./tipos";
 export * from "./selectores";
 export { detalleDeOmitidos } from "./reglas";
-export { estrofasEnPantalla, filasProyectadas, modoDeLaBarra, pistaEnElAire } from "../lib/proyeccion";
+export { filasProyectadas, modoDeLaBarra, pistaEnElAire } from "../lib/proyeccion";
 export type { ModoDeLaBarra } from "../lib/proyeccion";
 export type { InterfazSlice } from "./interfaz";
 export type { BibliotecaSlice } from "./biblioteca";
@@ -35,7 +33,6 @@ export type { EscaneoSlice } from "./escaneo";
 export type { CultosSlice } from "./cultos";
 export type { ReproductorSlice } from "./reproductor";
 export type { ProyeccionSlice } from "./proyeccion";
-export type { HojasSlice } from "./hojas";
 export type { DuplicadosSlice } from "./duplicados";
 export type { ActualizacionesSlice } from "./actualizaciones";
 export type { SistemaSlice } from "./sistema";
@@ -50,7 +47,6 @@ export const useStore = create<CantoralState>((set, get) => {
     ...crearCultos(set, get, ctx),
     ...crearReproductor(set, get, ctx),
     ...crearProyeccion(set, get, ctx),
-    ...crearHojas(set, get, ctx),
     ...crearDuplicados(set, get, ctx),
     ...crearActualizaciones(set, get, ctx),
     ...crearSistema(set, get, ctx),
@@ -98,24 +94,6 @@ export function flushUiPrefs() {
 useStore.subscribe((s, previo) => {
   if (PREF_FIELDS.every((campo) => s[campo] === previo[campo])) return;
   schedulePrefsSave();
-});
-
-// ============================================================
-// Buscar en las hojas mientras se escribe (#144)
-// ============================================================
-
-/**
- * Cada cambio de la búsqueda pregunta al núcleo por la letra, pero no a cada
- * tecla: espera a que se deje de escribir. El título, el artista y el álbum se
- * siguen filtrando al instante en `applyFilters`; la letra se suma cuando llega.
- *
- * Mirando `query` y no desde `onQuery`, porque la búsqueda también se borra
- * desde otros sitios —«Todas», Esc, el botón del estado vacío—.
- */
-useStore.subscribe((s, previo) => {
-  if (s.query === previo.query) return;
-  if (modulo.letrasTimer) clearTimeout(modulo.letrasTimer);
-  modulo.letrasTimer = setTimeout(() => void useStore.getState().buscarEnLetras(), ESPERA_BUSQUEDA_LETRA_MS);
 });
 
 // ============================================================

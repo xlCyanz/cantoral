@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::compartir;
 use crate::copias::{self, Motivo};
 use crate::db::{self, Db};
-use crate::models::{DuplicateGroup, Folder, LyricHit, Playlist, Sheet, Track};
+use crate::models::{DuplicateGroup, Folder, Playlist, Track};
 use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
 
 /// Everything the frontend needs to hydrate its store.
@@ -386,44 +386,6 @@ pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
-/// The lyrics and chords of one track.
-#[tauri::command(async)]
-pub fn get_track_sheet(db: State<Db>, id: String) -> CmdResult<Sheet> {
-    let conn = db.0.lock().map_err(e)?;
-    db::track_sheet(&conn, id.parse::<i64>().map_err(e)?).map_err(e)
-}
-
-/// The sheets of several tracks at once, for a whole service list.
-#[tauri::command(async)]
-pub fn get_sheets(db: State<Db>, ids: Vec<String>) -> CmdResult<Vec<Sheet>> {
-    let parsed = ids
-        .iter()
-        .map(|i| i.parse::<i64>())
-        .collect::<std::result::Result<Vec<i64>, _>>()
-        .map_err(e)?;
-    let conn = db.0.lock().map_err(e)?;
-    db::sheets_for(&conn, &parsed).map_err(e)
-}
-
-/// Write a track's lyrics and chords.
-#[tauri::command(async)]
-pub fn update_track_sheet(
-    db: State<Db>,
-    id: String,
-    letra: String,
-    acordes: String,
-) -> CmdResult<()> {
-    let conn = db.0.lock().map_err(e)?;
-    db::set_track_sheet(&conn, id.parse::<i64>().map_err(e)?, &letra, &acordes).map_err(e)
-}
-
-/// The tracks whose sheet holds every word searched for (#144).
-#[tauri::command(async)]
-pub fn search_lyrics(db: State<Db>, consulta: String) -> CmdResult<Vec<LyricHit>> {
-    let conn = db.0.lock().map_err(e)?;
-    db::search_lyrics(&conn, &consulta).map_err(e)
-}
-
 /// Re-check every indexed file on disk. Called after startup so tracks deleted
 /// while the app was closed show up as missing without a full rescan.
 ///
@@ -520,10 +482,10 @@ pub fn set_track_fav(db: State<Db>, id: String, fav: bool) -> CmdResult<()> {
 }
 
 #[tauri::command(async)]
-pub fn update_track(db: State<Db>, id: String, artista: String, ocasion: String) -> CmdResult<()> {
+pub fn update_track(db: State<Db>, id: String, artista: String) -> CmdResult<()> {
     let conn = db.0.lock().map_err(e)?;
     let tid = id.parse::<i64>().map_err(e)?;
-    db::update_track_meta(&conn, tid, &artista, &ocasion).map_err(e)?;
+    db::update_track_meta(&conn, tid, &artista).map_err(e)?;
     Ok(())
 }
 
@@ -601,17 +563,12 @@ pub fn mark_video_thumbnail_failed(db: State<Db>, id: String, path: String) -> C
 
 /// Create a playlist, optionally with the track order of `desde` (a template).
 #[tauri::command(async)]
-pub fn create_playlist(
-    db: State<Db>,
-    nombre: String,
-    ocasion: String,
-    desde: Option<String>,
-) -> CmdResult<String> {
+pub fn create_playlist(db: State<Db>, nombre: String, desde: Option<String>) -> CmdResult<String> {
     let conn = db.0.lock().map_err(e)?;
     // An unparseable id means «no template», not an error: the list is what the
     // user asked for, and creating it empty beats refusing to create it.
     let origen = desde.and_then(|d| d.parse::<i64>().ok());
-    let id = db::create_playlist(&conn, &nombre, &ocasion, origen).map_err(e)?;
+    let id = db::create_playlist(&conn, &nombre, origen).map_err(e)?;
     Ok(id.to_string())
 }
 
@@ -699,11 +656,9 @@ pub fn update_playlist(
     db: State<Db>,
     playlist: String,
     nombre: String,
-    ocasion: String,
 ) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
-    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre, &ocasion)
-        .map_err(e)?;
+    db::update_playlist(&conn, playlist.parse::<i64>().map_err(e)?, &nombre).map_err(e)?;
     db::list_playlists(&conn).map_err(e)
 }
 
@@ -1271,7 +1226,7 @@ mod tests {
     fn removing_a_folder_saves_a_copy_first_and_the_copy_brings_it_back() {
         let dir = Dir::new("copia-quitar");
         let (live, mut conn, fid) = base_con(&dir, "cantoral.db", 4);
-        db::set_track_sheet(&conn, 1, "Letra a mano", "").unwrap();
+        conn.execute("UPDATE tracks SET letra='Letra a mano' WHERE id=1", []).unwrap();
         let respaldos = copias::carpeta(&live);
 
         quitar_carpeta(&conn, &respaldos, fid).unwrap();
@@ -1286,7 +1241,9 @@ mod tests {
         let src = std::path::PathBuf::from(&lista[0].ruta);
         restaurar(&mut conn, &live, &src, &respaldos).unwrap();
         assert_eq!(db::list_tracks(&conn).unwrap().len(), 4);
-        assert_eq!(db::track_sheet(&conn, 1).unwrap().letra, "Letra a mano");
+        let letra: String =
+            conn.query_row("SELECT letra FROM tracks WHERE id=1", [], |r| r.get(0)).unwrap();
+        assert_eq!(letra, "Letra a mano");
     }
 
     #[test]

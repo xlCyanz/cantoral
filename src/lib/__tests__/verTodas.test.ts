@@ -3,7 +3,7 @@
 // cambiaba la tabla, que es exactamente como se lee un botón roto.
 //
 // Lo que se fija aquí es que suelte *todo* lo que estreche la biblioteca —el
-// filtro rápido, la ocasión y la búsqueda— y que no se lleve por delante la
+// filtro rápido y la búsqueda— y que no se lleve por delante la
 // pantalla de una biblioteca sin indexar.
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -23,14 +23,6 @@ describe("ver toda la biblioteca", () => {
     useStore.getState().verTodaLaBiblioteca();
 
     expect(useStore.getState().qf).toBeNull();
-  });
-
-  it("suelta la ocasión", () => {
-    useStore.setState({ ocasion: "Adoración" });
-
-    useStore.getState().verTodaLaBiblioteca();
-
-    expect(useStore.getState().ocasion).toBeNull();
   });
 
   it("y suelta la búsqueda", () => {

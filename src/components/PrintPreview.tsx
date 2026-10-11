@@ -1,27 +1,8 @@
 import { useMemo, useRef } from "react";
-import { Download, FileText, Music, Printer } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import { elementosDeLista, plDur, useStore } from "../store";
-import { hayLetras, playlistSheetHtml } from "../lib/exportSheet";
-import { pistasDe } from "../lib/momentos";
+import { playlistSheetHtml } from "../lib/exportSheet";
 import Modal from "./Modal";
-
-/** Nothing to hand `playlistSheetHtml` when the lyrics are left out. */
-const SIN_HOJAS = {};
-
-const opcion = (puesta: boolean) =>
-  ({
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    height: 25,
-    padding: "0 9px",
-    borderRadius: 6,
-    border: `1px solid ${puesta ? "var(--primary)" : "var(--border-2)"}`,
-    background: puesta ? "var(--primary-soft)" : "var(--surface-2)",
-    color: puesta ? "var(--primary)" : "var(--text-2)",
-    fontSize: 11,
-    fontWeight: puesta ? 600 : 400,
-  }) as const;
 
 /**
  * The sheet as it will come out of the printer.
@@ -42,18 +23,10 @@ export default function PrintPreview() {
   const pl = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
   // El culto entero: los momentos sin música salen en la hoja en su sitio (#145).
   const rows = useStore(elementosDeLista);
-  const sheets = useStore((s) => s.sheets);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || []));
-  const conLetras = useStore((s) => s.printWithLyrics);
-  const setConLetras = useStore((s) => s.setPrintWithLyrics);
   const marco = useRef<HTMLIFrameElement>(null);
 
-  const disponibles = useMemo(() => hayLetras(pistasDe(rows), sheets), [rows, sheets]);
-  const html = useMemo(
-    () =>
-      pl ? playlistSheetHtml(pl, rows, duracion, conLetras && disponibles ? sheets : SIN_HOJAS) : "",
-    [pl, rows, duracion, conLetras, disponibles, sheets],
-  );
+  const html = useMemo(() => (pl ? playlistSheetHtml(pl, rows, duracion) : ""), [pl, rows, duracion]);
 
   if (!abierto || !pl) return null;
 
@@ -86,24 +59,7 @@ export default function PrintPreview() {
         </button>
       </div>
 
-      {/* Qué lleva la hoja, debajo: se elige una vez y se mira el resultado,
-          así que no compite con el botón de imprimir. */}
       <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
-        <div role="group" aria-label="Qué imprimir" style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setConLetras(false)} aria-pressed={!conLetras} className="hb-s2" style={opcion(!conLetras)}>
-            <FileText size={12} />Solo el repertorio
-          </button>
-          <button
-            onClick={() => setConLetras(true)}
-            aria-pressed={conLetras && disponibles}
-            disabled={!disponibles}
-            title={disponibles ? undefined : "Ninguna pista de esta lista tiene letra o acordes escritos"}
-            className="hb-s2"
-            style={{ ...opcion(conLetras && disponibles), opacity: disponibles ? 1 : 0.5, cursor: disponibles ? "pointer" : "not-allowed" }}
-          >
-            <Music size={12} />Con letras y acordes
-          </button>
-        </div>
         <div style={{ flex: 1 }} />
         {/* Guardar el archivo sigue aquí: una hoja que se manda por correo o
             por WhatsApp es otro recado que una que va al atril. */}

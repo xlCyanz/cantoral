@@ -80,13 +80,12 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
         view: "biblioteca",
         libState: estadoDeLaBiblioteca(s),
         qf: null,
-        ocasion: null,
         query: "",
       })),
     showColecciones: () => set({ view: "colecciones" }),
     showConfig: () => set({ view: "config" }),
     onFolderClick: () =>
-      set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null, ocasion: null })),
+      set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null })),
     setThemeMode: (m) => {
       const theme = resolveTheme(m, get().temaSistema);
       set({ themeMode: m, theme });

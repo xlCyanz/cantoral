@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, filasDeLista, ocasiones, pistasPorId, plantillas, plDur, playQueue, queueForView, sugerenciasDeOcasion, ultimoId } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, pistasPorId, plantillas, plDur, playQueue, queueForView, ultimoId } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -10,21 +10,19 @@ function track(over: Partial<Track> & { id: string }): Track {
     album: "Album",
     dur: "3:00",
     durSec: 180,
-    ocasion: "Adoración",
     formato: "MP3",
     carpeta: "Himnos",
     fav: false,
     missing: false,
-    tieneHoja: false,
     added: 1,
     ...over,
   };
 }
 
 const TRACKS: Track[] = [
-  track({ id: "1", titulo: "Zacarías", ocasion: "Comunión", album: "B", added: 1, durSec: 100 }),
-  track({ id: "2", titulo: "Alabaré", ocasion: "Adoración", album: "A", added: 3, fav: true, durSec: 300 }),
-  track({ id: "3", titulo: "Ñandú", ocasion: "Adoración", album: "A", added: 2, missing: true, durSec: 200 }),
+  track({ id: "1", titulo: "Zacarías", album: "B", added: 1, durSec: 100 }),
+  track({ id: "2", titulo: "Alabaré", album: "A", added: 3, fav: true, durSec: 300 }),
+  track({ id: "3", titulo: "Ñandú", album: "A", added: 2, missing: true, durSec: 200 }),
 ];
 
 /**
@@ -65,7 +63,6 @@ function state(over: Partial<CantoralState> = {}): CantoralState {
     curPlaylist: "",
     view: "biblioteca",
     qf: null,
-    ocasion: null,
     tagFilter: SIN_ETIQUETAS,
     query: "",
     groupBy: "none",
@@ -112,14 +109,10 @@ describe("applyFilters", () => {
     expect(applyFilters(state({ qf: "recent" }))).toEqual([]);
   });
 
-  it("filters by occasion", () => {
-    expect(applyFilters(state({ ocasion: "Adoración" })).map((t) => t.id)).toEqual(["2", "3"]);
-  });
-
-  it("searches across title, artist, album and occasion", () => {
-    const s = state({ tracks: [...TRACKS, track({ id: "4", titulo: "Otra", album: "Ensayo" })] });
+  it("searches across title, artist and album", () => {
+    const s = state({ tracks: [...TRACKS, track({ id: "4", titulo: "Otra", album: "Ensayo", artista: "Coro Emanuel" })] });
     expect(applyFilters({ ...s, query: "ensayo" }).map((t) => t.id)).toEqual(["4"]);
-    expect(applyFilters({ ...s, query: "comunión" }).map((t) => t.id)).toEqual(["1"]);
+    expect(applyFilters({ ...s, query: "emanuel" }).map((t) => t.id)).toEqual(["4"]);
   });
 
   it("matches the search case-insensitively", () => {
@@ -127,11 +120,11 @@ describe("applyFilters", () => {
   });
 
   it("filters on what the catalogue holds, edits included", () => {
-    // Editing writes straight into `tracks`, so a changed occasion is just a
+    // Editing writes straight into `tracks`, so a changed artist is just a
     // changed track — there is no pending overlay to apply first.
-    const editada = TRACKS.map((t) => (t.id === "1" ? { ...t, ocasion: "Adoración" } : t));
-    const s = state({ tracks: editada, ocasion: "Adoración" });
-    expect(applyFilters(s).map((t) => t.id)).toEqual(["2", "3", "1"]);
+    const editada = TRACKS.map((t) => (t.id === "1" ? { ...t, artista: "Coro Emanuel" } : t));
+    const s = state({ tracks: editada, query: "emanuel" });
+    expect(applyFilters(s).map((t) => t.id)).toEqual(["1"]);
   });
 });
 
@@ -145,9 +138,9 @@ describe("buildGroups", () => {
   });
 
   it("groups by a field and numbers continuously across groups", () => {
-    const s = state({ groupBy: "ocasion" });
+    const s = state({ groupBy: "album" });
     const groups = buildGroups(s, applyFilters(s));
-    expect(groups.map((g) => g.label)).toEqual(["Adoración", "Comunión"]);
+    expect(groups.map((g) => g.label)).toEqual(["A", "B"]);
     expect(groups[0].countLabel).toBe("2 pistas");
     expect(groups[1].countLabel).toBe("1 pista");
     expect(groups.flatMap((g) => g.tracks.map((t) => t.num))).toEqual([1, 2, 3]);
@@ -199,10 +192,10 @@ describe("buildGroups", () => {
   });
 
   it("cada grupo lleva su clave, que es con lo que se plega", () => {
-    const s = state({ groupBy: "ocasion" });
+    const s = state({ groupBy: "album" });
     const groups = buildGroups(s, applyFilters(s));
 
-    expect(groups.map((g) => g.clave)).toEqual(["Adoración", "Comunión"]);
+    expect(groups.map((g) => g.clave)).toEqual(["A", "B"]);
   });
 
   it("sin agrupar no hay nada que plegar", () => {
@@ -261,44 +254,6 @@ describe("plDur", () => {
   });
 });
 
-describe("ocasiones", () => {
-  it("lists the occasions present in the catalogue, deduplicated and sorted", () => {
-    expect(ocasiones(state())).toEqual(["Adoración", "Comunión"]);
-  });
-
-  it("is empty when no track carries an occasion", () => {
-    const sinOcasion = TRACKS.map((t) => ({ ...t, ocasion: "" }));
-    expect(ocasiones(state({ tracks: sinOcasion }))).toEqual([]);
-  });
-
-  it("ignores whitespace-only occasions", () => {
-    const s = state({ tracks: [track({ id: "1", ocasion: "   " })] });
-    expect(ocasiones(s)).toEqual([]);
-  });
-
-  it("picks up an occasion the moment a track carries it", () => {
-    const editada = TRACKS.map((t) => (t.id === "1" ? { ...t, ocasion: "Bautismo" } : t));
-    expect(ocasiones(state({ tracks: editada }))).toContain("Bautismo");
-  });
-
-  it("keeps the active filter listed even once no track carries it", () => {
-    // Otherwise the chip disappears and the filter can never be switched off.
-    const sinOcasion = TRACKS.map((t) => ({ ...t, ocasion: "" }));
-    expect(ocasiones(state({ tracks: sinOcasion, ocasion: "Adoración" }))).toEqual(["Adoración"]);
-  });
-
-  it("sorts with Spanish collation", () => {
-    const s = state({
-      tracks: [
-        track({ id: "1", ocasion: "Zacarías" }),
-        track({ id: "2", ocasion: "Ñandú" }),
-        track({ id: "3", ocasion: "Adoración" }),
-      ],
-    });
-    expect(ocasiones(s)).toEqual(["Adoración", "Ñandú", "Zacarías"]);
-  });
-});
-
 describe("lo que los selectores recuerdan", () => {
   // Every one of these returns an array. If a fresh array came back on each
   // call, a component subscribing to the selector would re-render on every
@@ -327,14 +282,13 @@ describe("lo que los selectores recuerdan", () => {
   });
 
   it("remembers the groups too, until the list or the grouping moves", () => {
-    const s = state({ groupBy: "ocasion" });
+    const s = state({ groupBy: "album" });
     const list = applyFilters(s);
     expect(buildGroups(s, list)).toBe(buildGroups(s, list));
-    expect(buildGroups(state({ groupBy: "album" }), list)).not.toBe(buildGroups(s, list));
+    expect(buildGroups(state({ groupBy: "carpeta" }), list)).not.toBe(buildGroups(s, list));
   });
 
-  it("remembers the occasions and the open list as well", () => {
-    expect(ocasiones(state())).toBe(ocasiones(state()));
+  it("remembers the open list as well", () => {
     const s = state({ curPlaylist: "p1", plOrder: { p1: ["3", "1"] } });
     expect(filasDeLista(s)).toBe(filasDeLista(s));
   });
@@ -343,8 +297,8 @@ describe("lo que los selectores recuerdan", () => {
     // It feeds views the player is sitting under, so a fresh array each read
     // would re-render them once a second for nothing.
     const listas = [
-      { id: "p1", nombre: "Culto", tocada: "", ocasion: "Servicio dominical", ids: [], plantilla: false },
-      { id: "p2", nombre: "Dominical", tocada: "", ocasion: "Servicio dominical", ids: [], plantilla: true },
+      { id: "p1", nombre: "Culto", tocada: "", ids: [], plantilla: false },
+      { id: "p2", nombre: "Dominical", tocada: "", ids: [], plantilla: true },
     ];
     const s = state({ playlists: listas });
 
@@ -404,25 +358,5 @@ describe("ultimoId", () => {
 
   it("es 0 sin pistas", () => {
     expect(ultimoId([])).toBe(0);
-  });
-});
-
-describe("sugerenciasDeOcasion", () => {
-  it("las de esta iglesia primero, de sus pistas y de sus cultos, y luego las de siempre", () => {
-    const s = state({
-      tracks: [track({ id: "1", ocasion: "Culto de jóvenes" }), track({ id: "2", ocasion: "Adoración" })],
-      playlists: [{ id: "p", nombre: "V", ocasion: "Vigilia", ids: [], plantilla: false, tocada: "" }],
-    });
-    const sugerencias = sugerenciasDeOcasion(s);
-
-    expect(sugerencias.slice(0, 3)).toEqual(["Adoración", "Culto de jóvenes", "Vigilia"]);
-    expect(sugerencias).toContain("Servicio dominical");
-    // Sin repetir la que ya estaba entre las propias.
-    expect(sugerencias.filter((o) => o === "Adoración")).toHaveLength(1);
-  });
-
-  it("sin nada en el catálogo, sugiere las de siempre", () => {
-    const sugerencias = sugerenciasDeOcasion(state({ tracks: [track({ id: "1", ocasion: " " })] }));
-    expect(sugerencias[0]).toBe("Servicio dominical");
   });
 });

@@ -4,22 +4,6 @@ import type { SortDir, SortKey } from "./types";
 // Style builders ported from the design's DCLogic helpers, returning
 // React.CSSProperties objects instead of inline CSS strings.
 
-export function chipStyle(active: boolean): CSSProperties {
-  return {
-    flex: "0 0 auto",
-    height: "32px",
-    padding: "0 14px",
-    borderRadius: "9px",
-    fontSize: "12.5px",
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-    transition: "all .13s",
-    border: `1px solid ${active ? "transparent" : "var(--border-2)"}`,
-    background: active ? "var(--primary)" : "var(--surface)",
-    color: active ? "var(--on-primary)" : "var(--text-2)",
-  };
-}
-
 /**
  * A top-level sidebar entry: Biblioteca, Listas para cultos, Configuración.
  *
@@ -109,16 +93,6 @@ export function thProps(
   const active = sortKey === key;
   return { style: thStyle(active), arrow: thArrow(active, sortDir) };
 }
-
-export const ocasionBadge: CSSProperties = {
-  display: "inline-block",
-  fontSize: "11.5px",
-  fontWeight: 600,
-  padding: "2px 9px",
-  borderRadius: "7px",
-  background: "var(--surface-3)",
-  color: "var(--text-2)",
-};
 
 export function favBtnStyle(fav: boolean): CSSProperties {
   return {

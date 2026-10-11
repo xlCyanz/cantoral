@@ -291,7 +291,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         message: `«${f.nombre}» dejará de estar indexada.`,
         detail:
           n > 0
-            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus favoritos y su ocasión.`
+            ? `Se borrarán ${n} ${n === 1 ? "pista" : "pistas"} de la biblioteca, junto con sus favoritos.`
             : "La carpeta no tiene pistas indexadas.",
         safe: `Tus archivos de audio no se tocan: siguen donde están. ${AVISO_COPIA_AUTOMATICA}`,
         confirmLabel: "Quitar carpeta",

@@ -79,7 +79,6 @@ export default function ImportListDialog() {
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
             {encontradas.length} de {total} {total === 1 ? "pista está" : "pistas están"} en esta biblioteca
-            {archivo.lista.ocasion && ` · ${archivo.lista.ocasion}`}
           </p>
           {porTitulo > 0 && (
             <p style={{ fontSize: 12, color: "var(--text-3)", margin: "2px 0 0" }}>

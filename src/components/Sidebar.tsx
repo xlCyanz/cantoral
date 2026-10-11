@@ -30,7 +30,6 @@ const recorta: CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textO
 export default function Sidebar() {
   const view = useStore((s) => s.view);
   const qf = useStore((s) => s.qf);
-  const ocasion = useStore((s) => s.ocasion);
   const tracks = useStore((s) => s.tracks);
   const plOrder = useStore((s) => s.plOrder);
   const folders = useStore((s) => s.folders);
@@ -56,9 +55,9 @@ export default function Sidebar() {
   const colActive = view === "colecciones" || view === "lista";
   const cfgActive = view === "config";
   // «Todas» está encendida cuando de verdad se están viendo todas: sin filtro
-  // rápido, sin ocasión, sin etiquetas y sin búsqueda. Contaba solo las dos
+  // rápido, sin etiquetas y sin búsqueda. Contaba solo las dos
   // primeras, así que con una etiqueta puesta decía que estaban todas.
-  const todasActive = libActive && !qf && !ocasion && !query.trim();
+  const todasActive = libActive && !qf && !query.trim();
 
   // El mismo orden que la vista de listas: el último que se abrió o se cambió,
   // arriba. Una plantilla no es un culto y se queda fuera.
