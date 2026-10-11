@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
 import { ESPERA_BUSQUEDA_LETRA_MS } from "../lib/buscarLetra";
+import { modoDeLaBarra } from "../lib/proyeccion";
 import { crearContexto, modulo } from "./contexto";
 import { crearInterfaz } from "./interfaz";
 import { crearBiblioteca } from "./biblioteca";
@@ -25,7 +26,8 @@ import type { CantoralState } from "./tipos";
 export * from "./tipos";
 export * from "./selectores";
 export { detalleDeOmitidos } from "./reglas";
-export { estrofasEnPantalla, filasProyectadas } from "../lib/proyeccion";
+export { estrofasEnPantalla, filasProyectadas, modoDeLaBarra, pistaEnElAire } from "../lib/proyeccion";
+export type { ModoDeLaBarra } from "../lib/proyeccion";
 export type { InterfazSlice } from "./interfaz";
 export type { BibliotecaSlice } from "./biblioteca";
 export type { DetalleSlice } from "./detalle";
@@ -126,5 +128,21 @@ useStore.subscribe((s, previo) => {
  * proyección—, y la barra tiene que aparecer en todos.
  */
 useStore.subscribe((s) => {
-  if (s.playing && !s.haSonado) useStore.setState({ haSonado: true });
+  // También al proyectar: con un culto en el aire, la barra es la que dice qué
+  // suena y la que lo adelanta.
+  if (!s.haSonado && (s.playing || modoDeLaBarra(s) !== "local")) useStore.setState({ haSonado: true });
+});
+
+// ============================================================
+// Un video que se pone a sonar sale por el proyector
+// ============================================================
+
+/**
+ * Por la misma razón que la de arriba: a un video se llega desde el doble
+ * clic, el play de la barra, Espacio, «Reproducir todo» o el siguiente de la
+ * cola. Lo que decide es la pista y si suena, no desde dónde se pidió.
+ */
+useStore.subscribe((s, previo) => {
+  if (s.playerId === previo.playerId && s.playing === previo.playing && s.proyectarVideos === previo.proyectarVideos) return;
+  s.sincronizarVideo();
 });

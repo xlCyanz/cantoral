@@ -137,3 +137,47 @@ export function estrofasEnPantalla(s: CantoralState): Estrofa[] {
 }
 
 const VACIO_ESTROFAS: Estrofa[] = [];
+
+// ---------------------------------------------------------------- un video suelto
+
+/**
+ * El mensaje para la salida con una pista que se puso a sonar desde el
+ * reproductor —la biblioteca, una lista, «Reproducir todo»—, no desde la cola
+ * del culto. Sin precarga ni transición: no hay un orden preparado que
+ * adelantar, y medio segundo de negro al darle al play sería un parpadeo.
+ */
+export function salidaDePista(t: Track, reproduciendo: boolean): SalidaProyeccion {
+  const src = rutaProyectable(t);
+  if (!src) return { vista: { modo: "negro" } };
+  return { vista: { modo: "media", src, video: !!t.video, titulo: t.titulo, sub: t.artista || undefined, reproduciendo } };
+}
+
+/**
+ * La pista del culto que está en el aire, si la hay y se puede reproducir.
+ *
+ * Nada si la salida está en negro, si lo que hay es un momento sin música o
+ * si la salida la ocupa un video puesto desde el reproductor.
+ */
+export function pistaEnElAire(s: CantoralState): Track | undefined {
+  if (!s.proyectando || s.proyeccionPista || s.proyeccionEnNegro || s.proyeccionIdx < 0) return undefined;
+  const e = filasProyectadas(s)[s.proyeccionIdx];
+  return e?.clase === "pista" && rutaProyectable(e.pista) ? e.pista : undefined;
+}
+
+/**
+ * De qué habla la barra del reproductor.
+ *
+ * - `pista`: el video que puso el reproductor está saliendo por el proyector.
+ *   La barra es la de siempre, pero lo que suena lo suena la salida.
+ * - `culto`: lo que suena es una pista del culto en el aire. La barra la
+ *   enseña y sus botones mandan sobre la salida. Solo con el reproductor
+ *   parado: si alguien pone algo a sonar en el portátil, la barra es suya.
+ * - `local`: el `<audio>` de la barra o el video del panel.
+ */
+export type ModoDeLaBarra = "local" | "pista" | "culto";
+
+export function modoDeLaBarra(s: CantoralState): ModoDeLaBarra {
+  if (s.proyeccionPista && s.proyeccionPista === s.playerId) return "pista";
+  if (!s.playing && pistaEnElAire(s)) return "culto";
+  return "local";
+}

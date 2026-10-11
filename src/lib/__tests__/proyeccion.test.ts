@@ -42,11 +42,11 @@ const { useStore } = await import("../../store");
 const initial = useStore.getState();
 
 function pantalla(indice: number, over: Partial<MonitorInfo> = {}): MonitorInfo {
-  return { indice, nombre: `Pantalla ${indice + 1}`, ancho: 1920, alto: 1080, principal: false, ...over };
+  return { indice, nombre: `Pantalla ${indice + 1}`, ancho: 1920, alto: 1080, principal: false, sistema: `Monitor ${indice}`, x: indice * 1920, y: 0, ...over };
 }
 
-const PORTATIL = pantalla(0, { nombre: "Built-in", principal: true });
-const PROYECTOR = pantalla(1, { nombre: "DELL P2219H" });
+const PORTATIL = pantalla(0, { nombre: "Built-in", sistema: "Built-in", principal: true });
+const PROYECTOR = pantalla(1, { nombre: "DELL P2219H", sistema: "DELL P2219H" });
 
 beforeEach(() => {
   useStore.setState(initial, true);

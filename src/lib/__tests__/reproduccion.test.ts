@@ -209,6 +209,10 @@ describe("de dónde sale lo que suena", () => {
 });
 
 describe("el video y el panel que lo muestra (#125)", () => {
+  // El video en el panel: sin proyectarlo. Lo que pasa cuando sale por el
+  // proyector está en videoAlProyector.test.ts.
+  beforeEach(() => useStore.setState({ proyectarVideos: false }));
+
   it("con un video real en Tauri, tick no mueve posSec", () => {
     // El `<video>` manda con su `timeupdate`; un segundo reloj escribiendo
     // encima avanzaba la barra aunque el video ya no sonara.

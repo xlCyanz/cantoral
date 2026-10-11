@@ -64,7 +64,7 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 - 🙏 **Momentos sin música** — una oración, una lectura, los anuncios: añádelos al culto con «Añadir un momento…» y reordénalos como una pista más. En el proyector sale su título sobre negro y la proyección se detiene ahí hasta que pulses «Siguiente»; en la hoja impresa y en el modo culto salen en su sitio, y «Reproducir todo» pasa de largo.
 - 📽️ **Proyección** — una ventana propia a pantalla completa en la otra pantalla: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El video sale tal cual; una pista de audio saca la letra —las estrofas las pasa quien opera—, la letra sobre la portada o negro. Entre un elemento y otro, medio segundo de negro o una cuenta atrás; al acabar cada uno pasa solo al siguiente, y <kbd>B</kbd> deja la pantalla en negro al instante.
 - 🎸 **Letra y acordes** — escríbelos por pista en formato ChordPro (`[Sol]Sublime [Do]gracia`) y léelos en **modo culto**: pantalla completa, letra grande, los acordes sobre la sílaba donde caen, y las flechas para pasar de canción desde el atril.
-- ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video se ve en el panel de detalle mientras preparas, y por el proyector desde **Proyección**. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
+- ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video que pones a sonar —doble clic, el play, «Reproducir todo»— sale solo por la pantalla de proyección elegida en **Configuración → Proyección**, sin tener que preparar un culto; sin otra pantalla conectada se ve en el panel de detalle. Mientras algo sale por el proyector, la barra de abajo dice qué es, por dónde va, y sirve para pausarlo, adelantarlo y cerrar la proyección. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (ocasión / álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. Los chips de ocasión salen del propio catálogo, no de una lista fija. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a un culto, ver el detalle, letra y acordes, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
 - 🎼 **Artista y ocasión** — corrígelos desde el panel de detalle, con sugerencias de las ocasiones ya usadas en tu catálogo. De ahí salen el filtro por ocasión, el agrupar por ocasión y la hoja imprimible. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo. **Fijar** deja el panel abierto: <kbd>Esc</kbd> ya no lo cierra, para ir pista por pista sin perder el sitio.
 - ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
@@ -512,11 +512,26 @@ intentarlo.
 
 Conecta el proyector, abre el culto y pulsa **Proyectar**: llegas a la vista de
 Proyección, con la cola del culto. Ahí, **Proyectar** otra vez sale al aire por
-el primer elemento, en la pantalla que no es la tuya —si hay varias, la eliges
-ahí mismo—. Desde ese momento el culto corre entero: cada elemento pasa solo al
-siguiente al acabarse. Desde la vista de Proyección, <kbd>B</kbd> deja la
+el primer elemento, en la pantalla de proyección —la que no es la tuya, o la
+que elegiste ahí mismo o en **Configuración → Proyección**, que es el mismo
+ajuste y se recuerda—. Desde ese momento el culto corre entero: cada elemento
+pasa solo al siguiente al acabarse, y la barra de abajo enseña lo que suena
+para pausarlo o adelantarlo. Desde la vista de Proyección, <kbd>B</kbd> deja la
 pantalla en negro y <kbd>Esc</kbd> corta la salida; en el resto de la app, Esc
-no toca el proyector.
+no toca el proyector. El botón de la pantalla tachada, en la barra de abajo,
+la cierra desde cualquier sitio.
+</details>
+
+<details>
+<summary><b>¿Puedo proyectar un video sin preparar un culto?</b></summary>
+
+Sí: dale al play. Con el proyector conectado, un video sale por la pantalla de
+proyección (**Configuración → Proyección**) y la barra de abajo lo controla. Si
+lo siguiente de la cola es un audio, suena en el equipo y el proyector se queda
+en negro, sin cerrarse, hasta el próximo video. Si no hay otra pantalla, el
+video se ve en el panel de detalle como siempre; y si prefieres verlo ahí
+también con el proyector conectado, desmarca «Proyectar los videos al
+reproducirlos».
 </details>
 
 <details>

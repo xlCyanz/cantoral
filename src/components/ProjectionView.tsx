@@ -6,6 +6,7 @@ import { motivoNoProyectable } from "../lib/formatos";
 import { fmt } from "../lib/covers";
 import type { Elemento } from "../lib/momentos";
 import IconoDeMomento from "./IconoDeMomento";
+import SelectorDePantalla from "./SelectorDePantalla";
 
 /** El título de un elemento de la cola, sea pista o momento. */
 const tituloDe = (e: Elemento) => (e.clase === "pista" ? e.pista.titulo : e.momento.titulo);
@@ -142,7 +143,6 @@ export default function ProjectionView() {
   // proyección se detiene (#145).
   const filas = useStore(elementosDeLista);
   const cargarMonitores = useStore((s) => s.cargarMonitores);
-  const elegirMonitor = useStore((s) => s.elegirMonitor);
   const alternarProyeccion = useStore((s) => s.alternarProyeccion);
   const proyectarElemento = useStore((s) => s.proyectarElemento);
   const proyeccionSiguiente = useStore((s) => s.proyeccionSiguiente);
@@ -337,35 +337,7 @@ export default function ProjectionView() {
           <div style={{ flex: "0 0 auto", display: "flex", gap: 10 }}>
           <div style={{ ...tarjeta, flex: 1, minWidth: 0 }}>
             <div style={{ ...rotulo, marginBottom: 7 }}>Pantalla de salida</div>
-            {monitores.length === 0 ? (
-              <p style={{ margin: 0, fontSize: "11.5px", color: "var(--text-2)", lineHeight: 1.55 }}>
-                Conecta el proyector y vuelve a entrar aquí. En el modo navegador no hay pantallas que ofrecer.
-              </p>
-            ) : (
-              monitores.map((m) => {
-                const elegido = m.indice === monitorSalida;
-                return (
-                  <button
-                    key={m.indice}
-                    onClick={() => elegirMonitor(m.indice)}
-                    aria-pressed={elegido}
-                    className={elegido ? undefined : "hb-s2"}
-                    style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "7px 8px", borderRadius: 8, textAlign: "left", background: elegido ? "var(--primary-soft)" : "transparent" }}
-                  >
-                    <span style={{ width: 13, height: 13, flex: "0 0 auto", borderRadius: "50%", border: `1px solid ${elegido ? "var(--primary)" : "var(--border-2)"}`, display: "grid", placeItems: "center" }}>
-                      {elegido && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--primary)" }} />}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: "11.5px", fontWeight: 500, color: "var(--text)" }}>{m.nombre}</span>
-                      <span style={{ display: "block", fontSize: 10, color: "var(--text-3)" }}>
-                        {m.ancho} × {m.alto}
-                        {m.principal ? " · donde está esta ventana" : ""}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })
-            )}
+            <SelectorDePantalla />
           </div>
 
           <div style={{ ...tarjeta, flex: 1, minWidth: 0 }}>

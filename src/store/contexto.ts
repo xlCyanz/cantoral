@@ -88,6 +88,8 @@ export function crearContexto(set: Set, get: Get) {
     const t = cur(st);
     if (!st.playing || !t?.video) return;
     if (st.detailOpen && st.selId === st.playerId) return;
+    // En el proyector se sigue viendo, con el panel abierto o sin él.
+    if (st.proyeccionPista === st.playerId) return;
     set({ playing: false });
     toast(aviso);
   };
