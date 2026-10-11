@@ -556,7 +556,12 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
           const fallos = prev.proyeccionFallos[pista.id]
             ? Object.fromEntries(Object.entries(prev.proyeccionFallos).filter(([k]) => k !== pista.id))
             : prev.proyeccionFallos;
-          return { proyeccionPos: e.pos, proyeccionDur: e.dur || prev.proyeccionDur, proyeccionFallos: fallos };
+          const dur = e.dur || prev.proyeccionDur;
+          // Sin cambios, el mismo estado: cualquier escritura despierta a
+          // todos los suscriptores del store (cientos con la biblioteca en
+          // pantalla), aunque ninguno tenga nada que volver a pintar.
+          if (prev.proyeccionPos === e.pos && prev.proyeccionDur === dur && fallos === prev.proyeccionFallos) return prev;
+          return { proyeccionPos: e.pos, proyeccionDur: dur, proyeccionFallos: fallos };
         });
       });
       return () => {
@@ -586,11 +591,14 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
           set({ playing: false });
           return;
         }
+        // La duración real del archivo manda sobre la de las etiquetas: es
+        // la que llena la barra.
+        const durNueva = e.dur > 0 && e.dur !== t.durSec;
+        // Igual que arriba: el mismo segundo no se vuelve a escribir.
+        if (!durNueva && st.posSec === e.pos) return;
         set((prev) => ({
           posSec: e.pos,
-          // La duración real del archivo manda sobre la de las etiquetas: es
-          // la que llena la barra.
-          ...(e.dur > 0 && e.dur !== t.durSec
+          ...(durNueva
             ? { tracks: prev.tracks.map((x) => (x.id === t.id ? { ...x, durSec: e.dur, dur: fmt(e.dur) } : x)) }
             : {}),
         }));

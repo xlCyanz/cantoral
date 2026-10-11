@@ -1,4 +1,4 @@
-import type { Playlist, Track } from "../lib/types";
+import type { Folder, Playlist, Track } from "../lib/types";
 import { playlistSheetHtml, sheetFileName } from "../lib/exportSheet";
 import type { Elemento } from "../lib/momentos";
 import { assetUrl, type Snapshot } from "../lib/api";
@@ -46,6 +46,23 @@ export const modulo = {
    */
   pararProgreso: null as (() => void) | null,
 };
+
+/** Si dos listas de carpetas dicen lo mismo, campo a campo. */
+export function mismasCarpetas(a: readonly Folder[], b: readonly Folder[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((x, i) => {
+    const y = b[i];
+    return (
+      x.id === y.id &&
+      x.nombre === y.nombre &&
+      x.ruta === y.ruta &&
+      x.count === y.count &&
+      x.lastScan === y.lastScan &&
+      x.recursive === y.recursive
+    );
+  });
+}
 
 export function crearContexto(set: Set, get: Get) {
   const toast = (titulo: string, opciones?: { detalle?: string; tipo?: ToastType }) =>
@@ -174,13 +191,19 @@ export function crearContexto(set: Set, get: Get) {
         if (!get().scanning) return;
         const tengo = new Set(get().tracks.map((t) => t.id));
         const nuevas = conCaratula(nuevo.tracks.filter((t) => !tengo.has(t.id)));
-        set((st) => ({
-          folders: nuevo.folders,
-          ...(nuevas.length ? { tracks: [...st.tracks, ...nuevas] } : {}),
-        }));
+        // Mientras el escaneo sigue sin traer nada nuevo, las carpetas
+        // llegan iguales una y otra vez. Escribirlas igual despertaría a todos
+        // los suscriptores del store cada pocos segundos para nada.
+        const carpetasIguales = mismasCarpetas(get().folders, nuevo.folders);
+        if (nuevas.length || !carpetasIguales) {
+          set((st) => ({
+            ...(carpetasIguales ? {} : { folders: nuevo.folders }),
+            ...(nuevas.length ? { tracks: [...st.tracks, ...nuevas] } : {}),
+          }));
+        }
         // As soon as there is something to show, the library shows it: the
         // full-view scan card is only for having nothing at all.
-        if (get().tracks.length) set({ libState: "content" });
+        if (get().tracks.length && get().libState !== "content") set({ libState: "content" });
         siguiente = nuevas.length ? REFRESCO_MS : Math.min(espera * 2, REFRESCO_MAX_MS);
       } catch (err) {
         console.error("live refresh failed", err);
