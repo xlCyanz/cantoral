@@ -40,6 +40,9 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   con un diálogo abierto, la app repinta mucho menos y no se traba; exportar,
   importar o revisar un respaldo en una memoria USB lenta ya no congela la
   ventana; y quitar una carpeta con miles de pistas es mucho más rápido.
+  Marcar un favorito, escribir en el panel de detalle, buscar, borrar la
+  búsqueda, agrupar por carpeta y plegar un grupo responden al instante aunque
+  la biblioteca tenga miles de canciones, y la app termina de abrir antes.
 
 ### Eliminado
 

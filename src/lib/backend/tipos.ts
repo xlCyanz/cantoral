@@ -20,6 +20,7 @@ import type {
   CopiaAutomatica,
   DuplicateReport,
   Novedades,
+  Reconciliacion,
   ScanProgressEvent,
   Snapshot,
 } from "../api";
@@ -51,7 +52,8 @@ export interface Backend {
   // ---- catálogo
   getLibrary(): Promise<Snapshot>;
   getTracksSince(after: string): Promise<Novedades>;
-  reconcileLibrary(): Promise<Snapshot>;
+  /** Vuelve a mirar el disco; contesta solo con las pistas que cambiaron. */
+  reconcileLibrary(): Promise<Reconciliacion>;
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
   updateTrack(id: string, artista: string): Promise<void>;

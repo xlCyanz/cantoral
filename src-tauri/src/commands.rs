@@ -397,24 +397,53 @@ pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
     snapshot(&conn).map_err(e)
 }
 
+/// A track whose file appeared or disappeared since the catalogue was read.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Cambiado {
+    pub id: String,
+    pub missing: bool,
+}
+
+/// What `reconcile_library` found: only the tracks it flipped.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Reconciliacion {
+    pub cambiados: Vec<Cambiado>,
+}
+
+impl Reconciliacion {
+    fn de(cambiadas: Vec<(i64, bool)>) -> Self {
+        Reconciliacion {
+            cambiados: cambiadas
+                .into_iter()
+                .map(|(id, missing)| Cambiado { id: id.to_string(), missing })
+                .collect(),
+        }
+    }
+}
+
 /// Re-check every indexed file on disk. Called after startup so tracks deleted
 /// while the app was closed show up as missing without a full rescan.
 ///
-/// One `stat` per track, so on its own connection: the main mutex is taken only
-/// for the snapshot at the end.
+/// One `stat` per track, so on its own connection; the main mutex is not taken
+/// at all.
+///
+/// Answers only with the tracks it flipped. It used to answer with the whole
+/// catalogue —4.7 MB with ten thousand tracks— a moment after `get_library`
+/// had sent the same thing, and the window then applied a second full
+/// snapshot to learn that, almost always, nothing had moved.
 #[tauri::command]
-pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
+pub async fn reconcile_library(app: AppHandle) -> CmdResult<Reconciliacion> {
     fuera_del_hilo_principal(app, |app| {
         let inicio = std::time::Instant::now();
         let propia = db::open_secondary(&app.state::<DbPath>().0).map_err(e)?;
-        db::reconcile_all(&propia).map_err(e)?;
+        let cambiadas = db::reconcile_all(&propia).map_err(e)?;
         // Una vez por arranque, ya con la biblioteca en pantalla.
         db::optimizar(&propia);
         drop(propia);
-        log::info!("reconcile done in {:?}", inicio.elapsed());
-        let db = app.state::<Db>();
-        let conn = db.0.lock().map_err(e)?;
-        snapshot(&conn).map_err(e)
+        log::info!("reconcile done in {:?}: {} tracks changed", inicio.elapsed(), cambiadas.len());
+        Ok(Reconciliacion::de(cambiadas))
     })
     .await
 }
@@ -1366,5 +1395,21 @@ mod tests {
         for otro in ["torvalds", "https://evil.example", "xlCyanz/../x", "", "XLCYANZ"] {
             assert!(super::perfil_de_github(otro).is_none(), "{otro} must be refused");
         }
+    }
+
+    #[test]
+    fn reconcile_answers_only_with_what_changed() {
+        // La forma que lee la ventana: ids como texto, como en el catálogo.
+        let vacia = serde_json::to_value(super::Reconciliacion::de(vec![])).unwrap();
+        assert_eq!(vacia, serde_json::json!({ "cambiados": [] }));
+
+        let r = super::Reconciliacion::de(vec![(7, true), (9, false)]);
+        assert_eq!(
+            serde_json::to_value(r).unwrap(),
+            serde_json::json!({ "cambiados": [
+                { "id": "7", "missing": true },
+                { "id": "9", "missing": false },
+            ] })
+        );
     }
 }

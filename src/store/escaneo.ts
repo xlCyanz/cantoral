@@ -2,6 +2,7 @@ import type { ThemeMode } from "../lib/types";
 import { UI_PREFS_KEY, parsePrefs, resolveView } from "../lib/uiPrefs";
 import { registrar, BIBLIOTECA_SIN_ABRIR, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
+import { prepararBusqueda } from "../lib/buscar";
 import type { CantoralState } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
@@ -99,7 +100,7 @@ function apuntarPrimerDibujo(pistas: number) {
 }
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
-  const { toast, avisarFallo, applySnapshot, startLiveRefresh, stopLiveRefresh } = ctx;
+  const { toast, avisarFallo, applySnapshot, marcarFaltantes, startLiveRefresh, stopLiveRefresh } = ctx;
 
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
@@ -210,6 +211,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         const videos = snap.tracks.filter((t) => t.video).length;
         registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
         apuntarPrimerDibujo(snap.tracks.length);
+        // Lo que la primera tecla de la búsqueda necesita, en los ratos libres
+        // de después de pintar y no en esa tecla.
+        prepararBusqueda(get().tracks);
         // Restore saved preferences.
         // `openExt` ya no se lee. La fila que dejó en `settings` una
         // instalación anterior se queda ahí sin hacer nada: borrarla sería
@@ -256,12 +260,14 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         if (get().buscarActualizacionesAlAbrir) void get().checkForUpdate();
 
         // Files can disappear while the app is closed; re-check them once the
-        // catalogue is on screen rather than blocking the first paint.
+        // catalogue is on screen rather than blocking the first paint. Only
+        // what changed comes back, and only that is touched: see
+        // `marcarFaltantes`.
         void backend()
           .reconcileLibrary()
-          .then((fresh) => {
-            applySnapshot(fresh);
-            registrar("info", `hydrate: reconciled ${Math.round(performance.now() - inicio)} ms after start`);
+          .then(({ cambiados }) => {
+            marcarFaltantes(cambiados);
+            registrar("info", `hydrate: reconciled ${Math.round(performance.now() - inicio)} ms after start (${cambiados.length} changed)`);
           })
           .catch((err) => {
             console.error("reconcile failed", err);

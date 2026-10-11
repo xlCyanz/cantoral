@@ -4,7 +4,7 @@
 // quede en pantalla invitando a fusionar pistas que quizá ya no existen.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DuplicateGroup, DuplicateReport, Snapshot } from "../api";
+import type { DuplicateGroup, DuplicateReport, Reconciliacion, Snapshot } from "../api";
 
 const findDuplicatesCmd = vi.fn<() => Promise<DuplicateReport | null>>();
 const mergeDuplicatesCmd = vi.fn<(keep: string, drop: string[]) => Promise<Snapshot | null>>();
@@ -12,7 +12,7 @@ const dismissDuplicatesCmd = vi.fn<(signature: string) => Promise<DuplicateRepor
 const restoreDismissedDuplicatesCmd = vi.fn<() => Promise<DuplicateReport | null>>();
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
 const getSetting = vi.fn<() => Promise<string | null>>();
-const reconcileLibraryCmd = vi.fn<() => Promise<Snapshot | null>>();
+const reconcileLibraryCmd = vi.fn<() => Promise<Reconciliacion | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),

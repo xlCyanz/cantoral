@@ -532,7 +532,11 @@ pub fn mark_thumbnail_failed(conn: &Connection, id: i64, path: &str) -> Result<(
 }
 
 /// Mark a folder's tracks whose file no longer exists as missing (present ones as found).
-pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<()> {
+///
+/// Returns the rows it flipped, as `(id, missing)`: al arrancar, eso es todo lo
+/// que la interfaz necesita saber, en vez de volver a recibir el catálogo
+/// entero para enterarse de que no cambió nada.
+pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<Vec<(i64, bool)>> {
     let mut stmt = conn.prepare("SELECT id, path, missing FROM tracks WHERE folder_id=?1")?;
     let rows: Vec<(i64, String, i64)> = stmt
         .query_map(params![folder_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
@@ -544,14 +548,16 @@ pub fn reconcile_missing(conn: &Connection, folder_id: i64) -> Result<()> {
     // fsyncs — and only the rows that actually changed are written now, which in
     // the normal case (nothing moved) is none of them.
     let tx = conn.unchecked_transaction()?;
+    let mut cambiadas = Vec::new();
     for (id, path, was_missing) in rows {
         let missing = !std::path::Path::new(&path).exists();
         if missing as i64 != was_missing {
             tx.execute("UPDATE tracks SET missing=?1 WHERE id=?2", params![missing as i64, id])?;
+            cambiadas.push((id, missing));
         }
     }
     tx.commit()?;
-    Ok(())
+    Ok(cambiadas)
 }
 
 /// Id of the indexed folder whose tree contains `path`, if any.
@@ -840,15 +846,18 @@ pub fn overlapping_folder(conn: &Connection, path: &str) -> Result<Option<String
 
 /// Re-check every indexed file, so tracks deleted while the app was closed are
 /// flagged (and restored ones un-flagged) without a full rescan.
-pub fn reconcile_all(conn: &Connection) -> Result<()> {
+///
+/// Returns every row it flipped, as `(id, missing)`; empty when nothing moved.
+pub fn reconcile_all(conn: &Connection) -> Result<Vec<(i64, bool)>> {
     let ids: Vec<i64> = conn
         .prepare("SELECT id FROM folders")?
         .query_map([], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
+    let mut cambiadas = Vec::new();
     for id in ids {
-        reconcile_missing(conn, id)?;
+        cambiadas.extend(reconcile_missing(conn, id)?);
     }
-    Ok(())
+    Ok(cambiadas)
 }
 
 pub fn touch_folder_scan(conn: &Connection, id: i64) -> Result<()> {
@@ -2770,6 +2779,38 @@ mod tests {
         reconcile_all(&conn).unwrap();
 
         assert!(list_tracks(&conn).unwrap()[0].missing);
+    }
+
+    #[test]
+    fn reconcile_reports_nothing_when_nothing_changed() {
+        let files = Files::new("reconciliar-igual");
+        let conn = mem();
+        let fid = add_folder(&conn, &files.s(""), "m", true).unwrap();
+        add_track(&conn, fid, &files.file("a.mp3").to_string_lossy(), "A");
+
+        assert!(reconcile_all(&conn).unwrap().is_empty());
+        assert!(!list_tracks(&conn).unwrap()[0].missing);
+    }
+
+    #[test]
+    fn reconcile_reports_the_tracks_it_flipped() {
+        let files = Files::new("reconciliar-cambios");
+        let conn = mem();
+        let fid = add_folder(&conn, &files.s(""), "m", true).unwrap();
+        add_track(&conn, fid, &files.file("queda.mp3").to_string_lossy(), "A");
+        let se_va = files.file("se-va.mp3");
+        let id = add_track(&conn, fid, &se_va.to_string_lossy(), "B");
+        assert!(reconcile_all(&conn).unwrap().is_empty());
+
+        std::fs::remove_file(&se_va).unwrap();
+        assert_eq!(reconcile_all(&conn).unwrap(), vec![(id, true)]);
+        // Ya marcada: la siguiente pasada no tiene nada que contar.
+        assert!(reconcile_all(&conn).unwrap().is_empty());
+
+        // Y si vuelve, se cuenta que volvió.
+        files.file("se-va.mp3");
+        assert_eq!(reconcile_all(&conn).unwrap(), vec![(id, false)]);
+        assert!(list_tracks(&conn).unwrap().iter().all(|t| !t.missing));
     }
 
     #[test]

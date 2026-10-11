@@ -6,6 +6,7 @@ import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
 import type { CantoralState, ToastType } from "./tipos";
 import { ultimoId, cur, plDur } from "./selectores";
+import { conservarIguales } from "../lib/reutilizar";
 
 // Parte del store (#134). Ver src/store/index.ts.
 //
@@ -126,8 +127,12 @@ export function crearContexto(set: Set, get: Get) {
    *  playlist selection when the referenced ids still exist. */
   const applySnapshot = (snap: Snapshot) => {
     const { plOrder, curPlaylist } = listasDe(snap.playlists);
-    const tracks = conCaratula(snap.tracks);
     const st = get();
+    // Las pistas y las carpetas que llegan iguales se quedan con el objeto que
+    // ya había: así sobreviven las filas memorizadas, la caché de la búsqueda
+    // y el orden de la tabla. Ver `conservarIguales`.
+    const tracks = conservarIguales(st.tracks, conCaratula(snap.tracks));
+    const folders = mismasCarpetas(st.folders, snap.folders) ? st.folders : snap.folders;
     const playerId = tracks.some((t) => t.id === st.playerId)
       ? st.playerId
       : tracks[0]?.id || st.playerId;
@@ -136,7 +141,7 @@ export function crearContexto(set: Set, get: Get) {
     const queue = st.queue.filter((id) => live.has(id));
     set({
       tracks,
-      folders: snap.folders,
+      folders,
       playlists: snap.playlists,
       plOrder,
       curPlaylist,
@@ -148,6 +153,29 @@ export function crearContexto(set: Set, get: Get) {
       duplicates: [],
       duplicatesState: "idle",
     });
+  };
+
+  /**
+   * Apuntar qué archivos aparecieron o desaparecieron, sin otra instantánea.
+   *
+   * Es lo que contesta la reconciliación del arranque. Antes contestaba con el
+   * catálogo entero y se aplicaba encima del que acababa de llegar: dos
+   * instantáneas completas para abrir la app, la segunda casi siempre igual a
+   * la primera. Solo cambia `missing`, que no mueve las cuentas de las
+   * carpetas —cuentan todas sus pistas, estén o no—, así que lo demás se queda.
+   */
+  const marcarFaltantes = (cambiados: readonly { id: string; missing: boolean }[]) => {
+    if (cambiados.length === 0) return;
+    const porId = new Map(cambiados.map((c) => [c.id, c.missing]));
+    const antes = get().tracks;
+    let alguna = false;
+    const tracks = antes.map((t) => {
+      const missing = porId.get(t.id);
+      if (missing === undefined || missing === t.missing) return t;
+      alguna = true;
+      return { ...t, missing };
+    });
+    if (alguna) set({ tracks });
   };
 
   /** How often what a scan has indexed is pulled in while it runs. */
@@ -315,7 +343,7 @@ export function crearContexto(set: Set, get: Get) {
     backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
-  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
+  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, marcarFaltantes, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
 }
 
 export type Contexto = ReturnType<typeof crearContexto>;
