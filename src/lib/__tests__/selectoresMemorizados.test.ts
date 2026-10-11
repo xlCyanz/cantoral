@@ -49,4 +49,21 @@ describe("buscar en «Agregar canciones»", () => {
     expect(buscarCanciones(tracks, "")).toBe(todas);
     expect(buscarCanciones(tracks, "san").map((t) => t.id)).toEqual(["1"]);
   });
+
+  it("un corazón no vuelve a ordenar; un título cambiado, sí", () => {
+    const tracks = [pista("1", "Santo"), pista("2", "Al que está sentado"), pista("3", "Grande es el Señor")];
+    buscarCanciones(tracks, "");
+    const compara = vi.spyOn(String.prototype, "localeCompare");
+
+    const conCorazon = tracks.map((t) => (t.id === "3" ? { ...t, fav: true } : t));
+    const despues = buscarCanciones(conCorazon, "");
+    expect(compara).not.toHaveBeenCalled();
+    expect(despues.map((t) => t.id)).toEqual(["2", "3", "1"]);
+    expect(despues[1].fav).toBe(true);
+
+    const renombrada = conCorazon.map((t) => (t.id === "1" ? { ...t, titulo: "Aleluya" } : t));
+    expect(buscarCanciones(renombrada, "").map((t) => t.id)).toEqual(["2", "1", "3"]);
+    expect(compara).toHaveBeenCalled();
+    compara.mockRestore();
+  });
 });

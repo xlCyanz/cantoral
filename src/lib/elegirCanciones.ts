@@ -6,7 +6,7 @@
 
 import type { Track } from "./types";
 import { coincideEnCampos, sinTildes } from "./buscar";
-import { recordar } from "./memo";
+import { crearOrden } from "./orden";
 
 /** Alto de cada fila, pinchado como en la tabla: la ventana se calcula sin medir el DOM. */
 export const ALTO_FILA = 50;
@@ -29,12 +29,23 @@ export function buscarCanciones(tracks: readonly Track[], consulta: string): rea
   return q ? todas.filter((t) => coincideEnCampos(t, q)) : todas;
 }
 
-/** El catálogo por título y artista, una vez por catálogo. Compartido: solo lectura. */
-const ordenadas = recordar(
-  (tracks: readonly Track[]): readonly Track[] =>
-    tracks.slice().sort((a, b) => a.titulo.localeCompare(b.titulo, "es") || a.artista.localeCompare(b.artista, "es")),
-  (tracks: readonly Track[]) => [tracks],
-);
+const ordenDelDialogo = crearOrden<Track>();
+
+/**
+ * El catálogo por título y artista. Compartido: solo lectura.
+ *
+ * Con el mismo orden recordado que la tabla (`crearOrden`): un catálogo nuevo
+ * en el que nadie cambió un título ni un artista —un corazón, una duración
+ * que llega, una instantánea igual— no se vuelve a ordenar.
+ */
+function ordenadas(tracks: readonly Track[]): readonly Track[] {
+  return ordenDelDialogo(
+    tracks,
+    "titulo-artista",
+    (a, b) => a.titulo.localeCompare(b.titulo, "es") || a.artista.localeCompare(b.artista, "es"),
+    (a, b) => a.titulo === b.titulo && a.artista === b.artista,
+  );
+}
 
 /**
  * Marcar o desmarcar una canción.
