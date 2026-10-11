@@ -9,6 +9,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.6.0] - 2026-10-11
+
+**Más simple y más rápida.** Un video se proyecta con solo ponerlo a sonar y
+la barra de abajo manda sobre el proyector; se van la letra, la ocasión y el
+modo culto, que no se usaban en la iglesia; y la app responde al instante
+aunque la biblioteca tenga miles de canciones.
+
 ### Añadido
 
 - **Un video se proyecta al ponerlo a sonar.** Doble clic, el play, «Reproducir
@@ -28,7 +35,6 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   o un video, dice qué está sonando y por dónde va, y sus botones pausan,
   adelantan o pasan al siguiente en el proyector. Lleva además un botón para
   cerrar la proyección desde cualquier parte de la app.
-
 - **Qué sale por el proyector con una pista de solo audio.** Las opciones son
   ahora «Negro» y «Portada» —el título sobre la carátula de la pista, o sobre
   negro si no tiene—, que es la de fábrica. «Portada y letra» y «Solo la letra»
@@ -1272,7 +1278,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.5.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/xlCyanz/cantoral/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/xlCyanz/cantoral/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/xlCyanz/cantoral/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/xlCyanz/cantoral/compare/v0.3.1...v0.3.2
