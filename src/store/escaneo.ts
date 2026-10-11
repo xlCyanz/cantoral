@@ -79,6 +79,25 @@ export interface EscaneoSlice {
   restore: (src?: string) => void;
 }
 
+/** Si ya se apuntó el primer dibujo: un reintento de `hydrate` no lo repite. */
+let primerDibujoApuntado = false;
+
+/**
+ * Apunta en el log cuánto tardó la biblioteca en verse desde que arrancó la
+ * ventana: el número que de verdad nota quien abre la app en el PC de la
+ * iglesia, y el que dice si un cambio la hizo más rápida o más lenta.
+ *
+ * Después de pintar y no al cargar: un `requestAnimationFrame` corre justo
+ * antes del siguiente dibujo, y el `setTimeout` dentro, justo después.
+ */
+function apuntarPrimerDibujo(pistas: number) {
+  if (primerDibujoApuntado || typeof requestAnimationFrame !== "function") return;
+  primerDibujoApuntado = true;
+  requestAnimationFrame(() =>
+    setTimeout(() => registrar("info", `first paint: library with ${pistas} tracks shown ${Math.round(performance.now())} ms after the window started`), 0),
+  );
+}
+
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
   const { toast, avisarFallo, applySnapshot, startLiveRefresh, stopLiveRefresh } = ctx;
 
@@ -190,6 +209,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
         const videos = snap.tracks.filter((t) => t.video).length;
         registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
+        apuntarPrimerDibujo(snap.tracks.length);
         // Restore saved preferences.
         // `openExt` ya no se lee. La fila que dejó en `settings` una
         // instalación anterior se queda ahí sin hacer nada: borrarla sería
