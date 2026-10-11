@@ -25,6 +25,35 @@ export const pistasPorId = recordar(
 );
 
 /**
+ * La selección como conjunto, para preguntar «¿está esta?» sin recorrerla.
+ *
+ * Cada fila de la biblioteca hace esa pregunta en cada cambio del store; con
+ * `selection.includes` y todo seleccionado eran miles de filas recorriendo
+ * miles de ids.
+ */
+export const seleccionComoConjunto = recordar(
+  (selection: readonly string[]): ReadonlySet<string> => new Set(selection),
+  (selection: readonly string[]) => [selection],
+);
+
+/**
+ * Cuántas pistas hay, cuántas favoritas y cuántas sin archivo, contadas una
+ * vez por catálogo y no en cada render de la barra lateral.
+ */
+export const cuentasDePistas = recordar(
+  (tracks: readonly Track[]) => {
+    let favoritas = 0;
+    let faltan = 0;
+    for (const t of tracks) {
+      if (t.fav) favoritas++;
+      if (t.missing) faltan++;
+    }
+    return { total: tracks.length, favoritas, faltan };
+  },
+  (tracks: readonly Track[]) => [tracks],
+);
+
+/**
  * The highest track id in the catalogue, or 0 without any.
  *
  * Numeric: ids are strings on this side, and "10" sorts before "9".

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Check, ListPlus, Search } from "lucide-react";
 import { useStore } from "../store";
@@ -6,6 +6,7 @@ import { ALTO_FILA, ALTO_LISTA, alternar, buscarCanciones, marcarRango, siguient
 import { DESDE, aplanar, ventana } from "../lib/virtual";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
+import type { Track } from "../lib/types";
 
 /** Orden vacío compartido, para que un culto sin nada no estrene arreglo en cada lectura. */
 const VACIA: string[] = [];
@@ -41,7 +42,12 @@ function EleccionDeCanciones() {
   const [ancla, setAncla] = useState<string | null>(null);
   /** La fila que tiene (o tendrá) el foco del teclado; -1 si ninguna. */
   const [activo, setActivo] = useState(-1);
-  const [desplazado, setDesplazado] = useState(0);
+  /**
+   * Las filas que existen ahora, y no los píxeles desplazados: el `scroll`
+   * llega en cada fotograma, y guardar los píxeles repintaba el diálogo entero
+   * en cada uno aunque se siguieran viendo las mismas filas.
+   */
+  const [rango, setRango] = useState({ desde: 0, hasta: 0 });
 
   const caja = useRef<HTMLDivElement>(null);
   const buscador = useRef<HTMLInputElement>(null);
@@ -58,9 +64,24 @@ function EleccionDeCanciones() {
     [lista],
   );
 
+  /** Apunta las filas que tocan para este desplazamiento, si cambiaron. */
+  const medir = (top: number) => {
+    const nuevo = ventana(plano, top, ALTO_LISTA);
+    setRango((r) => (r.desde === nuevo.desde && r.hasta === nuevo.hasta ? r : nuevo));
+  };
+  // Otra lista (otra búsqueda, o el catálogo que cambió) es otra ventana.
+  // Antes de pintar, para que el primer dibujo no salga vacío.
+  useLayoutEffect(() => {
+    const nuevo = ventana(plano, caja.current?.scrollTop ?? 0, ALTO_LISTA);
+    setRango((r) => (r.desde === nuevo.desde && r.hasta === nuevo.hasta ? r : nuevo));
+  }, [plano]);
+
   // Con miles de canciones solo existen las filas cerca de lo que se ve, como
-  // en la tabla de la biblioteca. Por debajo de ese umbral, todas.
-  const { desde, hasta } = lista.length > DESDE ? ventana(plano, desplazado, ALTO_LISTA) : { desde: 0, hasta: lista.length };
+  // en la tabla de la biblioteca. Por debajo de ese umbral, todas. El tope es
+  // para el primer dibujo de una lista más corta, antes de que el efecto de
+  // arriba la vuelva a medir.
+  const desde = lista.length > DESDE ? Math.min(rango.desde, lista.length) : 0;
+  const hasta = lista.length > DESDE ? Math.min(rango.hasta, lista.length) : lista.length;
   // La parada del Tab en la lista: la activa, o la primera que se puede marcar.
   const parada = activo >= 0 && activo < ids.length ? activo : (siguienteElegible(ids, -1, 1, yaEstan) ?? -1);
   // La fila con el foco se pinta aunque se haya ido de la ventana con la
@@ -84,7 +105,7 @@ function EleccionDeCanciones() {
       if (arriba < top) top = arriba;
       else if (arriba + ALTO_FILA > top + ALTO_LISTA) top = arriba + ALTO_FILA - ALTO_LISTA;
       el.scrollTop = top;
-      setDesplazado(top);
+      medir(top);
     }
     enfocarActiva.current = true;
     setActivo(i);
@@ -96,7 +117,6 @@ function EleccionDeCanciones() {
     // marcado se queda; buscar «santo», marcar, buscar «gloria» y marcar es
     // justo para lo que sirve esto.
     setActivo(-1);
-    setDesplazado(0);
     if (caja.current) caja.current.scrollTop = 0;
   };
 
@@ -107,6 +127,17 @@ function EleccionDeCanciones() {
     setAncla(id);
     setActivo(i);
   };
+  // Las filas reciben siempre la misma función, que llama a la `pulsar` de
+  // este dibujo: si recibieran `pulsar`, que es nueva en cada uno, ninguna
+  // fila memorizada se ahorraría nada.
+  const ultimaPulsar = useRef(pulsar);
+  useLayoutEffect(() => {
+    ultimaPulsar.current = pulsar;
+  });
+  const alPulsar = useCallback((id: string, i: number) => ultimaPulsar.current(id, i), []);
+  const alClic = useCallback((shift: boolean) => {
+    conMayus.current = shift;
+  }, []);
 
   const confirmar = () => {
     if (elegidas.length > 0) agregarAlCultoAbierto(elegidas);
@@ -185,7 +216,7 @@ function EleccionDeCanciones() {
           id="agregar-canciones-lista"
           role="group"
           aria-label={lista.length === 1 ? "1 canción de la biblioteca" : `${lista.length} canciones de la biblioteca`}
-          onScroll={(e) => setDesplazado(e.currentTarget.scrollTop)}
+          onScroll={(e) => medir(e.currentTarget.scrollTop)}
           style={{ height: ALTO_LISTA, overflowY: "auto", position: "relative" }}
         >
           {lista.length === 0 ? (
@@ -196,80 +227,18 @@ function EleccionDeCanciones() {
             <div style={{ position: "relative", height: lista.length * ALTO_FILA }}>
               {indices.map((i) => {
                 const t = lista[i];
-                const yaEsta = yaEstan.has(t.id);
-                const puesto = elegidas.indexOf(t.id);
-                const marcada = yaEsta || puesto >= 0;
                 return (
-                  <label
+                  <FilaDeCancion
                     key={t.id}
-                    className={yaEsta ? undefined : "casilla hb-s2"}
-                    onClick={(e) => {
-                      conMayus.current = e.shiftKey;
-                    }}
-                    style={{
-                      position: "absolute",
-                      top: i * ALTO_FILA,
-                      left: 0,
-                      right: 0,
-                      height: ALTO_FILA,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 11,
-                      padding: "0 20px",
-                      cursor: yaEsta ? "default" : "pointer",
-                      userSelect: "none",
-                      ...(yaEsta ? { opacity: 0.55 } : t.missing ? { opacity: 0.7 } : {}),
-                    }}
-                  >
-                    {/* Una casilla de verdad, escondida, debajo de la pintada,
-                        como «Incluir subcarpetas» (#138): Tab llega, Espacio
-                        la marca y el lector la anuncia como casilla. */}
-                    <input
-                      type="checkbox"
-                      className="solo-lector"
-                      data-indice={i}
-                      tabIndex={i === parada ? 0 : -1}
-                      checked={marcada}
-                      disabled={yaEsta}
-                      onChange={() => pulsar(t.id, i)}
-                      onFocus={() => setActivo(i)}
-                    />
-                    {/* Marcada, dice en qué puesto entra; así se ve el orden
-                        sin tener que recordarlo. */}
-                    <span
-                      aria-hidden
-                      className="casilla-marca"
-                      style={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: 6,
-                        flex: "0 0 auto",
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        fontVariantNumeric: "tabular-nums",
-                        ...(yaEsta
-                          ? { background: "var(--surface-3)", color: "var(--text-2)" }
-                          : puesto >= 0
-                            ? { background: "var(--primary-fill)", color: "var(--on-primary)" }
-                            : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }),
-                      }}
-                    >
-                      {yaEsta ? <Check size={13} strokeWidth={3} /> : puesto >= 0 ? puesto + 1 : null}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: "13.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.titulo}</span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {t.artista}
-                      </span>
-                    </span>
-                    {yaEsta ? (
-                      <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 600, color: "var(--text-2)" }}>Ya está en el culto</span>
-                    ) : (
-                      <span style={{ flex: "0 0 auto", fontSize: 12, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</span>
-                    )}
-                  </label>
+                    t={t}
+                    i={i}
+                    yaEsta={yaEstan.has(t.id)}
+                    puesto={elegidas.indexOf(t.id)}
+                    enfocable={i === parada}
+                    alPulsar={alPulsar}
+                    alEnfocar={setActivo}
+                    alClic={alClic}
+                  />
                 );
               })}
             </div>
@@ -294,3 +263,103 @@ function EleccionDeCanciones() {
     </Modal>
   );
 }
+
+/**
+ * Una canción de la lista.
+ *
+ * Memorizada: al desplazarse cambian las filas que existen, no las que ya
+ * estaban, y al marcar una solo cambian ella y su número. Las funciones que
+ * recibe son estables (ver `alPulsar`), así que las demás no se repintan.
+ */
+const FilaDeCancion = memo(function FilaDeCancion({
+  t,
+  i,
+  yaEsta,
+  puesto,
+  enfocable,
+  alPulsar,
+  alEnfocar,
+  alClic,
+}: {
+  t: Track;
+  i: number;
+  yaEsta: boolean;
+  /** En qué puesto se marcó, o -1. */
+  puesto: number;
+  /** Si es la parada del Tab en la lista. */
+  enfocable: boolean;
+  alPulsar: (id: string, i: number) => void;
+  alEnfocar: (i: number) => void;
+  alClic: (conMayus: boolean) => void;
+}) {
+  const marcada = yaEsta || puesto >= 0;
+  return (
+    <label
+      className={yaEsta ? undefined : "casilla hb-s2"}
+      onClick={(e) => alClic(e.shiftKey)}
+      style={{
+        position: "absolute",
+        top: i * ALTO_FILA,
+        left: 0,
+        right: 0,
+        height: ALTO_FILA,
+        display: "flex",
+        alignItems: "center",
+        gap: 11,
+        padding: "0 20px",
+        cursor: yaEsta ? "default" : "pointer",
+        userSelect: "none",
+        ...(yaEsta ? { opacity: 0.55 } : t.missing ? { opacity: 0.7 } : {}),
+      }}
+    >
+      {/* Una casilla de verdad, escondida, debajo de la pintada,
+          como «Incluir subcarpetas» (#138): Tab llega, Espacio
+          la marca y el lector la anuncia como casilla. */}
+      <input
+        type="checkbox"
+        className="solo-lector"
+        data-indice={i}
+        tabIndex={enfocable ? 0 : -1}
+        checked={marcada}
+        disabled={yaEsta}
+        onChange={() => alPulsar(t.id, i)}
+        onFocus={() => alEnfocar(i)}
+      />
+      {/* Marcada, dice en qué puesto entra; así se ve el orden
+          sin tener que recordarlo. */}
+      <span
+        aria-hidden
+        className="casilla-marca"
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 6,
+          flex: "0 0 auto",
+          display: "grid",
+          placeItems: "center",
+          fontSize: 11,
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums",
+          ...(yaEsta
+            ? { background: "var(--surface-3)", color: "var(--text-2)" }
+            : puesto >= 0
+              ? { background: "var(--primary-fill)", color: "var(--on-primary)" }
+              : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }),
+        }}
+      >
+        {yaEsta ? <Check size={13} strokeWidth={3} /> : puesto >= 0 ? puesto + 1 : null}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: "13.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.titulo}</span>
+        <span style={{ display: "block", fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {t.artista}
+        </span>
+      </span>
+      {yaEsta ? (
+        <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 600, color: "var(--text-2)" }}>Ya está en el culto</span>
+      ) : (
+        <span style={{ flex: "0 0 auto", fontSize: 12, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</span>
+      )}
+    </label>
+  );
+});

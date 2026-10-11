@@ -75,10 +75,14 @@ export default function Modal({
     // satisfies the rule without ever re-running the effect.
   }, [previo]);
 
+  // Solo el velo, sin `backdropFilter: blur`. El desenfoque obligaba a volver
+  // a desenfocar todo lo que queda debajo del diálogo en cada repintado —la
+  // barra del reproductor avanzando, una animación—, y en WebView2 con una
+  // gráfica integrada eso se notaba al mover el ratón por el diálogo.
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, zIndex: overlayZ, background: "rgba(25,18,12,.42)", backdropFilter: "blur(2px)", display: "grid", placeItems: "center", padding: 24, animation: "canOverlay .18s ease", ...overlayStyle }}
+      style={{ position: "fixed", inset: 0, zIndex: overlayZ, background: "rgba(25,18,12,.42)", display: "grid", placeItems: "center", padding: 24, animation: "canOverlay .18s ease", ...overlayStyle }}
     >
       <div
         ref={caja}

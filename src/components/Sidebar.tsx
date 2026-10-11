@@ -1,6 +1,6 @@
 import { CalendarDays, Clock, Heart, Library, Plus, Settings } from "lucide-react";
 import { useState } from "react";
-import { cultos as cultosPorUso, useStore } from "../store";
+import { cuentasDePistas, cultos as cultosPorUso, useStore } from "../store";
 import { soloPistas } from "../lib/momentos";
 import { navBtn, navCount, subBtn } from "../lib/styles";
 import type { CSSProperties } from "react";
@@ -30,13 +30,19 @@ const recorta: CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textO
 export default function Sidebar() {
   const view = useStore((s) => s.view);
   const qf = useStore((s) => s.qf);
-  const tracks = useStore((s) => s.tracks);
+  // Números y no el catálogo: el catálogo se reemplaza con cada miniatura o
+  // duración que llega, y la barra lateral no tiene por qué repintarse si los
+  // números que enseña no cambian.
+  const totalPistas = useStore((s) => cuentasDePistas(s.tracks).total);
+  const favCount = useStore((s) => cuentasDePistas(s.tracks).favoritas);
+  const missingCount = useStore((s) => cuentasDePistas(s.tracks).faltan);
   const plOrder = useStore((s) => s.plOrder);
   const folders = useStore((s) => s.folders);
   const curPlaylist = useStore((s) => s.curPlaylist);
 
   const verTodaLaBiblioteca = useStore((s) => s.verTodaLaBiblioteca);
-  const query = useStore((s) => s.query);
+  // Solo si hay búsqueda: el texto cambia con cada tecla, y aquí no se enseña.
+  const buscando = useStore((s) => !!s.query.trim());
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
   const onQuickFilter = useStore((s) => s.onQuickFilter);
@@ -48,8 +54,6 @@ export default function Sidebar() {
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
   const [sobre, setSobre] = useState<string | null>(null);
 
-  const favCount = tracks.filter((t) => t.fav).length;
-  const missingCount = tracks.filter((t) => t.missing).length;
 
   const libActive = view === "biblioteca";
   const colActive = view === "colecciones" || view === "lista";
@@ -57,7 +61,7 @@ export default function Sidebar() {
   // «Todas» está encendida cuando de verdad se están viendo todas: sin filtro
   // rápido, sin etiquetas y sin búsqueda. Contaba solo las dos
   // primeras, así que con una etiqueta puesta decía que estaban todas.
-  const todasActive = libActive && !qf && !query.trim();
+  const todasActive = libActive && !qf && !buscando;
 
   // El mismo orden que la vista de listas: el último que se abrió o se cambió,
   // arriba. Una plantilla no es un culto y se queda fuera.
@@ -67,7 +71,7 @@ export default function Sidebar() {
     folders.length
       ? `${folders.length} ${folders.length === 1 ? "carpeta indexada" : "carpetas indexadas"}`
       : "Sin carpetas indexadas",
-    tracks.length ? `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}` : "",
+    totalPistas ? `${totalPistas} ${totalPistas === 1 ? "pista" : "pistas"}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -97,13 +101,13 @@ export default function Sidebar() {
             <Library size={14} style={{ flex: "0 0 auto" }} />
             Biblioteca
           </span>
-          <span style={navCount()}>{tracks.length}</span>
+          <span style={navCount()}>{totalPistas}</span>
         </button>
 
         <div style={seccion}>
           <button onClick={verTodaLaBiblioteca} aria-pressed={todasActive} className={todasActive ? undefined : "hb-s2"} style={subBtn(todasActive)}>
             <span style={{ ...etiquetaFila, ...recorta }}>Todas</span>
-            <span style={navCount(true)}>{tracks.length}</span>
+            <span style={navCount(true)}>{totalPistas}</span>
           </button>
           <button onClick={() => onQuickFilter("fav")} aria-pressed={qf === "fav"} className={qf === "fav" ? undefined : "hb-s2"} style={subBtn(qf === "fav")}>
             <span style={etiquetaFila}>

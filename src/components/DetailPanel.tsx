@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Check, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
-import { useStore } from "../store";
+import { pistasPorId, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle } from "../lib/covers";
 import { gestorDeArchivos } from "../lib/api";
@@ -74,7 +74,7 @@ export default function DetailPanel() {
   // Field by field: the panel sits beside a player that writes `posSec`
   // several times a second, and none of what it shows changes with it.
   const detailOpen = useStore((s) => s.detailOpen);
-  const sel = useStore((s) => (s.selId ? (s.tracks.find((t) => t.id === s.selId) ?? null) : null));
+  const sel = useStore((s) => (s.selId ? (pistasPorId(s.tracks).get(s.selId) ?? null) : null));
   const playlists = useStore((s) => s.playlists);
   const saveState = useStore((s) => s.saveState);
 

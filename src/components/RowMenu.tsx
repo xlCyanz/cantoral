@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
-import { cur, seleccionVigente, useStore } from "../store";
+import { cur, pistasPorId, seleccionVigente, useStore } from "../store";
 import { gestorDeArchivos } from "../lib/api";
 import { indiceDeMenu } from "../lib/teclado";
 
@@ -58,7 +58,7 @@ const atajo: CSSProperties = { fontSize: "10.5px", color: "var(--text-3)", margi
 export default function RowMenu() {
   const menu = useStore((s) => s.rowMenu);
   const ids = useStore(seleccionVigente);
-  const pista = useStore((s) => (s.rowMenu ? s.tracks.find((t) => t.id === s.rowMenu!.id) : undefined));
+  const pista = useStore((s) => (s.rowMenu ? pistasPorId(s.tracks).get(s.rowMenu.id) : undefined));
   const sonando = useStore(cur);
   const closeRowMenu = useStore((s) => s.closeRowMenu);
   const openAddToList = useStore((s) => s.openAddToList);
