@@ -43,6 +43,37 @@ pub struct UpdateProgress {
     pub total: Option<u64>,
 }
 
+/// Cuándo vale la pena contarle a la interfaz cómo va la descarga.
+///
+/// La descarga llega a trozos de unos pocos KB: decenas de megas son miles de
+/// eventos, cada uno una escritura en el store que repinta la barra. La barra
+/// enseña porcentajes enteros, así que se avisa cuando cambia el porcentaje;
+/// sin total, como mucho cada `CADA`. El último trozo se avisa siempre.
+#[derive(Default)]
+struct Aviso {
+    porcentaje: Option<u64>,
+    ultimo: Option<std::time::Instant>,
+}
+
+impl Aviso {
+    const CADA: std::time::Duration = std::time::Duration::from_millis(100);
+
+    fn toca(&mut self, descargado: u64, total: Option<u64>, ahora: std::time::Instant) -> bool {
+        let toca = match total.filter(|t| *t > 0) {
+            Some(t) => {
+                let porcentaje = descargado.saturating_mul(100) / t;
+                descargado >= t || self.porcentaje != Some(porcentaje)
+            }
+            None => self.ultimo.is_none_or(|u| ahora.duration_since(u) >= Self::CADA),
+        };
+        if toca {
+            self.porcentaje = total.filter(|t| *t > 0).map(|t| descargado.saturating_mul(100) / t);
+            self.ultimo = Some(ahora);
+        }
+        toca
+    }
+}
+
 /// Whether this build was given a public key to verify updates with.
 ///
 /// Read from the config rather than inferred from an error, so «nobody
@@ -94,13 +125,17 @@ pub async fn instalar(app: &AppHandle) -> Result<(), String> {
     };
 
     let mut descargado: u64 = 0;
+    let mut aviso = Aviso::default();
     let app_progreso = app.clone();
     let app_fin = app.clone();
     update
         .download_and_install(
             move |trozo, total| {
                 descargado += trozo as u64;
-                let _ = app_progreso.emit("update-progress", UpdateProgress { descargado, total });
+                if aviso.toca(descargado, total, std::time::Instant::now()) {
+                    let _ =
+                        app_progreso.emit("update-progress", UpdateProgress { descargado, total });
+                }
             },
             move || {
                 let _ = app_fin.emit("update-downloaded", ());
@@ -112,4 +147,40 @@ pub async fn instalar(app: &AppHandle) -> Result<(), String> {
     log::info!("update installed; restarting into it");
     // No vuelve: `restart` reemplaza el proceso.
     app.restart();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn con_total_avisa_una_vez_por_porcentaje_y_al_final() {
+        let mut aviso = Aviso::default();
+        let ahora = Instant::now();
+        let total = 50 * 1024 * 1024;
+        // Trozos de 4 KB, como los entrega la descarga: 12 800 trozos.
+        let mut descargado = 0;
+        let mut avisos = 0;
+        while descargado < total {
+            descargado = (descargado + 4096).min(total);
+            if aviso.toca(descargado, Some(total), ahora) {
+                avisos += 1;
+            }
+        }
+        // Del 0 % al 100 %: 101 avisos como mucho, no 12 800.
+        assert!(avisos <= 101, "{avisos}");
+        assert!(avisos >= 100, "{avisos}");
+    }
+
+    #[test]
+    fn sin_total_avisa_como_mucho_cada_cien_ms() {
+        let mut aviso = Aviso::default();
+        let inicio = Instant::now();
+        let avisos = (0..1000u64)
+            .filter(|i| aviso.toca(i * 4096, None, inicio + Duration::from_millis(*i)))
+            .count();
+        // Un segundo de trozos, uno por milisegundo.
+        assert_eq!(avisos, 10);
+    }
 }
