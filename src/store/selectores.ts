@@ -1,4 +1,4 @@
-import type { Momento, Playlist, Track } from "../lib/types";
+import type { Momento, Playlist, SortDir, SortKey, Track } from "../lib/types";
 import { carpetaReal } from "../lib/carpetas";
 import { elementosDe, esMomento } from "../lib/momentos";
 import type { Elemento } from "../lib/momentos";
@@ -6,6 +6,7 @@ import { enOrden, vigentes } from "../lib/selection";
 import type { CantoralState } from "./tipos";
 import { recordar } from "../lib/memo";
 import { coincideEnCampos, sinTildes } from "../lib/buscar";
+import { crearOrden } from "../lib/orden";
 
 // ============================================================
 // Derived selectors (pure) — used by components against a state snapshot.
@@ -206,34 +207,69 @@ export function playQueue(s: CantoralState): string[] {
   return live.length ? live : applyFilters(s).map((t) => t.id);
 }
 
-/** Filter + sort the library exactly like the design's applyFilters(). */
+/** Cómo compara la tabla dos pistas por la columna elegida. */
+function compararPor(k: SortKey, dir: 1 | -1) {
+  return (a: Track, b: Track): number => {
+    let av: string | number = a[k as keyof Track] as never;
+    let bv: string | number = b[k as keyof Track] as never;
+    if (k === "dur") {
+      av = a.durSec;
+      bv = b.durSec;
+    }
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    return String(av).localeCompare(String(bv), "es") * dir;
+  };
+}
+
+/** Si dos versiones de una pista caen en el mismo sitio al ordenar por `k`. */
+function ordenanIgual(k: SortKey): (a: Track, b: Track) => boolean {
+  if (k === "dur") return (a, b) => Object.is(a.durSec, b.durSec);
+  return (a, b) => Object.is(a[k as keyof Track], b[k as keyof Track]);
+}
+
+const ordenDeLaTabla = crearOrden<Track>();
+
+/**
+ * El catálogo entero en el orden de la tabla, antes de filtrar.
+ *
+ * Ordenar primero y filtrar después da lo mismo que al revés —el `sort` es
+ * estable y filtrar no cambia el orden de lo que queda—, y deja que el orden
+ * sobreviva a todo lo que no lo mueve: buscar, borrar la búsqueda, un filtro
+ * rápido, un corazón o una tecla en el panel de detalle. Ver `crearOrden`.
+ */
+function ordenadas(tracks: readonly Track[], k: SortKey, d: SortDir): readonly Track[] {
+  return ordenDeLaTabla(tracks, `${k}:${d}`, compararPor(k, d === "asc" ? 1 : -1), ordenanIgual(k));
+}
+
+/**
+ * Lo que trajo el último escaneo, todo, lo más nuevo arriba. Antes eran las
+ * ocho de id más alto sin decirlo: quien indexaba cuarenta veía ocho (#139).
+ * Aquí no manda la columna de la tabla.
+ */
+const recientes = recordar(
+  (tracks: readonly Track[]): readonly Track[] =>
+    tracks.filter((t) => t.nueva).sort((a, b) => b.added - a.added),
+  (tracks: readonly Track[]) => [tracks],
+);
+
+/**
+ * Filter + sort the library exactly like the design's applyFilters().
+ *
+ * Primero el orden —recordado—, y encima los filtros y la búsqueda. Sin
+ * ninguno de los dos devuelve el orden recordado tal cual, así que borrar la
+ * búsqueda no cuesta nada: es el mismo arreglo que había antes de escribir.
+ * Compartido entre quienes lo leen: solo lectura.
+ */
 export const applyFilters = recordar(
   (s: CantoralState): Track[] => {
-    let list = s.tracks.slice();
+    let list = s.qf === "recent" ? recientes(s.tracks) : ordenadas(s.tracks, s.sortKey, s.sortDir);
     if (s.qf === "fav") list = list.filter((t) => t.fav);
     else if (s.qf === "missing") list = list.filter((t) => t.missing);
-    // Lo que trajo el último escaneo, todo, lo más nuevo arriba. Antes eran las
-    // ocho de id más alto sin decirlo: quien indexaba cuarenta veía ocho (#139).
-    else if (s.qf === "recent") list = list.filter((t) => t.nueva).sort((a, b) => b.added - a.added);
     if (s.query) {
       const q = sinTildes(s.query);
       list = list.filter((t) => coincideEnCampos(t, q));
     }
-    if (s.qf !== "recent") {
-      const dir = s.sortDir === "asc" ? 1 : -1;
-      const k = s.sortKey;
-      list.sort((a, b) => {
-        let av: string | number = a[k as keyof Track] as never;
-        let bv: string | number = b[k as keyof Track] as never;
-        if (k === "dur") {
-          av = a.durSec;
-          bv = b.durSec;
-        }
-        if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-        return String(av).localeCompare(String(bv), "es") * dir;
-      });
-    }
-    return list;
+    return list as Track[];
   },
   (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir],
 );
