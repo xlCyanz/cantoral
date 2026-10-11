@@ -4,14 +4,14 @@
 // lista de acciones que alguien recuerde actualizar.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Snapshot } from "../api";
+import type { Reconciliacion, Snapshot } from "../api";
 import { UI_PREFS_KEY, parsePrefs, resolveView, serialisePrefs } from "../uiPrefs";
 import type { UiPrefs } from "../uiPrefs";
 
 const getSetting = vi.fn<(key: string) => Promise<string | null>>();
 const setSetting = vi.fn<(key: string, value: string) => Promise<void>>();
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
-const reconcileLibraryCmd = vi.fn<() => Promise<Snapshot | null>>();
+const reconcileLibraryCmd = vi.fn<() => Promise<Reconciliacion | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),

@@ -155,6 +155,29 @@ export function crearContexto(set: Set, get: Get) {
     });
   };
 
+  /**
+   * Apuntar qué archivos aparecieron o desaparecieron, sin otra instantánea.
+   *
+   * Es lo que contesta la reconciliación del arranque. Antes contestaba con el
+   * catálogo entero y se aplicaba encima del que acababa de llegar: dos
+   * instantáneas completas para abrir la app, la segunda casi siempre igual a
+   * la primera. Solo cambia `missing`, que no mueve las cuentas de las
+   * carpetas —cuentan todas sus pistas, estén o no—, así que lo demás se queda.
+   */
+  const marcarFaltantes = (cambiados: readonly { id: string; missing: boolean }[]) => {
+    if (cambiados.length === 0) return;
+    const porId = new Map(cambiados.map((c) => [c.id, c.missing]));
+    const antes = get().tracks;
+    let alguna = false;
+    const tracks = antes.map((t) => {
+      const missing = porId.get(t.id);
+      if (missing === undefined || missing === t.missing) return t;
+      alguna = true;
+      return { ...t, missing };
+    });
+    if (alguna) set({ tracks });
+  };
+
   /** How often what a scan has indexed is pulled in while it runs. */
   const REFRESCO_MS = 2000;
   /** The longest the live refresh waits while nothing new is coming in. */
@@ -320,7 +343,7 @@ export function crearContexto(set: Set, get: Get) {
     backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
-  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
+  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, marcarFaltantes, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
 }
 
 export type Contexto = ReturnType<typeof crearContexto>;

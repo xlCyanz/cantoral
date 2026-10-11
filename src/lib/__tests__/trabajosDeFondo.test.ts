@@ -6,11 +6,11 @@
 // empiece antes de que el arranque termine.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Snapshot } from "../api";
+import type { Reconciliacion, Snapshot } from "../api";
 import type { Track } from "../types";
 
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
-const reconcileLibraryCmd = vi.fn<() => Promise<Snapshot | null>>();
+const reconcileLibraryCmd = vi.fn<() => Promise<Reconciliacion | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
@@ -120,7 +120,7 @@ describe("lo que piden los hooks en cada cambio del store", () => {
 
 describe("nada empieza antes de que termine el arranque", () => {
   it("el arranque está listo cuando la biblioteca se reconcilió, no al cargarla", async () => {
-    let reconciliar!: (s: Snapshot | null) => void;
+    let reconciliar!: (s: Reconciliacion | null) => void;
     getLibrary.mockResolvedValue({ tracks: [video("a")], folders: [], playlists: [] });
     reconcileLibraryCmd.mockReturnValue(new Promise((r) => (reconciliar = r)));
 

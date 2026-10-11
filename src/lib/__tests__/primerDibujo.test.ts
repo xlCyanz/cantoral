@@ -2,7 +2,7 @@
 // verse al abrir la app: una vez por arranque, después de pintarla.
 
 import { describe, expect, it, vi } from "vitest";
-import type { Snapshot } from "../api";
+import type { Reconciliacion, Snapshot } from "../api";
 
 const registrar = vi.fn<(nivel: string, mensaje: string) => void>();
 
@@ -13,7 +13,7 @@ vi.mock("../api", async (importOriginal) => ({
   getSetting: () => Promise.resolve(null),
   setSetting: () => Promise.resolve(),
   getLibrary: (): Promise<Snapshot> => Promise.resolve({ tracks: [], folders: [], playlists: [] }),
-  reconcileLibraryCmd: (): Promise<Snapshot> => Promise.resolve({ tracks: [], folders: [], playlists: [] }),
+  reconcileLibraryCmd: (): Promise<Reconciliacion> => Promise.resolve({ cambiados: [] }),
 }));
 
 const { useStore } = await import("../../store");

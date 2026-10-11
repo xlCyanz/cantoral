@@ -331,10 +331,17 @@ export async function cancelScanCmd(): Promise<void> {
   if (!isTauri()) return;
   await inv("cancel_scan");
 }
+/**
+ * Lo que encontró la reconciliación del arranque: solo las pistas cuyo
+ * archivo apareció o desapareció. Vacío, casi siempre.
+ */
+export interface Reconciliacion {
+  cambiados: { id: string; missing: boolean }[];
+}
 /** Re-check every indexed file on disk (tracks deleted while the app was closed). */
-export async function reconcileLibraryCmd(): Promise<Snapshot | null> {
+export async function reconcileLibraryCmd(): Promise<Reconciliacion | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("reconcile_library");
+  return inv<Reconciliacion>("reconcile_library");
 }
 export async function removeFolderCmd(id: string): Promise<Snapshot> {
   return inv<Snapshot>("remove_folder", { id });

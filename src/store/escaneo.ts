@@ -100,7 +100,7 @@ function apuntarPrimerDibujo(pistas: number) {
 }
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
-  const { toast, avisarFallo, applySnapshot, startLiveRefresh, stopLiveRefresh } = ctx;
+  const { toast, avisarFallo, applySnapshot, marcarFaltantes, startLiveRefresh, stopLiveRefresh } = ctx;
 
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
@@ -260,12 +260,14 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         if (get().buscarActualizacionesAlAbrir) void get().checkForUpdate();
 
         // Files can disappear while the app is closed; re-check them once the
-        // catalogue is on screen rather than blocking the first paint.
+        // catalogue is on screen rather than blocking the first paint. Only
+        // what changed comes back, and only that is touched: see
+        // `marcarFaltantes`.
         void backend()
           .reconcileLibrary()
-          .then((fresh) => {
-            applySnapshot(fresh);
-            registrar("info", `hydrate: reconciled ${Math.round(performance.now() - inicio)} ms after start`);
+          .then(({ cambiados }) => {
+            marcarFaltantes(cambiados);
+            registrar("info", `hydrate: reconciled ${Math.round(performance.now() - inicio)} ms after start (${cambiados.length} changed)`);
           })
           .catch((err) => {
             console.error("reconcile failed", err);

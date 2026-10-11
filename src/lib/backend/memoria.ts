@@ -168,7 +168,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     getLibrary: async () => snapshot(),
     // Nada nuevo nunca: el escaneo simulado no añade pistas.
     getTracksSince: async () => ({ tracks: [], folders: structuredClone(folders) }),
-    reconcileLibrary: async () => snapshot(),
+    // Sin disco que mirar, nada cambia nunca.
+    reconcileLibrary: async () => ({ cambiados: [] }),
     setTrackFav: async (id, fav) => {
       pista(id).fav = fav;
     },
