@@ -5,11 +5,25 @@ import { elementosDeLista, useStore } from "../store";
 import { motivoNoProyectable } from "../lib/formatos";
 import { fmt } from "../lib/covers";
 import type { Elemento } from "../lib/momentos";
+import type { Track } from "../lib/types";
 import IconoDeMomento from "./IconoDeMomento";
 import SelectorDePantalla from "./SelectorDePantalla";
 
 /** El título de un elemento de la cola, sea pista o momento. */
 const tituloDe = (e: Elemento) => (e.clase === "pista" ? e.pista.titulo : e.momento.titulo);
+
+/**
+ * «video · 1:23 de 4:56» de lo que está en pantalla.
+ *
+ * Aparte para que sea lo único que se vuelve a pintar cada segundo: la
+ * posición llega del proyector una vez por segundo, y si la leyera el panel
+ * entero se repintaría con la cola, los ajustes y las pantallas cada vez.
+ */
+function TiempoEnPantalla({ pista }: { pista: Track }) {
+  const pos = useStore((s) => s.proyeccionPos);
+  const dur = useStore((s) => s.proyeccionDur);
+  return <>{`${pista.video ? "video" : "audio"} · ${fmt(pos)} de ${dur > 0 ? fmt(dur) : pista.dur}`}</>;
+}
 
 /**
  * El panel de mandos de la proyección.
@@ -135,8 +149,6 @@ export default function ProjectionView() {
   const idxProy = useStore((s) => s.proyeccionIdx);
   const proyeccionLista = useStore((s) => s.proyeccionLista);
   const enNegro = useStore((s) => s.proyeccionEnNegro);
-  const pos = useStore((s) => s.proyeccionPos);
-  const dur = useStore((s) => s.proyeccionDur);
   const fallos = useStore((s) => s.proyeccionFallos);
   // La cola entera: las pistas y los momentos sin música en los que la
   // proyección se detiene (#145).
@@ -283,7 +295,7 @@ export default function ProjectionView() {
                   </div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 8 }}>
                     {enPantalla?.clase === "pista"
-                      ? `${enPantalla.pista.video ? "video" : "audio"} · ${fmt(pos)} de ${dur > 0 ? fmt(dur) : enPantalla.pista.dur}`
+                      ? <TiempoEnPantalla pista={enPantalla.pista} />
                       : enPantalla
                         ? `${enPantalla.momento.texto ? `${enPantalla.momento.texto} · ` : ""}sin música · espera a «Siguiente»`
                         : ""}

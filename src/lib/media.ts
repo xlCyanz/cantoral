@@ -67,7 +67,6 @@ export function useReproductor(
   activo: boolean,
 ): ManejadoresDeMedios {
   const playing = useStore((s) => s.playing);
-  const posSec = useStore((s) => s.posSec);
   const volume = useStore((s) => s.volume);
   const muted = useStore((s) => s.muted);
 
@@ -114,11 +113,20 @@ export function useReproductor(
 
   // Un salto en `posSec` es alguien moviendo la barra. El margen evita pelearse
   // con el `timeupdate` que el propio elemento acaba de mandar.
-  useEffect(() => {
-    const el = ref.current;
-    if (el && el.src && Math.abs(el.currentTime - posSec) > 1.5) el.currentTime = posSec;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posSec]);
+  //
+  // Suscrito al store y no leído con `useStore`: la posición cambia cada
+  // segundo, y leída aquí volvía a pintar cada segundo al componente que usa
+  // este hook —la barra del reproductor entera, o el panel de detalle— solo
+  // para comprobar que no había ningún salto.
+  useEffect(
+    () =>
+      useStore.subscribe((s, antes) => {
+        if (s.posSec === antes.posSec) return;
+        const el = ref.current;
+        if (el && el.src && Math.abs(el.currentTime - s.posSec) > 1.5) el.currentTime = s.posSec;
+      }),
+    [ref],
+  );
 
   return {
     onTimeUpdate: (e) => informarPosicion(e.currentTarget.currentTime),

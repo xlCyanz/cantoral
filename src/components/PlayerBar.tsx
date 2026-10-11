@@ -5,6 +5,7 @@ import { cur, modoDeLaBarra, pistaEnElAire, useStore } from "../store";
 import { useReproductor } from "../lib/media";
 import { coverStyle, fmt } from "../lib/covers";
 import GlifoDePista from "./GlifoDePista";
+import type { Track } from "../lib/types";
 import { valorDeDeslizador } from "../lib/teclado";
 
 /**
@@ -90,6 +91,40 @@ const transportBtn: CSSProperties = { width: 26, height: 26, borderRadius: 7, di
 const secundarioBtn: CSSProperties = { width: 24, height: 24, borderRadius: 6, display: "grid", placeItems: "center" };
 const tiempo: CSSProperties = { fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", width: 30 };
 
+/**
+ * El tiempo y la barra de progreso.
+ *
+ * Lo único de la barra que cambia cada segundo, y por eso aparte: leyendo la
+ * posición, la barra entera —carátula, botones, volumen— se volvía a pintar
+ * con cada segundo que pasaba. Así solo se repinta esto.
+ */
+function Progreso({ track, enCulto }: { track: Track | undefined; enCulto: boolean }) {
+  const posSec = useStore((s) => (modoDeLaBarra(s) === "culto" ? s.proyeccionPos : s.posSec));
+  const durCulto = useStore((s) => (enCulto ? s.proyeccionDur : 0));
+  const seekToFraction = useStore((s) => s.seekToFraction);
+
+  const durS = (enCulto && durCulto > 0 ? durCulto : track?.durSec) || 1;
+  const durTexto = track ? (enCulto && durCulto > 0 ? fmt(durCulto) : track.dur) : "0:00";
+  const progPct = Math.min(100, (posSec / durS) * 100);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", maxWidth: 460 }}>
+      <span style={{ ...tiempo, textAlign: "right" }}>{fmt(posSec)}</span>
+      <DragBar
+        fraction={progPct / 100}
+        onChange={seekToFraction}
+        fillBg="var(--primary)"
+        thumbBg="var(--primary)"
+        thumbSize={10}
+        etiqueta="Posición en la pista"
+        texto={`${fmt(posSec)} de ${durTexto}`}
+        paso={5 / Math.max(durS, 1)}
+      />
+      <span style={tiempo}>{durTexto}</span>
+    </div>
+  );
+}
+
 export default function PlayerBar() {
   // This is the one component that has to re-render several times a second, so
   // it reads the fields it shows one by one — reading the whole store here used
@@ -103,8 +138,6 @@ export default function PlayerBar() {
   const transporte = useStore((s) => cur(s) ?? s.tracks[0]);
   const delCulto = useStore((s) => (modoDeLaBarra(s) === "culto" ? pistaEnElAire(s) : undefined));
   const track = delCulto ?? transporte;
-  const posSec = useStore((s) => (modoDeLaBarra(s) === "culto" ? s.proyeccionPos : s.posSec));
-  const durCulto = useStore((s) => s.proyeccionDur);
   const playing = useStore((s) => (modoDeLaBarra(s) === "culto" ? !s.proyeccionPausada : s.playing));
   const proyectando = useStore((s) => s.proyectando);
   const cerrarProyeccion = useStore((s) => s.cerrarProyeccion);
@@ -119,7 +152,6 @@ export default function PlayerBar() {
   const togglePlay = useStore((s) => s.togglePlay);
   const toggleRepeat = useStore((s) => s.toggleRepeat);
   const toggleMute = useStore((s) => s.toggleMute);
-  const seekToFraction = useStore((s) => s.seekToFraction);
   const setVolume = useStore((s) => s.setVolume);
   const irAnterior = useStore((s) => s.prev);
   const irSiguiente = useStore((s) => s.next);
@@ -129,9 +161,6 @@ export default function PlayerBar() {
   // vistazo (#139).
   const otraCola = useStore((s) => s.view === "lista" && s.queueOrigen === "biblioteca");
 
-  const durS = (enCulto && durCulto > 0 ? durCulto : track?.durSec) || 1;
-  const durTexto = track ? (enCulto && durCulto > 0 ? fmt(durCulto) : track.dur) : "0:00";
-  const progPct = Math.min(100, (posSec / durS) * 100);
   const volPct = (muted ? 0 : volume) * 100;
 
   // ---- reproducción integrada (solo en Tauri; el navegador usa el temporizador) ----
@@ -191,20 +220,7 @@ export default function PlayerBar() {
             <Repeat size={14} />
           </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", maxWidth: 460 }}>
-          <span style={{ ...tiempo, textAlign: "right" }}>{fmt(posSec)}</span>
-          <DragBar
-            fraction={progPct / 100}
-            onChange={seekToFraction}
-            fillBg="var(--primary)"
-            thumbBg="var(--primary)"
-            thumbSize={10}
-            etiqueta="Posición en la pista"
-            texto={`${fmt(posSec)} de ${durTexto}`}
-            paso={5 / Math.max(durS, 1)}
-          />
-          <span style={tiempo}>{durTexto}</span>
-        </div>
+        <Progreso track={track} enCulto={enCulto} />
       </div>
 
       {/* de dónde sale lo que suena, y el volumen */}
