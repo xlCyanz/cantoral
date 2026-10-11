@@ -2,6 +2,7 @@ import type { ThemeMode } from "../lib/types";
 import { UI_PREFS_KEY, parsePrefs, resolveView } from "../lib/uiPrefs";
 import { registrar, BIBLIOTECA_SIN_ABRIR, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
+import { prepararBusqueda } from "../lib/buscar";
 import type { CantoralState } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
@@ -210,6 +211,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         const videos = snap.tracks.filter((t) => t.video).length;
         registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
         apuntarPrimerDibujo(snap.tracks.length);
+        // Lo que la primera tecla de la búsqueda necesita, en los ratos libres
+        // de después de pintar y no en esa tecla.
+        prepararBusqueda(get().tracks);
         // Restore saved preferences.
         // `openExt` ya no se lee. La fila que dejó en `settings` una
         // instalación anterior se queda ahí sin hacer nada: borrarla sería
