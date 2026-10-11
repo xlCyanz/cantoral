@@ -45,6 +45,12 @@ export interface EscaneoSlice {
   scanTotal: number;
   /** Message from the last failed backend call, shown in the error state. */
   scanError: string | null;
+  /**
+   * Si el arranque terminó: la biblioteca cargada y reconciliada con el disco.
+   * Hasta entonces el trabajo de fondo (miniaturas, duraciones) espera, para
+   * no competir con lo primero que se ve.
+   */
+  arranqueListo: boolean;
   /** When the last backup made this session was written (RFC3339). */
   ultimaCopia: string | null;
   ocultarTarjetaEscaneo: () => void;
@@ -118,6 +124,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     scanHechos: 0,
     scanTotal: 0,
     scanError: null,
+    arranqueListo: false,
     ultimaCopia: null,
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
     escucharEscaneo: () =>
@@ -239,6 +246,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
           .catch((err) => {
             console.error("reconcile failed", err);
             registrar("error", `reconcile failed: ${String(err)}`);
+          })
+          .finally(() => {
+            if (!get().arranqueListo) set({ arranqueListo: true });
           });
       } catch (err) {
         console.error("hydrate failed", err);
