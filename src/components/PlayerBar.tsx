@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Heart, MonitorX, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { cur, modoDeLaBarra, pistaEnElAire, useStore } from "../store";
@@ -7,6 +7,7 @@ import { coverStyle, fmt } from "../lib/covers";
 import GlifoDePista from "./GlifoDePista";
 import type { Track } from "../lib/types";
 import { valorDeDeslizador } from "../lib/teclado";
+import { crearBusquedaDiferida } from "../lib/busqueda";
 
 /**
  * Draggable progress / volume track (ported from dragBar).
@@ -25,9 +26,10 @@ function DragBar({
   etiqueta,
   texto,
   paso,
+  onSoltar,
 }: {
   fraction: number;
-  onChange: (f: number) => void;
+  onChange: (f: number, origen: "puntero" | "tecla") => void;
   fillBg: string;
   thumbBg: string;
   thumbSize: number;
@@ -36,6 +38,11 @@ function DragBar({
   texto: string;
   /** What one arrow press moves, as a fraction of the whole. */
   paso: number;
+  /**
+   * Al soltar el ratón o la tecla. Con él, `onChange` dice además de dónde
+   * viene cada movimiento, para quien quiera esperar a que se suelte.
+   */
+  onSoltar?: () => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const pct = Math.min(100, Math.max(0, fraction * 100));
@@ -45,14 +52,17 @@ function DragBar({
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const calc = (x: number) => Math.min(1, Math.max(0, (x - rect.left) / rect.width));
-    onChange(calc(e.clientX));
-    const mv = (ev: PointerEvent) => onChange(calc(ev.clientX));
+    onChange(calc(e.clientX), "puntero");
+    const mv = (ev: PointerEvent) => onChange(calc(ev.clientX), "puntero");
     const up = () => {
       document.removeEventListener("pointermove", mv);
       document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      onSoltar?.();
     };
     document.addEventListener("pointermove", mv);
     document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
   };
 
   return (
@@ -72,7 +82,10 @@ function DragBar({
         // the slider they belong to the slider.
         e.preventDefault();
         e.stopPropagation();
-        onChange(f);
+        onChange(f, "tecla");
+      }}
+      onKeyUp={(e) => {
+        if (valorDeDeslizador(e.key, fraction, paso) !== null) onSoltar?.();
       }}
       style={{ flex: 1, height: 16, display: "flex", alignItems: "center", cursor: "pointer", touchAction: "none" }}>
       <div ref={trackRef} style={{ width: "100%", height: 5, borderRadius: 4, background: "var(--surface-3)", position: "relative" }}>
@@ -99,20 +112,43 @@ const tiempo: CSSProperties = { fontSize: 10, color: "var(--text-3)", fontVarian
  * con cada segundo que pasaba. Así solo se repinta esto.
  */
 function Progreso({ track, enCulto }: { track: Track | undefined; enCulto: boolean }) {
-  const posSec = useStore((s) => (modoDeLaBarra(s) === "culto" ? s.proyeccionPos : s.posSec));
+  const storePos = useStore((s) => (modoDeLaBarra(s) === "culto" ? s.proyeccionPos : s.posSec));
   const durCulto = useStore((s) => (enCulto ? s.proyeccionDur : 0));
-  const seekToFraction = useStore((s) => s.seekToFraction);
+  const alProyector = useStore((s) => modoDeLaBarra(s) !== "local");
+  // Adónde se está arrastrando, mientras se arrastra hacia el proyector.
+  const [arrastre, setArrastre] = useState<number | null>(null);
+  // Un solo objeto por barra: guarda lo pendiente entre un evento y otro.
+  const [busqueda] = useState(() => crearBusquedaDiferida((f) => useStore.getState().seekToFraction(f)));
 
   const durS = (enCulto && durCulto > 0 ? durCulto : track?.durSec) || 1;
   const durTexto = track ? (enCulto && durCulto > 0 ? fmt(durCulto) : track.dur) : "0:00";
-  const progPct = Math.min(100, (posSec / durS) * 100);
+  const posSec = arrastre !== null ? Math.round(arrastre * durS) : storePos;
+  const fraccion = arrastre ?? Math.min(100, (storePos / durS) * 100) / 100;
+
+  // En el portátil cada movimiento salta en el `<audio>` en el acto. Hacia el
+  // proyector la barra se mueve aquí y la salida recibe solo dónde se soltó
+  // (ver `busqueda.ts`).
+  const mover = (f: number, origen: "puntero" | "tecla") => {
+    if (!alProyector) {
+      useStore.getState().seekToFraction(f);
+      return;
+    }
+    setArrastre(f);
+    if (origen === "tecla") busqueda.tecla(f);
+    else busqueda.arrastrar(f);
+  };
+  const soltar = () => {
+    busqueda.soltar();
+    setArrastre(null);
+  };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", maxWidth: 460 }}>
       <span style={{ ...tiempo, textAlign: "right" }}>{fmt(posSec)}</span>
       <DragBar
-        fraction={progPct / 100}
-        onChange={seekToFraction}
+        fraction={fraccion}
+        onChange={mover}
+        onSoltar={soltar}
         fillBg="var(--primary)"
         thumbBg="var(--primary)"
         thumbSize={10}
