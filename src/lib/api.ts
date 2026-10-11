@@ -4,10 +4,9 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
-import type { ArchivoDeLista } from "./compartir";
+import { parsearArchivo, type ArchivoDeLista } from "./compartir";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
 // Lo mínimo vive en `registro.ts`, para que la ventana de salida no cargue
@@ -29,6 +28,12 @@ export function gestorDeArchivos(): string {
   return "la carpeta";
 }
 
+
+/**
+ * Los diálogos nativos de abrir y guardar, cargados la primera vez que se
+ * abre uno: no hacen falta para pintar la app.
+ */
+const dialogos = () => import("@tauri-apps/plugin-dialog");
 
 async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
@@ -79,7 +84,7 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 /** Native picker for a single media file, used when relocating a track. */
 export async function pickMediaFile(): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await open({
+  const res = await (await dialogos()).open({
     multiple: false,
     filters: [
       {
@@ -137,14 +142,14 @@ export async function revealFile(path: string): Promise<void> {
 /** Native folder picker. Returns the chosen absolute path, or null. */
 export async function pickFolder(): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await open({ directory: true, multiple: false });
+  const res = await (await dialogos()).open({ directory: true, multiple: false });
   return typeof res === "string" ? res : null;
 }
 
 /** Native save dialog for an exported playlist sheet. */
 export async function pickExportPath(defaultPath: string): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await save({ defaultPath, filters: [{ name: "Página web", extensions: ["html"] }] });
+  const res = await (await dialogos()).save({ defaultPath, filters: [{ name: "Página web", extensions: ["html"] }] });
   return res ?? null;
 }
 
@@ -156,7 +161,7 @@ export async function exportPlaylistCmd(dest: string, html: string): Promise<voi
 /** Native save dialog for a playlist another installation can import. */
 export async function pickShareExportPath(defaultPath: string): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await save({ defaultPath, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
+  const res = await (await dialogos()).save({ defaultPath, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
   return res ?? null;
 }
 
@@ -168,8 +173,7 @@ export async function exportPlaylistJsonCmd(dest: string, json: string): Promise
 /** Native open dialog for a shared playlist file. */
 export async function pickPlaylistFile(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const res = await open({ multiple: false, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
+  const res = await (await dialogos()).open({ multiple: false, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
   return typeof res === "string" ? res : null;
 }
 
@@ -181,7 +185,7 @@ export async function readPlaylistFileCmd(src: string): Promise<ArchivoDeLista> 
 /** Native save dialog for the database backup. */
 export async function pickSavePath(): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await save({ defaultPath: "cantoral-backup.db", filters: [{ name: "SQLite", extensions: ["db"] }] });
+  const res = await (await dialogos()).save({ defaultPath: "cantoral-backup.db", filters: [{ name: "SQLite", extensions: ["db"] }] });
   return res ?? null;
 }
 
@@ -508,8 +512,7 @@ export async function listAutoBackups(): Promise<CopiaAutomatica[]> {
 /** Native open dialog for a .db backup file. */
 export async function pickDbFile(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const res = await open({ multiple: false, filters: [{ name: "Base de datos", extensions: ["db"] }] });
+  const res = await (await dialogos()).open({ multiple: false, filters: [{ name: "Base de datos", extensions: ["db"] }] });
   return typeof res === "string" ? res : null;
 }
 export async function getSetting(key: string): Promise<string | null> {
@@ -566,7 +569,6 @@ export async function onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void):
  * `pnpm dev`. Resolves to null when the picker is dismissed.
  */
 export async function leerArchivoDelNavegador(): Promise<ArchivoDeLista | null> {
-  const { parsearArchivo } = await import("./compartir");
   const texto = await new Promise<string | null>((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";

@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { registrar } from "./lib/api";
+import { isTauri, registrar } from "./lib/api";
+import { cargarNavegador } from "./lib/backend";
 import { aplicarTemaGuardado } from "./lib/temaGuardado";
 import "./styles/global.css";
 
@@ -23,8 +24,14 @@ window.addEventListener("unhandledrejection", (e) => {
   registrar("error", `[main] unhandled rejection: ${String(e.reason)}`);
 });
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+async function arrancar() {
+  // Fuera de Tauri —`pnpm dev`— la app corre sobre los datos de ejemplo, que
+  // van en un trozo aparte para no pesar en la de escritorio.
+  if (!isTauri()) await cargarNavegador();
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+}
+void arrancar();

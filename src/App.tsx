@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { flushUiPrefs, useStore } from "./store";
 import { registerShortcuts } from "./lib/shortcuts";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -8,29 +8,54 @@ import TopBar from "./components/TopBar";
 import LibraryView from "./components/LibraryView";
 import CollectionsView from "./components/CollectionsView";
 import PlaylistView from "./components/PlaylistView";
-import ConfigView from "./components/ConfigView";
-import ProjectionView from "./components/ProjectionView";
 import DetailPanel from "./components/DetailPanel";
 import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
 import NewListDialog from "./components/NewListDialog";
 import AddToListDialog from "./components/AddToListDialog";
-import AgregarCancionesDialog from "./components/AgregarCancionesDialog";
-import ImportListDialog from "./components/ImportListDialog";
-import PrintPreview from "./components/PrintPreview";
-import MomentoDialog from "./components/MomentoDialog";
-import HelpDialog from "./components/HelpDialog";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
 import RowMenu from "./components/RowMenu";
 import Toast from "./components/Toast";
 import TrabajosDeFondo from "./components/TrabajosDeFondo";
 
+// Lo que casi nunca se abre se carga al abrirlo, y no al arrancar: la
+// configuración, la proyección y los diálogos de ayuda, imprimir, importar,
+// momentos y «Agregar canciones». Un rato después de arrancar se cargan
+// igual, en un momento libre, para que la primera vez que se abran no
+// esperen a nada.
+const cargarConfig = () => import("./components/ConfigView");
+const cargarProyeccion = () => import("./components/ProjectionView");
+const cargarAgregar = () => import("./components/AgregarCancionesDialog");
+const cargarImportar = () => import("./components/ImportListDialog");
+const cargarImprimir = () => import("./components/PrintPreview");
+const cargarMomento = () => import("./components/MomentoDialog");
+const cargarAyuda = () => import("./components/HelpDialog");
+const ConfigView = lazy(cargarConfig);
+const ProjectionView = lazy(cargarProyeccion);
+const AgregarCancionesDialog = lazy(cargarAgregar);
+const ImportListDialog = lazy(cargarImportar);
+const PrintPreview = lazy(cargarImprimir);
+const MomentoDialog = lazy(cargarMomento);
+const HelpDialog = lazy(cargarAyuda);
+const DIFERIDOS = [cargarConfig, cargarProyeccion, cargarAgregar, cargarImportar, cargarImprimir, cargarMomento, cargarAyuda];
+
+/**
+ * Lo diferido, sin nada en su lugar mientras llega: es un archivo local que
+ * tarda un cuadro, y un esqueleto que aparece y desaparece se notaría más
+ * que ese cuadro vacío.
+ */
+function Diferido({ children }: { children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
 export default function App() {
   const theme = useStore((s) => s.theme);
   const view = useStore((s) => s.view);
   const tick = useStore((s) => s.tick);
   const hydrate = useStore((s) => s.hydrate);
+  const dialog = useStore((s) => s.dialog);
+  const arranqueListo = useStore((s) => s.arranqueListo);
 
   // Reflect the theme on <html> so the CSS variables flip app-wide.
   useEffect(() => {
@@ -80,6 +105,13 @@ export default function App() {
     };
   }, []);
 
+  // Lo diferido, ya con la biblioteca en pantalla y en un rato libre.
+  useEffect(() => {
+    if (!arranqueListo) return;
+    const id = setTimeout(() => DIFERIDOS.forEach((cargar) => void cargar().catch(() => {})), 3000);
+    return () => clearTimeout(id);
+  }, [arranqueListo]);
+
   // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).
   useEffect(() => registerShortcuts(), []);
 
@@ -123,8 +155,8 @@ export default function App() {
             {view === "biblioteca" && <LibraryView />}
             {view === "colecciones" && <CollectionsView />}
             {view === "lista" && <PlaylistView />}
-            {view === "config" && <ConfigView />}
-            {view === "proyeccion" && <ProjectionView />}
+            {view === "config" && <Diferido><ConfigView /></Diferido>}
+            {view === "proyeccion" && <Diferido><ProjectionView /></Diferido>}
           </main>
         </div>
 
@@ -135,11 +167,13 @@ export default function App() {
       <AddFolderDialog />
       <NewListDialog />
       <AddToListDialog />
-      <AgregarCancionesDialog />
-      <ImportListDialog />
-      <PrintPreview />
-      <MomentoDialog />
-      <HelpDialog />
+      {/* Cada uno se monta solo abierto: cerrado no pinta nada, y así ni se
+          carga ni sigue al store mientras tanto. */}
+      {dialog === "agregarCanciones" && <Diferido><AgregarCancionesDialog /></Diferido>}
+      {dialog === "importList" && <Diferido><ImportListDialog /></Diferido>}
+      {dialog === "printPreview" && <Diferido><PrintPreview /></Diferido>}
+      {dialog === "momento" && <Diferido><MomentoDialog /></Diferido>}
+      {dialog === "help" && <Diferido><HelpDialog /></Diferido>}
       <ConfirmDialog />
       <RowMenu />
       <ScanProgress />

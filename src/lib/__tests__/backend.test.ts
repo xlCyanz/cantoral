@@ -46,6 +46,17 @@ describe("el navegador arranca como la app", () => {
     expect(backend()).not.toBe(tauri);
     expect(backend().reproduceArchivos).toBe(false);
   });
+
+  it("la base en memoria se carga aparte, y sin cargarla se dice en vez de contestar nada", async () => {
+    // Un módulo nuevo, sin lo que hizo la preparación de las pruebas: lo que
+    // ve la app de escritorio, que nunca la carga.
+    vi.resetModules();
+    const nuevo = await import("../backend");
+    expect(() => nuevo.backend()).toThrow(/cargarNavegador/);
+
+    await nuevo.cargarNavegador();
+    expect(nuevo.backend().reproduceArchivos).toBe(false);
+  });
 });
 
 describe("las dos formas de quitar una pista hacen lo mismo", () => {
