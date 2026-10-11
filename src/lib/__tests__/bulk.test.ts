@@ -4,12 +4,12 @@
 // que quitar pistas no ocurra sin confirmar.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Snapshot } from "../api";
+import type { Parche } from "../api";
 import type { Playlist, Track } from "../types";
 
 const addTracksToPlaylistCmd = vi.fn<(pl: string, ids: string[]) => Promise<Playlist[] | null>>();
 const setTracksFavCmd = vi.fn<(ids: string[], fav: boolean) => Promise<void>>();
-const deleteTracksCmd = vi.fn<(ids: string[]) => Promise<Snapshot | null>>();
+const deleteTracksCmd = vi.fn<(ids: string[]) => Promise<Parche | null>>();
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),

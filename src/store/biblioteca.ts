@@ -79,7 +79,7 @@ export interface BibliotecaSlice {
 }
 
 export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSlice {
-  const { toast, avisarFallo, pausarVideoSiDejaDeVerse, applySnapshot } = ctx;
+  const { toast, avisarFallo, pausarVideoSiDejaDeVerse, applyParche } = ctx;
   return {
     // Empty until `hydrate()` fills it from the backend — SQLite in the app,
     // the seed in the browser. Starting from the seed in the browser used to
@@ -191,8 +191,8 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
           set({ rowMenu: null, selection: [], selAnchor: null });
           backend()
             .deleteTracks(ids)
-            .then((snap) => {
-              applySnapshot(snap);
+            .then((cambios) => {
+              applyParche(cambios);
               toast(ids.length === 1 ? "Pista quitada" : `${ids.length} pistas quitadas`, {
                 detalle: "Los archivos siguen en el disco.",
               });
@@ -234,9 +234,9 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
       if (!t) return;
       backend()
         .relocateTrack(id)
-        .then((snap) => {
-          if (!snap) return;
-          applySnapshot(snap);
+        .then((cambios) => {
+          if (!cambios) return;
+          applyParche(cambios);
           toast(`«${t.titulo}» vuelve a estar localizada`, {
             detalle: "Conserva su favorito y su sitio en los cultos.",
           });
@@ -263,8 +263,8 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
         onConfirm: () => {
           backend()
             .deleteTrack(id)
-            .then((snap) => {
-              applySnapshot(snap);
+            .then((cambios) => {
+              applyParche(cambios);
               set({ detailOpen: false, selId: null });
               // Cerrar el panel aquí también se lleva el video que sonara (#125);
               // el aviso de la pausa lo tapa el de abajo, que es lo que se pidió.

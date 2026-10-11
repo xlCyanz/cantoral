@@ -21,6 +21,7 @@ import type {
   CopiaAutomatica,
   DuplicateReport,
   Novedades,
+  Parche,
   Reconciliacion,
   ScanProgressEvent,
   Snapshot,
@@ -58,10 +59,11 @@ export interface Backend {
   setTrackFav(id: string, fav: boolean): Promise<void>;
   setTracksFav(ids: string[], fav: boolean): Promise<void>;
   updateTrack(id: string, artista: string): Promise<void>;
-  deleteTrack(id: string): Promise<Snapshot>;
-  deleteTracks(ids: string[]): Promise<Snapshot>;
+  // Las acciones sobre unas pistas contestan solo con lo que cambió.
+  deleteTrack(id: string): Promise<Parche>;
+  deleteTracks(ids: string[]): Promise<Parche>;
   /** Elige el archivo nuevo de una pista y la apunta a él; null si se canceló. */
-  relocateTrack(id: string): Promise<Snapshot | null>;
+  relocateTrack(id: string): Promise<Parche | null>;
   revealFile(path: string): Promise<void>;
 
   // ---- carpetas y escaneo
@@ -72,9 +74,9 @@ export interface Backend {
   onScanProgress(cb: (p: ScanProgressEvent) => void): Promise<() => void>;
   /** Las carátulas que la pasada única del núcleo va reduciendo, por lotes. */
   onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void): Promise<() => void>;
-  removeFolder(id: string): Promise<Snapshot>;
+  removeFolder(id: string): Promise<Parche>;
   /** Elige la ubicación nueva de una carpeta y la reapunta; null si se canceló. */
-  relocateFolder(id: string): Promise<Snapshot | null>;
+  relocateFolder(id: string): Promise<Parche | null>;
 
   // ---- cultos
   getPlaylists(): Promise<Playlist[]>;
@@ -93,7 +95,7 @@ export interface Backend {
 
   // ---- duplicados
   findDuplicates(): Promise<DuplicateReport>;
-  mergeDuplicates(keep: string, drop: string[]): Promise<Snapshot>;
+  mergeDuplicates(keep: string, drop: string[]): Promise<Parche>;
   dismissDuplicates(signature: string): Promise<DuplicateReport>;
   restoreDismissedDuplicates(): Promise<DuplicateReport>;
 

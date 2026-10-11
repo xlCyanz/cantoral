@@ -40,3 +40,35 @@ export function conservarIguales(antes: Track[], nuevas: Track[]): Track[] {
   });
   return todoIgual ? antes : fuera;
 }
+
+/**
+ * `antes` sin las pistas `quitadas` y con las `cambiadas` puestas en su sitio.
+ *
+ * Es lo que contesta el núcleo a quitar, reubicar o fusionar pistas, en vez
+ * del catálogo entero (ver `Parche`). Las demás pistas siguen siendo los
+ * mismos objetos, y una cambiada que llega igual a la que había se queda con
+ * la de antes. Si al final nada cambió, devuelve `antes` tal cual. Una
+ * cambiada que no estaba en el catálogo no se añade: el parche nunca trae
+ * pistas nuevas.
+ */
+export function aplicarParche(antes: Track[], quitadas: readonly string[], cambiadas: readonly Track[]): Track[] {
+  if (quitadas.length === 0 && cambiadas.length === 0) return antes;
+  const fuera = new Set(quitadas);
+  const nuevas = new Map(cambiadas.map((t) => [t.id, t]));
+  let igual = true;
+  const quedan: Track[] = [];
+  for (const t of antes) {
+    if (fuera.has(t.id)) {
+      igual = false;
+      continue;
+    }
+    const nueva = nuevas.get(t.id);
+    if (!nueva || mismaPista(t, nueva)) {
+      quedan.push(t);
+    } else {
+      igual = false;
+      quedan.push(nueva);
+    }
+  }
+  return igual ? antes : quedan;
+}

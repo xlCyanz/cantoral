@@ -208,6 +208,21 @@ export interface Snapshot {
   playlists: Playlist[];
 }
 
+/**
+ * Lo que cambió una acción sobre unas pistas, en vez del catálogo entero.
+ *
+ * Quitar una pista, reubicarla, fusionar copias o quitar una carpeta
+ * contestaban con la instantánea completa —4,7 MB con diez mil pistas—. Ahora
+ * llegan las que se fueron, las que cambiaron con sus datos nuevos, y las
+ * carpetas y las listas solo si la acción pudo tocarlas (`null` si no).
+ */
+export interface Parche {
+  quitadas: string[];
+  cambiadas: Track[];
+  folders: Folder[] | null;
+  playlists: Playlist[] | null;
+}
+
 export interface ScanProgressEvent {
   folderId: string;
   pct: number;
@@ -245,9 +260,9 @@ export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<void
 }
 
 /** Drop a whole selection from the catalogue. The audio files are untouched. */
-export async function deleteTracksCmd(ids: string[]): Promise<Snapshot | null> {
+export async function deleteTracksCmd(ids: string[]): Promise<Parche | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("delete_tracks", { ids });
+  return inv<Parche>("delete_tracks", { ids });
 }
 
 /** One candidate inside a group of suspected duplicates. */
@@ -290,9 +305,9 @@ export async function findDuplicatesCmd(): Promise<DuplicateReport | null> {
 }
 
 /** Fold `drop` into `keep`, moving the favourite and list places across. */
-export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Snapshot | null> {
+export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Parche | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("merge_duplicates", { keep, drop });
+  return inv<Parche>("merge_duplicates", { keep, drop });
 }
 
 /** Remember that a group is not duplicates after all. */
@@ -343,20 +358,20 @@ export async function reconcileLibraryCmd(): Promise<Reconciliacion | null> {
   if (!isTauri()) return null;
   return inv<Reconciliacion>("reconcile_library");
 }
-export async function removeFolderCmd(id: string): Promise<Snapshot> {
-  return inv<Snapshot>("remove_folder", { id });
+export async function removeFolderCmd(id: string): Promise<Parche> {
+  return inv<Parche>("remove_folder", { id });
 }
 /** Point a track at its file's new location, keeping what it carries. */
-export async function relocateTrackCmd(id: string, path: string): Promise<Snapshot> {
-  return inv<Snapshot>("relocate_track", { id, path });
+export async function relocateTrackCmd(id: string, path: string): Promise<Parche> {
+  return inv<Parche>("relocate_track", { id, path });
 }
 /** Drop one track from the catalogue. The audio file is never touched. */
-export async function deleteTrackCmd(id: string): Promise<Snapshot> {
-  return inv<Snapshot>("delete_track", { id });
+export async function deleteTrackCmd(id: string): Promise<Parche> {
+  return inv<Parche>("delete_track", { id });
 }
 /** Point a whole indexed folder at its new location, rewriting its tracks. */
-export async function relocateFolderCmd(id: string, path: string): Promise<Snapshot> {
-  return inv<Snapshot>("relocate_folder", { id, path });
+export async function relocateFolderCmd(id: string, path: string): Promise<Parche> {
+  return inv<Parche>("relocate_folder", { id, path });
 }
 export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;

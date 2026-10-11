@@ -25,6 +25,38 @@ fn snapshot(conn: &Connection) -> anyhow::Result<Snapshot> {
     })
 }
 
+/// Lo que cambió una acción sobre unas pistas, en vez del catálogo entero.
+///
+/// Quitar una pista, reubicarla o fusionar copias contestaba con la
+/// instantánea completa: 4,7 MB con diez mil pistas, para que la interfaz se
+/// enterara de que faltaba una. Ahora contesta con las que se fueron, las que
+/// cambiaron con sus datos nuevos, y las carpetas y las listas solo cuando la
+/// acción pudo tocarlas.
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Parche {
+    pub quitadas: Vec<String>,
+    pub cambiadas: Vec<Track>,
+    pub folders: Option<Vec<Folder>>,
+    pub playlists: Option<Vec<Playlist>>,
+}
+
+/// El parche de una acción: `quitadas` ya no están; `cambiadas` se leen ahora.
+fn parche(
+    conn: &Connection,
+    quitadas: &[i64],
+    cambiadas: Vec<Track>,
+    carpetas: bool,
+    listas: bool,
+) -> anyhow::Result<Parche> {
+    Ok(Parche {
+        quitadas: quitadas.iter().map(|i| i.to_string()).collect(),
+        cambiadas,
+        folders: if carpetas { Some(db::list_folders(conn)?) } else { None },
+        playlists: if listas { Some(db::list_playlists(conn)?) } else { None },
+    })
+}
+
 /// What the duplicates view needs in one round trip.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -281,7 +313,7 @@ pub fn merge_duplicates(
     db_path: State<DbPath>,
     keep: String,
     drop: Vec<String>,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Parche> {
     let keep_id = keep.parse::<i64>().map_err(e)?;
     let drop_ids = drop
         .iter()
@@ -291,7 +323,10 @@ pub fn merge_duplicates(
     let conn = db.0.lock().map_err(e)?;
     fusionar(&conn, &copias::carpeta(&db_path.0), keep_id, &drop_ids).map_err(e)?;
     log::info!("merged {} copies into track {keep}", drop_ids.len());
-    snapshot(&conn).map_err(e)
+    // La que se queda puede haber heredado el favorito o el artista, y los
+    // cultos siguen a ella.
+    let queda = db::list_tracks_by_ids(&conn, &[keep_id]).map_err(e)?;
+    parche(&conn, &drop_ids, queda, true, true).map_err(e)
 }
 
 /// Fusionar, con la copia automática antes (#143). Si la copia no se puede
@@ -389,12 +424,13 @@ pub fn set_tracks_fav(db: State<Db>, ids: Vec<String>, fav: bool) -> CmdResult<(
 
 /// Drop a whole selection from the catalogue. The audio files are untouched.
 #[tauri::command(async)]
-pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Snapshot> {
+pub fn delete_tracks(db: State<Db>, ids: Vec<String>) -> CmdResult<Parche> {
     let conn = db.0.lock().map_err(e)?;
     let parsed = ids_de(&ids)?;
     db::delete_tracks(&conn, &parsed).map_err(e)?;
     log::info!("{} tracks removed from the catalogue", parsed.len());
-    snapshot(&conn).map_err(e)
+    // Las carpetas cuentan sus pistas, y los cultos las pierden.
+    parche(&conn, &parsed, Vec::new(), true, true).map_err(e)
 }
 
 /// A track whose file appeared or disappeared since the catalogue was read.
@@ -454,12 +490,13 @@ pub fn remove_folder(
     db_path: State<DbPath>,
     slot: State<ScanSlot>,
     id: String,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Parche> {
     let _claim = tomar(&slot, Tarea::QuitarCarpeta)?;
     let conn = db.0.lock().map_err(e)?;
-    quitar_carpeta(&conn, &copias::carpeta(&db_path.0), id.parse::<i64>().map_err(e)?)
-        .map_err(e)?;
-    snapshot(&conn).map_err(e)
+    let fid = id.parse::<i64>().map_err(e)?;
+    let se_van = db::track_ids_in_folder(&conn, fid).map_err(e)?;
+    quitar_carpeta(&conn, &copias::carpeta(&db_path.0), fid).map_err(e)?;
+    parche(&conn, &se_van, Vec::new(), true, true).map_err(e)
 }
 
 /// Quitar una carpeta, con la copia automática antes (#143). La toma de la
@@ -477,25 +514,29 @@ pub fn relocate_track(
     db: State<Db>,
     id: String,
     path: String,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Parche> {
     let conn = db.0.lock().map_err(e)?;
-    db::relocate_track(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
-        .map_err(e)?;
+    let tid = id.parse::<i64>().map_err(e)?;
+    db::relocate_track(&conn, tid, std::path::Path::new(&path)).map_err(e)?;
     // The file the user picked can live outside every indexed folder, so it is
     // granted on its own rather than through its parent.
     if let Err(err) = app.asset_protocol_scope().allow_file(&path) {
         log::error!("could not grant asset access to «{path}»: {err}");
     }
     log::info!("track {id} relocated to {path}");
-    snapshot(&conn).map_err(e)
+    // Si el archivo nuevo cae en otra carpeta indexada, la pista se muda a
+    // ella y cambian las cuentas de las dos.
+    let ella = db::list_tracks_by_ids(&conn, &[tid]).map_err(e)?;
+    parche(&conn, &[], ella, true, false).map_err(e)
 }
 
 /// Remove one track from the catalogue. The audio file itself is never touched.
 #[tauri::command(async)]
-pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Snapshot> {
+pub fn delete_track(db: State<Db>, id: String) -> CmdResult<Parche> {
     let conn = db.0.lock().map_err(e)?;
-    db::delete_track(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
-    snapshot(&conn).map_err(e)
+    let tid = id.parse::<i64>().map_err(e)?;
+    db::delete_track(&conn, tid).map_err(e)?;
+    parche(&conn, &[tid], Vec::new(), true, true).map_err(e)
 }
 
 /// Point a whole indexed folder at its new location, rewriting every track under
@@ -507,14 +548,16 @@ pub fn relocate_folder(
     slot: State<ScanSlot>,
     id: String,
     path: String,
-) -> CmdResult<Snapshot> {
+) -> CmdResult<Parche> {
     let _claim = tomar(&slot, Tarea::ReapuntarCarpeta)?;
     let conn = db.0.lock().map_err(e)?;
-    let n = db::relocate_folder(&conn, id.parse::<i64>().map_err(e)?, std::path::Path::new(&path))
-        .map_err(e)?;
+    let fid = id.parse::<i64>().map_err(e)?;
+    let n = db::relocate_folder(&conn, fid, std::path::Path::new(&path)).map_err(e)?;
     permitir_asset(&app, &path);
     log::info!("folder {id} relocated to {path} ({n} tracks rewritten)");
-    snapshot(&conn).map_err(e)
+    // Solo las de esa carpeta: rutas nuevas, y las que aparecieron o faltan.
+    let suyas = db::list_tracks_in_folder(&conn, fid).map_err(e)?;
+    parche(&conn, &[], suyas, true, false).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -1395,6 +1438,42 @@ mod tests {
         for otro in ["torvalds", "https://evil.example", "xlCyanz/../x", "", "XLCYANZ"] {
             assert!(super::perfil_de_github(otro).is_none(), "{otro} must be refused");
         }
+    }
+
+    #[test]
+    fn a_track_action_answers_with_what_changed_and_not_the_catalogue() {
+        let dir = Dir::new("parche");
+        let (_, conn, fid) = base_con(&dir, "p.db", 4);
+        let ids: Vec<i64> =
+            db::list_tracks(&conn).unwrap().iter().map(|t| t.id.parse().unwrap()).collect();
+        let pl = db::create_playlist(&conn, "Domingo", None).unwrap();
+        db::add_tracks_to_playlist(&conn, pl, &ids).unwrap();
+
+        db::delete_tracks(&conn, &ids[..2]).unwrap();
+        let p = super::parche(&conn, &ids[..2], Vec::new(), true, true).unwrap();
+        let json = serde_json::to_value(&p).unwrap();
+        assert_eq!(json["quitadas"], serde_json::json!([ids[0].to_string(), ids[1].to_string()]));
+        assert_eq!(json["cambiadas"], serde_json::json!([]));
+        assert_eq!(json["folders"][0]["count"], 2, "la carpeta ya no las cuenta");
+        let en_lista: Vec<String> = p.playlists.unwrap()[0].ids.clone();
+        assert_eq!(en_lista, vec![ids[2].to_string(), ids[3].to_string()], "ni el culto");
+
+        // Reubicar: solo la pista que cambió, sin las listas.
+        let ella = db::list_tracks_by_ids(&conn, &[ids[3]]).unwrap();
+        let p = super::parche(&conn, &[], ella, true, false).unwrap();
+        assert_eq!(p.cambiadas.len(), 1);
+        assert_eq!(p.cambiadas[0].id, ids[3].to_string());
+        assert!(p.playlists.is_none());
+        assert_eq!(serde_json::to_value(&p).unwrap()["playlists"], serde_json::Value::Null);
+
+        // Una carpeta entera: sus pistas, y nada de otra.
+        let otra = db::add_folder(&conn, "/m/otra", "otra", true).unwrap();
+        db::upsert_track(&conn, otra, "/m/otra/x.mp3", "x", "", "", 1, "MP3", false, 1, 1).unwrap();
+        let suyas: Vec<String> =
+            db::list_tracks_in_folder(&conn, fid).unwrap().into_iter().map(|t| t.id).collect();
+        assert_eq!(suyas, vec![ids[2].to_string(), ids[3].to_string()]);
+        assert_eq!(db::track_ids_in_folder(&conn, fid).unwrap(), ids[2..].to_vec());
+        assert!(db::list_tracks_by_ids(&conn, &[]).unwrap().is_empty());
     }
 
     #[test]

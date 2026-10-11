@@ -72,18 +72,22 @@ describe("quitar pistas, como SQLite", () => {
   });
 
   it("varias a la vez, igual", async () => {
-    const snap = await b.deleteTracks(["a", "c"]);
+    const cambios = await b.deleteTracks(["a", "c"]);
 
-    expect(snap.tracks.map((t) => t.id)).toEqual(["b"]);
-    expect(snap.playlists.map((p) => p.ids)).toEqual([["b"], []]);
+    // Contesta como el núcleo: solo lo que se fue, y los cultos.
+    expect(cambios.quitadas).toEqual(["a", "c"]);
+    expect(cambios.cambiadas).toEqual([]);
+    expect((await b.getLibrary()).tracks.map((t) => t.id)).toEqual(["b"]);
+    expect(cambios.playlists!.map((p) => p.ids)).toEqual([["b"], []]);
   });
 
   it("quitar una carpeta se lleva sus pistas", async () => {
-    const snap = await b.removeFolder("f2");
+    const cambios = await b.removeFolder("f2");
 
-    expect(snap.folders.map((f) => f.id)).toEqual(["f1"]);
-    expect(snap.tracks.some((t) => t.id === "c")).toBe(false);
-    expect(snap.playlists.find((p) => p.id === "p2")?.ids).toEqual(["a"]);
+    expect(cambios.folders!.map((f) => f.id)).toEqual(["f1"]);
+    expect(cambios.quitadas).toContain("c");
+    expect((await b.getLibrary()).tracks.some((t) => t.id === "c")).toBe(false);
+    expect(cambios.playlists!.find((p) => p.id === "p2")?.ids).toEqual(["a"]);
   });
 });
 
@@ -129,11 +133,13 @@ describe("duplicados", () => {
     const [queda, copia] = grupo.tracks.map((t) => t.id);
     await b.addTracksToPlaylist("p2", [copia]);
 
-    const snap = await b.mergeDuplicates(queda, [copia]);
+    const cambios = await b.mergeDuplicates(queda, [copia]);
 
-    expect(snap.tracks.some((t) => t.id === copia)).toBe(false);
-    expect(snap.playlists.find((p) => p.id === "p2")?.ids).toContain(queda);
-    expect(snap.playlists.every((p) => new Set(p.ids).size === p.ids.length)).toBe(true);
+    expect(cambios.quitadas).toEqual([copia]);
+    expect(cambios.cambiadas.map((t) => t.id)).toEqual([queda]);
+    expect((await b.getLibrary()).tracks.some((t) => t.id === copia)).toBe(false);
+    expect(cambios.playlists!.find((p) => p.id === "p2")?.ids).toContain(queda);
+    expect(cambios.playlists!.every((p) => new Set(p.ids).size === p.ids.length)).toBe(true);
     // Tras fusionar, ese grupo ya no existe.
     expect((await b.findDuplicates()).groups.some((g) => g.signature === grupo.signature)).toBe(false);
   });

@@ -101,7 +101,7 @@ function apuntarPrimerDibujo(pistas: number) {
 }
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
-  const { toast, avisarFallo, applySnapshot, marcarFaltantes, cambiarCaratulas, startLiveRefresh, stopLiveRefresh } = ctx;
+  const { toast, avisarFallo, applySnapshot, applyParche, marcarFaltantes, cambiarCaratulas, startLiveRefresh, stopLiveRefresh } = ctx;
 
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
@@ -309,9 +309,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
       }
       backend()
         .relocateFolder(id)
-        .then((snap) => {
-          if (!snap) return;
-          applySnapshot(snap);
+        .then((cambios) => {
+          if (!cambios) return;
+          applyParche(cambios);
           toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
             detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
           });
@@ -340,7 +340,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         onConfirm: () => {
           backend()
             .removeFolder(id)
-            .then(applySnapshot)
+            .then(applyParche)
             .then(() => toast("Carpeta quitada de la biblioteca"))
             .catch((err) => {
               console.error(err);

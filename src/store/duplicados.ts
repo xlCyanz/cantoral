@@ -25,7 +25,7 @@ export interface DuplicadosSlice {
 }
 
 export function crearDuplicados(set: Set, get: Get, ctx: Contexto): DuplicadosSlice {
-  const { toast, applySnapshot } = ctx;
+  const { toast, applyParche } = ctx;
   return {
 
     duplicates: [],
@@ -66,12 +66,12 @@ export function crearDuplicados(set: Set, get: Get, ctx: Contexto): DuplicadosSl
           const ids = copias.map((c) => c.id);
           backend()
             .mergeDuplicates(keepId, ids)
-            .then((snap) => {
-              applySnapshot(snap);
+            .then((cambios) => {
+              applyParche(cambios);
               toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
                 detalle: "Se quedó una con el favorito y su sitio en los cultos.",
               });
-              // `applySnapshot` cleared the list; fill it with what is left.
+              // `applyParche` cleared the list; fill it with what is left.
               get().findDuplicates();
             })
             .catch((err) => {

@@ -355,6 +355,34 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
 /// Ids only grow, so this is what a scan has added since the last look — what
 /// the live refresh needs, instead of the whole catalogue every two seconds.
 pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
+    listar_pistas(conn, "t.id > ?1", params![after])
+}
+
+/// Las pistas con estos ids que sigan en el catálogo, en orden de id.
+///
+/// Lo que contesta una acción sobre unas pocas pistas —reubicar una, fusionar
+/// copias—, en vez del catálogo entero.
+pub fn list_tracks_by_ids(conn: &Connection, ids: &[i64]) -> Result<Vec<Track>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    listar_pistas(conn, &format!("t.id IN ({})", lista_de_ids(ids)), [])
+}
+
+/// Las pistas de una carpeta, en orden de id.
+pub fn list_tracks_in_folder(conn: &Connection, folder_id: i64) -> Result<Vec<Track>> {
+    listar_pistas(conn, "t.folder_id = ?1", params![folder_id])
+}
+
+/// Los ids de las pistas de una carpeta.
+pub fn track_ids_in_folder(conn: &Connection, folder_id: i64) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare("SELECT id FROM tracks WHERE folder_id=?1 ORDER BY id")?;
+    let ids = stmt.query_map(params![folder_id], |r| r.get(0))?;
+    Ok(ids.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Las pistas que cumplen `filtro`, una condición sobre `tracks t`.
+fn listar_pistas(conn: &Connection, filtro: &str, p: impl rusqlite::Params) -> Result<Vec<Track>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
                 t.fav, t.missing, t.video,
@@ -363,10 +391,10 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
                 t.added_at >= COALESCE((SELECT value FROM settings WHERE key='{ULTIMO_ESCANEO}'), '~'),
                 t.miniatura_fallida
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
-         WHERE t.id > ?1
+         WHERE {filtro}
          ORDER BY t.id"
     ))?;
-    let rows = stmt.query_map(params![after], |r| {
+    let rows = stmt.query_map(p, |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
         Ok(Track {
