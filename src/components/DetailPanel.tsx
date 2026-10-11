@@ -28,16 +28,28 @@ import type { Track } from "../lib/types";
 function VideoDeLaPista({ t }: { t: Track }) {
   const ref = useRef<HTMLVideoElement>(null);
   const esLaQueSuena = useStore((s) => s.playerId) === t.id;
-  const manejadores = useReproductor(ref, t, esLaQueSuena);
+  // Saliendo por el proyector, el que suena es el de la salida: este se queda
+  // sin cargar —un solo sonido, y un solo decodificador en el portátil— y
+  // enseña la miniatura con un aviso de dónde se está viendo.
+  const enProyector = useStore((s) => s.proyeccionPista === t.id);
+  const manejadores = useReproductor(ref, t, esLaQueSuena && !enProyector);
 
   return (
-    <video
-      ref={ref}
-      preload="metadata"
-      playsInline
-      {...manejadores}
-      style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 12, background: "#000", objectFit: "contain", border: "1px solid var(--border)" }}
-    />
+    <div style={{ position: "relative" }}>
+      <video
+        ref={ref}
+        preload="metadata"
+        playsInline
+        poster={enProyector ? t.cover : undefined}
+        {...manejadores}
+        style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 12, background: "#000", objectFit: "contain", border: "1px solid var(--border)", display: "block" }}
+      />
+      {enProyector && (
+        <div style={{ position: "absolute", left: 8, bottom: 8, fontSize: 10, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#fff", background: "rgba(0,0,0,.6)", padding: "3px 7px", borderRadius: 5 }}>
+          En el proyector
+        </div>
+      )}
+    </div>
   );
 }
 
