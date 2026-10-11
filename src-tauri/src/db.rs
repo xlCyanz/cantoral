@@ -355,6 +355,34 @@ pub fn list_tracks(conn: &Connection) -> Result<Vec<Track>> {
 /// Ids only grow, so this is what a scan has added since the last look — what
 /// the live refresh needs, instead of the whole catalogue every two seconds.
 pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
+    listar_pistas(conn, "t.id > ?1", params![after])
+}
+
+/// Las pistas con estos ids que sigan en el catálogo, en orden de id.
+///
+/// Lo que contesta una acción sobre unas pocas pistas —reubicar una, fusionar
+/// copias—, en vez del catálogo entero.
+pub fn list_tracks_by_ids(conn: &Connection, ids: &[i64]) -> Result<Vec<Track>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    listar_pistas(conn, &format!("t.id IN ({})", lista_de_ids(ids)), [])
+}
+
+/// Las pistas de una carpeta, en orden de id.
+pub fn list_tracks_in_folder(conn: &Connection, folder_id: i64) -> Result<Vec<Track>> {
+    listar_pistas(conn, "t.folder_id = ?1", params![folder_id])
+}
+
+/// Los ids de las pistas de una carpeta.
+pub fn track_ids_in_folder(conn: &Connection, folder_id: i64) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare("SELECT id FROM tracks WHERE folder_id=?1 ORDER BY id")?;
+    let ids = stmt.query_map(params![folder_id], |r| r.get(0))?;
+    Ok(ids.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Las pistas que cumplen `filtro`, una condición sobre `tracks t`.
+fn listar_pistas(conn: &Connection, filtro: &str, p: impl rusqlite::Params) -> Result<Vec<Track>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT t.id, t.path, t.titulo, t.artista, t.album, t.dur_sec, t.formato,
                 t.fav, t.missing, t.video,
@@ -363,10 +391,10 @@ pub fn list_tracks_since(conn: &Connection, after: i64) -> Result<Vec<Track>> {
                 t.added_at >= COALESCE((SELECT value FROM settings WHERE key='{ULTIMO_ESCANEO}'), '~'),
                 t.miniatura_fallida
          FROM tracks t LEFT JOIN folders f ON f.id = t.folder_id
-         WHERE t.id > ?1
+         WHERE {filtro}
          ORDER BY t.id"
     ))?;
-    let rows = stmt.query_map(params![after], |r| {
+    let rows = stmt.query_map(p, |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
         Ok(Track {
@@ -477,12 +505,12 @@ pub fn touch_existing_track(conn: &Connection, id: i64, folder_id: i64) -> Resul
     Ok(())
 }
 
-/// Point a track at its extracted cover, deleting the file it replaces.
+/// Point a track at its extracted cover, letting go of the file it replaces.
 ///
-/// Covers are named `{id}.{ext}`, so re-scanning a track whose embedded art
-/// changed format — jpg to png — writes a new file and leaves the old one on
-/// disk with nothing referring to it. Only `remove_folder` ever cleaned covers,
-/// and only the ones still referenced.
+/// A re-scanned track whose embedded art changed gets a new file, and the old
+/// one would stay on disk with nothing referring to it. It is deleted only if
+/// no other track still uses it: one cover is shared by every track of an
+/// album (see `caratulas`).
 pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()> {
     let anterior: Option<String> = conn
         .query_row("SELECT cover_path FROM tracks WHERE id=?1", params![id], |r| r.get(0))
@@ -491,10 +519,59 @@ pub fn set_cover_path(conn: &Connection, id: i64, cover_path: &str) -> Result<()
     conn.execute("UPDATE tracks SET cover_path=?1 WHERE id=?2", params![cover_path, id])?;
     if let Some(viejo) = anterior {
         if viejo != cover_path {
-            let _ = std::fs::remove_file(viejo);
+            soltar_caratulas(conn, vec![viejo]);
         }
     }
     Ok(())
+}
+
+/// Borrar del disco las carátulas de `candidatas` que ya no usa ninguna pista,
+/// con su versión para la proyección.
+///
+/// Se llama después de quitar o cambiar las filas, nunca antes: una carátula
+/// la comparten todas las pistas de un disco, y quitar una de ellas no puede
+/// dejar a las demás sin la suya. Lo que falle al borrar se queda en el disco;
+/// no es motivo para deshacer lo que ya se hizo en la base.
+pub fn soltar_caratulas(conn: &Connection, mut candidatas: Vec<String>) {
+    candidatas.sort();
+    candidatas.dedup();
+    if candidatas.is_empty() {
+        return;
+    }
+    let en_uso = |c: &str| -> bool {
+        conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM tracks WHERE cover_path=?1)",
+            params![c],
+            |r| r.get::<_, bool>(0),
+        )
+        // Si no se puede saber, se deja: un archivo de más es mejor que una
+        // carátula que desaparece.
+        .unwrap_or(true)
+    };
+    // Una a una mientras son pocas; con muchas —quitar una carpeta entera—,
+    // una sola lectura de todas las que se usan.
+    let usadas: Option<std::collections::HashSet<String>> = if candidatas.len() > 8 {
+        conn.prepare("SELECT DISTINCT cover_path FROM tracks WHERE cover_path IS NOT NULL")
+            .and_then(|mut stmt| {
+                stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<_>>()
+            })
+            .ok()
+    } else {
+        None
+    };
+    for c in candidatas {
+        let usada = match &usadas {
+            Some(set) => set.contains(&c),
+            None => en_uso(&c),
+        };
+        if usada {
+            continue;
+        }
+        if let Some(grande) = crate::caratulas::grande_de(&c) {
+            let _ = std::fs::remove_file(grande);
+        }
+        let _ = std::fs::remove_file(c);
+    }
 }
 
 /// Si la pista `id` sigue siendo un video en `path`.
@@ -640,12 +717,10 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<()> {
         .query_row("SELECT cover_path FROM tracks WHERE id=?1", params![id], |r| r.get(0))
         .ok()
         .flatten();
-    if let Some(c) = cover {
-        let _ = std::fs::remove_file(c);
-    }
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM tracks WHERE id=?1", params![id])?;
     tx.commit()?;
+    soltar_caratulas(conn, cover.into_iter().collect());
     Ok(())
 }
 
@@ -753,9 +828,7 @@ pub fn delete_tracks(conn: &Connection, ids: &[i64]) -> Result<()> {
     tx.execute(&format!("DELETE FROM tracks WHERE id IN ({lista})"), [])?;
     tx.commit()?;
 
-    for c in portadas {
-        let _ = std::fs::remove_file(c);
-    }
+    soltar_caratulas(conn, portadas);
     Ok(())
 }
 
@@ -807,20 +880,20 @@ pub fn folder_scan_target(conn: &Connection, id: i64) -> Result<(String, bool)> 
     Ok((path, recursive != 0))
 }
 
-/// Delete a folder, first removing the extracted cover files of its tracks so
-/// the covers directory does not accumulate orphans after the cascade delete.
+/// Delete a folder, then the extracted cover files of its tracks that no other
+/// track uses, so the covers directory does not accumulate orphans after the
+/// cascade delete.
 pub fn remove_folder(conn: &Connection, id: i64) -> Result<()> {
-    let mut stmt = conn
-        .prepare("SELECT cover_path FROM tracks WHERE folder_id=?1 AND cover_path IS NOT NULL")?;
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT cover_path FROM tracks WHERE folder_id=?1 AND cover_path IS NOT NULL",
+    )?;
     let covers: Vec<String> =
         stmt.query_map(params![id], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?;
     drop(stmt);
-    for c in covers {
-        let _ = std::fs::remove_file(&c);
-    }
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM folders WHERE id=?1", params![id])?;
     tx.commit()?;
+    soltar_caratulas(conn, covers);
     Ok(())
 }
 
@@ -1741,9 +1814,8 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
     tx.execute(&format!("DELETE FROM tracks WHERE id IN ({marcador})"), [])?;
     tx.commit()?;
 
-    for c in portadas {
-        let _ = std::fs::remove_file(c);
-    }
+    // Las copias suelen traer el mismo arte que la que se queda.
+    soltar_caratulas(conn, portadas);
     Ok(())
 }
 

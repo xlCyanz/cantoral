@@ -4,15 +4,15 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
-import type { ArchivoDeLista } from "./compartir";
+import { parsearArchivo, type ArchivoDeLista } from "./compartir";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
-export function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
+// Lo mínimo vive en `registro.ts`, para que la ventana de salida no cargue
+// con este archivo entero.
+import { isTauri, registrar } from "./registro";
+export { isTauri, registrar };
 
 /** True when the webview runs on macOS (native traffic lights available). */
 export function isMacOS(): boolean {
@@ -28,6 +28,12 @@ export function gestorDeArchivos(): string {
   return "la carpeta";
 }
 
+
+/**
+ * Los diálogos nativos de abrir y guardar, cargados la primera vez que se
+ * abre uno: no hacen falta para pintar la app.
+ */
+const dialogos = () => import("@tauri-apps/plugin-dialog");
 
 async function inv<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
@@ -78,7 +84,7 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
 /** Native picker for a single media file, used when relocating a track. */
 export async function pickMediaFile(): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await open({
+  const res = await (await dialogos()).open({
     multiple: false,
     filters: [
       {
@@ -136,14 +142,14 @@ export async function revealFile(path: string): Promise<void> {
 /** Native folder picker. Returns the chosen absolute path, or null. */
 export async function pickFolder(): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await open({ directory: true, multiple: false });
+  const res = await (await dialogos()).open({ directory: true, multiple: false });
   return typeof res === "string" ? res : null;
 }
 
 /** Native save dialog for an exported playlist sheet. */
 export async function pickExportPath(defaultPath: string): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await save({ defaultPath, filters: [{ name: "Página web", extensions: ["html"] }] });
+  const res = await (await dialogos()).save({ defaultPath, filters: [{ name: "Página web", extensions: ["html"] }] });
   return res ?? null;
 }
 
@@ -155,7 +161,7 @@ export async function exportPlaylistCmd(dest: string, html: string): Promise<voi
 /** Native save dialog for a playlist another installation can import. */
 export async function pickShareExportPath(defaultPath: string): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await save({ defaultPath, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
+  const res = await (await dialogos()).save({ defaultPath, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
   return res ?? null;
 }
 
@@ -167,8 +173,7 @@ export async function exportPlaylistJsonCmd(dest: string, json: string): Promise
 /** Native open dialog for a shared playlist file. */
 export async function pickPlaylistFile(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const res = await open({ multiple: false, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
+  const res = await (await dialogos()).open({ multiple: false, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
   return typeof res === "string" ? res : null;
 }
 
@@ -180,7 +185,7 @@ export async function readPlaylistFileCmd(src: string): Promise<ArchivoDeLista> 
 /** Native save dialog for the database backup. */
 export async function pickSavePath(): Promise<string | null> {
   if (!isTauri()) return null;
-  const res = await save({ defaultPath: "cantoral-backup.db", filters: [{ name: "SQLite", extensions: ["db"] }] });
+  const res = await (await dialogos()).save({ defaultPath: "cantoral-backup.db", filters: [{ name: "SQLite", extensions: ["db"] }] });
   return res ?? null;
 }
 
@@ -206,6 +211,21 @@ export interface Snapshot {
   tracks: Track[];
   folders: Folder[];
   playlists: Playlist[];
+}
+
+/**
+ * Lo que cambió una acción sobre unas pistas, en vez del catálogo entero.
+ *
+ * Quitar una pista, reubicarla, fusionar copias o quitar una carpeta
+ * contestaban con la instantánea completa —4,7 MB con diez mil pistas—. Ahora
+ * llegan las que se fueron, las que cambiaron con sus datos nuevos, y las
+ * carpetas y las listas solo si la acción pudo tocarlas (`null` si no).
+ */
+export interface Parche {
+  quitadas: string[];
+  cambiadas: Track[];
+  folders: Folder[] | null;
+  playlists: Playlist[] | null;
 }
 
 export interface ScanProgressEvent {
@@ -245,9 +265,9 @@ export async function setTracksFavCmd(ids: string[], fav: boolean): Promise<void
 }
 
 /** Drop a whole selection from the catalogue. The audio files are untouched. */
-export async function deleteTracksCmd(ids: string[]): Promise<Snapshot | null> {
+export async function deleteTracksCmd(ids: string[]): Promise<Parche | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("delete_tracks", { ids });
+  return inv<Parche>("delete_tracks", { ids });
 }
 
 /** One candidate inside a group of suspected duplicates. */
@@ -290,9 +310,9 @@ export async function findDuplicatesCmd(): Promise<DuplicateReport | null> {
 }
 
 /** Fold `drop` into `keep`, moving the favourite and list places across. */
-export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Snapshot | null> {
+export async function mergeDuplicatesCmd(keep: string, drop: string[]): Promise<Parche | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("merge_duplicates", { keep, drop });
+  return inv<Parche>("merge_duplicates", { keep, drop });
 }
 
 /** Remember that a group is not duplicates after all. */
@@ -343,20 +363,20 @@ export async function reconcileLibraryCmd(): Promise<Reconciliacion | null> {
   if (!isTauri()) return null;
   return inv<Reconciliacion>("reconcile_library");
 }
-export async function removeFolderCmd(id: string): Promise<Snapshot> {
-  return inv<Snapshot>("remove_folder", { id });
+export async function removeFolderCmd(id: string): Promise<Parche> {
+  return inv<Parche>("remove_folder", { id });
 }
 /** Point a track at its file's new location, keeping what it carries. */
-export async function relocateTrackCmd(id: string, path: string): Promise<Snapshot> {
-  return inv<Snapshot>("relocate_track", { id, path });
+export async function relocateTrackCmd(id: string, path: string): Promise<Parche> {
+  return inv<Parche>("relocate_track", { id, path });
 }
 /** Drop one track from the catalogue. The audio file is never touched. */
-export async function deleteTrackCmd(id: string): Promise<Snapshot> {
-  return inv<Snapshot>("delete_track", { id });
+export async function deleteTrackCmd(id: string): Promise<Parche> {
+  return inv<Parche>("delete_track", { id });
 }
 /** Point a whole indexed folder at its new location, rewriting its tracks. */
-export async function relocateFolderCmd(id: string, path: string): Promise<Snapshot> {
-  return inv<Snapshot>("relocate_folder", { id, path });
+export async function relocateFolderCmd(id: string, path: string): Promise<Parche> {
+  return inv<Parche>("relocate_folder", { id, path });
 }
 export async function setTrackFav(id: string, fav: boolean): Promise<void> {
   if (!isTauri()) return;
@@ -370,16 +390,6 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
-/**
- * Una línea en el log de la app, que es lo que se pide cuando algo falla en
- * otra PC. Nunca falla ni se espera: un diagnóstico no puede ser la causa de
- * otro problema.
- */
-export function registrar(nivel: "info" | "warn" | "error", mensaje: string): void {
-  if (!isTauri()) return;
-  void inv<void>("registrar", { nivel, mensaje }).catch(() => {});
-}
-
 /** Full path of the app's log file. */
 export async function rutaDelLog(): Promise<string | null> {
   if (!isTauri()) return null;
@@ -502,8 +512,7 @@ export async function listAutoBackups(): Promise<CopiaAutomatica[]> {
 /** Native open dialog for a .db backup file. */
 export async function pickDbFile(): Promise<string | null> {
   if (!isTauri()) return null;
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const res = await open({ multiple: false, filters: [{ name: "Base de datos", extensions: ["db"] }] });
+  const res = await (await dialogos()).open({ multiple: false, filters: [{ name: "Base de datos", extensions: ["db"] }] });
   return typeof res === "string" ? res : null;
 }
 export async function getSetting(key: string): Promise<string | null> {
@@ -537,6 +546,21 @@ export async function onScanProgress(cb: (p: ScanProgressEvent) => void): Promis
   return listen<ScanProgressEvent>("scan-progress", (e) => cb(e.payload));
 }
 
+/** Una pista cuya carátula pasó a otro archivo (la ruta, sin `asset://`). */
+export interface CaratulaNueva {
+  id: string;
+  cover: string;
+}
+
+/**
+ * Seguir la pasada única que reduce las carátulas de una biblioteca de antes.
+ * Llega por lotes, antes de que se borren los archivos viejos.
+ */
+export async function onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  return listen<CaratulaNueva[]>("caratulas-reducidas", (e) => cb(e.payload));
+}
+
 /**
  * Read a shared playlist file in a plain browser, with a file picker.
  *
@@ -545,7 +569,6 @@ export async function onScanProgress(cb: (p: ScanProgressEvent) => void): Promis
  * `pnpm dev`. Resolves to null when the picker is dismissed.
  */
 export async function leerArchivoDelNavegador(): Promise<ArchivoDeLista | null> {
-  const { parsearArchivo } = await import("./compartir");
   const texto = await new Promise<string | null>((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";

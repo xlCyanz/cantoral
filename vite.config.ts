@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -25,6 +26,23 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+
+  // La base en memoria del navegador ya no va en el paquete principal: las
+  // pruebas la cargan en su preparación (ver `src/lib/backend/index.ts`).
+  test: {
+    setupFiles: ["./src/lib/backend/prepararPruebas.ts"],
+  },
+
+  // Dos páginas: la ventana principal y la de salida del proyector, que solo
+  // carga lo suyo en vez del paquete entero de la app (ver `src/salida.tsx`).
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        salida: fileURLToPath(new URL("./salida.html", import.meta.url)),
+      },
     },
   },
 

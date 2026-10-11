@@ -13,7 +13,7 @@
 // un aviso.
 
 import { leerArchivoDelNavegador } from "../api";
-import type { DuplicateReport, ScanProgressEvent, Snapshot } from "../api";
+import type { DuplicateReport, Parche, ScanProgressEvent, Snapshot } from "../api";
 import { nombreDeCopia } from "../copias";
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "../seed";
 import { PREFIJO_MOMENTO, esMomento, tipoDeMomento } from "../momentos";
@@ -65,6 +65,14 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
   // esta base sigue cambiando por dentro.
   const snapshot = (): Snapshot => structuredClone({ tracks, folders, playlists });
   const listas = (): Playlist[] => structuredClone(playlists);
+  /** Lo que contesta el núcleo a quitar o fusionar pistas: ver `Parche`. */
+  const parche = (quitadas: readonly string[], cambiadas: readonly string[], conListas: boolean): Parche =>
+    structuredClone({
+      quitadas: [...quitadas],
+      cambiadas: tracks.filter((t) => cambiadas.includes(t.id)),
+      folders,
+      playlists: conListas ? playlists : null,
+    });
   const lista = (id: string) => {
     const pl = playlists.find((p) => p.id === id);
     if (!pl) throw new Error(`No existe la lista ${id}`);
@@ -181,11 +189,11 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     },
     deleteTrack: async (id) => {
       quitarPistas([id]);
-      return snapshot();
+      return parche([id], [], true);
     },
     deleteTracks: async (ids) => {
       quitarPistas(ids);
-      return snapshot();
+      return parche(ids, [], true);
     },
     relocateTrack: async () => {
       throw new NoDisponible("Localizar archivos solo funciona en la app de escritorio");
@@ -220,13 +228,16 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       oyentes.add(cb);
       return () => oyentes.delete(cb);
     },
+    // Los datos de ejemplo no tienen carátulas a tamaño completo que reducir.
+    onCaratulasReducidas: async () => () => {},
     removeFolder: async (id) => {
       const f = folders.find((x) => x.id === id);
       if (!f) throw new Error(`No existe la carpeta ${id}`);
       // Como en SQLite: la carpeta se lleva sus pistas.
-      quitarPistas(tracks.filter((t) => t.carpeta === f.nombre).map((t) => t.id));
+      const suyas = tracks.filter((t) => t.carpeta === f.nombre).map((t) => t.id);
+      quitarPistas(suyas);
       folders = folders.filter((x) => x.id !== id);
-      return snapshot();
+      return parche(suyas, [], true);
     },
     relocateFolder: async () => {
       throw new NoDisponible("Mover carpetas solo funciona en la app de escritorio");
@@ -318,7 +329,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
         return { ...p, ids };
       });
       quitarPistas(drop);
-      return snapshot();
+      return parche(drop, [keep], true);
     },
     dismissDuplicates: async (signature) => {
       descartados.add(signature);

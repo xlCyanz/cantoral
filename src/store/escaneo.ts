@@ -56,7 +56,8 @@ export interface EscaneoSlice {
   ultimaCopia: string | null;
   ocultarTarjetaEscaneo: () => void;
   /**
-   * Seguir el progreso que manda el backend mientras escanea. Devuelve con qué
+   * Seguir el progreso que manda el backend mientras escanea, y las carátulas
+   * que reduce la pasada única de una biblioteca de antes. Devuelve con qué
    * dejar de escucharlo. Lo llama la app al montarse.
    */
   escucharEscaneo: () => Promise<() => void>;
@@ -100,7 +101,7 @@ function apuntarPrimerDibujo(pistas: number) {
 }
 
 export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
-  const { toast, avisarFallo, applySnapshot, marcarFaltantes, startLiveRefresh, stopLiveRefresh } = ctx;
+  const { toast, avisarFallo, applySnapshot, applyParche, marcarFaltantes, cambiarCaratulas, startLiveRefresh, stopLiveRefresh } = ctx;
 
   /** Lo que tienen en común añadir una carpeta y volver a escanearla, al empezar… */
   const empezar = () => {
@@ -147,10 +148,15 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     arranqueListo: false,
     ultimaCopia: null,
     ocultarTarjetaEscaneo: () => set({ tarjetaEscaneoOculta: true }),
-    escucharEscaneo: () =>
-      backend().onScanProgress((p) =>
-        set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanIlegibles: p.ilegibles, scanHechos: p.added, scanTotal: p.total }),
-      ),
+    escucharEscaneo: async () => {
+      const soltar = await Promise.all([
+        backend().onScanProgress((p) =>
+          set({ scanPct: p.pct, scanFile: p.file, scanOmitidos: p.omitidos, scanIlegibles: p.ilegibles, scanHechos: p.added, scanTotal: p.total }),
+        ),
+        backend().onCaratulasReducidas(cambiarCaratulas),
+      ]);
+      return () => soltar.forEach((s) => s());
+    },
 
     openAddFolder: () => {
       // The buttons that get here are disabled while a scan runs, but the
@@ -204,26 +210,32 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
     },
     hydrate: async () => {
       const inicio = performance.now();
+      // Los ajustes y el catálogo a la vez, y los ajustes aplicados en cuanto
+      // llegan: antes se pedían cuando el catálogo ya estaba en pantalla, y la
+      // app se pintaba primero en claro y con el orden de fábrica, y cambiaba
+      // un momento después.
+      // `openExt` ya no se lee. La fila que dejó en `settings` una
+      // instalación anterior se queda ahí sin hacer nada: borrarla sería
+      // tocar datos del usuario para ganar nada, y si el ajuste volviera
+      // alguna vez, volvería con su valor.
+      const ajustes = Promise.all([
+        backend().getSetting("themeMode"),
+        backend().getSetting("theme"),
+        backend().getSetting(UI_PREFS_KEY),
+      ]);
+      const catalogo = backend().getLibrary();
+      // Si falla uno, el otro no se queda como un rechazo que nadie atiende.
+      ajustes.catch(() => {});
+      catalogo.catch(() => {});
+      /** Que lo restaurado no se vuelva a escribir: ver abajo. */
+      const noEscribirLoLeido = () => {
+        if (modulo.prefsTimer) {
+          clearTimeout(modulo.prefsTimer);
+          modulo.prefsTimer = null;
+        }
+      };
       try {
-        const snap = await backend().getLibrary();
-        applySnapshot(snap);
-        set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
-        const videos = snap.tracks.filter((t) => t.video).length;
-        registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
-        apuntarPrimerDibujo(snap.tracks.length);
-        // Lo que la primera tecla de la búsqueda necesita, en los ratos libres
-        // de después de pintar y no en esa tecla.
-        prepararBusqueda(get().tracks);
-        // Restore saved preferences.
-        // `openExt` ya no se lee. La fila que dejó en `settings` una
-        // instalación anterior se queda ahí sin hacer nada: borrarla sería
-        // tocar datos del usuario para ganar nada, y si el ajuste volviera
-        // alguna vez, volvería con su valor.
-        const [modeS, themeS, uiS] = await Promise.all([
-          backend().getSetting("themeMode"),
-          backend().getSetting("theme"),
-          backend().getSetting(UI_PREFS_KEY),
-        ]);
+        const [modeS, themeS, uiS] = await ajustes;
         const patch: Partial<CantoralState> = {};
         const mode: ThemeMode | null =
           modeS === "light" || modeS === "dark" || modeS === "system"
@@ -233,24 +245,38 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
               : null;
         if (mode) {
           patch.themeMode = mode;
-          patch.theme = resolveTheme(mode);
+          patch.theme = resolveTheme(mode, get().temaSistema);
         }
         // The rest of the interface: volume, transport, sorting, grouping and
         // where the user was. Only the fields that survived validation, over
-        // whatever the defaults are, and settled against the lists that exist.
+        // whatever the defaults are. La vista y la lista abierta esperan al
+        // catálogo, que es el que dice si esa lista sigue existiendo; las
+        // demás vistas se ponen ya.
         const prefs = parsePrefs(uiS);
-        Object.assign(patch, prefs, resolveView(prefs, snap.playlists));
+        const { view, curPlaylist: _lista, ...resto } = prefs;
+        Object.assign(patch, resto, view && view !== "lista" ? { view } : {});
         if (Object.keys(patch).length) {
           set(patch);
-          // Nothing read at startup is worth writing back, and `applySnapshot`
-          // ran a moment ago and may already have queued a write of a
-          // `curPlaylist` it picked on its own. What was just restored is the
-          // newer truth, so whatever is queued goes.
-          if (modulo.prefsTimer) {
-            clearTimeout(modulo.prefsTimer);
-            modulo.prefsTimer = null;
-          }
+          noEscribirLoLeido();
         }
+
+        const snap = await catalogo;
+        applySnapshot(snap);
+        set({ libState: snap.tracks.length ? "content" : "empty", scanError: null });
+        const videos = snap.tracks.filter((t) => t.video).length;
+        registrar("info", `hydrate: ${snap.tracks.length} tracks (${videos} videos) loaded in ${Math.round(performance.now() - inicio)} ms`);
+        apuntarPrimerDibujo(snap.tracks.length);
+        // Lo que la primera tecla de la búsqueda necesita, en los ratos libres
+        // de después de pintar y no en esa tecla.
+        prepararBusqueda(get().tracks);
+        // La vista y la lista abierta, ya contra las listas que existen.
+        const vista = resolveView(prefs, snap.playlists);
+        if (Object.keys(vista).length) set(vista);
+        // Nothing read at startup is worth writing back, and `applySnapshot`
+        // ran a moment ago and may already have queued a write of a
+        // `curPlaylist` it picked on its own. What was just restored is the
+        // newer truth, so whatever is queued goes.
+        noEscribirLoLeido();
 
         // Callada y sin bloquear: si hay algo, aparece en Configuración; si no,
         // nadie se entera. Una app que interrumpe al abrirse para decir que no
@@ -303,9 +329,9 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
       }
       backend()
         .relocateFolder(id)
-        .then((snap) => {
-          if (!snap) return;
-          applySnapshot(snap);
+        .then((cambios) => {
+          if (!cambios) return;
+          applyParche(cambios);
           toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
             detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
           });
@@ -334,7 +360,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         onConfirm: () => {
           backend()
             .removeFolder(id)
-            .then(applySnapshot)
+            .then(applyParche)
             .then(() => toast("Carpeta quitada de la biblioteca"))
             .catch((err) => {
               console.error(err);

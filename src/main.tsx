@@ -1,34 +1,37 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import ProjectionOutput from "./components/ProjectionOutput";
-import { registrar } from "./lib/api";
+import { isTauri, registrar } from "./lib/api";
+import { cargarNavegador } from "./lib/backend";
+import { aplicarTemaGuardado } from "./lib/temaGuardado";
 import "./styles/global.css";
 
-/**
- * La ventana de salida carga el mismo paquete con `?salida` y se queda solo
- * con la pantalla de proyección.
- *
- * Aquí y no dentro de `App` porque lo que hay que evitar es precisamente que
- * `App` se monte: trae el reloj del reproductor, los atajos de teclado, la
- * carga del catálogo y los diálogos. Nada de eso tiene sentido en una pantalla
- * que cuelga delante de una congregación, y el reloj además correría dos
- * veces.
- */
-const esSalida = new URLSearchParams(window.location.search).has("salida");
+// El tema antes del primer dibujo, para no pintar claro a quien lo usa oscuro
+// mientras se leen los ajustes.
+aplicarTemaGuardado();
+
+// La ventana de salida tiene su propia página, `salida.html` (ver
+// `salida.tsx`): esta es solo la principal.
 
 // Lo que se rompe sin que nadie lo recoja —un error suelto, una promesa
 // rechazada que se lanzó con `void`, o el propio arrastre de la barra, que
 // Tauri pide por su cuenta— acaba en el log en vez de en una consola que en
 // una PC de iglesia nadie abre.
-const ventana = esSalida ? "salida" : "main";
 window.addEventListener("error", (e) => {
-  registrar("error", `[${ventana}] uncaught: ${e.message} (${e.filename}:${e.lineno})`);
+  registrar("error", `[main] uncaught: ${e.message} (${e.filename}:${e.lineno})`);
 });
 window.addEventListener("unhandledrejection", (e) => {
-  registrar("error", `[${ventana}] unhandled rejection: ${String(e.reason)}`);
+  registrar("error", `[main] unhandled rejection: ${String(e.reason)}`);
 });
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>{esSalida ? <ProjectionOutput /> : <App />}</React.StrictMode>,
-);
+async function arrancar() {
+  // Fuera de Tauri —`pnpm dev`— la app corre sobre los datos de ejemplo, que
+  // van en un trozo aparte para no pesar en la de escritorio.
+  if (!isTauri()) await cargarNavegador();
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+}
+void arrancar();

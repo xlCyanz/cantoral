@@ -1,6 +1,7 @@
 import type { Theme, ThemeMode, View } from "../lib/types";
 import { onTemaDelSistema, temaDelSistema } from "../lib/api";
 import { backend } from "../lib/backend";
+import { leerTemaGuardado } from "../lib/temaGuardado";
 import type { ConfirmRequest, ToastNotice, ToastType } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
@@ -59,7 +60,10 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
   return {
 
     themeMode: "system",
-    theme: resolveTheme("system"),
+    // El del último dibujo, si lo hay: el elegido llega de la base cuando la
+    // ventana ya está pintada, y en Windows `matchMedia` dice «claro» aunque
+    // el sistema esté en oscuro. Ver `temaGuardado`.
+    theme: leerTemaGuardado() ?? resolveTheme("system"),
     temaSistema: null,
     view: "biblioteca",
 

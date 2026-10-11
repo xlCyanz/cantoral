@@ -1,5 +1,6 @@
 // Cantoral — Tauri backend entry point.
 
+mod caratulas;
 mod commands;
 mod compartir;
 mod copias;
@@ -14,6 +15,50 @@ mod vigia;
 
 use std::sync::Mutex;
 use tauri::Manager;
+
+/// El fondo de la página en claro y en oscuro (`--bg` en `global.css`).
+const FONDO_CLARO: (u8, u8, u8) = (0xf7, 0xf8, 0xfa);
+const FONDO_OSCURO: (u8, u8, u8) = (0x14, 0x17, 0x1c);
+
+/// El fondo con el que tiene que nacer la ventana, según el tema guardado.
+///
+/// `modo` es el ajuste `themeMode` («light», «dark» o «system»); `legado`, el
+/// `theme` de las versiones que no tenían «Sistema». Sin ninguno de los dos,
+/// o en «Sistema», manda el del sistema.
+fn fondo_inicial(modo: Option<&str>, legado: Option<&str>, sistema_oscuro: bool) -> (u8, u8, u8) {
+    let oscuro = match modo.or(legado) {
+        Some("dark") => true,
+        Some("light") => false,
+        _ => sistema_oscuro,
+    };
+    if oscuro {
+        FONDO_OSCURO
+    } else {
+        FONDO_CLARO
+    }
+}
+
+/// Pintar la ventana principal con el fondo del tema guardado.
+///
+/// La ventana nace con el fondo claro de `tauri.conf.json` y se queda así
+/// hasta que la página carga sus estilos: quien usa el tema oscuro veía un
+/// destello blanco al abrir la app. El tema está en la base, que ya está
+/// abierta aquí; si no se puede leer, se queda el de siempre.
+fn pintar_fondo_inicial(app: &tauri::App, conn: &rusqlite::Connection) {
+    let Some(ventana) = app.get_webview_window("main") else {
+        return;
+    };
+    let modo = db::get_setting(conn, "themeMode").ok().flatten();
+    let legado = db::get_setting(conn, "theme").ok().flatten();
+    let sistema_oscuro = matches!(ventana.theme(), Ok(tauri::Theme::Dark));
+    let (r, g, b) = fondo_inicial(modo.as_deref(), legado.as_deref(), sistema_oscuro);
+    if (r, g, b) == FONDO_CLARO {
+        return;
+    }
+    if let Err(err) = ventana.set_background_color(Some(tauri::window::Color(r, g, b, 255))) {
+        log::warn!("could not paint the window background: {err}");
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -76,8 +121,16 @@ pub fn run() {
                 log::error!("could not grant asset access to the app data directory: {err}");
             }
             commands::conceder_alcance(app.handle(), &conn);
+            pintar_fondo_inicial(app, &conn);
 
             app.manage(db::Db(Mutex::new(conn)));
+            // Las carátulas de una biblioteca de antes, a tamaño completo, se
+            // reducen una vez y en segundo plano.
+            caratulas::reducir_en_segundo_plano(
+                app.handle().clone(),
+                db_path.clone(),
+                dir.join("covers"),
+            );
             app.manage(commands::DbPath(db_path));
             app.manage(scanner::ScanSlot::new());
             vigia::vigilar(app.handle().clone());
@@ -142,4 +195,24 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_window_is_born_with_the_saved_theme() {
+        assert_eq!(fondo_inicial(Some("dark"), None, false), FONDO_OSCURO);
+        assert_eq!(fondo_inicial(Some("light"), None, true), FONDO_CLARO);
+        // «Sistema», o nada guardado: el del sistema.
+        assert_eq!(fondo_inicial(Some("system"), None, true), FONDO_OSCURO);
+        assert_eq!(fondo_inicial(None, None, true), FONDO_OSCURO);
+        assert_eq!(fondo_inicial(None, None, false), FONDO_CLARO);
+        // El ajuste de antes de «Sistema».
+        assert_eq!(fondo_inicial(None, Some("dark"), false), FONDO_OSCURO);
+        assert_eq!(fondo_inicial(Some("light"), Some("dark"), false), FONDO_CLARO);
+        // Lo que no se entiende no cambia nada.
+        assert_eq!(fondo_inicial(Some("sepia"), None, false), FONDO_CLARO);
+    }
 }

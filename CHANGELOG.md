@@ -43,6 +43,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   Marcar un favorito, escribir en el panel de detalle, buscar, borrar la
   búsqueda, agrupar por carpeta y plegar un grupo responden al instante aunque
   la biblioteca tenga miles de canciones, y la app termina de abrir antes.
+  Las carátulas se guardan en pequeño y una sola vez por disco, así que la
+  lista se desplaza con soltura y ocupan mucho menos en el disco; las de una
+  biblioteca ya escaneada se achican solas, en segundo plano, la primera vez
+  que se abre la app. Quitar pistas, fusionar copias, reubicar archivos y
+  quitar carpetas responden antes, y la pantalla del proyector se abre más
+  rápido porque ya no carga la app entera. Con el tema oscuro, la app ya no
+  destella en claro al abrirse, y el orden y la vista guardados aparecen
+  desde el primer momento.
 
 ### Eliminado
 

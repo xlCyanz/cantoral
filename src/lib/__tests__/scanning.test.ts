@@ -4,7 +4,7 @@
 // ya indexadas aparezcan sin esperar al final.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Novedades, Snapshot } from "../api";
+import type { Novedades, Parche, Snapshot } from "../api";
 import type { Track } from "../types";
 
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
@@ -13,8 +13,8 @@ const addAndScanFolder = vi.fn<(path: string, recursive: boolean) => Promise<Sna
 const rescanFolderCmd = vi.fn<(id: string) => Promise<Snapshot>>();
 const cancelScanCmd = vi.fn<() => Promise<void>>();
 const updateTrackCmd = vi.fn<() => Promise<void>>();
-const removeFolderCmd = vi.fn<(id: string) => Promise<Snapshot>>();
-const relocateFolderCmd = vi.fn<(id: string, path: string) => Promise<Snapshot>>();
+const removeFolderCmd = vi.fn<(id: string) => Promise<Parche>>();
+const relocateFolderCmd = vi.fn<(id: string, path: string) => Promise<Parche>>();
 const restoreDatabaseCmd = vi.fn<(src: string) => Promise<Snapshot>>();
 const pickFolder = vi.fn<() => Promise<string | null>>();
 const pickDbFile = vi.fn<() => Promise<string | null>>();

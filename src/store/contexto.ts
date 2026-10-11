@@ -1,12 +1,12 @@
 import type { Folder, Playlist, Track } from "../lib/types";
 import { playlistSheetHtml, sheetFileName } from "../lib/exportSheet";
 import type { Elemento } from "../lib/momentos";
-import { assetUrl, type Snapshot } from "../lib/api";
+import { assetUrl, type Parche, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
 import type { CantoralState, ToastType } from "./tipos";
 import { ultimoId, cur, plDur } from "./selectores";
-import { conservarIguales } from "../lib/reutilizar";
+import { aplicarParche, conservarIguales } from "../lib/reutilizar";
 
 // Parte del store (#134). Ver src/store/index.ts.
 //
@@ -123,16 +123,12 @@ export function crearContexto(set: Set, get: Get) {
    */
   const applyPlaylists = (playlists: Playlist[]) => set(listasDe(playlists));
 
-  /** Replace the catalogue from a backend snapshot, preserving the player /
-   *  playlist selection when the referenced ids still exist. */
-  const applySnapshot = (snap: Snapshot) => {
-    const { plOrder, curPlaylist } = listasDe(snap.playlists);
+  /**
+   * Poner un catálogo nuevo, preservando el reproductor y la cola cuando sus
+   * pistas siguen ahí. Las carpetas y las listas, solo si vienen.
+   */
+  const ponerCatalogo = (tracks: Track[], folders: Folder[] | null, playlists: Playlist[] | null) => {
     const st = get();
-    // Las pistas y las carpetas que llegan iguales se quedan con el objeto que
-    // ya había: así sobreviven las filas memorizadas, la caché de la búsqueda
-    // y el orden de la tabla. Ver `conservarIguales`.
-    const tracks = conservarIguales(st.tracks, conCaratula(snap.tracks));
-    const folders = mismasCarpetas(st.folders, snap.folders) ? st.folders : snap.folders;
     const playerId = tracks.some((t) => t.id === st.playerId)
       ? st.playerId
       : tracks[0]?.id || st.playerId;
@@ -141,10 +137,8 @@ export function crearContexto(set: Set, get: Get) {
     const queue = st.queue.filter((id) => live.has(id));
     set({
       tracks,
-      folders,
-      playlists: snap.playlists,
-      plOrder,
-      curPlaylist,
+      ...(folders && !mismasCarpetas(st.folders, folders) ? { folders } : {}),
+      ...(playlists ? listasDe(playlists) : {}),
       playerId,
       queue,
       // Any list of duplicates was computed against the catalogue that just
@@ -153,6 +147,30 @@ export function crearContexto(set: Set, get: Get) {
       duplicates: [],
       duplicatesState: "idle",
     });
+  };
+
+  /** Replace the catalogue from a backend snapshot, preserving the player /
+   *  playlist selection when the referenced ids still exist. */
+  const applySnapshot = (snap: Snapshot) => {
+    // Las pistas y las carpetas que llegan iguales se quedan con el objeto que
+    // ya había: así sobreviven las filas memorizadas, la caché de la búsqueda
+    // y el orden de la tabla. Ver `conservarIguales`.
+    const tracks = conservarIguales(get().tracks, conCaratula(snap.tracks));
+    ponerCatalogo(tracks, snap.folders, snap.playlists);
+  };
+
+  /**
+   * Aplicar lo que contesta una acción sobre unas pistas: quitar, reubicar,
+   * fusionar, quitar o reapuntar una carpeta.
+   *
+   * Llega solo lo que cambió (ver `Parche`), y solo eso se toca: las demás
+   * pistas siguen siendo los mismos objetos, sin pasar por la comparación de
+   * todo el catálogo que hace `applySnapshot`. Lo demás —el reproductor, la
+   * cola, la lista de duplicados— queda igual que tras una instantánea.
+   */
+  const applyParche = (p: Parche) => {
+    const tracks = aplicarParche(get().tracks, p.quitadas, conCaratula(p.cambiadas));
+    ponerCatalogo(tracks, p.folders, p.playlists);
   };
 
   /**
@@ -174,6 +192,26 @@ export function crearContexto(set: Set, get: Get) {
       if (missing === undefined || missing === t.missing) return t;
       alguna = true;
       return { ...t, missing };
+    });
+    if (alguna) set({ tracks });
+  };
+
+  /**
+   * Apuntar las carátulas que la pasada única del núcleo acaba de reducir.
+   *
+   * Llegan antes de que se borren los archivos viejos, así que la fila cambia
+   * de imagen sin quedarse un momento en blanco. Solo las pistas que cambian
+   * son objetos nuevos; el resto del catálogo se queda como estaba.
+   */
+  const cambiarCaratulas = (lote: readonly { id: string; cover: string }[]) => {
+    if (lote.length === 0) return;
+    const porId = new Map(lote.map((c) => [c.id, assetUrl(c.cover)]));
+    let alguna = false;
+    const tracks = get().tracks.map((t) => {
+      const cover = porId.get(t.id);
+      if (cover === undefined || cover === t.cover) return t;
+      alguna = true;
+      return { ...t, cover };
     });
     if (alguna) set({ tracks });
   };
@@ -343,7 +381,7 @@ export function crearContexto(set: Set, get: Get) {
     backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
-  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, marcarFaltantes, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
+  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, applyParche, marcarFaltantes, cambiarCaratulas, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
 }
 
 export type Contexto = ReturnType<typeof crearContexto>;

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
 import { modoDeLaBarra } from "../lib/proyeccion";
+import { guardarTema } from "../lib/temaGuardado";
 import { crearContexto, modulo } from "./contexto";
 import { crearInterfaz } from "./interfaz";
 import { crearBiblioteca } from "./biblioteca";
@@ -94,6 +95,19 @@ export function flushUiPrefs() {
 useStore.subscribe((s, previo) => {
   if (PREF_FIELDS.every((campo) => s[campo] === previo[campo])) return;
   schedulePrefsSave();
+});
+
+// ============================================================
+// El tema del próximo arranque
+// ============================================================
+
+/**
+ * Apuntar el tema con el que se pinta, venga de donde venga —el elegido en
+ * Configuración, el de la base al arrancar, el sistema que cambió—, para que
+ * el próximo arranque pinte el primer cuadro ya con él (ver `temaGuardado`).
+ */
+useStore.subscribe((s, previo) => {
+  if (s.theme !== previo.theme) guardarTema(s.theme);
 });
 
 // ============================================================

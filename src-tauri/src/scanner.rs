@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
+use crate::caratulas;
 use crate::db;
 use crate::models::ScanProgress;
 
@@ -206,8 +207,8 @@ pub fn motivo_no_indexable(path: &Path) -> Option<String> {
     })
 }
 
-/// (title, artist, album, dur_sec, cover as (bytes, extension)).
-type Meta = (Option<String>, Option<String>, Option<String>, i64, Option<(Vec<u8>, String)>);
+/// (title, artist, album, dur_sec, the embedded cover's bytes as they come).
+type Meta = (Option<String>, Option<String>, Option<String>, i64, Option<Vec<u8>>);
 
 /// Best-effort metadata + embedded cover read via lofty.
 fn read_meta(path: &Path) -> Meta {
@@ -223,14 +224,9 @@ fn read_meta(path: &Path) -> Meta {
                 pics.iter()
                     .find(|p| p.pic_type() == PictureType::CoverFront)
                     .or_else(|| pics.first())
-                    .map(|p| {
-                        let ext = match p.mime_type().map(|m| m.to_string().to_lowercase()) {
-                            Some(s) if s.contains("png") => "png",
-                            Some(s) if s.contains("gif") => "gif",
-                            _ => "jpg",
-                        };
-                        (p.data().to_vec(), ext.to_string())
-                    })
+                    // El formato se mira en los bytes al reducirla, no en lo
+                    // que diga la etiqueta (ver `caratulas`).
+                    .map(|p| p.data().to_vec())
             });
             (title, artist, album, dur, cover)
         }
@@ -439,11 +435,12 @@ fn recorrer(
                 mtime,
                 fsize,
             )?;
-            if let Some((bytes, cover_ext)) = cover {
-                let cover_path = cover_dir.join(format!("{}.{}", id, cover_ext));
-                if std::fs::write(&cover_path, &bytes).is_ok() {
-                    let _ = db::set_cover_path(conn, id, &cover_path.to_string_lossy());
-                }
+            // Reducida y compartida con las demás pistas del disco: el arte
+            // incrustado a tamaño completo hacía pesada la lista (ver
+            // `caratulas`). Una imagen que no se deja leer deja la pista sin
+            // carátula, nunca el escaneo a medias.
+            if let Some(cover_path) = cover.and_then(|b| caratulas::guardar(cover_dir, &b)) {
+                let _ = db::set_cover_path(conn, id, &cover_path.to_string_lossy());
             }
         }
         count += 1;
