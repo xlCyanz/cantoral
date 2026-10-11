@@ -35,6 +35,11 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   desaparecen, y «Siguiente» ya no recorre estrofas: pasa directamente al
   elemento de después. Quien tenía elegida «Solo la letra» pasa a «Portada»;
   «Portada y letra» se queda en «Portada».
+- **La interfaz va más rápida con bibliotecas grandes.** Mientras algo suena o
+  se proyecta, al hacer las miniaturas de los videos, al arrastrar a un culto o
+  con un diálogo abierto, la app repinta mucho menos y no se traba; exportar,
+  importar o revisar un respaldo en una memoria USB lenta ya no congela la
+  ventana; y quitar una carpeta con miles de pistas es mucho más rápido.
 
 ### Eliminado
 
@@ -62,6 +67,9 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - **Al proyectar, la barra del reproductor no decía qué sonaba ni se podía
   adelantar.** Ahora sí, y nunca suenan dos cosas a la vez: poner algo a sonar
   en el equipo pausa lo que sonaba por el proyector.
+- **Mover la barra de progreso mientras se proyecta hacía saltar el video en
+  la pantalla grande.** Ahora la barra se mueve en el portátil mientras se
+  arrastra, y el proyector salta una sola vez, al soltarla.
 
 ## [0.5.0] - 2026-10-04
 
