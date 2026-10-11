@@ -1,4 +1,4 @@
-import type { Momento, Playlist, SortDir, SortKey, Track } from "../lib/types";
+import type { Folder, GroupBy, Momento, Playlist, SortDir, SortKey, Track } from "../lib/types";
 import { carpetaReal } from "../lib/carpetas";
 import { elementosDe, esMomento } from "../lib/momentos";
 import type { Elemento } from "../lib/momentos";
@@ -288,6 +288,44 @@ export interface Group {
   tracks: { track: Track; num: number }[];
 }
 
+/** Un grupo antes de plegar y numerar. */
+interface Reparto {
+  clave: string;
+  nombre: string;
+  ruta: string;
+  pistas: Track[];
+}
+
+/**
+ * Las pistas repartidas en grupos, los grupos por nombre.
+ *
+ * Aparte de `buildGroups` y sin lo plegado entre lo que lee: plegar un grupo
+ * volvía a repartir el catálogo entero, y con diez mil pistas por carpeta eso
+ * eran decenas de milisegundos por clic. Compartido: solo lectura.
+ */
+const agrupar = recordar(
+  (list: readonly Track[], groupBy: GroupBy, folders: readonly Folder[]): Reparto[] => {
+    const porCarpeta = groupBy === "carpeta";
+    const mapa = new Map<string, Reparto>();
+    for (const t of list) {
+      let c: { clave: string; nombre: string; ruta: string };
+      if (porCarpeta) c = carpetaReal(t, folders);
+      else {
+        const v = ((t[groupBy as keyof Track] as string) || "").trim() || "—";
+        c = { clave: v, nombre: v, ruta: "" };
+      }
+      let g = mapa.get(c.clave);
+      if (!g) {
+        g = { clave: c.clave, nombre: c.nombre, ruta: c.ruta, pistas: [] };
+        mapa.set(c.clave, g);
+      }
+      g.pistas.push(t);
+    }
+    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  },
+  (list: readonly Track[], groupBy: GroupBy, folders: readonly Folder[]) => [list, groupBy, folders],
+);
+
 /**
  * Group + number the filtered list.
  *
@@ -309,33 +347,15 @@ export const buildGroups = recordar(
         },
       ];
     }
-    const porCarpeta = s.groupBy === "carpeta";
-    const key = s.groupBy;
-    const mapa = new Map<string, { nombre: string; ruta: string; pistas: Track[] }>();
-    list.forEach((t) => {
-      const c = porCarpeta
-        ? carpetaReal(t, s.folders)
-        : (() => {
-            const v = ((t[key as keyof Track] as string) || "").trim() || "—";
-            return { clave: v, nombre: v, ruta: "" };
-          })();
-      let g = mapa.get(c.clave);
-      if (!g) {
-        g = { nombre: c.nombre, ruta: c.ruta, pistas: [] };
-        mapa.set(c.clave, g);
-      }
-      g.pistas.push(t);
-    });
-    const claves = [...mapa.keys()].sort((a, b) =>
-      mapa.get(a)!.nombre.localeCompare(mapa.get(b)!.nombre, "es"),
-    );
+    // Lo caro —repartir las pistas y ordenar los grupos— se recuerda aparte;
+    // plegar o desplegar solo vuelve a numerar.
+    const plegados = new Set(s.gruposColapsados);
     let n = 0;
-    return claves.map((clave) => {
-      const g = mapa.get(clave)!;
-      const colapsado = s.gruposColapsados.includes(clave);
+    return agrupar(list, s.groupBy, s.folders).map((g) => {
+      const colapsado = plegados.has(g.clave);
       return {
         showHeader: true,
-        clave,
+        clave: g.clave,
         label: g.nombre,
         ruta: g.ruta,
         count: g.pistas.length,
