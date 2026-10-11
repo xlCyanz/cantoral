@@ -42,6 +42,8 @@ export default function AddToListDialog() {
   if (!abierto) return null;
 
   const cuantas = ids.length;
+  // Una vez por render y no un `includes` por pista y por culto.
+  const elegidas = new Set(ids);
 
   return (
     <Modal labelledBy="agregar-culto-titulo" describedBy="agregar-culto-cuantas" onClose={closeDialog} maxWidth={360}>
@@ -62,7 +64,7 @@ export default function AddToListDialog() {
         ) : (
           playlists.map((p) => {
             const orden = soloPistas(plOrder[p.id] ?? p.ids);
-            const yaEstaban = ids.filter((id) => orden.includes(id)).length;
+            const yaEstaban = orden.filter((id) => elegidas.has(id)).length;
             return (
               <button key={p.id} onClick={() => addToListConfirm(p.id)} className="hb-s2" style={fila}>
                 <span style={{ position: "relative", width: 24, height: 24, flex: "0 0 auto", borderRadius: 6, overflow: "hidden", display: "grid", placeItems: "center" }}>

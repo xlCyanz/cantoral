@@ -19,17 +19,20 @@ const CORTE = 1000;
  * hueco estrecho igualmente.
  */
 export function useEstrecho(reservado = 0): boolean {
-  const [ancho, setAncho] = useState(() => (typeof window === "undefined" ? 1280 : window.innerWidth));
+  // El sí o el no, no el ancho: arrastrar el borde de la ventana manda un
+  // `resize` por fotograma, y guardando los píxeles cada uno volvía a pintar
+  // la tabla y el panel aunque la respuesta no cambiara.
+  const [estrecho, setEstrecho] = useState(() => (typeof window === "undefined" ? 1280 : window.innerWidth) - reservado < CORTE);
 
   useEffect(() => {
-    const medir = () => setAncho(window.innerWidth);
+    const medir = () => setEstrecho(window.innerWidth - reservado < CORTE);
     window.addEventListener("resize", medir);
     // Y una vez al montar: entre el primer render y este efecto la ventana
     // puede haber cambiado, y en el primer render del arranque `innerWidth`
     // todavía puede ser la de antes de colocarla.
     medir();
     return () => window.removeEventListener("resize", medir);
-  }, []);
+  }, [reservado]);
 
-  return ancho - reservado < CORTE;
+  return estrecho;
 }

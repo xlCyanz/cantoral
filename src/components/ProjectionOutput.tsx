@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { emit, listen } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import type { EstadoProyeccion, MensajeProyeccion, OrdenProyeccion, SalidaProyeccion, VistaProyeccion } from "../lib/api";
 import { ERROR_AUTOPLAY } from "../lib/formatos";
+import { hayQueReportar } from "../lib/estadoDeSalida";
 
 /**
  * Lo que se ve por el proyector.
@@ -46,6 +47,8 @@ export default function ProjectionOutput() {
   /** Qué archivo tiene cargado cada uno, que no es lo mismo que su `src`
    *  resuelta: el navegador la convierte en absoluta y dejaría de coincidir. */
   const cargado = useRef<{ a: string | null; b: string | null }>({ a: null, b: null });
+  /** Lo último que se le contó a la principal, para no repetírselo. */
+  const reportado = useRef<EstadoProyeccion | null>(null);
   const [activo, setActivo] = useState<"a" | "b">("a");
   // Lo mismo que `activo` y `salida`, para quien escucha los eventos: se
   // suscribe una vez y vería siempre los del primer dibujo.
@@ -127,7 +130,7 @@ export default function ProjectionOutput() {
       soltar = f;
       // Después de suscribirse y no antes: lo que conteste la ventana
       // principal tiene que encontrar a alguien escuchando.
-      void emit("proyeccion-lista", {});
+      void emitTo("main", "proyeccion-lista", {});
     });
     return () => {
       soltar?.();
@@ -165,7 +168,7 @@ export default function ProjectionOutput() {
           // ventana. Callarlo dejaría la pantalla grande en negro sin motivo,
           // así que se devuelve como cualquier otro fallo.
           void el.play().catch(() => {
-            void emit("proyeccion-estado", {
+            void emitTo("main", "proyeccion-estado", {
               src,
               pos: 0,
               dur: 0,
@@ -190,17 +193,26 @@ export default function ProjectionOutput() {
     if (siguiente && cargado.current[libre] !== siguiente) poner(libre, siguiente);
   }, [src, reproduciendo, salida.precarga, activo]);
 
-  /** Lo que se devuelve a quien opera, sólo del elemento que está en pantalla. */
-  const reportar = (cual: "a" | "b", parcial: Partial<EstadoProyeccion>) => {
+  /**
+   * Lo que se devuelve a quien opera, sólo del elemento que está en pantalla.
+   *
+   * Solo a la ventana principal, que es la única que escucha, y solo cuando
+   * cambia algo que se ve (ver `estadoDeSalida.ts`): el `timeupdate` llega
+   * unas cuatro veces por segundo y la principal enseña segundos enteros.
+   */
+  const reportar = (cual: "a" | "b", parcial: Partial<EstadoProyeccion>, forzar = false) => {
     if (cual !== activo) return;
     const el = ref(cual).current;
-    void emit("proyeccion-estado", {
+    const estado: EstadoProyeccion = {
       src: cargado.current[cual] ?? "",
       pos: Math.floor(el?.currentTime ?? 0),
       dur: Number.isFinite(el?.duration) ? Math.round(el?.duration ?? 0) : 0,
       fin: false,
       ...parcial,
-    } satisfies EstadoProyeccion);
+    };
+    if (!hayQueReportar(reportado.current, estado, forzar)) return;
+    reportado.current = estado;
+    void emitTo("main", "proyeccion-estado", estado);
   };
 
   const reproductor = (cual: "a" | "b") => (
@@ -221,7 +233,9 @@ export default function ProjectionOutput() {
         opacity: cual === activo && vista.modo === "media" && vista.video ? 1 : 0,
       }}
       onTimeUpdate={() => reportar(cual, {})}
-      onLoadedMetadata={() => reportar(cual, {})}
+      onLoadedMetadata={() => reportar(cual, {}, true)}
+      onPlay={() => reportar(cual, {}, true)}
+      onPause={() => reportar(cual, {}, true)}
       onEnded={() => reportar(cual, { fin: true })}
       onError={() => reportar(cual, { error: ref(cual).current?.error?.code ?? 0 })}
     />

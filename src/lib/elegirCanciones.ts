@@ -6,6 +6,7 @@
 
 import type { Track } from "./types";
 import { coincideEnCampos, sinTildes } from "./buscar";
+import { recordar } from "./memo";
 
 /** Alto de cada fila, pinchado como en la tabla: la ventana se calcula sin medir el DOM. */
 export const ALTO_FILA = 50;
@@ -20,11 +21,20 @@ export const ALTO_LISTA = 360;
  * coincidencia es la misma que la de la biblioteca —título, artista y
  * álbum, sin tildes—.
  */
-export function buscarCanciones(tracks: readonly Track[], consulta: string): Track[] {
+export function buscarCanciones(tracks: readonly Track[], consulta: string): readonly Track[] {
   const q = sinTildes(consulta.trim());
-  const halladas = q ? tracks.filter((t) => coincideEnCampos(t, q)) : tracks.slice();
-  return halladas.sort((a, b) => a.titulo.localeCompare(b.titulo, "es") || a.artista.localeCompare(b.artista, "es"));
+  // Se ordena una vez por catálogo y luego se filtra, que conserva el orden:
+  // ordenar en cada tecla eran miles de `localeCompare` por letra escrita.
+  const todas = ordenadas(tracks);
+  return q ? todas.filter((t) => coincideEnCampos(t, q)) : todas;
 }
+
+/** El catálogo por título y artista, una vez por catálogo. Compartido: solo lectura. */
+const ordenadas = recordar(
+  (tracks: readonly Track[]): readonly Track[] =>
+    tracks.slice().sort((a, b) => a.titulo.localeCompare(b.titulo, "es") || a.artista.localeCompare(b.artista, "es")),
+  (tracks: readonly Track[]) => [tracks],
+);
 
 /**
  * Marcar o desmarcar una canción.

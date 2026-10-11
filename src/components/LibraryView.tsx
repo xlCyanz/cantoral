@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Clock, Folder, FolderPlus, Heart, Play, RefreshCw, Search, TriangleAlert, Video } from "lucide-react";
 import type { CSSProperties } from "react";
-import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionVigente, useStore } from "../store";
+import { applyFilters, buildGroups, escaneoAPantallaCompleta, seleccionComoConjunto, seleccionVigente, useStore } from "../store";
 import { coverStyle } from "../lib/covers";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
@@ -41,7 +41,7 @@ function abrirMenuBajo(fila: HTMLElement, id: string, abrir: (id: string, x: num
 const TrackRow = memo(function TrackRow({ t, num, fila, densidad }: { t: Track; num: number; fila: number; densidad: Densidad }) {
   const playing = useStore((s) => s.playerId === t.id && s.playing);
   const sel = useStore((s) => s.selId === t.id && s.detailOpen);
-  const elegida = useStore((s) => s.selection.includes(t.id));
+  const elegida = useStore((s) => seleccionComoConjunto(s.selection).has(t.id));
   const onRowClick = useStore((s) => s.onRowClick);
   const play = useStore((s) => s.play);
   const onFav = useStore((s) => s.onFav);

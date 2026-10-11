@@ -27,6 +27,33 @@ export interface ManejadoresDeMedios {
 }
 
 /**
+ * Apunta en el store por dónde va lo que suena.
+ *
+ * El elemento avisa unas cuatro veces por segundo, pero la barra solo enseña
+ * segundos enteros. Escribir el mismo valor despertaría igual a todos los
+ * suscriptores del store —cientos con la biblioteca en pantalla—, así que solo
+ * se escribe cuando cambia el segundo.
+ */
+export function informarPosicion(segundos: number): void {
+  const pos = Math.floor(segundos);
+  if (useStore.getState().posSec !== pos) useStore.setState({ posSec: pos });
+}
+
+/**
+ * Pone la duración real del archivo en su pista.
+ *
+ * Casi siempre ya coincide, y entonces no se rehace el catálogo: reemplazarlo
+ * entero volvería a pintar la biblioteca al dar al play.
+ */
+export function fijarDuracion(id: string, d: number): void {
+  const actual = useStore.getState().tracks.find((t) => t.id === id);
+  if (!actual || actual.durSec === d) return;
+  useStore.setState((st) => ({
+    tracks: st.tracks.map((t) => (t.id === id ? { ...t, durSec: d, dur: fmt(d) } : t)),
+  }));
+}
+
+/**
  * Engancha un elemento de medios al transporte.
  *
  * `activo` es lo que reparte el trabajo entre los dos elementos: solo el que
@@ -40,7 +67,6 @@ export function useReproductor(
   activo: boolean,
 ): ManejadoresDeMedios {
   const playing = useStore((s) => s.playing);
-  const posSec = useStore((s) => s.posSec);
   const volume = useStore((s) => s.volume);
   const muted = useStore((s) => s.muted);
 
@@ -87,14 +113,23 @@ export function useReproductor(
 
   // Un salto en `posSec` es alguien moviendo la barra. El margen evita pelearse
   // con el `timeupdate` que el propio elemento acaba de mandar.
-  useEffect(() => {
-    const el = ref.current;
-    if (el && el.src && Math.abs(el.currentTime - posSec) > 1.5) el.currentTime = posSec;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posSec]);
+  //
+  // Suscrito al store y no leído con `useStore`: la posición cambia cada
+  // segundo, y leída aquí volvía a pintar cada segundo al componente que usa
+  // este hook —la barra del reproductor entera, o el panel de detalle— solo
+  // para comprobar que no había ningún salto.
+  useEffect(
+    () =>
+      useStore.subscribe((s, antes) => {
+        if (s.posSec === antes.posSec) return;
+        const el = ref.current;
+        if (el && el.src && Math.abs(el.currentTime - s.posSec) > 1.5) el.currentTime = s.posSec;
+      }),
+    [ref],
+  );
 
   return {
-    onTimeUpdate: (e) => useStore.setState({ posSec: Math.floor(e.currentTarget.currentTime) }),
+    onTimeUpdate: (e) => informarPosicion(e.currentTarget.currentTime),
     onLoadedMetadata: (e) => {
       if (!activo || !track || useStore.getState().playerId !== track.id) return;
       // La duración real del archivo manda sobre la que dijeron las etiquetas.
@@ -104,9 +139,7 @@ export function useReproductor(
           void updateTrackDuration(track.id, track.path, d)
             .catch((error) => console.error("video duration failed", error));
         }
-        useStore.setState((st) => ({
-          tracks: st.tracks.map((t) => (t.id === track.id ? { ...t, durSec: d, dur: fmt(d) } : t)),
-        }));
+        fijarDuracion(track.id, d);
       }
     },
     onEnded: () => {

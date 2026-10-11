@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import { flushUiPrefs, useStore } from "./store";
 import { registerShortcuts } from "./lib/shortcuts";
-import { useVideoDurations } from "./lib/videoDurations";
-import { useMiniaturasDeVideo } from "./lib/miniaturas";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
@@ -26,10 +24,9 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import ScanProgress from "./components/ScanProgress";
 import RowMenu from "./components/RowMenu";
 import Toast from "./components/Toast";
+import TrabajosDeFondo from "./components/TrabajosDeFondo";
 
 export default function App() {
-  useVideoDurations();
-  useMiniaturasDeVideo();
   const theme = useStore((s) => s.theme);
   const view = useStore((s) => s.view);
   const tick = useStore((s) => s.tick);
@@ -147,6 +144,7 @@ export default function App() {
       <RowMenu />
       <ScanProgress />
       <Toast />
+      <TrabajosDeFondo />
     </div>
     </ErrorBoundary>
   );

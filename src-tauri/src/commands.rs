@@ -72,7 +72,15 @@ where
     tauri::async_runtime::spawn_blocking(move || trabajo(&app)).await.map_err(e)?
 }
 
-// Every other command that takes the main mutex is `#[tauri::command(async)]`.
+// Every other command that takes the main mutex is `#[tauri::command(async)]`,
+// and so is every one that touches the disk or the windows (#123): on Windows a
+// sync command runs on the main thread, and a write to a USB stick that takes
+// a second to wake up froze the whole window for that second.
+//
+// The exceptions are on purpose. `cancel_scan` touches nothing but a flag.
+// `set_projection` only hands a message to the output window, and has to stay
+// in order: async commands run on a pool, so a «show this» followed by a «seek
+// there» could reach the output the other way round.
 // They are short, but one run on the main thread while a long command holds the
 // mutex would wait for it there — and freeze the window exactly as the long
 // command itself used to.
@@ -152,6 +160,9 @@ fn run_scan(
     )
     .map_err(e)?;
     log::info!("scan done: {count} files in {:?}", started.elapsed());
+    // Un escaneo es lo que más cambia las tablas: buen momento para que SQLite
+    // ponga al día sus estadísticas, en esta conexión y fuera del mutex.
+    db::optimizar(&scan_conn);
     Ok(())
 }
 
@@ -397,6 +408,8 @@ pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
         let inicio = std::time::Instant::now();
         let propia = db::open_secondary(&app.state::<DbPath>().0).map_err(e)?;
         db::reconcile_all(&propia).map_err(e)?;
+        // Una vez por arranque, ya con la biblioteca en pantalla.
+        db::optimizar(&propia);
         drop(propia);
         log::info!("reconcile done in {:?}", inicio.elapsed());
         let db = app.state::<Db>();
@@ -672,7 +685,7 @@ pub fn touch_playlist(db: State<Db>, playlist: String) -> CmdResult<()> {
 /// Write a printable playlist sheet. The frontend renders the HTML; this only
 /// puts it on disk. Restricted to .html/.htm so the command cannot be used as a
 /// general-purpose write-anything primitive.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
     let ext = std::path::Path::new(&dest)
         .extension()
@@ -686,7 +699,7 @@ pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
 }
 
 /// Las pantallas conectadas, para elegir por cuál sale la proyección.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn projection_monitors(app: AppHandle) -> CmdResult<Vec<crate::proyeccion::Monitor>> {
     crate::proyeccion::monitores(&app)
 }
@@ -698,12 +711,15 @@ pub async fn open_projection(app: AppHandle, monitor: usize) -> CmdResult<()> {
 }
 
 /// Cierra la salida.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn close_projection(app: AppHandle) -> CmdResult<()> {
     crate::proyeccion::cerrar(&app)
 }
 
 /// Manda a la salida lo que tiene que mostrar.
+///
+/// Síncrono a propósito: no toca el disco, y los mensajes tienen que llegar a
+/// la salida en el orden en que se mandaron (ver arriba).
 #[tauri::command]
 pub fn set_projection(app: AppHandle, contenido: serde_json::Value) -> CmdResult<()> {
     crate::proyeccion::emitir(&app, contenido)
@@ -753,7 +769,7 @@ fn perfil_de_github(usuario: &str) -> Option<String> {
 }
 
 /// Open a credited person's GitHub profile in the browser.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_credit_profile(app: AppHandle, usuario: String) -> CmdResult<()> {
     use tauri_plugin_opener::OpenerExt;
     let url = perfil_de_github(&usuario).ok_or("Ese perfil no está en los créditos.")?;
@@ -766,7 +782,7 @@ pub fn open_credit_profile(app: AppHandle, usuario: String) -> CmdResult<()> {
 /// can also turn it off from the system (the Windows Task Manager, macOS
 /// Login Items), and then the system is the one that is right. `None` where
 /// there is no such thing — mobile.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_autostart(app: AppHandle) -> CmdResult<Option<bool>> {
     #[cfg(desktop)]
     {
@@ -784,7 +800,7 @@ pub fn get_autostart(app: AppHandle) -> CmdResult<Option<bool>> {
 ///
 /// Answers with what the system says afterwards, not with what was asked: if
 /// a policy on a church PC refuses the change, the checkbox shows the truth.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_autostart(app: AppHandle, activar: bool) -> CmdResult<bool> {
     #[cfg(desktop)]
     {
@@ -812,7 +828,7 @@ pub fn set_autostart(app: AppHandle, activar: bool) -> CmdResult<bool> {
 /// at .html precisely so it cannot become a write-anything primitive, and
 /// widening it to take a second extension would trade that guarantee away for
 /// nothing. The frontend builds the JSON; this only puts it on disk.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
     if !compartir::es_json(&dest) {
         return Err("El archivo exportado debe terminar en .json".into());
@@ -830,7 +846,7 @@ pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
 ///
 /// Nothing is created until the user has seen what matched: the same shape as
 /// `inspect_backup`, because both answer «what am I about to let in?».
-#[tauri::command]
+#[tauri::command(async)]
 pub fn read_playlist_file(src: String) -> CmdResult<compartir::PlaylistFile> {
     if !compartir::es_json(&src) {
         return Err("Una lista exportada de Cantoral termina en .json".into());
@@ -849,7 +865,7 @@ pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Vec<Playlis
 /// say what the user is about to replace their library with. A backup from a
 /// newer Cantoral is refused here already, so the question is never posed for
 /// a restore that `restore_database` would turn down anyway.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn inspect_backup(src: String) -> CmdResult<db::BackupInfo> {
     db::validate_backup(std::path::Path::new(&src)).map_err(e)
 }

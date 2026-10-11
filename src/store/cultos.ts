@@ -413,7 +413,9 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       modulo.dragId = id;
       set({ draggingId: id });
     },
-    setOver: (id) => set((s) => (id !== s.overId ? { overId: id } : {})),
+    // `s` y no `{}` cuando no cambia: `{}` sigue siendo un estado nuevo y
+    // despertaría a todo el store en cada `dragover`, decenas de veces por segundo.
+    setOver: (id) => set((s) => (id !== s.overId ? { overId: id } : s)),
     reorderPl: (toId) => {
       const from = modulo.dragId;
       const cur2 = get().curPlaylist;

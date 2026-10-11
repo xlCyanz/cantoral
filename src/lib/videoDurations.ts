@@ -3,6 +3,9 @@ import { isTauri, registrar, toAssetUrl, updateTrackDuration } from "./api";
 import { fmt } from "./covers";
 import { useStore } from "../store";
 import { enTurno } from "./turnoDeVideo";
+import { claveDe, loteDePistas } from "./lote";
+import { recordar } from "./memo";
+import type { Track } from "./types";
 
 /** Lo que dejó leer un video: su duración, o por qué no se pudo. */
 export type Sondeo = { dur: number } | { dur: null; motivo: string };
@@ -122,30 +125,49 @@ export function crearRelleno(d: Dependencias) {
   };
 }
 
+/** Las duraciones leídas, juntas en una sola escritura del catálogo. */
+const lote = loteDePistas<number>((t, dur) => ({ ...t, durSec: dur, dur: fmt(dur) }));
+
 const relleno = crearRelleno({
   sondear: (path) => enTurno(() => videoDuration(path)),
   guardar: updateTrackDuration,
-  aplicar: (id, path, dur) =>
-    useStore.setState((s) => ({
-      tracks: s.tracks.map((t) => (t.id === id && t.path === path ? { ...t, durSec: dur, dur: fmt(dur) } : t)),
-    })),
+  aplicar: (id, path, dur) => lote.poner(claveDe(id, path), dur),
   registrar,
   esperar: (ms) => new Promise((r) => setTimeout(r, ms)),
   ahora: () => performance.now(),
 });
 
-/** Backfills old and newly scanned videos whose tags provided no duration. */
-export function useVideoDurations() {
-  const pending = useStore((s) => s.tracks
+/** Los videos sin duración que vale la pena leer. */
+export function sinDuracion(tracks: readonly Track[]): Pista[] {
+  return tracks
     .filter((t) => t.video && t.path && !t.missing && t.durSec === 0)
-    .map((t) => `${t.id}:${t.path}`).join("\0"));
+    .map((t) => ({ id: t.id, path: t.path! }));
+}
+
+/**
+ * Lo que tiene pendiente la cola, como una sola cadena para comparar.
+ *
+ * Memorizado sobre `tracks`: el hook lo pide en cada cambio del store —la
+ * posición del reproductor, el arrastre de una fila— y sin esto recorría el
+ * catálogo entero cada vez para devolver la misma cadena.
+ */
+export const pendientesDeDuracion = recordar(
+  (tracks: readonly Track[]) => sinDuracion(tracks).map((t) => `${t.id}:${t.path}`).join("\0"),
+  (tracks) => [tracks],
+);
+
+/**
+ * Backfills old and newly scanned videos whose tags provided no duration.
+ *
+ * `activo` lo pone `TrabajosDeFondo` cuando el arranque ya terminó: leer
+ * videos mientras se pinta la biblioteca por primera vez y se reconcilia
+ * compite por el disco y el hilo de la ventana justo cuando más se nota.
+ */
+export function useVideoDurations(activo: boolean) {
+  const pending = useStore((s) => pendientesDeDuracion(s.tracks));
 
   useEffect(() => {
-    if (!isTauri() || !pending) return;
-    relleno.encolar(
-      useStore.getState().tracks
-        .filter((t) => t.video && t.path && !t.missing && t.durSec === 0)
-        .map((t) => ({ id: t.id, path: t.path! })),
-    );
-  }, [pending]);
+    if (!activo || !isTauri() || !pending) return;
+    relleno.encolar(sinDuracion(useStore.getState().tracks));
+  }, [activo, pending]);
 }

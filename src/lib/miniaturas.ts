@@ -3,6 +3,8 @@ import { assetUrl, isTauri, markVideoThumbnailFailed, registrar, saveVideoThumbn
 import { useStore } from "../store";
 import { cur } from "../store/selectores";
 import { enTurno } from "./turnoDeVideo";
+import { claveDe, loteDePistas } from "./lote";
+import { recordar } from "./memo";
 import type { Track } from "./types";
 
 // Las miniaturas de los videos.
@@ -294,13 +296,23 @@ export function sinMiniatura(tracks: readonly Track[]): Pista[] {
     .map((t) => ({ id: t.id, path: t.path! }));
 }
 
+/** Las miniaturas hechas, juntas en una sola escritura del catálogo. */
+const loteDeMiniaturas = loteDePistas<string>((t, cover) => ({ ...t, cover }));
+
+/**
+ * `sinMiniatura` como una cadena para comparar, memorizada sobre `tracks`: el
+ * hook la pide en cada cambio del store, y sin esto filtraba y juntaba el
+ * catálogo entero cada vez para devolver la misma.
+ */
+export const pendientesDeMiniatura = recordar(
+  (tracks: readonly Track[]) => sinMiniatura(tracks).map((t) => `${t.id}:${t.path}`).join("\0"),
+  (tracks) => [tracks],
+);
+
 const cola = crearCola({
   capturar: (path) => enTurno(() => capturarMiniatura(path)),
   guardar: saveVideoThumbnail,
-  aplicar: (id, path, ruta) =>
-    useStore.setState((s) => ({
-      tracks: s.tracks.map((t) => (t.id === id && t.path === path ? { ...t, cover: assetUrl(ruta) } : t)),
-    })),
+  aplicar: (id, path, ruta) => loteDeMiniaturas.poner(claveDe(id, path), assetUrl(ruta)),
   marcarFallo: markVideoThumbnailFailed,
   ocupado: () => {
     const s = useStore.getState();
@@ -316,13 +328,14 @@ const cola = crearCola({
  * los que ya estaban en la biblioteca antes de que existiera esto.
  *
  * Solo en la app: el navegador no tiene archivos que leer, y sus videos de
- * ejemplo se quedan con el glifo.
+ * ejemplo se quedan con el glifo. Y solo con `activo`, que llega cuando el
+ * arranque ya terminó (ver `useVideoDurations`).
  */
-export function useMiniaturasDeVideo() {
-  const pending = useStore((s) => sinMiniatura(s.tracks).map((t) => `${t.id}:${t.path}`).join("\0"));
+export function useMiniaturasDeVideo(activo: boolean) {
+  const pending = useStore((s) => pendientesDeMiniatura(s.tracks));
 
   useEffect(() => {
-    if (!isTauri() || !pending) return;
+    if (!activo || !isTauri() || !pending) return;
     cola.encolar(sinMiniatura(useStore.getState().tracks));
-  }, [pending]);
+  }, [activo, pending]);
 }
