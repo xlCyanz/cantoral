@@ -113,6 +113,10 @@ CREATE INDEX IF NOT EXISTS idx_tracks_titulo ON tracks(titulo);
 CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
 -- `list_playlists` lee el orden de todas las listas de una vez, en este orden.
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist_id, position);
+-- Borrar una pista (o una carpeta entera) busca sus filas en las listas por
+-- `track_id` para la cascada; sin esto, cada pista recorre la tabla entera.
+-- Igual que en la migración 15.
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track ON playlist_tracks(track_id);
 "#;
 
 /// Historia: el índice de búsqueda sobre las hojas (#144), que ya no existe.
@@ -225,6 +229,12 @@ const MIGRATIONS: &[(i64, &str)] = &[
          DROP TRIGGER IF EXISTS letras_fts_au;
          DROP TABLE IF EXISTS letras_fts;",
     ),
+    // La cascada de `tracks` a `playlist_tracks` (y la fusión de duplicados,
+    // que reescribe `track_id`) buscaba por una columna sin índice: la clave
+    // primaria empieza por `playlist_id`, así que no sirve. Quitar una carpeta
+    // de miles de pistas recorría la tabla una vez por pista. `playlist_momentos`
+    // no apunta a ninguna pista, así que no necesita otro.
+    (15, "CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track ON playlist_tracks(track_id);"),
 ];
 
 /// The schema version this build writes and understands: the last migration.
@@ -314,6 +324,20 @@ pub fn open_secondary(path: &std::path::Path) -> Result<Connection> {
     let conn = Connection::open(path)?;
     conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 15000;")?;
     Ok(conn)
+}
+
+/// Refresca las estadísticas que usa SQLite para elegir índices.
+///
+/// Barato cuando no hay nada que hacer, y por eso se llama al acabar un
+/// escaneo o la reconciliación del arranque: justo cuando las tablas pueden
+/// haber cambiado mucho. `0x10002` mira todas las tablas y no solo las que
+/// consultó esta conexión (que es nueva); `analysis_limit` acota el trabajo en
+/// una biblioteca grande. Si falla no pasa nada: solo se pierde la mejora.
+pub fn optimizar(conn: &Connection) {
+    if let Err(err) = conn.execute_batch("PRAGMA analysis_limit = 400; PRAGMA optimize = 0x10002;")
+    {
+        log::warn!("PRAGMA optimize failed: {err}");
+    }
 }
 
 fn now() -> String {
@@ -2100,6 +2124,53 @@ mod tests {
         let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})")).unwrap();
         let cols = stmt.query_map([], |r| r.get(1)).unwrap();
         cols.collect::<std::result::Result<_, _>>().unwrap()
+    }
+
+    fn indices(conn: &Connection) -> Vec<String> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT name FROM sqlite_master
+                 WHERE type='index' AND name NOT LIKE 'sqlite_autoindex%' ORDER BY name",
+            )
+            .unwrap();
+        let nombres = stmt.query_map([], |r| r.get(0)).unwrap();
+        nombres.collect::<std::result::Result<_, _>>().unwrap()
+    }
+
+    #[test]
+    fn a_migrated_database_has_the_same_indexes_as_a_new_one() {
+        let dir = Dir::new("version-indices");
+        let path = dir.path("vieja.db");
+        Connection::open(&path).unwrap().execute_batch(SCHEMA_0_1_0).unwrap();
+
+        let conn = open_and_migrate(&path).unwrap();
+
+        assert_eq!(indices(&conn), indices(&mem()));
+        assert!(indices(&conn).contains(&"idx_playlist_tracks_track".to_string()));
+    }
+
+    #[test]
+    fn migration_15_adds_the_track_index_to_a_database_at_14() {
+        let conn = mem();
+        conn.execute_batch("DROP INDEX idx_playlist_tracks_track;").unwrap();
+        let (_, sql) = MIGRATIONS.iter().find(|(v, _)| *v == 15).unwrap();
+        conn.execute_batch(sql).unwrap();
+        // La cascada al borrar una pista usa el índice, no recorre la tabla.
+        let plan: String = conn
+            .query_row(
+                "EXPLAIN QUERY PLAN SELECT 1 FROM playlist_tracks WHERE track_id = 1",
+                [],
+                |r| r.get(3),
+            )
+            .unwrap();
+        assert!(plan.contains("idx_playlist_tracks_track"), "{plan}");
+    }
+
+    #[test]
+    fn optimize_runs_on_a_fresh_database() {
+        let conn = mem();
+        optimizar(&conn);
+        optimizar(&conn);
     }
 
     #[test]

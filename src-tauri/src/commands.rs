@@ -152,6 +152,9 @@ fn run_scan(
     )
     .map_err(e)?;
     log::info!("scan done: {count} files in {:?}", started.elapsed());
+    // Un escaneo es lo que más cambia las tablas: buen momento para que SQLite
+    // ponga al día sus estadísticas, en esta conexión y fuera del mutex.
+    db::optimizar(&scan_conn);
     Ok(())
 }
 
@@ -397,6 +400,8 @@ pub async fn reconcile_library(app: AppHandle) -> CmdResult<Snapshot> {
         let inicio = std::time::Instant::now();
         let propia = db::open_secondary(&app.state::<DbPath>().0).map_err(e)?;
         db::reconcile_all(&propia).map_err(e)?;
+        // Una vez por arranque, ya con la biblioteca en pantalla.
+        db::optimizar(&propia);
         drop(propia);
         log::info!("reconcile done in {:?}", inicio.elapsed());
         let db = app.state::<Db>();
