@@ -10,9 +10,10 @@ import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccio
 import type { ArchivoDeLista } from "./compartir";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
-export function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
+// Lo mínimo vive en `registro.ts`, para que la ventana de salida no cargue
+// con este archivo entero.
+import { isTauri, registrar } from "./registro";
+export { isTauri, registrar };
 
 /** True when the webview runs on macOS (native traffic lights available). */
 export function isMacOS(): boolean {
@@ -385,16 +386,6 @@ export async function setPlaylistOrderCmd(playlist: string, ids: string[]): Prom
   if (!isTauri()) return;
   await inv("set_playlist_order", { playlist, ids });
 }
-/**
- * Una línea en el log de la app, que es lo que se pide cuando algo falla en
- * otra PC. Nunca falla ni se espera: un diagnóstico no puede ser la causa de
- * otro problema.
- */
-export function registrar(nivel: "info" | "warn" | "error", mensaje: string): void {
-  if (!isTauri()) return;
-  void inv<void>("registrar", { nivel, mensaje }).catch(() => {});
-}
-
 /** Full path of the app's log file. */
 export async function rutaDelLog(): Promise<string | null> {
   if (!isTauri()) return null;

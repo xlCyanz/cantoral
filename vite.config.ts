@@ -28,6 +28,17 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Dos páginas: la ventana principal y la de salida del proyector, que solo
+  // carga lo suyo en vez del paquete entero de la app (ver `src/salida.tsx`).
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        salida: fileURLToPath(new URL("./salida.html", import.meta.url)),
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

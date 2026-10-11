@@ -145,7 +145,9 @@ pub fn abrir(app: &AppHandle, indice: usize) -> Result<(), String> {
     // instante en otro sitio.
     let logica = fisica.to_logical::<f64>(destino.scale_factor());
     let ventana =
-        WebviewWindowBuilder::new(app, ETIQUETA, WebviewUrl::App("index.html?salida".into()))
+        // Su propia página, que solo carga la pantalla de proyección y no el
+        // paquete entero de la ventana principal.
+        WebviewWindowBuilder::new(app, ETIQUETA, WebviewUrl::App("salida.html".into()))
             .title("Cantoral — proyección")
             .decorations(false)
             .resizable(false)
