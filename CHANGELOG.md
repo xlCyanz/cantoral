@@ -18,6 +18,10 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   la app abre ya a ese tamaño. En una ventana pequeña crece hasta donde quepa.
 - Los diálogos que no caben en la ventana se pueden desplazar hasta sus
   botones.
+- **Una animación al maximizar y al restaurar (Windows).** Con el botón, con el
+  doble clic en la barra de título o con Win + ↑, el contenido se asienta en
+  un instante en vez de saltar de golpe. Si Windows tiene las animaciones
+  apagadas, no se anima. En Mac ya lo hacía el sistema.
 
 ## [0.6.0] - 2026-10-11
 
