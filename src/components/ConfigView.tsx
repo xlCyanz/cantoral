@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
 import SelectorDePantalla from "./SelectorDePantalla";
+import TamanoDeLaInterfaz from "./TamanoDeLaInterfaz";
 import { getDbInfo, isMacOS, openCreditProfile, type CopiaAutomatica, type DbInfo } from "../lib/api";
 import { backend } from "../lib/backend";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
@@ -151,6 +152,8 @@ export default function ConfigView() {
           <ThemeCard value="system" label="Seguir al sistema" />
         </div>
       </div>
+
+      <TamanoDeLaInterfaz />
 
       <AjustesDeProyeccion />
 

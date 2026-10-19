@@ -9,6 +9,16 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Configuración → Tamaño de la interfaz**: Normal, Grande o Muy grande, para
+  quien no ve bien la letra pequeña. Agranda letras, botones y listas en toda
+  la app (el proyector no cambia). Viene en «Grande». También con Ctrl + y
+  Ctrl − (⌘ en Mac), y Ctrl 0 la devuelve a «Grande». Se recuerda al cerrar, y
+  la app abre ya a ese tamaño. En una ventana pequeña crece hasta donde quepa.
+- Los diálogos que no caben en la ventana se pueden desplazar hasta sus
+  botones.
+
 ## [0.6.0] - 2026-10-11
 
 **Más simple y más rápida.** Un video se proyecta con solo ponerlo a sonar y
