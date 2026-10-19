@@ -20,25 +20,23 @@ import Toast from "./components/Toast";
 import TrabajosDeFondo from "./components/TrabajosDeFondo";
 
 // Lo que casi nunca se abre se carga al abrirlo, y no al arrancar: la
-// configuración, la proyección y los diálogos de ayuda, imprimir, importar,
+// configuración y los diálogos de ayuda, imprimir, importar,
 // momentos y «Agregar canciones». Un rato después de arrancar se cargan
 // igual, en un momento libre, para que la primera vez que se abran no
 // esperen a nada.
 const cargarConfig = () => import("./components/ConfigView");
-const cargarProyeccion = () => import("./components/ProjectionView");
 const cargarAgregar = () => import("./components/AgregarCancionesDialog");
 const cargarImportar = () => import("./components/ImportListDialog");
 const cargarImprimir = () => import("./components/PrintPreview");
 const cargarMomento = () => import("./components/MomentoDialog");
 const cargarAyuda = () => import("./components/HelpDialog");
 const ConfigView = lazy(cargarConfig);
-const ProjectionView = lazy(cargarProyeccion);
 const AgregarCancionesDialog = lazy(cargarAgregar);
 const ImportListDialog = lazy(cargarImportar);
 const PrintPreview = lazy(cargarImprimir);
 const MomentoDialog = lazy(cargarMomento);
 const HelpDialog = lazy(cargarAyuda);
-const DIFERIDOS = [cargarConfig, cargarProyeccion, cargarAgregar, cargarImportar, cargarImprimir, cargarMomento, cargarAyuda];
+const DIFERIDOS = [cargarConfig, cargarAgregar, cargarImportar, cargarImprimir, cargarMomento, cargarAyuda];
 
 /**
  * Lo diferido, sin nada en su lugar mientras llega: es un archivo local que
@@ -80,7 +78,7 @@ export default function App() {
     return () => un?.();
   }, []);
 
-  // Escuchar por dónde va lo que está proyectando la ventana de salida.
+  // Escuchar por dónde va el video que enseña la ventana de salida.
   useEffect(() => {
     let un: (() => void) | undefined;
     void useStore.getState().escucharProyeccion().then((u) => (un = u));
@@ -156,7 +154,6 @@ export default function App() {
             {view === "colecciones" && <CollectionsView />}
             {view === "lista" && <PlaylistView />}
             {view === "config" && <Diferido><ConfigView /></Diferido>}
-            {view === "proyeccion" && <Diferido><ProjectionView /></Diferido>}
           </main>
         </div>
 

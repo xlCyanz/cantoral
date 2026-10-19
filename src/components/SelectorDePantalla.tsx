@@ -2,16 +2,11 @@ import { useStore } from "../store";
 import { resolverPantalla } from "../lib/pantallas";
 
 /**
- * Elegir la pantalla de proyección.
+ * Elegir la pantalla de proyección, en Configuración.
  *
- * Uno solo para Proyección y para Configuración: es un solo ajuste —por dónde
- * sale un culto y por dónde sale un video que se pone a sonar—, y dos
- * selectores que se pudieran contradecir harían dudar de cuál manda. Elegir
- * en cualquiera de los dos lo recuerda para los dos y para el próximo
- * arranque.
- *
- * Las pantallas las lee quien lo monta (`cargarMonitores`): se enchufan y se
- * desenchufan con la app abierta, y cada vista sabe cuándo volver a mirar.
+ * Elegirla lo recuerda para el próximo arranque. Las pantallas las lee quien
+ * lo monta (`cargarMonitores`): se enchufan y se desenchufan con la app
+ * abierta, y la vista sabe cuándo volver a mirar.
  */
 export default function SelectorDePantalla() {
   const monitores = useStore((s) => s.monitores);

@@ -1,32 +1,13 @@
-// Un momento sin música en la proyección (#145).
-//
-// El criterio de la propuesta, tal cual: un culto «Adoración 1 → Oración →
-// Adoración 2» proyectado con «Pasar al siguiente». La primera canción acaba,
-// sale «Oración» sobre negro y se queda; «Siguiente» arranca la segunda. Y lo
-// que va alrededor: que «Reproducir todo» pase de largo y que importar un
-// culto con momentos los deje en su sitio.
+// Un momento sin música en el culto (#145), fuera del reproductor: que
+// «Reproducir todo» pase de largo y que importar un culto con momentos los
+// deje en su sitio.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EstadoProyeccion, SalidaProyeccion } from "../api";
 import type { Momento, Playlist, Track } from "../types";
-
-const setProjectionCmd = vi.fn<(c: SalidaProyeccion) => Promise<void>>();
-let contestar: ((e: EstadoProyeccion) => void) | null = null;
-
-vi.mock("../api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../api")>()),
-  setProjectionCmd: (c: SalidaProyeccion) => setProjectionCmd(c),
-  onProjectionState: (cb: (e: EstadoProyeccion) => void) => {
-    contestar = cb;
-    return Promise.resolve(() => (contestar = null));
-  },
-  onProjectionReady: () => Promise.resolve(() => {}),
-}));
 
 const { useStore } = await import("../../store");
 const { usarBackend } = await import("../backend");
 const { crearMemoria } = await import("../backend/memoria");
-const { assetUrl } = await import("../api");
 const initial = useStore.getState();
 
 function pista(id: string, over: Partial<Track> = {}): Track {
@@ -58,83 +39,12 @@ function culto() {
     playlists: [pl],
     plOrder: { p1: pl.ids.slice() },
     curPlaylist: "p1",
-    proyectando: true,
-    proyeccionIdx: -1,
-    avanceProyeccion: "siguiente",
   });
   usarBackend(crearMemoria({ tracks, playlists: [pl] }));
 }
 
-const ultimo = (): SalidaProyeccion => {
-  const llamadas = setProjectionCmd.mock.calls;
-  return llamadas[llamadas.length - 1][0];
-};
-
 beforeEach(() => {
   useStore.setState(initial, true);
-  setProjectionCmd.mockReset();
-  setProjectionCmd.mockResolvedValue(undefined);
-  contestar = null;
-});
-
-describe("un momento en la proyección", () => {
-  it("al acabarse la canción sale el título sobre negro y la cola se queda ahí", async () => {
-    culto();
-    await useStore.getState().escucharProyeccion();
-    useStore.getState().proyectarElemento(0);
-
-    contestar!({ src: assetUrl("/m/1.mp3"), pos: 180, dur: 180, fin: true });
-
-    expect(useStore.getState().proyeccionIdx).toBe(1);
-    expect(useStore.getState().proyeccionEnNegro).toBe(false);
-    expect(ultimo().vista).toEqual({ modo: "titulo", titulo: "Oración", sub: "Pastor Luis" });
-  });
-
-  it("mientras dura, se va cargando la canción de después", () => {
-    culto();
-    useStore.getState().proyectarElemento(1);
-
-    expect(ultimo().precarga).toBe(assetUrl("/m/2.mp3"));
-  });
-
-  it("y la canción de antes precarga la de después del momento, no el hueco", () => {
-    culto();
-    useStore.getState().proyectarElemento(0);
-
-    expect(ultimo().precarga).toBe(assetUrl("/m/2.mp3"));
-  });
-
-  it("un «fin» rezagado de la canción anterior no lo hace avanzar solo", async () => {
-    culto();
-    await useStore.getState().escucharProyeccion();
-    useStore.getState().proyectarElemento(1);
-
-    contestar!({ src: assetUrl("/m/1.mp3"), pos: 180, dur: 180, fin: true });
-
-    expect(useStore.getState().proyeccionIdx).toBe(1);
-    expect(ultimo().vista.modo).toBe("titulo");
-  });
-
-  it("«Siguiente» arranca la canción de después, con su transición", () => {
-    culto();
-    useStore.getState().setTransicionProyeccion("cuenta");
-    useStore.getState().proyectarElemento(1);
-
-    useStore.getState().proyeccionSiguiente();
-
-    expect(useStore.getState().proyeccionIdx).toBe(2);
-    expect(ultimo().vista).toMatchObject({ modo: "media", src: assetUrl("/m/2.mp3"), titulo: "Adoración 2" });
-    expect(ultimo().transicion).toBe("cuenta");
-  });
-
-  it("con el momento sin texto, sale solo el título", () => {
-    culto();
-    useStore.setState({ playlists: [{ ...useStore.getState().playlists[0], momentos: [{ ...ORACION, texto: "" }] }] });
-
-    useStore.getState().proyectarElemento(1);
-
-    expect(ultimo().vista).toEqual({ modo: "titulo", titulo: "Oración", sub: undefined });
-  });
 });
 
 describe("fuera de la proyección", () => {

@@ -1,10 +1,9 @@
 // Las carátulas reducidas: la pasada única del núcleo avisa de las rutas
-// nuevas por lotes, y la proyección usa la versión mediana cuando la hay.
+// nuevas por lotes.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CaratulaNueva } from "../api";
 import type { Track } from "../types";
-import { caratulaGrande } from "../covers";
 
 function pista(id: string, over: Partial<Track> = {}): Track {
   return { id, titulo: `T${id}`, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 0, path: `/m/${id}.mp3`, ...over };
@@ -52,23 +51,5 @@ describe("la pasada que reduce las carátulas", () => {
 
     soltar();
     expect(oyente).toBeNull();
-  });
-});
-
-describe("la carátula de la proyección", () => {
-  it("usa la mediana de una carátula reducida, en ruta o en URL de asset", () => {
-    expect(caratulaGrande("/c/covers/a-0123456789abcdef.jpg")).toBe("/c/covers/a-0123456789abcdef-g.jpg");
-    expect(caratulaGrande("http://asset.localhost/C%3A%5Ccovers%5Ca-0123456789abcdef.jpg")).toBe(
-      "http://asset.localhost/C%3A%5Ccovers%5Ca-0123456789abcdef-g.jpg",
-    );
-    expect(caratulaGrande("asset://localhost/%2Fc%2Fcovers%2Fa-0123456789abcdef.jpg")).toBe(
-      "asset://localhost/%2Fc%2Fcovers%2Fa-0123456789abcdef-g.jpg",
-    );
-  });
-
-  it("deja como está una miniatura de video o una carátula de antes", () => {
-    expect(caratulaGrande("/c/covers/12.jpg")).toBe("/c/covers/12.jpg");
-    expect(caratulaGrande("/c/covers/a-0123456789abcdef-g.jpg")).toBe("/c/covers/a-0123456789abcdef-g.jpg");
-    expect(caratulaGrande("/c/mi-a-0123456789abcdef.jpg")).toBe("/c/mi-a-0123456789abcdef.jpg");
   });
 });

@@ -2,7 +2,7 @@
 
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type View = "biblioteca" | "colecciones" | "lista" | "config" | "proyeccion";
+export type View = "biblioteca" | "colecciones" | "lista" | "config";
 /**
  * What the library view has to show. A scan in flight is *not* one of these:
  * it runs alongside whatever the library already holds (see `scanning`).
@@ -18,12 +18,6 @@ export type GroupBy = "none" | "album" | "carpeta";
  * en la pantalla del atril sin tener que desplazarse a media alabanza.
  */
 export type Densidad = "comoda" | "compacta";
-/** Qué sale por el proyector cuando la pista es solo audio. */
-export type SalidaDeAudio = "negro" | "portada";
-/** Qué pasa por el proyector entre un elemento del culto y el siguiente. */
-export type TransicionProyeccion = "negro" | "cuenta";
-/** Qué hace la proyección cuando un elemento del culto se termina. */
-export type AvanceProyeccion = "negro" | "siguiente";
 export type SortKey = "titulo" | "album" | "dur";
 export type SortDir = "asc" | "desc";
 

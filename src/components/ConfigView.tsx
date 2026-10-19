@@ -330,9 +330,8 @@ function megas(bytes: number): string {
 /**
  * La pantalla de proyección, y si un video que se pone a sonar sale por ella.
  *
- * Aquí y no solo en Proyección porque se elige una vez —el día que se instala
- * el proyector— y no cada domingo; la de Proyección es la misma, para
- * cambiarla en marcha.
+ * Es el único sitio donde se elige: se hace una vez, el día que se instala el
+ * proyector, y no cada domingo.
  */
 function AjustesDeProyeccion() {
   const cargarMonitores = useStore((s) => s.cargarMonitores);
@@ -347,7 +346,7 @@ function AjustesDeProyeccion() {
   return (
     <div style={tarjeta}>
       <h2 style={h2Style}>Proyección</h2>
-      <p style={{ ...pStyle, marginBottom: 8 }}>La pantalla por la que sale un culto y cualquier video que pongas a sonar. Se recuerda aunque desconectes el proyector.</p>
+      <p style={{ ...pStyle, marginBottom: 8 }}>La pantalla por la que salen los videos que pongas a sonar. El sonido sale siempre por el equipo. Se recuerda aunque desconectes el proyector.</p>
       <SelectorDePantalla />
       <label className="casilla" style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 9, marginTop: 10, cursor: "pointer" }}>
         <input
@@ -363,7 +362,7 @@ function AjustesDeProyeccion() {
         <div>
           <div style={{ fontSize: 12, fontWeight: 600 }}>Proyectar los videos al reproducirlos</div>
           <div id="proyectar-videos-ayuda" style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>
-            Sin tener que preparar un culto. Si no hay otra pantalla conectada, el video se ve en el panel de la pista.
+            Lo demás —pausa, volumen, la siguiente— se maneja desde la barra de abajo. Si no hay otra pantalla conectada, el video se ve en el panel de la pista.
           </div>
         </div>
       </label>

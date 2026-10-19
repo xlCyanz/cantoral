@@ -137,7 +137,7 @@ describe("cortar la proyección", () => {
     closeProjectionCmd.mockRejectedValue("window not found");
     useStore.setState({ proyectando: true });
 
-    useStore.getState().alternarProyeccion();
+    useStore.getState().cerrarProyeccion();
     await settle();
 
     expect(useStore.getState().toast?.type).toBe("error");

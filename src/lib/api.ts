@@ -5,7 +5,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
+import type { Folder, Playlist, Theme, Track } from "./types";
 import { parsearArchivo, type ArchivoDeLista } from "./compartir";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
@@ -668,56 +668,24 @@ export interface MonitorInfo {
   y: number;
 }
 
-/** Lo que la ventana de salida está mostrando. */
+/**
+ * Lo que la ventana de salida está mostrando: el video que suena en el
+ * reproductor, o negro. Un audio no pone nada delante de la congregación.
+ */
 export type VistaProyeccion =
   | { modo: "negro" }
-  | { modo: "titulo"; titulo: string; sub?: string }
   | {
       modo: "media";
-      /** URL `asset://` del archivo. */
+      /** URL `asset://` del video. */
       src: string;
-      /** Si trae imagen. Un audio no llena la pantalla por sí solo. */
-      video: boolean;
       titulo: string;
       sub?: string;
       reproduciendo: boolean;
-      /**
-       * Qué dibujar mientras suena, cuando el archivo no trae imagen.
-       *
-       * Ausente en un video: ahí la pantalla ya está llena. Salvo con «Negro»,
-       * la salida pone el título, que es mejor que un negro con el que nadie
-       * sabe si la app se colgó.
-       */
-      audio?: {
-        tipo: SalidaDeAudio;
-        /** URL `asset://` de la carátula, para el fondo. */
-        portada?: string;
-      };
     };
 
-/**
- * El mensaje completo que recibe la salida.
- *
- * `precarga` no se ve: es el archivo siguiente del culto, que la salida carga
- * en silencio y deja en pausa. Sin eso, pasar de un elemento a otro deja la
- * pantalla grande en negro el tiempo que tarde el disco — medio segundo en un
- * SSD, varios en un pendrive, que es de donde sale la música en muchas
- * iglesias.
- */
+/** El mensaje completo que recibe la salida. */
 export interface SalidaProyeccion {
   vista: VistaProyeccion;
-  precarga?: string;
-  /**
-   * Qué hacer antes de enseñar esto.
-   *
-   * Solo viene al cambiar de elemento del culto. Cortar a negro o cambiar un ajuste en marcha no llevan transición: serían
-   * medio segundo de negro en mitad de una canción.
-   *
-   * La cuenta la lleva la ventana de salida y no esta: es la que tiene el
-   * fotograma delante, y un temporizador que viaje entre ventanas llegaría
-   * tarde de forma distinta cada vez.
-   */
-  transicion?: TransicionProyeccion;
 }
 
 /**

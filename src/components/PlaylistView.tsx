@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, ListMusic, ListPlus, MonitorPlay, Pencil, Play, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, Hourglass, ListMusic, ListPlus, Pencil, Play, Printer, Trash2, Video } from "lucide-react";
 import { elementosDeLista, plDur, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { etiquetaDeTipo, resumenDeOrden } from "../lib/momentos";
@@ -255,7 +255,6 @@ export default function PlaylistView() {
   const nuevoMomento = useStore((s) => s.nuevoMomento);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
-  const showProyeccion = useStore((s) => s.showProyeccion);
   const openPrintPreview = useStore((s) => s.openPrintPreview);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
@@ -295,14 +294,6 @@ export default function PlaylistView() {
                 una vez, en lugar de ir y volver por cada canción. */}
             <button onClick={abrirAgregarCanciones} className="hb-s2" title="Elegir varias canciones de la biblioteca" style={{ ...botonSecundario(42), ...enUnaLinea }}>
               <ListPlus size={16} />Agregar canciones…
-            </button>
-            {/* El documento pone «Proyectar» aquí, entre reproducir e
-                imprimir. En la etapa 4 se quedó fuera porque no había a dónde
-                ir; ahora sí, y es la única puerta: se proyecta el culto que
-                está abierto. */}
-            <button onClick={() => showProyeccion()} className="hb-s2" title="Sacar el culto por el proyector"
-              style={{ ...botonSecundario(42), ...enUnaLinea }}>
-              <MonitorPlay size={16} />Proyectar
             </button>
             {/* Era «Exportar», que escribía un .html y lo abría en el
                 navegador para que allí alguien pulsara Cmd/Ctrl+P. Lo que se

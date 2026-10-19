@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
-import { modoDeLaBarra } from "../lib/proyeccion";
 import { guardarTema } from "../lib/temaGuardado";
 import { crearContexto, modulo } from "./contexto";
 import { crearInterfaz } from "./interfaz";
@@ -25,8 +24,7 @@ import type { CantoralState } from "./tipos";
 export * from "./tipos";
 export * from "./selectores";
 export { detalleDeOmitidos } from "./reglas";
-export { filasProyectadas, modoDeLaBarra, pistaEnElAire } from "../lib/proyeccion";
-export type { ModoDeLaBarra } from "../lib/proyeccion";
+export { enElProyector } from "../lib/proyeccion";
 export type { InterfazSlice } from "./interfaz";
 export type { BibliotecaSlice } from "./biblioteca";
 export type { DetalleSlice } from "./detalle";
@@ -116,13 +114,11 @@ useStore.subscribe((s, previo) => {
 
 /**
  * Mirando `playing` y no desde `play` o `togglePlay`, porque se pone a sonar
- * desde muchos sitios —la barra, el doble clic, Espacio, el culto, la
- * proyección—, y la barra tiene que aparecer en todos.
+ * desde muchos sitios —la barra, el doble clic, Espacio, «Reproducir todo»—,
+ * y la barra tiene que aparecer en todos.
  */
 useStore.subscribe((s) => {
-  // También al proyectar: con un culto en el aire, la barra es la que dice qué
-  // suena y la que lo adelanta.
-  if (!s.haSonado && (s.playing || modoDeLaBarra(s) !== "local")) useStore.setState({ haSonado: true });
+  if (!s.haSonado && s.playing) useStore.setState({ haSonado: true });
 });
 
 // ============================================================

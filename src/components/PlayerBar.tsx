@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Heart, MonitorX, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
-import { cur, modoDeLaBarra, pistaEnElAire, useStore } from "../store";
+import { cur, enElProyector, useStore } from "../store";
 import { useReproductor } from "../lib/media";
 import { coverStyle, fmt } from "../lib/covers";
 import GlifoDePista from "./GlifoDePista";
@@ -111,17 +111,16 @@ const tiempo: CSSProperties = { fontSize: 10, color: "var(--text-3)", fontVarian
  * posición, la barra entera —carátula, botones, volumen— se volvía a pintar
  * con cada segundo que pasaba. Así solo se repinta esto.
  */
-function Progreso({ track, enCulto }: { track: Track | undefined; enCulto: boolean }) {
-  const storePos = useStore((s) => (modoDeLaBarra(s) === "culto" ? s.proyeccionPos : s.posSec));
-  const durCulto = useStore((s) => (enCulto ? s.proyeccionDur : 0));
-  const alProyector = useStore((s) => modoDeLaBarra(s) !== "local");
+function Progreso({ track }: { track: Track | undefined }) {
+  const storePos = useStore((s) => s.posSec);
+  const alProyector = useStore(enElProyector);
   // Adónde se está arrastrando, mientras se arrastra hacia el proyector.
   const [arrastre, setArrastre] = useState<number | null>(null);
   // Un solo objeto por barra: guarda lo pendiente entre un evento y otro.
   const [busqueda] = useState(() => crearBusquedaDiferida((f) => useStore.getState().seekToFraction(f)));
 
-  const durS = (enCulto && durCulto > 0 ? durCulto : track?.durSec) || 1;
-  const durTexto = track ? (enCulto && durCulto > 0 ? fmt(durCulto) : track.dur) : "0:00";
+  const durS = track?.durSec || 1;
+  const durTexto = track ? track.dur : "0:00";
   const posSec = arrastre !== null ? Math.round(arrastre * durS) : storePos;
   const fraccion = arrastre ?? Math.min(100, (storePos / durS) * 100) / 100;
 
@@ -166,19 +165,13 @@ export default function PlayerBar() {
   // it reads the fields it shows one by one — reading the whole store here used
   // to drag the entire library table along with every tick.
   //
-  // Con una pista del culto en el aire y el reproductor parado, la barra
-  // habla de lo que suena por el proyector: su título, su tiempo —el que
-  // devuelve la salida— y sus botones, que mandan sobre la salida.
-  const modo = useStore(modoDeLaBarra);
-  const enCulto = modo === "culto";
-  const transporte = useStore((s) => cur(s) ?? s.tracks[0]);
-  const delCulto = useStore((s) => (modoDeLaBarra(s) === "culto" ? pistaEnElAire(s) : undefined));
-  const track = delCulto ?? transporte;
-  const playing = useStore((s) => (modoDeLaBarra(s) === "culto" ? !s.proyeccionPausada : s.playing));
+  // Es la misma barra suene donde suene: un video que sale por el proyector
+  // se pausa, se adelanta y se pasa desde aquí, igual que un audio.
+  const alProyector = useStore(enElProyector);
+  const track = useStore((s) => cur(s) ?? s.tracks[0]);
+  const playing = useStore((s) => s.playing);
   const proyectando = useStore((s) => s.proyectando);
   const cerrarProyeccion = useStore((s) => s.cerrarProyeccion);
-  const proyeccionAnterior = useStore((s) => s.proyeccionAnterior);
-  const proyeccionSiguiente = useStore((s) => s.proyeccionSiguiente);
   const volume = useStore((s) => s.volume);
   const muted = useStore((s) => s.muted);
   const shuffle = useStore((s) => s.shuffle);
@@ -204,11 +197,8 @@ export default function PlayerBar() {
   // Solo el audio. El video se reproduce en el proyector o en el `<video>` del
   // panel de detalle, que es donde se puede ver; aquí se queda sin `src` para
   // que los dos elementos no reclamen el mismo archivo a la vez.
-  //
-  // La pista del transporte y no la que enseña la barra: con el culto en la
-  // barra, lo que suena lo suena la salida, y este `<audio>` no carga nada.
   const audioRef = useRef<HTMLAudioElement>(null);
-  const manejadores = useReproductor(audioRef, transporte, !!transporte && !transporte.video);
+  const manejadores = useReproductor(audioRef, track, !!track && !track.video);
   const haSonado = useStore((s) => s.haSonado);
   const audio = <audio ref={audioRef} preload="metadata" {...manejadores} style={{ display: "none" }} />;
 
@@ -240,23 +230,23 @@ export default function PlayerBar() {
       {/* transporte y progreso */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={toggleShuffle} disabled={enCulto} title="Aleatorio" aria-label="Aleatorio" aria-pressed={shuffle} className="hb-text" style={{ ...secundarioBtn, transition: "color .13s", color: shuffle ? "var(--primary)" : "var(--text-3)", opacity: enCulto ? 0.35 : 1 }}>
+          <button onClick={toggleShuffle} title="Aleatorio" aria-label="Aleatorio" aria-pressed={shuffle} className="hb-text" style={{ ...secundarioBtn, transition: "color .13s", color: shuffle ? "var(--primary)" : "var(--text-3)" }}>
             <Shuffle size={14} />
           </button>
-          <button onClick={enCulto ? proyeccionAnterior : irAnterior} title="Anterior" aria-label="Anterior" className="hb-s2t" style={transportBtn}>
+          <button onClick={irAnterior} title="Anterior" aria-label="Anterior" className="hb-s2t" style={transportBtn}>
             <SkipBack size={15} fill="currentColor" />
           </button>
           <button onClick={togglePlay} title="Reproducir/Pausar" aria-label={playing ? "Pausar" : "Reproducir"} className="hb-primary hb-active-scale" style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--primary-fill)", color: "var(--on-primary)", display: "grid", placeItems: "center", transition: "transform .1s,background .14s" }}>
             {playing ? <Pause size={15} fill="currentColor" stroke="none" /> : <Play size={15} fill="currentColor" stroke="none" style={{ marginLeft: 1 }} />}
           </button>
-          <button onClick={enCulto ? proyeccionSiguiente : irSiguiente} title="Siguiente" aria-label="Siguiente" className="hb-s2t" style={transportBtn}>
+          <button onClick={irSiguiente} title="Siguiente" aria-label="Siguiente" className="hb-s2t" style={transportBtn}>
             <SkipForward size={15} fill="currentColor" />
           </button>
-          <button onClick={toggleRepeat} disabled={enCulto} title="Repetir" aria-label="Repetir" aria-pressed={repeat} className="hb-text" style={{ ...secundarioBtn, transition: "color .13s", color: repeat ? "var(--primary)" : "var(--text-3)", opacity: enCulto ? 0.35 : 1 }}>
+          <button onClick={toggleRepeat} title="Repetir" aria-label="Repetir" aria-pressed={repeat} className="hb-text" style={{ ...secundarioBtn, transition: "color .13s", color: repeat ? "var(--primary)" : "var(--text-3)" }}>
             <Repeat size={14} />
           </button>
         </div>
-        <Progreso track={track} enCulto={enCulto} />
+        <Progreso track={track} />
       </div>
 
       {/* de dónde sale lo que suena, y el volumen */}
@@ -264,10 +254,10 @@ export default function PlayerBar() {
         {/* Qué cola está sonando. Poner una canción desde la biblioteca en
             mitad de un culto deja el transporte siguiendo la biblioteca, y sin
             esto no habría forma de notarlo hasta que sonara lo que no tocaba. */}
-        {modo !== "local" ? (
+        {alProyector ? (
           // Lo que suena sale por el proyector: el volumen de esta barra no
-          // llega ahí —se ajusta en el equipo de sonido, como el del culto—,
-          // así que en su sitio va cómo cerrar la salida.
+          // llega ahí —se ajusta en el equipo de sonido—, así que en su sitio
+          // va cómo cerrar la salida.
           <span style={{ fontSize: "10.5px", whiteSpace: "nowrap", color: "var(--danger)", background: "var(--danger-soft)", padding: "1px 6px", borderRadius: 5, fontWeight: 600 }}>
             En el proyector
           </span>
@@ -290,7 +280,7 @@ export default function PlayerBar() {
             <MonitorX size={14} />
           </button>
         )}
-        {modo === "local" && (
+        {!alProyector && (
           <>
             <button onClick={toggleMute} title="Silenciar" aria-label="Silenciar" aria-pressed={muted} className="hb-s2t" style={{ ...secundarioBtn, color: "var(--text-2)", flex: "0 0 auto" }}>
               {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}

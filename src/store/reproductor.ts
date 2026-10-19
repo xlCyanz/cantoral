@@ -2,7 +2,7 @@ import { backend } from "../lib/backend";
 import type { Contexto, Get, Set } from "./contexto";
 import { cur, queueForView, playQueue } from "./selectores";
 import type { CantoralState } from "./tipos";
-import { modoDeLaBarra, rutaProyectable } from "../lib/proyeccion";
+import { rutaProyectable } from "../lib/proyeccion";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // El reproductor y su cola.
@@ -105,12 +105,6 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
     },
     togglePlay: () => {
       const s = get();
-      // Con una pista del culto en el aire, la barra y Espacio pausan esa: es
-      // la que está sonando.
-      if (modoDeLaBarra(s) === "culto") {
-        get().alternarPausaProyeccion();
-        return;
-      }
       const t = cur(s);
       // Reanudar un video que se pausó al cerrar el panel (#125): sin el panel
       // no hay `<video>` que suene, así que se vuelve a abrir en esa pista, como
@@ -159,10 +153,6 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
     toggleMute: () => set((s) => ({ muted: !s.muted })),
     seekToFraction: (f) => {
       const s = get();
-      if (modoDeLaBarra(s) === "culto") {
-        get().buscarEnProyeccion(f);
-        return;
-      }
       const t = cur(s);
       if (!t) return;
       const pos = Math.round(Math.min(1, Math.max(0, f)) * t.durSec);
