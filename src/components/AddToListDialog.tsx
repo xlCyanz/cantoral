@@ -1,7 +1,6 @@
 import { ListMusic, Plus } from "lucide-react";
 import type { CSSProperties } from "react";
 import { cultos, pistasParaAgregar, plantillas, plDur, useStore } from "../store";
-import { soloPistas } from "../lib/momentos";
 import { gradientFor, inicialDe } from "../lib/covers";
 import Modal from "./Modal";
 
@@ -63,7 +62,7 @@ export default function AddToListDialog() {
           <p style={{ ...fila, color: "var(--text-3)", fontSize: 12 }}>Todavía no hay cultos. Crea el primero abajo.</p>
         ) : (
           playlists.map((p) => {
-            const orden = soloPistas(plOrder[p.id] ?? p.ids);
+            const orden = plOrder[p.id] ?? p.ids;
             const yaEstaban = orden.filter((id) => elegidas.has(id)).length;
             return (
               <button key={p.id} onClick={() => addToListConfirm(p.id)} className="hb-s2" style={fila}>

@@ -255,6 +255,23 @@ describe("importar: crear la lista", () => {
     expect(setPlaylistOrderCmd).toHaveBeenCalledWith("77", ["c", "a"]);
   });
 
+  it("de un archivo de formato 2 con momentos, entran solo las canciones", async () => {
+    enLaApp();
+    pickPlaylistFile.mockResolvedValue("/tmp/viejo.cantoral.json");
+    // Como lo devolvería el núcleo: los momentos los suelta al leerlo, pero un
+    // archivo armado a mano o por otra versión puede seguir trayéndolos.
+    const viejo = { ...archivoDe(["Pista c", "Pista a"]), cantoral: 2, momentos: [{ trasPistas: 1, tipo: "oracion", titulo: "Oración", texto: "" }] };
+    readPlaylistFileCmd.mockResolvedValue(viejo as ArchivoDeLista);
+    createPlaylistCmd.mockResolvedValue("77");
+    useStore.getState().importList();
+    await vi.waitFor(() => expect(useStore.getState().importPreview).not.toBeNull());
+
+    useStore.getState().confirmImport();
+
+    await vi.waitFor(() => expect(setPlaylistOrderCmd).toHaveBeenCalled());
+    expect(setPlaylistOrderCmd).toHaveBeenCalledWith("77", ["c", "a"]);
+  });
+
   it("abre la lista recién creada", async () => {
     await preparar(["Pista a"]);
 

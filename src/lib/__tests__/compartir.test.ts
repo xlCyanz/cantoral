@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import type { Playlist, Track } from "../types";
 import {
   VERSION,
-  VERSION_SIN_MOMENTOS,
   armarArchivo,
   emparejar,
   idsParaLaLista,
@@ -66,12 +65,12 @@ describe("armarArchivo", () => {
     expect(archivo.pistas[0].archivo).toBe("coro.mp3");
   });
 
-  it("lleva la versión del formato, para que un lector viejo pueda negarse", () => {
-    // Sin momentos (#145), la de antes: una instalación sin actualizar la abre.
-    expect(armarArchivo(lista, []).cantoral).toBe(VERSION_SIN_MOMENTOS);
-    expect(
-      armarArchivo(lista, [], new Date(), [{ trasPistas: 0, tipo: "oracion", titulo: "Oración", texto: "" }]).cantoral,
-    ).toBe(VERSION);
+  it("se escribe en formato 1, sin momentos: cualquier instalación lo abre", () => {
+    const archivo = armarArchivo(lista, [pista({})]);
+
+    expect(archivo.cantoral).toBe(VERSION);
+    expect(VERSION).toBe(1);
+    expect(archivo).not.toHaveProperty("momentos");
   });
 
   it("guarda lo que sirve para volver a encontrar la pista", () => {
@@ -286,6 +285,18 @@ describe("parsearArchivo", () => {
     expect(leido.lista).toEqual({ nombre: "Culto", plantilla: false });
     expect(leido.pistas[0]).not.toHaveProperty("ocasion");
     expect(leido.pistas[0].archivo).toBe("santo.mp3");
+  });
+
+  it("un archivo de formato 2 con momentos se abre, y los momentos se ignoran", () => {
+    // Lo escribía una versión con momentos sin música (#145), que se quitaron.
+    const conMomentos =
+      '{"cantoral":2,"lista":{"nombre":"Culto"},"pistas":[{"titulo":"Santo","archivo":"santo.mp3"}],' +
+      '"momentos":[{"trasPistas":0,"tipo":"oracion","titulo":"Oración"}]}';
+
+    const leido = parsearArchivo(conMomentos);
+
+    expect(leido.pistas.map((p) => p.archivo)).toEqual(["santo.mp3"]);
+    expect(leido).not.toHaveProperty("momentos");
   });
 
   it("lo que no es JSON lo dice", () => {

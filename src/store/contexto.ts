@@ -1,6 +1,5 @@
 import type { Folder, Playlist, Track } from "../lib/types";
 import { playlistSheetHtml, sheetFileName } from "../lib/exportSheet";
-import type { Elemento } from "../lib/momentos";
 import { assetUrl, type Parche, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
@@ -290,7 +289,7 @@ export function crearContexto(set: Set, get: Get) {
   };
 
   /** Build the printable page for a list and hand it wherever it goes. */
-  const escribirHoja = (pl: Playlist, rows: readonly Elemento[], ord: string[]) => {
+  const escribirHoja = (pl: Playlist, rows: readonly Track[], ord: string[]) => {
     const html = playlistSheetHtml(pl, rows, plDur(get(), ord));
     const name = sheetFileName(pl.nombre);
     backend()

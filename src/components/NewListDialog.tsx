@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Layers, ListMusic, Pencil } from "lucide-react";
-import { plantillas as plantillasSel, useStore } from "../store";
-import { resumenDeOrden, soloPistas } from "../lib/momentos";
+import { plantillas as plantillasSel, resumenDeOrden, useStore } from "../store";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
@@ -117,7 +116,7 @@ function ListForm({
                   >
                     <Layers size={14} />
                     {p.nombre}
-                    <span aria-hidden style={{ color: "var(--text-3)", fontWeight: 500 }}>{soloPistas(p.ids).length}</span>
+                    <span aria-hidden style={{ color: "var(--text-3)", fontWeight: 500 }}>{p.ids.length}</span>
                   </button>
                 );
               })}

@@ -17,7 +17,7 @@ export interface InterfazSlice {
   view: View;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | "addToList" | "agregarCanciones" | "momento" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | "addToList" | "agregarCanciones" | null;
 
   // ---- toast ----
   toast: ToastNotice | null;
