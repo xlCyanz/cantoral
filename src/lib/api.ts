@@ -416,17 +416,13 @@ export async function markVideoThumbnailFailed(id: string, path: string): Promis
   if (!isTauri()) return;
   await inv("mark_video_thumbnail_failed", { id, path });
 }
-/** `desde` is the template to copy the order from, if the user picked one. */
-export async function createPlaylistCmd(nombre: string, desde?: string): Promise<string> {
-  return inv<string>("create_playlist", { nombre, desde: desde ?? null });
+export async function createPlaylistCmd(nombre: string): Promise<string> {
+  return inv<string>("create_playlist", { nombre });
 }
 export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
   return inv<string>("duplicate_playlist", { playlist });
 }
 // Lo que cambia una lista contesta con las listas, no con el catálogo (#136).
-export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolean): Promise<Playlist[]> {
-  return inv<Playlist[]>("set_playlist_template", { playlist, plantilla });
-}
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Playlist[]> {
   return inv<Playlist[]>("add_to_playlist", { playlist, track });
 }

@@ -70,8 +70,6 @@ export interface Playlist {
   nombre: string;
   /** Default order (live order is kept in store.plOrder): track ids. */
   ids: string[];
-  /** A list kept as a starting point rather than as a service of its own. */
-  plantilla: boolean;
   /**
    * La última vez que se abrió o se cambió, en ISO. Es lo que ordena los
    * cultos: no tienen fecha, y lo que se está preparando es lo último que se

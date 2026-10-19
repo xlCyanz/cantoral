@@ -943,12 +943,16 @@ pub fn touch_folder_scan(conn: &Connection, id: i64) -> Result<()> {
 pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
     // El último que se tocó, arriba. `id` desempata para que el orden no
     // cambie entre dos llamadas.
+    //
+    // `es_plantilla` ya no se lee: las plantillas se quitaron, y una lista que
+    // lo era es un culto más. La columna se queda para una versión anterior
+    // que abra la misma base.
     let mut stmt = conn.prepare(
-        "SELECT id, nombre, es_plantilla, tocada_at FROM playlists
+        "SELECT id, nombre, tocada_at FROM playlists
          ORDER BY tocada_at DESC, id DESC",
     )?;
-    let base: Vec<(i64, String, bool, String)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+    let base: Vec<(i64, String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<std::result::Result<_, _>>()?;
 
     // Every list's order in one query, grouped here, instead of one query per
@@ -969,33 +973,23 @@ pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
 
     Ok(base
         .into_iter()
-        .map(|(id, nombre, plantilla, tocada)| Playlist {
+        .map(|(id, nombre, tocada)| Playlist {
             id: id.to_string(),
             nombre,
             ids: orden.remove(&id).unwrap_or_default(),
-            plantilla,
             tocada,
         })
         .collect())
 }
 
-/// Create a playlist, optionally starting from the track order of another one.
-///
-/// One transaction: a list that came back with half of the template is worse
-/// than one that was never created, because nothing says which half is missing.
-pub fn create_playlist(conn: &Connection, nombre: &str, origen: Option<i64>) -> Result<i64> {
-    let tx = conn.unchecked_transaction()?;
+/// Create an empty playlist.
+pub fn create_playlist(conn: &Connection, nombre: &str) -> Result<i64> {
     let ahora = now();
-    tx.execute(
+    conn.execute(
         "INSERT INTO playlists(nombre, created_at, tocada_at) VALUES(?1,?2,?2)",
         params![nombre, ahora],
     )?;
-    let id = tx.last_insert_rowid();
-    if let Some(de) = origen {
-        copiar_pistas(&tx, de, id)?;
-    }
-    tx.commit()?;
-    Ok(id)
+    Ok(conn.last_insert_rowid())
 }
 
 /// Copy one playlist's order into another, positions and all.
@@ -1081,12 +1075,6 @@ pub fn duplicate_playlist(conn: &Connection, id: i64) -> Result<i64> {
     copiar_pistas(&tx, id, nuevo)?;
     tx.commit()?;
     Ok(nuevo)
-}
-
-/// Mark a list as a template, or stop treating it as one.
-pub fn set_playlist_template(conn: &Connection, id: i64, plantilla: bool) -> Result<()> {
-    conn.execute("UPDATE playlists SET es_plantilla=?1 WHERE id=?2", params![plantilla, id])?;
-    Ok(())
 }
 
 /// La posición que le toca a lo que se agregue al final de un culto.
@@ -1722,7 +1710,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[c, a, b]).unwrap();
 
@@ -1736,7 +1724,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
         add_to_playlist(&conn, pl, a).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[a, b]).unwrap();
@@ -1752,7 +1740,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
         add_to_playlist(&conn, pl, b).unwrap();
 
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
@@ -1770,7 +1758,7 @@ mod tests {
     #[test]
     fn adding_nothing_is_not_an_error() {
         let conn = mem();
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
         assert_eq!(add_tracks_to_playlist(&conn, pl, &[]).unwrap(), 0);
     }
 
@@ -1798,7 +1786,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
 
         delete_tracks(&conn, &[a, c]).unwrap();
@@ -1812,7 +1800,7 @@ mod tests {
 
     /// Un culto con su «tocada» puesta a mano, para no depender del reloj.
     fn culto_tocado(conn: &Connection, nombre: &str, cuando: &str) -> i64 {
-        let id = create_playlist(conn, nombre, None).unwrap();
+        let id = create_playlist(conn, nombre).unwrap();
         conn.execute("UPDATE playlists SET tocada_at=?1 WHERE id=?2", params![cuando, id]).unwrap();
         id
     }
@@ -1848,7 +1836,7 @@ mod tests {
         let conn = mem();
         culto_tocado(&conn, "Viejo", "2020-01-01T00:00:00+00:00");
 
-        create_playlist(&conn, "Nuevo", None).unwrap();
+        create_playlist(&conn, "Nuevo").unwrap();
 
         assert_eq!(nombres(&conn)[0], "Nuevo");
     }
@@ -2555,7 +2543,7 @@ mod tests {
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
         let otra = pista(&conn, fid, "/m/z.mp3", "Otra", "Coro", 100, "MP3", 1_000);
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
         add_to_playlist(&conn, pl, otra).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2575,7 +2563,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        let pl = create_playlist(&conn, "Culto", None).unwrap();
+        let pl = create_playlist(&conn, "Culto").unwrap();
         add_to_playlist(&conn, pl, queda).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2763,7 +2751,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", None).unwrap();
+        let pid = create_playlist(&conn, "Culto").unwrap();
 
         add_to_playlist(&conn, pid, a).unwrap();
         add_to_playlist(&conn, pid, b).unwrap();
@@ -2786,7 +2774,7 @@ mod tests {
         let fid = add_folder(conn, "/m", "m", true).unwrap();
         let a = add_track(conn, fid, "/m/a.mp3", "A");
         let b = add_track(conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(conn, "Culto", None).unwrap();
+        let pl = create_playlist(conn, "Culto").unwrap();
         conn.execute(
             "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,0),(?1,?3,2)",
             params![pl, a, b],
@@ -2871,7 +2859,7 @@ mod tests {
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let mut esperado = Vec::new();
         for i in 0..40 {
-            let pid = create_playlist(&conn, &format!("Culto {i}"), None).unwrap();
+            let pid = create_playlist(&conn, &format!("Culto {i}")).unwrap();
             // Distintos órdenes, y alguna vacía, para que agrupar no pueda
             // mezclar una lista con la de al lado.
             let orden = match i % 3 {
@@ -2921,7 +2909,7 @@ mod tests {
             .collect();
         let listas: Vec<i64> = (0..40)
             .map(|i| {
-                let pl = create_playlist(&conn, &format!("Culto {i}"), None).unwrap();
+                let pl = create_playlist(&conn, &format!("Culto {i}")).unwrap();
                 let orden: Vec<i64> =
                     ids.iter().skip(i * 37).step_by(97).take(30).copied().collect();
                 set_playlist_order(&conn, pl, &orden).unwrap();
@@ -2973,7 +2961,7 @@ mod tests {
     #[test]
     fn update_playlist_changes_the_name_and_leaves_an_old_occasion_alone() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Sin título", None).unwrap();
+        let pid = create_playlist(&conn, "Sin título").unwrap();
         conn.execute("UPDATE playlists SET ocasion='Ensayo' WHERE id=?1", params![pid]).unwrap();
 
         update_playlist(&conn, pid, "Jóvenes").unwrap();
@@ -2985,7 +2973,7 @@ mod tests {
         assert_eq!(ocasion, "Ensayo", "lo que escribió una versión anterior no se borra");
     }
 
-    // ---- duplicating and templates ----
+    // ---- duplicating ----
 
     #[test]
     fn a_copy_keeps_the_order() {
@@ -2994,7 +2982,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto", None).unwrap();
+        let pid = create_playlist(&conn, "Culto").unwrap();
         set_playlist_order(&conn, pid, &[c, a, b]).unwrap();
 
         let copia = duplicate_playlist(&conn, pid).unwrap();
@@ -3011,7 +2999,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", None).unwrap();
+        let pid = create_playlist(&conn, "Culto").unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
         let copia = duplicate_playlist(&conn, pid).unwrap();
 
@@ -3025,7 +3013,7 @@ mod tests {
     #[test]
     fn copying_the_same_list_twice_gives_two_names_you_can_tell_apart() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Culto", None).unwrap();
+        let pid = create_playlist(&conn, "Culto").unwrap();
 
         duplicate_playlist(&conn, pid).unwrap();
         duplicate_playlist(&conn, pid).unwrap();
@@ -3067,43 +3055,27 @@ mod tests {
     }
 
     #[test]
-    fn a_new_list_can_start_from_a_template() {
+    fn a_list_that_was_a_template_is_listed_as_a_normal_service() {
+        // Las plantillas se quitaron. Una base de una versión anterior puede
+        // tener una marcada; la columna se queda, pero ya no se lee.
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let plantilla = create_playlist(&conn, "Dominical", None).unwrap();
-        set_playlist_order(&conn, plantilla, &[b, a]).unwrap();
-        set_playlist_template(&conn, plantilla, true).unwrap();
-
-        let nueva = create_playlist(&conn, "Culto 4 Ene", Some(plantilla)).unwrap();
+        let pid = create_playlist(&conn, "Dominical").unwrap();
+        set_playlist_order(&conn, pid, &[a]).unwrap();
+        conn.execute("UPDATE playlists SET es_plantilla=1 WHERE id=?1", params![pid]).unwrap();
 
         let listas = list_playlists(&conn).unwrap();
-        let hecha = listas.iter().find(|p| p.id == nueva.to_string()).unwrap();
-        assert_eq!(hecha.ids, vec![b.to_string(), a.to_string()]);
-        // The copy is a service, not another template.
-        assert!(!hecha.plantilla);
-        assert!(listas.iter().find(|p| p.id == plantilla.to_string()).unwrap().plantilla);
-    }
 
-    #[test]
-    fn starting_from_a_list_that_is_gone_leaves_no_list_behind() {
-        let conn = mem();
-
-        assert!(create_playlist(&conn, "Culto", Some(9_999)).is_err());
-        assert!(list_playlists(&conn).unwrap().is_empty());
-    }
-
-    #[test]
-    fn a_template_can_stop_being_one() {
-        let conn = mem();
-        let pid = create_playlist(&conn, "Dominical", None).unwrap();
-        set_playlist_template(&conn, pid, true).unwrap();
-        assert!(list_playlists(&conn).unwrap()[0].plantilla);
-
-        set_playlist_template(&conn, pid, false).unwrap();
-
-        assert!(!list_playlists(&conn).unwrap()[0].plantilla);
+        assert_eq!(listas.len(), 1);
+        assert_eq!(listas[0].ids, vec![a.to_string()]);
+        let json = serde_json::to_value(&listas[0]).unwrap();
+        assert!(json.get("plantilla").is_none());
+        // Y la marca sigue en la base, para quien abra con una versión de antes.
+        let marca: i64 = conn
+            .query_row("SELECT es_plantilla FROM playlists WHERE id=?1", params![pid], |r| r.get(0))
+            .unwrap();
+        assert_eq!(marca, 1);
     }
 
     #[test]
@@ -3128,8 +3100,8 @@ mod tests {
         let listas = list_playlists(&conn).unwrap();
         assert_eq!(listas.len(), 1);
         assert_eq!(listas[0].nombre, "Vieja");
-        // A list that predates templates is a service, not a template.
-        assert!(!listas[0].plantilla);
+        // La columna se añade igual: una versión anterior la espera.
+        assert!(columns(&conn, "playlists").iter().any(|c| c == "es_plantilla"));
     }
 
     #[test]
@@ -3409,7 +3381,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto", None).unwrap();
+        let pid = create_playlist(&conn, "Culto").unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
 
         delete_track(&conn, a).unwrap();
@@ -3463,7 +3435,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto", None).unwrap();
+        let pid = create_playlist(&conn, "Culto").unwrap();
         set_playlist_order(&conn, pid, &[a, b, c]).unwrap();
 
         // 9999 no existe: la clave foránea hace fallar el tercer INSERT.

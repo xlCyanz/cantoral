@@ -89,9 +89,6 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     return id;
   };
 
-  /** El orden de un culto para empezar otro con él. Como `copiar_pistas`. */
-  const copiarOrden = (origen: Playlist | undefined): Pick<Playlist, "ids"> => ({ ids: origen ? origen.ids.slice() : [] });
-
   /** Saca unas pistas del catálogo y de los cultos: la cascada de SQLite. */
   const quitarPistas = (ids: readonly string[]) => {
     const fuera = new Set(ids);
@@ -220,10 +217,9 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     },
 
     getPlaylists: async () => listas(),
-    createPlaylist: async (nombre, desde) => {
+    createPlaylist: async (nombre) => {
       const id = nuevoId("p", playlists);
-      const orden = copiarOrden(desde ? playlists.find((p) => p.id === desde) : undefined);
-      playlists = [...playlists, { id, nombre, ...orden, plantilla: false, tocada: ahora() }];
+      playlists = [...playlists, { id, nombre, ids: [], tocada: ahora() }];
       return id;
     },
     duplicatePlaylist: async (id) => {
@@ -232,7 +228,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
       const nombre = nombreDeCopia(origen.nombre, playlists.map((p) => p.nombre));
       playlists = [
         ...playlists,
-        { id: nuevo, nombre, ...copiarOrden(origen), plantilla: false, tocada: ahora() },
+        { id: nuevo, nombre, ids: origen.ids.slice(), tocada: ahora() },
       ];
       return nuevo;
     },
@@ -245,10 +241,6 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     },
     setPlaylistOrder: async (playlist, ids) => {
       lista(playlist).ids = ids.slice();
-    },
-    setPlaylistTemplate: async (playlist, plantilla) => {
-      lista(playlist).plantilla = plantilla;
-      return listas();
     },
     updatePlaylist: async (playlist, nombre) => {
       Object.assign(lista(playlist), { nombre });

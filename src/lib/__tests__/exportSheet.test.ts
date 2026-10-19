@@ -24,7 +24,6 @@ const pl: Playlist = {
   nombre: "Culto Domingo",
   tocada: "",
   ids: ["1"],
-  plantilla: false,
 };
 
 describe("sheetFileName", () => {

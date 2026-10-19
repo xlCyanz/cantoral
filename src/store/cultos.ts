@@ -41,8 +41,7 @@ export interface CultosSlice {
   /** Show the sheet as it will be printed, before anything leaves the app. */
   openPrintPreview: () => void;
   newList: () => void;
-  /** `desde` is the id of the template whose order the new list starts from. */
-  createList: (nombre: string, desde?: string) => void;
+  createList: (nombre: string) => void;
   editCurrentList: () => void;
   updateList: (nombre: string) => void;
   openAddToList: () => void;
@@ -59,8 +58,6 @@ export interface CultosSlice {
   duplicateList: (id: string) => void;
   /** Copy the open list. */
   duplicateCurrentList: () => void;
-  /** Keep the open list as a starting point for new ones, or stop doing so. */
-  toggleCurrentTemplate: () => void;
   /** Write the open list as a file another installation can import. */
   shareCurrentList: () => void;
   /** Read a shared list and show what it matched, without creating anything. */
@@ -189,15 +186,15 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       set({ dialog: "printPreview" });
     },
     newList: () => set({ dialog: "newList" }),
-    createList: (nombre, desde) => {
+    createList: (nombre) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
       backend()
-        .createPlaylist(name, desde)
+        .createPlaylist(name)
         .then(async (id) => {
           applyPlaylists(await backend().getPlaylists());
           set({ view: "lista", curPlaylist: id });
-          toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
+          toast("Lista creada");
         })
         .catch((err) => {
           console.error(err);
@@ -285,24 +282,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         .catch((err) => {
           console.error(err);
           toast("No se pudo importar la lista", { tipo: "error" });
-        });
-    },
-    toggleCurrentTemplate: () => {
-      const st = get();
-      const id = st.curPlaylist;
-      const pl = st.playlists.find((p) => p.id === id);
-      if (!pl) return;
-      const plantilla = !pl.plantilla;
-      const aviso = plantilla ? "Guardada como plantilla" : "Ya no es una plantilla";
-      backend()
-        .setPlaylistTemplate(id, plantilla)
-        .then((listas) => {
-          applyPlaylists(listas);
-          toast(aviso);
-        })
-        .catch((err) => {
-          console.error(err);
-          toast("No se pudo cambiar la plantilla", { tipo: "error" });
         });
     },
     editCurrentList: () => set({ dialog: "editList" }),

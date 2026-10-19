@@ -63,7 +63,7 @@ export default function Sidebar() {
   const todasActive = libActive && !qf && !buscando;
 
   // El mismo orden que la vista de listas: el último que se abrió o se cambió,
-  // arriba. Una plantilla no es un culto y se queda fuera.
+  // arriba.
   const cultos = useStore(cultosPorUso);
 
   const resumen = [
@@ -137,9 +137,8 @@ export default function Sidebar() {
             <CalendarDays size={14} style={{ flex: "0 0 auto" }} />
             Listas para cultos
           </span>
-          {/* Cuenta lo que está justo debajo, no todo lo que hay: un 6 sobre
-              cinco filas se lee como que falta una. Las plantillas se cuentan
-              en su propia sección, dentro de la vista. */}
+          {/* Cuenta lo que está justo debajo: un 6 sobre cinco filas se lee
+              como que falta una. */}
           <span style={navCount()}>{cultos.length}</span>
         </button>
 

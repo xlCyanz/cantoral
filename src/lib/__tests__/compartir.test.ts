@@ -36,7 +36,6 @@ const lista: Playlist = {
   nombre: "Culto 4 Ene",
   tocada: "",
   ids: ["1"],
-  plantilla: false,
 };
 
 /** What the exported file says about one track, to feed straight back in. */
@@ -82,13 +81,8 @@ describe("armarArchivo", () => {
     expect(p).not.toHaveProperty("ocasion");
   });
 
-  it("conserva los datos de la lista, plantilla incluida", () => {
-    const archivo = armarArchivo({ ...lista, plantilla: true }, []);
-
-    expect(archivo.lista).toEqual({
-      nombre: "Culto 4 Ene",
-      plantilla: true,
-    });
+  it("de la lista se lleva solo el nombre: ya no hay plantillas", () => {
+    expect(armarArchivo(lista, []).lista).toEqual({ nombre: "Culto 4 Ene" });
   });
 });
 
@@ -271,7 +265,7 @@ describe("parsearArchivo", () => {
   it("los campos opcionales pueden faltar", () => {
     const leido = parsearArchivo(minimo);
 
-    expect(leido.lista.plantilla).toBe(false);
+    expect(leido.lista).toEqual({ nombre: "Culto" });
     expect(leido.pistas).toEqual([]);
   });
 
@@ -282,7 +276,7 @@ describe("parsearArchivo", () => {
 
     const leido = parsearArchivo(viejo);
 
-    expect(leido.lista).toEqual({ nombre: "Culto", plantilla: false });
+    expect(leido.lista).toEqual({ nombre: "Culto" });
     expect(leido.pistas[0]).not.toHaveProperty("ocasion");
     expect(leido.pistas[0].archivo).toBe("santo.mp3");
   });
@@ -297,6 +291,12 @@ describe("parsearArchivo", () => {
 
     expect(leido.pistas.map((p) => p.archivo)).toEqual(["santo.mp3"]);
     expect(leido).not.toHaveProperty("momentos");
+  });
+
+  it("una lista que salió como plantilla entra como un culto más", () => {
+    const leido = parsearArchivo('{"cantoral":1,"lista":{"nombre":"Dominical","plantilla":true},"pistas":[]}');
+
+    expect(leido.lista).toEqual({ nombre: "Dominical" });
   });
 
   it("lo que no es JSON lo dice", () => {

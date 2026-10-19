@@ -38,9 +38,9 @@ pub struct PlaylistFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SharedPlaylist {
+    /// Lo único que se lleva de la lista. Un archivo de antes puede traer
+    /// también `plantilla`: se ignora, y la lista entra como un culto más.
     pub nombre: String,
-    #[serde(default)]
-    pub plantilla: bool,
 }
 
 /// One track, as much of it as is needed to find it again somewhere else.
@@ -136,7 +136,7 @@ mod tests {
         let dir = Dir::new("round-trip");
         let original = PlaylistFile {
             cantoral: 1,
-            lista: SharedPlaylist { nombre: "Culto 4 Ene".into(), plantilla: false },
+            lista: SharedPlaylist { nombre: "Culto 4 Ene".into() },
             pistas: vec![SharedTrack {
                 titulo: "Sublime Gracia".into(),
                 artista: "Coro Congregacional".into(),
@@ -184,7 +184,6 @@ mod tests {
         let leido = leer(&p).unwrap();
 
         assert_eq!(leido.lista.nombre, "Culto");
-        assert!(!leido.lista.plantilla);
         assert!(leido.pistas.is_empty());
     }
 

@@ -8,7 +8,7 @@ import { cultosAfectados } from "../afectados";
 import type { Playlist } from "../types";
 
 function culto(id: string, nombre: string): Playlist {
-  return { id, nombre, tocada: "", ids: [], plantilla: false };
+  return { id, nombre, tocada: "", ids: [] };
 }
 
 const DOMINGO = culto("p1", "Domingo de alabanza");

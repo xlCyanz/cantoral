@@ -66,7 +66,6 @@ const lista: Playlist = {
   nombre: "Culto 4 Ene",
   tocada: "",
   ids: ["a", "b"],
-  plantilla: false,
 };
 
 function conLista() {
@@ -83,7 +82,7 @@ function conLista() {
 function archivoDe(titulos: string[], nombre = "Culto de otra iglesia"): ArchivoDeLista {
   return {
     cantoral: 1,
-    lista: { nombre, plantilla: false },
+    lista: { nombre },
     pistas: titulos.map((t) => ({
       titulo: t,
       artista: "Coro",
@@ -111,7 +110,7 @@ beforeEach(() => {
   // El núcleo contesta las listas que ya había más la que acaba de crear.
   getPlaylistsCmd.mockImplementation(async () => [
     ...useStore.getState().playlists,
-    { id: "77", nombre: "Culto de otra iglesia", ids: [], plantilla: false, tocada: "" },
+    { id: "77", nombre: "Culto de otra iglesia", ids: [], tocada: "" },
   ]);
   setPlaylistOrderCmd.mockResolvedValue(undefined);
   exportPlaylistJsonCmd.mockResolvedValue(undefined);
@@ -322,7 +321,7 @@ describe("importar: crear la lista", () => {
     expect(setPlaylistOrderCmd).not.toHaveBeenCalled();
   });
 
-  it("en el navegador la lista nueva no es una plantilla", async () => {
+  it("en el navegador también se crea, con su orden", async () => {
     enElNavegador();
     leerArchivoDelNavegador.mockResolvedValue(archivoDe(["Pista a"]));
     useStore.getState().importList();
@@ -333,7 +332,7 @@ describe("importar: crear la lista", () => {
     await vi.waitFor(() => expect(useStore.getState().toast?.titulo).toBe("Lista importada"));
     const s = useStore.getState();
     expect(s.curPlaylist).not.toBe("p1");
-    expect(s.playlists.find((p) => p.id === s.curPlaylist)?.plantilla).toBe(false);
+    expect(s.playlists.some((p) => p.id === s.curPlaylist)).toBe(true);
     expect(s.plOrder[s.curPlaylist]).toEqual(["a"]);
   });
 });

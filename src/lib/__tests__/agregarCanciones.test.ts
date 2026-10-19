@@ -134,7 +134,6 @@ describe("en el store", () => {
     id: "p1",
     nombre: "Domingo",
     ids: ["a"],
-    plantilla: false,
     tocada: "",
   };
 

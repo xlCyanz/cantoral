@@ -646,14 +646,11 @@ pub fn mark_video_thumbnail_failed(db: State<Db>, id: String, path: String) -> C
     db::mark_thumbnail_failed(&conn, id.parse::<i64>().map_err(e)?, &path).map_err(e)
 }
 
-/// Create a playlist, optionally with the track order of `desde` (a template).
+/// Create an empty playlist.
 #[tauri::command(async)]
-pub fn create_playlist(db: State<Db>, nombre: String, desde: Option<String>) -> CmdResult<String> {
+pub fn create_playlist(db: State<Db>, nombre: String) -> CmdResult<String> {
     let conn = db.0.lock().map_err(e)?;
-    // An unparseable id means «no template», not an error: the list is what the
-    // user asked for, and creating it empty beats refusing to create it.
-    let origen = desde.and_then(|d| d.parse::<i64>().ok());
-    let id = db::create_playlist(&conn, &nombre, origen).map_err(e)?;
+    let id = db::create_playlist(&conn, &nombre).map_err(e)?;
     Ok(id.to_string())
 }
 
@@ -663,17 +660,6 @@ pub fn duplicate_playlist(db: State<Db>, playlist: String) -> CmdResult<String> 
     let conn = db.0.lock().map_err(e)?;
     let id = db::duplicate_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)?;
     Ok(id.to_string())
-}
-
-#[tauri::command(async)]
-pub fn set_playlist_template(
-    db: State<Db>,
-    playlist: String,
-    plantilla: bool,
-) -> CmdResult<Vec<Playlist>> {
-    let conn = db.0.lock().map_err(e)?;
-    db::set_playlist_template(&conn, playlist.parse::<i64>().map_err(e)?, plantilla).map_err(e)?;
-    db::list_playlists(&conn).map_err(e)
 }
 
 #[tauri::command(async)]
@@ -1408,7 +1394,7 @@ mod tests {
         let (_, conn, fid) = base_con(&dir, "p.db", 4);
         let ids: Vec<i64> =
             db::list_tracks(&conn).unwrap().iter().map(|t| t.id.parse().unwrap()).collect();
-        let pl = db::create_playlist(&conn, "Domingo", None).unwrap();
+        let pl = db::create_playlist(&conn, "Domingo").unwrap();
         db::add_tracks_to_playlist(&conn, pl, &ids).unwrap();
 
         db::delete_tracks(&conn, &ids[..2]).unwrap();

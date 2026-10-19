@@ -2,7 +2,7 @@
 //
 // Un número —«3 están en alguna lista»— no basta para decidir. Lo que decide
 // es *cuáles*: quitar una pista que está en el culto del domingo que viene no
-// es lo mismo que quitar una que está en una plantilla de hace un año, y esa
+// es lo mismo que quitar una que está en un culto de hace un año, y esa
 // diferencia solo se ve con los nombres delante.
 
 import type { Playlist } from "./types";

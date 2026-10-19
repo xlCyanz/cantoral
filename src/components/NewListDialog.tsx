@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Layers, ListMusic, Pencil } from "lucide-react";
-import { plantillas as plantillasSel, resumenDeOrden, useStore } from "../store";
+import { ListMusic, Pencil } from "lucide-react";
+import { useStore } from "../store";
 import { botonDialogoPrimario, botonDialogoSecundario } from "../lib/styles";
 import Modal from "./Modal";
 
@@ -53,18 +53,14 @@ function ListForm({
   const closeDialog = useStore((s) => s.closeDialog);
   const createList = useStore((s) => s.createList);
   const updateList = useStore((s) => s.updateList);
-  const plantillas = useStore(plantillasSel);
 
   const [nombre, setNombre] = useState(initialNombre);
-  const [desde, setDesde] = useState("");
 
   const submit = () => {
     if (!nombre.trim()) return;
     if (editing) updateList(nombre);
-    else createList(nombre, desde || undefined);
+    else createList(nombre);
   };
-
-  const elegirPlantilla = (id: string) => setDesde(desde === id ? "" : id);
 
   return (
     <Modal labelledBy="list-dialog-title" onClose={closeDialog} maxWidth={480}>
@@ -83,51 +79,6 @@ function ListForm({
       </div>
 
       <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Only when creating: an existing list already has its repertoire, and
-            offering to replace it from a template would be a different, and
-            destructive, action. */}
-        {!editing && plantillas.length > 0 && (
-          <div>
-            <div id="lista-plantilla" style={label}>Partir de una plantilla <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></div>
-            <div role="group" aria-labelledby="lista-plantilla" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {plantillas.map((p) => {
-                const puesta = desde === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => elegirPlantilla(p.id)}
-                    aria-pressed={puesta}
-                    aria-label={`${p.nombre}, ${resumenDeOrden(p.ids)}`}
-                    className="hb-s2"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      height: 34,
-                      padding: "0 12px",
-                      borderRadius: 9,
-                      border: `1px solid ${puesta ? "var(--primary)" : "var(--border-2)"}`,
-                      background: puesta ? "var(--primary-soft)" : "var(--surface-2)",
-                      color: puesta ? "var(--primary)" : "var(--text)",
-                      fontSize: "12.5px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    <Layers size={14} />
-                    {p.nombre}
-                    <span aria-hidden style={{ color: "var(--text-3)", fontWeight: 500 }}>{p.ids.length}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <p style={{ fontSize: 11, color: "var(--text-3)", margin: "6px 0 0" }}>
-              {desde
-                ? "La lista nueva empieza con las mismas pistas, en el mismo orden."
-                : "Empieza vacía, o elige una plantilla para copiar su repertorio."}
-            </p>
-          </div>
-        )}
         <div>
           <label htmlFor="lista-nombre" style={label}>Nombre</label>
           <input id="lista-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />

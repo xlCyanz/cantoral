@@ -279,8 +279,8 @@ describe("restaurar al arrancar", () => {
       tracks: [],
       folders: [],
       playlists: [
-        { id: "p1", nombre: "Uno", tocada: "", ids: [], plantilla: false },
-        { id: "p2", nombre: "Dos", tocada: "", ids: [], plantilla: false },
+        { id: "p1", nombre: "Uno", tocada: "", ids: [] },
+        { id: "p2", nombre: "Dos", tocada: "", ids: [] },
       ],
     });
     reconcileLibraryCmd.mockReset();

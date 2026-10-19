@@ -14,7 +14,7 @@ function pista(id: string): Track {
   return { id, titulo: `Canción ${id}`, artista: "Coro", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Música", fav: false, missing: false, added: 0 };
 }
 
-const culto: Playlist = { id: "p1", nombre: "Domingo", ids: ["a", "m:1", "b"], plantilla: false, tocada: "" };
+const culto: Playlist = { id: "p1", nombre: "Domingo", ids: ["a", "m:1", "b"], tocada: "" };
 
 beforeEach(() => {
   useStore.setState(initial, true);

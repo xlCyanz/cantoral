@@ -49,12 +49,11 @@ export const tauri: Backend = {
   },
 
   getPlaylists: async () => requerido(await api.getPlaylistsCmd(), "get_playlists"),
-  createPlaylist: (nombre, desde) => api.createPlaylistCmd(nombre, desde),
+  createPlaylist: (nombre) => api.createPlaylistCmd(nombre),
   duplicatePlaylist: (id) => api.duplicatePlaylistCmd(id),
   addTracksToPlaylist: async (playlist, ids) =>
     requerido(await api.addTracksToPlaylistCmd(playlist, ids), "add_tracks_to_playlist"),
   setPlaylistOrder: (playlist, ids) => api.setPlaylistOrderCmd(playlist, ids),
-  setPlaylistTemplate: (playlist, plantilla) => api.setPlaylistTemplateCmd(playlist, plantilla),
   updatePlaylist: (playlist, nombre) => api.updatePlaylistCmd(playlist, nombre),
   touchPlaylist: (playlist) => api.touchPlaylistCmd(playlist),
   deletePlaylist: (playlist) => api.deletePlaylistCmd(playlist),

@@ -30,7 +30,6 @@ export interface PistaCompartida {
 
 export interface ListaCompartida {
   nombre: string;
-  plantilla: boolean;
 }
 
 export interface ArchivoDeLista {
@@ -55,10 +54,7 @@ export function armarArchivo(
 ): ArchivoDeLista {
   return {
     cantoral: VERSION,
-    lista: {
-      nombre: lista.nombre,
-      plantilla: lista.plantilla,
-    },
+    lista: { nombre: lista.nombre },
     pistas: pistas.map((t) => ({
       titulo: t.titulo,
       artista: t.artista,
@@ -232,12 +228,10 @@ export function parsearArchivo(texto: string): ArchivoDeLista {
   const crudas = Array.isArray(bruto.pistas) ? bruto.pistas : [];
   return {
     cantoral: v,
-    lista: {
-      nombre,
-      // Un archivo de antes puede traer `ocasion`, en la lista y en cada
-      // pista: ya no se lee, y no estorba.
-      plantilla: lista.plantilla === true,
-    },
+    // Un archivo de antes puede traer `ocasion`, en la lista y en cada pista,
+    // o `plantilla` en la lista: ya no se leen, y no estorban. Una lista que
+    // era una plantilla entra como un culto más.
+    lista: { nombre },
     pistas: crudas.map((p) => {
       const t = (p ?? {}) as Record<string, unknown>;
       return {

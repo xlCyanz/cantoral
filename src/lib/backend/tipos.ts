@@ -80,11 +80,10 @@ export interface Backend {
 
   // ---- cultos
   getPlaylists(): Promise<Playlist[]>;
-  createPlaylist(nombre: string, desde?: string): Promise<string>;
+  createPlaylist(nombre: string): Promise<string>;
   duplicatePlaylist(id: string): Promise<string>;
   addTracksToPlaylist(playlist: string, ids: string[]): Promise<Playlist[]>;
   setPlaylistOrder(playlist: string, ids: string[]): Promise<void>;
-  setPlaylistTemplate(playlist: string, plantilla: boolean): Promise<Playlist[]>;
   updatePlaylist(playlist: string, nombre: string): Promise<Playlist[]>;
   touchPlaylist(playlist: string): Promise<void>;
   deletePlaylist(playlist: string): Promise<Playlist[]>;

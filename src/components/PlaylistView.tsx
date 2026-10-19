@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, BookmarkMinus, BookmarkPlus, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Printer, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, resumenDeOrden, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { botonPrimario, botonSecundario, emptyBtnPrimary, ocupadoStyle } from "../lib/styles";
@@ -151,7 +151,6 @@ export default function PlaylistView() {
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
-  const toggleCurrentTemplate = useStore((s) => s.toggleCurrentTemplate);
   const shareCurrentList = useStore((s) => s.shareCurrentList);
   const abrirAgregarCanciones = useStore((s) => s.abrirAgregarCanciones);
   const reorderNotice = useStore((s) => s.reorderNotice);
@@ -172,7 +171,7 @@ export default function PlaylistView() {
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
           <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--primary)", marginBottom: 8 }}>
-            {pl?.plantilla ? "Plantilla" : "Lista para culto"}
+            Lista para culto
           </span>
           <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
@@ -213,10 +212,6 @@ export default function PlaylistView() {
                         Cantoral, no una persona. */}
                     <button onClick={() => { setMenuOpen(false); shareCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Share2 size={15} />Enviar a otra instalación
-                    </button>
-                    <button onClick={() => { setMenuOpen(false); toggleCurrentTemplate(); }} className="hb-s2" style={menuItem}>
-                      {pl?.plantilla ? <BookmarkMinus size={15} /> : <BookmarkPlus size={15} />}
-                      {pl?.plantilla ? "Quitar de plantillas" : "Guardar como plantilla"}
                     </button>
                     <button onClick={() => { setMenuOpen(false); deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Trash2 size={15} />Eliminar lista

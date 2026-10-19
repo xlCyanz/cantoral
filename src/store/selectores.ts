@@ -135,18 +135,6 @@ export const seleccionVigente = recordar(
   (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
-/**
- * The lists kept as starting points for new ones.
- *
- * Remembered so that the «Nueva lista» dialog is handed the same array while
- * nothing changed: a fresh one on every read would re-render the dialog on
- * each tick of the player.
- */
-export const plantillas = recordar(
-  (s: CantoralState): Playlist[] => s.playlists.filter((p) => p.plantilla),
-  (s: CantoralState) => [s.playlists],
-);
-
 /** Cuándo se tocó un culto, en milisegundos; `0` si no lo dice. */
 function cuandoSeToco(p: Playlist): number {
   const t = Date.parse(p.tocada);
@@ -154,7 +142,7 @@ function cuandoSeToco(p: Playlist): number {
 }
 
 /**
- * Los cultos, el último que se tocó arriba. Las plantillas, fuera.
+ * Los cultos, el último que se tocó arriba.
  *
  * Se compara el instante y no el texto: el núcleo escribe `+00:00` y el
  * navegador `Z`, y como texto esas dos formas del mismo momento no ordenan
@@ -163,7 +151,7 @@ function cuandoSeToco(p: Playlist): number {
  */
 export const cultos = recordar(
   (s: CantoralState): Playlist[] =>
-    s.playlists.filter((p) => !p.plantilla).sort((a, b) => cuandoSeToco(b) - cuandoSeToco(a)),
+    s.playlists.slice().sort((a, b) => cuandoSeToco(b) - cuandoSeToco(a)),
   (s: CantoralState) => [s.playlists],
 );
 
