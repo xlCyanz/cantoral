@@ -20,11 +20,11 @@
 
 </div>
 
-**Cantoral** prepara y proyecta el culto. Arma el repertorio una vez, dale a
-proyectar y corre entero en la otra pantalla —el video tal cual, o el título
-sobre la portada— pasando solo de un canto al siguiente. Detrás, una biblioteca
-con toda la música de la iglesia que se busca, se filtra y se agrupa por la
-carpeta del disco.
+**Cantoral** prepara y reproduce el culto. Arma el repertorio una vez y dale al
+play: todo se maneja desde la barra de abajo —pausa, volumen, la siguiente—, y
+los videos salen solos por el proyector mientras el sonido sale del equipo.
+Detrás, una biblioteca con toda la música de la iglesia que se busca, se filtra
+y se agrupa por la carpeta del disco.
 
 Corre en **macOS y Windows**, funciona **sin conexión** y **nunca mueve ni copia**
 tus archivos: solo los indexa. Pensada para el ministerio de alabanza: tranquila,
@@ -60,14 +60,13 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 
 ## ✨ Funciones
 
-- 📋 **Cultos** — un culto es una lista preparada: se arma una vez, se le da a proyectar y corre entero, pasando solo de un elemento al siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
-- 🙏 **Momentos sin música** — una oración, una lectura, los anuncios: añádelos al culto con «Añadir un momento…» y reordénalos como una pista más. En el proyector sale su título sobre negro y la proyección se detiene ahí hasta que pulses «Siguiente»; en la hoja impresa sale en su sitio, y «Reproducir todo» pasa de largo.
-- 📽️ **Proyección** — una ventana propia a pantalla completa en la otra pantalla: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El video sale tal cual; una pista de audio saca su título sobre la portada, o negro. Entre un elemento y otro, medio segundo de negro o una cuenta atrás; al acabar cada uno pasa solo al siguiente, y <kbd>B</kbd> deja la pantalla en negro al instante.
-- ▶️ **Reproducción** — todo suena dentro de la app, con una cola que sigue el orden del culto. Un video que pones a sonar —doble clic, el play, «Reproducir todo»— sale solo por la pantalla de proyección elegida en **Configuración → Proyección**, sin tener que preparar un culto; sin otra pantalla conectada se ve en el panel de detalle. Mientras algo sale por el proyector, la barra de abajo dice qué es, por dónde va, y sirve para pausarlo, adelantarlo y cerrar la proyección. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima de la proyección es lo último que quieres.
+- 📋 **Cultos** — un culto es una lista de canciones preparada: se arma una vez, se le da a «Reproducir todo» y suena entero, pasando solo de una canción a la siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
+- ▶️ **Todo desde el reproductor** — todo suena dentro de la app, con una cola que sigue el orden del culto, y todo se maneja desde la barra de abajo: reproducir y pausar, anterior y siguiente, adelantar, aleatorio, repetir y el **volumen**, también cuando la cola pasa a otra canción. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima es lo último que quieres.
+- 📽️ **Videos en el proyector** — un video que pones a sonar —doble clic, el play, «Reproducir todo» o el siguiente de la cola— sale solo por la pantalla elegida en **Configuración → Proyección**, en una ventana propia a pantalla completa: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El sonido sale siempre del equipo, al volumen de la barra. Si lo siguiente es un audio, el proyector se queda en negro hasta el próximo video. Sin otra pantalla conectada, el video se ve en el panel de detalle. El botón de la pantalla tachada, en la barra, cierra el proyector.
 - 🎵 **Biblioteca** — tabla ordenable y agrupable (álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a un culto, ver el detalle, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
 - 🎼 **Artista** — corrígelo desde el panel de detalle. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo. **Fijar** deja el panel abierto: <kbd>Esc</kbd> ya no lo cierra, para ir pista por pista sin perder el sitio.
 - ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
-- 🔁 **Duplicar y plantillas** — duplica un culto con su orden, o guárdalo como plantilla para partir de él.
+- 🔁 **Duplicar** — duplica un culto con su orden para armar el siguiente a partir de él.
 - 📤 **Compartir una lista** — mándala a otra instalación de Cantoral en un `.cantoral.json` y ábrela allí. No viaja el audio ni la ruta de tu disco, solo lo justo para volver a encontrar cada pista; al importar, una pantalla dice qué se encontró y qué falta antes de crear nada.
 - 🖨️ **Imprimir** — la hoja de la lista (título, artista, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». También puedes guardar el `.html` si prefieres mandarla por correo.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder lo que lleva escrito, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
@@ -93,9 +92,7 @@ La misma lista está dentro de la app: <kbd>?</kbd>.
 | <kbd>Mayús</kbd> / <kbd>⌘</kbd> + clic | Elegir un tramo o sumar pistas a la selección |
 | <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>A</kbd> | Seleccionar todo lo que muestra la biblioteca |
 | <kbd>A</kbd> | Agregar a un culto lo que esté elegido |
-| <kbd>→</kbd> | Pasar al siguiente elemento proyectado |
-| <kbd>B</kbd> | Dejar el proyector en negro |
-| <kbd>Esc</kbd> | Cerrar diálogo o panel; en Proyección, cortar la salida |
+| <kbd>Esc</kbd> | Cerrar diálogo o panel |
 | <kbd>?</kbd> | Mostrar la ayuda |
 
 ### Formatos soportados
@@ -219,7 +216,7 @@ llama a los comandos de Rust y opera sobre la base local.
 ```bash
 pnpm lint                                         # ESLint (0 errores y 0 avisos)
 pnpm exec tsc --noEmit                            # tipos
-pnpm test                                         # interfaz: store, proyección, formatos, hojas…
+pnpm test                                         # interfaz: store, reproductor, proyector, formatos, hojas…
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml   # esquema, migraciones, consultas y escáner
@@ -397,7 +394,7 @@ cantoral/
 ├── export-logo/            # Logo: símbolos, iconos, banner y su manual (README)
 ├── src/                    # Interfaz (React)
 │   ├── components/         # TitleBar, Sidebar, TopBar, LibraryView, DetailPanel,
-│   │                       # PlayerBar, ProjectionView, ProjectionOutput (la
+│   │                       # PlayerBar, ProjectionOutput (la
 │   │                       # ventana del proyector), diálogos, …
 │   ├── lib/                # api (puente con Tauri) · backend (Tauri o en
 │   │                       # memoria) · seed (datos de ejemplo) ·
@@ -508,28 +505,34 @@ intentarlo.
 <details>
 <summary><b>¿Cómo saco un culto por el proyector?</b></summary>
 
-Conecta el proyector, abre el culto y pulsa **Proyectar**: llegas a la vista de
-Proyección, con la cola del culto. Ahí, **Proyectar** otra vez sale al aire por
-el primer elemento, en la pantalla de proyección —la que no es la tuya, o la
-que elegiste ahí mismo o en **Configuración → Proyección**, que es el mismo
-ajuste y se recuerda—. Desde ese momento el culto corre entero: cada elemento
-pasa solo al siguiente al acabarse, y la barra de abajo enseña lo que suena
-para pausarlo o adelantarlo. Desde la vista de Proyección, <kbd>B</kbd> deja la
-pantalla en negro y <kbd>Esc</kbd> corta la salida; en el resto de la app, Esc
-no toca el proyector. El botón de la pantalla tachada, en la barra de abajo,
-la cierra desde cualquier sitio.
+Conecta el proyector, elige su pantalla una vez en **Configuración →
+Proyección** y dale a **Reproducir todo** en el culto. Cada video sale por el
+proyector al llegarle el turno; los audios suenan en el equipo con el proyector
+en negro. Ya no hay una vista de Proyección aparte: pausa, adelanta, sube o
+baja el volumen y pasa a la siguiente desde la barra de abajo, que siempre
+habla de lo que suena. El botón de la pantalla tachada, en la barra, cierra el
+proyector; <kbd>Esc</kbd> nunca lo toca.
 </details>
 
 <details>
-<summary><b>¿Puedo proyectar un video sin preparar un culto?</b></summary>
+<summary><b>¿Puedo proyectar un video suelto?</b></summary>
 
 Sí: dale al play. Con el proyector conectado, un video sale por la pantalla de
-proyección (**Configuración → Proyección**) y la barra de abajo lo controla. Si
-lo siguiente de la cola es un audio, suena en el equipo y el proyector se queda
-en negro, sin cerrarse, hasta el próximo video. Si no hay otra pantalla, el
-video se ve en el panel de detalle como siempre; y si prefieres verlo ahí
-también con el proyector conectado, desmarca «Proyectar los videos al
-reproducirlos».
+proyección y la barra de abajo lo controla, volumen incluido. Si lo siguiente
+de la cola es un audio, suena en el equipo y el proyector se queda en negro,
+sin cerrarse, hasta el próximo video. Si no hay otra pantalla, el video se ve
+en el panel de detalle como siempre; y si prefieres verlo ahí también con el
+proyector conectado, desmarca «Proyectar los videos al reproducirlos».
+</details>
+
+<details>
+<summary><b>¿Qué pasó con los momentos sin música y las plantillas?</b></summary>
+
+Se quitaron a pedido de quienes usan la app en la iglesia: un culto es ahora
+una lista de canciones. Nada se borra de la base de datos: los momentos y la
+marca de plantilla siguen guardados por si se abre con una versión anterior.
+Una lista que era plantilla aparece como un culto más, y una lista compartida
+con momentos se importa con sus canciones.
 </details>
 
 <details>
