@@ -681,6 +681,11 @@ export type VistaProyeccion =
       titulo: string;
       sub?: string;
       reproduciendo: boolean;
+      /**
+       * El volumen de la barra, de 0 a 1, ya con el silencio aplicado. Viaja
+       * con el video para que arranque al volumen que se ve en la barra.
+       */
+      volumen: number;
     };
 
 /** El mensaje completo que recibe la salida. */
@@ -697,12 +702,18 @@ export interface SalidaProyeccion {
  * `src` es a qué archivo se refiere: una orden que llega tarde, cuando ya se
  * pasó a otro, no mueve el que se está viendo.
  */
-export interface OrdenProyeccion {
-  orden: "buscar";
-  src: string;
-  /** El segundo al que saltar. */
-  pos: number;
-}
+export type OrdenProyeccion =
+  | {
+      orden: "buscar";
+      src: string;
+      /** El segundo al que saltar. */
+      pos: number;
+    }
+  /**
+   * El volumen de la barra, de 0 a 1, ya con el silencio aplicado. Sin `src`:
+   * vale para lo que esté sonando y para lo que venga.
+   */
+  | { orden: "volumen"; valor: number };
 
 /** Todo lo que puede recibir la ventana de salida. */
 export type MensajeProyeccion = SalidaProyeccion | OrdenProyeccion;

@@ -47,7 +47,7 @@ describe("la barra del reproductor", () => {
     expect(pintar()).toContain("<footer");
   });
 
-  it("con un video en el proyector, enseña ese video, su tiempo y cómo cerrar la salida", () => {
+  it("con un video en el proyector, enseña ese video, su tiempo, el volumen y cómo cerrar la salida", () => {
     const t = storeReal.getState().tracks.find((x) => x.id === "t2")!;
     storeReal.setState({ playerId: "t2", playing: true, posSec: 65 });
 
@@ -58,6 +58,9 @@ describe("la barra del reproductor", () => {
     expect(h).toContain("1:05");
     expect(h).toContain("En el proyector");
     expect(h).toContain("Cerrar la proyección");
+    // Y el volumen sigue ahí: llega al proyector como a cualquier pista.
+    expect(h).toContain('aria-label="Volumen"');
+    expect(h).toContain('aria-label="Silenciar"');
   });
 
   it("y en pausa se queda, para poder reanudar", () => {

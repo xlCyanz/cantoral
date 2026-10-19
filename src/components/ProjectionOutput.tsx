@@ -27,6 +27,12 @@ export default function ProjectionOutput() {
   // Lo mismo que `salida`, para quien escucha los eventos: se suscribe una vez
   // y vería siempre la del primer dibujo.
   const salidaRef = useRef(salida);
+  /**
+   * El volumen de la barra de la ventana principal. Llega con cada video y,
+   * entre uno y otro, por su orden: se guarda aparte para que una orden que
+   * llegue mientras se carga el archivo no se pierda.
+   */
+  const volumen = useRef(1);
   useEffect(() => {
     salidaRef.current = salida;
   }, [salida]);
@@ -38,7 +44,7 @@ export default function ProjectionOutput() {
      * Solo si lo que se ve es el archivo al que se refiere: una orden que
      * llega tarde, con lo siguiente ya en pantalla, no lo puede mover.
      */
-    const buscar = (o: OrdenProyeccion) => {
+    const buscar = (o: Extract<OrdenProyeccion, { orden: "buscar" }>) => {
       const el = ref.current;
       if (!el || cargado.current !== o.src) return;
       el.currentTime = o.pos;
@@ -48,9 +54,18 @@ export default function ProjectionOutput() {
       if (v.modo === "media" && v.reproduciendo && el.paused) void el.play().catch(() => {});
     };
 
+    /** El volumen, en el acto: no cambia qué se ve, así que no pasa por el estado. */
+    const ponerVolumen = (valor: number) => {
+      volumen.current = Math.min(1, Math.max(0, valor));
+      if (ref.current) ref.current.volume = volumen.current;
+    };
+
     const aplicar = (m: MensajeProyeccion) => {
-      if ("orden" in m) buscar(m);
-      else setSalida(m);
+      if (!("orden" in m)) {
+        if (m.vista.modo === "media") ponerVolumen(m.vista.volumen);
+        setSalida(m);
+      } else if (m.orden === "volumen") ponerVolumen(m.valor);
+      else buscar(m);
     };
 
     let soltar: (() => void) | undefined;
@@ -81,6 +96,7 @@ export default function ProjectionOutput() {
       el.src = src;
       el.load();
     }
+    el.volume = volumen.current;
     if (reproduciendo) {
       // Un webview puede negarse a arrancar sin que nadie haya tocado la
       // ventana. Callarlo dejaría la pantalla grande en negro sin motivo, así

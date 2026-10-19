@@ -32,10 +32,19 @@ export function rutaProyectable(t: Track | undefined): string {
  * Sin precarga ni transición: lo que viene después lo decide la cola del
  * reproductor, y medio segundo de negro al darle al play sería un parpadeo.
  */
-export function salidaDePista(t: Track, reproduciendo: boolean): SalidaProyeccion {
+export function salidaDePista(t: Track, reproduciendo: boolean, volumen: number): SalidaProyeccion {
   const src = rutaProyectable(t);
   if (!src) return { vista: { modo: "negro" } };
-  return { vista: { modo: "media", src, titulo: t.titulo, sub: t.artista || undefined, reproduciendo } };
+  return { vista: { modo: "media", src, titulo: t.titulo, sub: t.artista || undefined, reproduciendo, volumen } };
+}
+
+/**
+ * El volumen que tiene que sonar, de 0 a 1: el de la barra, o nada si está
+ * silenciada. Uno solo para el `<audio>`, el video del panel y el del
+ * proyector, que así no pueden contradecirse.
+ */
+export function volumenEfectivo(s: Pick<CantoralState, "volume" | "muted">): number {
+  return s.muted ? 0 : s.volume;
 }
 
 /**

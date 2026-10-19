@@ -179,7 +179,7 @@ describe("mandar contenido a la salida", () => {
   it("y con la salida abierta manda lo que se le pide", () => {
     useStore.setState({ proyectando: true });
 
-    const mensaje = { vista: { modo: "media", src: "/m/v.mp4", titulo: "Sublime Gracia", reproduciendo: true } } as const;
+    const mensaje = { vista: { modo: "media", src: "/m/v.mp4", titulo: "Sublime Gracia", reproduciendo: true, volumen: 0.5 } } as const;
     useStore.getState().proyectar(mensaje);
 
     expect(setProjectionCmd).toHaveBeenCalledWith(mensaje);

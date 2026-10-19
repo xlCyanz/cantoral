@@ -7,7 +7,7 @@ import type { IdentidadPantalla } from "../lib/pantallas";
 import { closeProjectionCmd, onProjectionReady, onProjectionState, openProjectionCmd, projectionMonitors, setProjectionCmd } from "../lib/api";
 import type { Contexto, Get, Set } from "./contexto";
 import { cur } from "./selectores";
-import { rutaProyectable, salidaDePista } from "../lib/proyeccion";
+import { rutaProyectable, salidaDePista, volumenEfectivo } from "../lib/proyeccion";
 
 /** Si ya se dijo en esta sesión que el video se queda en el panel por falta de otra pantalla. */
 let avisadoUnaPantalla = false;
@@ -73,6 +73,12 @@ export interface ProyeccionSlice {
   sincronizarVideo: () => void;
   /** Sacar por la salida el video `id` del reproductor, abriéndola si hace falta. */
   proyectarPista: (id: string) => Promise<void>;
+  /**
+   * Mandar a la salida el volumen de la barra. La llama una suscripción del
+   * store cada vez que cambian el volumen o el silencio: el video que suena
+   * en el proyector suena a lo que diga la barra, como cualquier otra pista.
+   */
+  enviarVolumen: () => void;
   /** Empezar a escuchar lo que devuelve la salida. Devuelve cómo dejar de hacerlo. */
   escucharProyeccion: () => Promise<() => void>;
 }
@@ -159,7 +165,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
           // Otro video de la cola, o el mismo en pausa o reanudado: la salida
           // sigue abierta y enseña lo que diga la barra.
           if (t.id !== s.proyeccionPista) set({ proyeccionPista: t.id });
-          get().proyectar(salidaDePista(t, s.playing));
+          get().proyectar(salidaDePista(t, s.playing, volumenEfectivo(s)));
           return;
         }
         // Lo que viene no es un video para el proyector —un audio, que suena
@@ -182,7 +188,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
         // ocupa ya, sin volver a abrirla.
         set({ proyeccionPista: id });
         const t = cur(get());
-        if (t) get().proyectar(salidaDePista(t, get().playing));
+        if (t) get().proyectar(salidaDePista(t, get().playing, volumenEfectivo(get())));
         return;
       }
       // Se apunta ya, antes de saber si hay dónde: el panel de detalle mira
@@ -222,8 +228,15 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
       // negro, lista para el próximo video y sin parpadeos.
       set({ proyectando: true });
       const t = cur(get());
-      if (get().proyeccionPista && t) get().proyectar(salidaDePista(t, get().playing));
+      if (get().proyeccionPista && t) get().proyectar(salidaDePista(t, get().playing, volumenEfectivo(get())));
       else get().proyectar({ vista: { modo: "negro" } });
+    },
+
+    enviarVolumen: () => {
+      // Solo con un video en la salida: con ella en negro no suena nada, y el
+      // volumen viaja igual con el próximo video que se proyecte.
+      if (!get().proyeccionPista) return;
+      get().proyectar({ orden: "volumen", valor: volumenEfectivo(get()) });
     },
 
     escucharProyeccion: async () => {
@@ -234,7 +247,7 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
       const soltarLista = await onProjectionReady(() => {
         const st = get();
         const t = cur(st);
-        if (st.proyeccionPista && t) get().proyectar(salidaDePista(t, st.playing));
+        if (st.proyeccionPista && t) get().proyectar(salidaDePista(t, st.playing, volumenEfectivo(st)));
         else get().proyectar({ vista: { modo: "negro" } });
       });
       const soltarEstado = await onProjectionState(estadoDelVideo);

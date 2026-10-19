@@ -255,9 +255,8 @@ export default function PlayerBar() {
             mitad de un culto deja el transporte siguiendo la biblioteca, y sin
             esto no habría forma de notarlo hasta que sonara lo que no tocaba. */}
         {alProyector ? (
-          // Lo que suena sale por el proyector: el volumen de esta barra no
-          // llega ahí —se ajusta en el equipo de sonido—, así que en su sitio
-          // va cómo cerrar la salida.
+          // Lo que suena sale por el proyector. El volumen de al lado le
+          // llega igual: es el mismo sonido, lo reproduce la otra ventana.
           <span style={{ fontSize: "10.5px", whiteSpace: "nowrap", color: "var(--danger)", background: "var(--danger-soft)", padding: "1px 6px", borderRadius: 5, fontWeight: 600 }}>
             En el proyector
           </span>
@@ -280,25 +279,24 @@ export default function PlayerBar() {
             <MonitorX size={14} />
           </button>
         )}
-        {!alProyector && (
-          <>
-            <button onClick={toggleMute} title="Silenciar" aria-label="Silenciar" aria-pressed={muted} className="hb-s2t" style={{ ...secundarioBtn, color: "var(--text-2)", flex: "0 0 auto" }}>
-              {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            </button>
-            <div style={{ width: 54, display: "flex", alignItems: "center" }}>
-              <DragBar
-                fraction={volPct / 100}
-                onChange={setVolume}
-                fillBg="var(--text-2)"
-                thumbBg="var(--text)"
-                thumbSize={9}
-                etiqueta="Volumen"
-                texto={muted ? "silenciado" : `${Math.round(volPct)} %`}
-                paso={0.05}
-              />
-            </div>
-          </>
-        )}
+        {/* Siempre, suene donde suene: el volumen es lo que más se toca un
+            domingo, y esconderlo con un video en el proyector dejaba sin
+            forma de bajarlo justo cuando más falta hacía. */}
+        <button onClick={toggleMute} title="Silenciar" aria-label="Silenciar" aria-pressed={muted} className="hb-s2t" style={{ ...secundarioBtn, color: "var(--text-2)", flex: "0 0 auto" }}>
+          {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+        </button>
+        <div style={{ width: 54, display: "flex", alignItems: "center" }}>
+          <DragBar
+            fraction={volPct / 100}
+            onChange={setVolume}
+            fillBg="var(--text-2)"
+            thumbBg="var(--text)"
+            thumbSize={9}
+            etiqueta="Volumen"
+            texto={muted ? "silenciado" : `${Math.round(volPct)} %`}
+            paso={0.05}
+          />
+        </div>
       </div>
     </footer>
   );

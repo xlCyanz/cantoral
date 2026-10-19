@@ -134,3 +134,18 @@ useStore.subscribe((s, previo) => {
   if (s.playerId === previo.playerId && s.playing === previo.playing && s.proyectarVideos === previo.proyectarVideos) return;
   s.sincronizarVideo();
 });
+
+// ============================================================
+// El volumen de la barra llega también al proyector
+// ============================================================
+
+/**
+ * El volumen se cambia desde la barra, las flechas del deslizador, el botón
+ * de silencio o lo guardado al arrancar. Venga de donde venga, el video que
+ * sale por el proyector tiene que oírse a lo que dice la barra: es el mismo
+ * sonido, solo que lo reproduce la otra ventana.
+ */
+useStore.subscribe((s, previo) => {
+  if (s.volume === previo.volume && s.muted === previo.muted) return;
+  s.enviarVolumen();
+});

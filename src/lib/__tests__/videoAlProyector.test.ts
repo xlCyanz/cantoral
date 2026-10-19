@@ -347,6 +347,103 @@ describe("la cola avanza y la barra sigue mandando", () => {
   });
 });
 
+describe("el volumen llega al proyector", () => {
+  it("mover el volumen de la barra con un video proyectado lo manda a la salida", async () => {
+    useStore.getState().play("v", ["v", "a"]);
+    await esperar();
+    setProjectionCmd.mockClear();
+
+    useStore.getState().setVolume(0.3);
+
+    expect(ultimo()).toEqual({ orden: "volumen", valor: 0.3 });
+  });
+
+  it("silenciar manda cero, y quitar el silencio vuelve al de la barra", async () => {
+    useStore.setState({ volume: 0.6 });
+    useStore.getState().play("v", ["v", "a"]);
+    await esperar();
+
+    useStore.getState().toggleMute();
+    expect(ultimo()).toEqual({ orden: "volumen", valor: 0 });
+
+    useStore.getState().toggleMute();
+    expect(ultimo()).toEqual({ orden: "volumen", valor: 0.6 });
+  });
+
+  it("un video que empieza en el proyector arranca al volumen de la barra", async () => {
+    useStore.setState({ volume: 0.4 });
+
+    useStore.getState().play("v", ["v", "w"]);
+    await esperar();
+    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/v.mp4", volumen: 0.4 }) });
+
+    // Y el siguiente de la cola, también: el volumen no se queda en el primero.
+    useStore.getState().setVolume(0.2);
+    useStore.getState().next();
+    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/w.mp4", volumen: 0.2 }) });
+  });
+
+  it("silenciado antes de empezar, el video arranca callado", async () => {
+    useStore.setState({ volume: 0.8, muted: true });
+
+    useStore.getState().play("v");
+    await esperar();
+
+    expect(ultimo()).toEqual({ vista: expect.objectContaining({ volumen: 0 }) });
+  });
+
+  it("con el proyector en negro por un audio, el volumen no se le manda: es del equipo", async () => {
+    useStore.getState().play("v", ["v", "a"]);
+    await esperar();
+    useStore.getState().next();
+    setProjectionCmd.mockClear();
+
+    useStore.getState().setVolume(0.1);
+
+    expect(setProjectionCmd).not.toHaveBeenCalled();
+    expect(useStore.getState().volume).toBe(0.1);
+  });
+});
+
+describe("«Aleatorio» y el volumen", () => {
+  it("una pista a la que se llega al azar se sigue pudiendo bajar (regresión)", async () => {
+    // Lo que contaron: con «Aleatorio» puesto, en cuanto la cola caía en un
+    // video la barra cambiaba el volumen por «En el proyector» y ya no había
+    // forma de bajarlo. Ahora el volumen sigue en la barra y llega a la salida.
+    useStore.setState({ shuffle: true });
+    useStore.getState().play("a", ["a", "v", "w"]);
+    const azar = vi.spyOn(Math, "random").mockReturnValue(0); // la primera de las otras: «v»
+
+    useStore.getState().next();
+    await esperar();
+    azar.mockRestore();
+
+    const s = useStore.getState();
+    expect(s.playerId).toBe("v");
+    expect(enElProyector(s)).toBe(true);
+
+    useStore.getState().setVolume(0.25);
+    expect(ultimo()).toEqual({ orden: "volumen", valor: 0.25 });
+  });
+
+  it("al azar nunca repite la que suena, y una cola sin otra pista no se cuelga", () => {
+    useStore.setState({ shuffle: true, proyectarVideos: false });
+    useStore.getState().play("a", ["a", "a"]);
+
+    // Antes, esto daba vueltas para siempre buscando una que no fuera «a».
+    useStore.getState().next();
+
+    expect(useStore.getState().playerId).toBe("a");
+
+    useStore.getState().play("a", ["a", "w", "a"]);
+    for (let i = 0; i < 5; i++) {
+      const antes = useStore.getState().playerId;
+      useStore.getState().next();
+      expect(useStore.getState().playerId).not.toBe(antes);
+    }
+  });
+});
+
 describe("la pantalla de proyección se recuerda por lo que la describe", () => {
   it("elegirla en Configuración la guarda para el próximo arranque", async () => {
     await useStore.getState().cargarMonitores();

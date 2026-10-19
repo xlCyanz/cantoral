@@ -137,10 +137,12 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       const ids = playQueue(s);
       const i = ids.indexOf(s.playerId);
       let n: string;
-      if (s.shuffle && ids.length > 1) {
-        do {
-          n = ids[Math.floor(Math.random() * ids.length)];
-        } while (n === s.playerId);
+      // Al azar entre las que no son la que suena. Una cola con la misma pista
+      // dos veces —una canción que se repite al final del culto— y ninguna
+      // otra no tiene a cuál saltar, y el bucle de antes no terminaba nunca.
+      const otras = s.shuffle ? ids.filter((id) => id !== s.playerId) : [];
+      if (otras.length > 0) {
+        n = otras[Math.floor(Math.random() * otras.length)];
       } else {
         n = ids.length ? ids[(i + 1) % ids.length] : s.playerId;
       }
