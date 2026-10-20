@@ -1,4 +1,3 @@
-import type { ArchivoDeLista, Resultado } from "../lib/compartir";
 import type { InterfazSlice } from "./interfaz";
 import type { BibliotecaSlice } from "./biblioteca";
 import type { DetalleSlice } from "./detalle";
@@ -48,18 +47,6 @@ export interface ToastNotice {
   /** La consecuencia, cuando hay algo que añadir. Muchos avisos no la tienen. */
   detalle?: string;
   type: ToastType;
-}
-
-/**
- * A shared playlist file, already read and matched against this catalogue.
- *
- * Held rather than acted on: the whole point of the import screen is that the
- * user sees which songs were found, and which ones this installation does not
- * have, before a list appears.
- */
-export interface ImportPreview {
-  archivo: ArchivoDeLista;
-  resultado: Resultado;
 }
 
 /**

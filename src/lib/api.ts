@@ -7,7 +7,6 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Theme, Track } from "./types";
-import { parsearArchivo, type ArchivoDeLista } from "./compartir";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
 // Lo mínimo vive en `registro.ts`, para que la ventana de salida no cargue
@@ -166,30 +165,6 @@ export async function pickFolder(): Promise<string | null> {
   if (!isTauri()) return null;
   const res = await (await dialogos()).open({ directory: true, multiple: false });
   return typeof res === "string" ? res : null;
-}
-
-/** Native save dialog for a playlist another installation can import. */
-export async function pickShareExportPath(defaultPath: string): Promise<string | null> {
-  if (!isTauri()) return null;
-  const res = await (await dialogos()).save({ defaultPath, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
-  return res ?? null;
-}
-
-/** Write a shared playlist file to disk. */
-export async function exportPlaylistJsonCmd(dest: string, json: string): Promise<void> {
-  await inv("export_playlist_json", { dest, json });
-}
-
-/** Native open dialog for a shared playlist file. */
-export async function pickPlaylistFile(): Promise<string | null> {
-  if (!isTauri()) return null;
-  const res = await (await dialogos()).open({ multiple: false, filters: [{ name: "Lista de Cantoral", extensions: ["json"] }] });
-  return typeof res === "string" ? res : null;
-}
-
-/** Read a shared playlist file. Nothing is created; this only reports it. */
-export async function readPlaylistFileCmd(src: string): Promise<ArchivoDeLista> {
-  return inv<ArchivoDeLista>("read_playlist_file", { src });
 }
 
 /** Native save dialog for the database backup. */
@@ -547,33 +522,6 @@ export interface CaratulaNueva {
 export async function onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void): Promise<() => void> {
   if (!isTauri()) return () => {};
   return listen<CaratulaNueva[]>("caratulas-reducidas", (e) => cb(e.payload));
-}
-
-/**
- * Read a shared playlist file in a plain browser, with a file picker.
- *
- * The app goes through the native dialog and the Rust reader; this is the
- * browser's way in, so «exportar e importar» can be tried end to end with
- * `pnpm dev`. Resolves to null when the picker is dismissed.
- */
-export async function leerArchivoDelNavegador(): Promise<ArchivoDeLista | null> {
-  const texto = await new Promise<string | null>((resolve, reject) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,application/json";
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) {
-        resolve(null);
-        return;
-      }
-      file.text().then(resolve, reject);
-    };
-    // No `oncancel` in every browser, so a dismissed picker simply never
-    // resolves — and nothing was going to happen anyway.
-    input.click();
-  });
-  return texto === null ? null : parsearArchivo(texto);
 }
 
 /** Lo que el núcleo responde al preguntar si hay una versión más nueva. */

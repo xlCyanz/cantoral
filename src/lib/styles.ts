@@ -174,7 +174,7 @@ export function botonPrimario(alto: keyof typeof MEDIDA_PRIMARIO): CSSProperties
   };
 }
 
-/** Outline button with an icon: «Importar lista». */
+/** Outline button with an icon. */
 export function botonSecundario(alto: keyof typeof MEDIDA_SECUNDARIO): CSSProperties {
   return {
     ...MEDIDA_SECUNDARIO[alto],

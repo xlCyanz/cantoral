@@ -14,7 +14,6 @@
 // de la plataforma —la ventana, la proyección, el actualizador, el tema, el
 // registro— sigue en `api.ts`, que ya sabe no hacer nada fuera de Tauri.
 
-import type { ArchivoDeLista } from "../compartir";
 import type {
   BackupInfo,
   CaratulaNueva,
@@ -108,11 +107,6 @@ export interface Backend {
   /** Las que el núcleo guardó antes de quitar, restaurar o fusionar (#143). */
   listAutoBackups(): Promise<CopiaAutomatica[]>;
 
-  // ---- archivos que salen y entran
-  /** Guarda un culto para otra instalación; false si se canceló. */
-  saveSharedList(nombre: string, json: string): Promise<boolean>;
-  /** Abre un culto exportado desde otra instalación; null si se canceló. */
-  openSharedList(): Promise<ArchivoDeLista | null>;
   /** Muestra el archivo de registro en el explorador. */
   revealLog(): Promise<void>;
 }

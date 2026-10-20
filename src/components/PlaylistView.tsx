@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, resumenDeOrden, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { botonPrimario, botonSecundario, emptyBtnPrimary, ocupadoStyle } from "../lib/styles";
@@ -150,7 +150,6 @@ export default function PlaylistView() {
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
-  const shareCurrentList = useStore((s) => s.shareCurrentList);
   const abrirAgregarCanciones = useStore((s) => s.abrirAgregarCanciones);
   const reorderNotice = useStore((s) => s.reorderNotice);
   const arrastrandoDesdeBiblioteca = useStore((s) => s.dragFromLibrary.length);
@@ -198,10 +197,6 @@ export default function PlaylistView() {
                     </button>
                     <button onClick={() => { setMenuOpen(false); duplicateCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Copy size={15} />Duplicar lista
-                    </button>
-                    {/* El archivo que entiende otra copia de Cantoral. */}
-                    <button onClick={() => { setMenuOpen(false); shareCurrentList(); }} className="hb-s2" style={menuItem}>
-                      <Share2 size={15} />Enviar a otra instalación
                     </button>
                     <button onClick={() => { setMenuOpen(false); deleteCurrentList(); }} className="hb-danger" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 11px", borderRadius: 8, color: "var(--danger)", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
                       <Trash2 size={15} />Eliminar lista

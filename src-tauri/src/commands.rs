@@ -2,7 +2,6 @@ use rusqlite::Connection;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::compartir;
 use crate::copias::{self, Motivo};
 use crate::db::{self, Db};
 use crate::models::{DuplicateGroup, Folder, Playlist, Track};
@@ -826,36 +825,6 @@ pub fn set_autostart(app: AppHandle, activar: bool) -> CmdResult<bool> {
     }
 }
 
-/// Write a playlist as the `.cantoral.json` another installation can import.
-///
-/// Capped at .json so it cannot become a write-anything primitive. The
-/// frontend builds the JSON; this only puts it on disk.
-#[tauri::command(async)]
-pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
-    if !compartir::es_json(&dest) {
-        return Err("El archivo exportado debe terminar en .json".into());
-    }
-    std::fs::write(&dest, json.as_bytes()).map_err(e)
-}
-
-/// Read a shared playlist file without touching the library.
-///
-/// Takes any `.json`, not only the `.cantoral.json` the app writes (#131): a
-/// file renamed by hand, or by a mail client that mangles double extensions,
-/// is still a list someone meant to share. That is safe because `leer` only
-/// returns something when the content is a valid Cantoral list, and its
-/// errors never echo the file's content, so this is no general-purpose read.
-///
-/// Nothing is created until the user has seen what matched: the same shape as
-/// `inspect_backup`, because both answer «what am I about to let in?».
-#[tauri::command(async)]
-pub fn read_playlist_file(src: String) -> CmdResult<compartir::PlaylistFile> {
-    if !compartir::es_json(&src) {
-        return Err("Una lista exportada de Cantoral termina en .json".into());
-    }
-    compartir::leer(std::path::Path::new(&src)).map_err(|err| format!("{err}"))
-}
-
 #[tauri::command(async)]
 pub fn delete_playlist(db: State<Db>, playlist: String) -> CmdResult<Vec<Playlist>> {
     let conn = db.0.lock().map_err(e)?;
@@ -1009,8 +978,7 @@ pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
 
 /// Whether a backup destination ends in `.db`, in any case.
 ///
-/// Same guard as `export_playlist_json`, and for the
-/// same reason (#131): without it this command could overwrite any writable
+/// Without this guard (#131) the command could overwrite any writable
 /// file with the contents of `cantoral.db`. Only `.db` because it is what the
 /// save dialog proposes and the only thing the restore dialog lets you pick.
 fn es_db(dest: &str) -> bool {
@@ -1069,10 +1037,7 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        copiar_respaldo, export_playlist_json, fusionar, quitar_carpeta, restaurar,
-        rutas_con_alcance,
-    };
+    use super::{copiar_respaldo, fusionar, quitar_carpeta, restaurar, rutas_con_alcance};
     use crate::{copias, db};
     use std::path::Path;
 
@@ -1103,27 +1068,6 @@ mod tests {
     impl Drop for Dir {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-
-    #[test]
-    fn the_json_export_writes_what_it_is_given() {
-        let dir = Dir::new("json-verbatim");
-        let dest = dir.path("culto.json");
-
-        export_playlist_json(dest.clone(), r#"{"cantoral":1}"#.into()).unwrap();
-
-        assert_eq!(std::fs::read_to_string(&dest).unwrap(), r#"{"cantoral":1}"#);
-    }
-
-    #[test]
-    fn the_json_export_refuses_anything_that_is_not_json() {
-        // It must not become a way to write arbitrary bytes anywhere.
-        let dir = Dir::new("json-refuses");
-        for bad in ["culto.html", "culto.db", "culto.sh", "culto"] {
-            let dest = dir.path(bad);
-            assert!(export_playlist_json(dest.clone(), "{}".into()).is_err(), "{bad}");
-            assert!(!std::path::Path::new(&dest).exists(), "{bad} must not have been written");
         }
     }
 

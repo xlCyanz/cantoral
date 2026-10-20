@@ -1,14 +1,11 @@
 import type { Playlist } from "../lib/types";
-import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "../lib/compartir";
-import type { ArchivoDeLista } from "../lib/compartir";
 import { backend } from "../lib/backend";
-import type { ImportPreview } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
 import { filasDeLista, pistasParaAgregar, seleccionVigente } from "./selectores";
 
 // Parte del store (#134). Ver src/store/index.ts.
-// Las listas de canciones: crearlas, ordenarlas y compartirlas.
+// Las listas de canciones: crearlas y ordenarlas.
 
 export interface CultosSlice {
   playlists: Playlist[];
@@ -17,7 +14,6 @@ export interface CultosSlice {
    * A shared playlist file that has been read and matched, waiting for the
    * user to look at what was found before anything is created.
    */
-  importPreview: ImportPreview | null;
 
   // ---- collections ----
   curPlaylist: string;
@@ -56,12 +52,6 @@ export interface CultosSlice {
   duplicateList: (id: string) => void;
   /** Copy the open list. */
   duplicateCurrentList: () => void;
-  /** Write the open list as a file another installation can import. */
-  shareCurrentList: () => void;
-  /** Read a shared list and show what it matched, without creating anything. */
-  importList: () => void;
-  /** Create the list the import preview describes. */
-  confirmImport: () => void;
   removeFromPl: (id: string) => void;
   reorderPl: (toId: string) => void;
   /** Move a track up or down the open list. The keyboard's way in. */
@@ -72,11 +62,10 @@ export interface CultosSlice {
 }
 
 export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
-  const { toast, avisarFallo, applyPlaylists, saveOrder, tocarCulto } = ctx;
+  const { toast, applyPlaylists, saveOrder, tocarCulto } = ctx;
   return {
     playlists: [],
     plOrder: {},
-    importPreview: null,
 
     curPlaylist: "",
     draggingId: null,
@@ -196,72 +185,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         });
     },
     duplicateCurrentList: () => get().duplicateList(get().curPlaylist),
-    shareCurrentList: () => {
-      const s = get();
-      const pl = s.playlists.find((p) => p.id === s.curPlaylist);
-      const rows = filasDeLista(s);
-      if (!pl) return;
-      if (rows.length === 0) {
-        toast("La lista está vacía");
-        return;
-      }
-      const json = JSON.stringify(armarArchivo(pl, rows), null, 2);
-      const name = nombreDeArchivo(pl.nombre);
-      backend()
-        .saveSharedList(name, json)
-        .then((guardada) => {
-          if (guardada) toast("Lista exportada para otra instalación");
-        })
-        .catch((err) => avisarFallo(err, "No se pudo exportar la lista"));
-    },
-    importList: () => {
-      // Read and match before anything is created: the screen that follows is
-      // the whole point, and it cannot say «faltan dos» after the fact.
-      const mostrar = (archivo: ArchivoDeLista) => {
-        const resultado = emparejar(archivo.pistas, get().tracks);
-        set({ importPreview: { archivo, resultado }, dialog: "importList" });
-      };
-      backend()
-        .openSharedList()
-        .then((archivo) => {
-          if (archivo) mostrar(archivo);
-        })
-        .catch((err) => {
-          console.error(err);
-          toast(String(err), { tipo: "error" });
-        });
-    },
-    confirmImport: () => {
-      const previo = get().importPreview;
-      if (!previo) return;
-      if (previo.resultado.encontradas.length === 0) return;
-      const { nombre } = previo.archivo.lista;
-      set({ dialog: null, importPreview: null });
-      const aviso = () => {
-        const faltan = previo.resultado.faltantes.length;
-        toast("Lista importada", {
-          detalle:
-            faltan === 0
-              ? undefined
-              : `${faltan} ${faltan === 1 ? "pista no está" : "pistas no están"} en esta biblioteca.`,
-          tipo: faltan === 0 ? "success" : "info",
-        });
-      };
-      backend()
-        .createPlaylist(nombre)
-        .then(async (id) => {
-          // Solo las canciones: los momentos sin música que traiga un archivo
-          // de formato 2 ya no existen en la app (#145).
-          await backend().setPlaylistOrder(id, idsParaLaLista(previo.resultado.encontradas));
-          applyPlaylists(await backend().getPlaylists());
-          set({ view: "lista", curPlaylist: id });
-          aviso();
-        })
-        .catch((err) => {
-          console.error(err);
-          toast("No se pudo importar la lista", { tipo: "error" });
-        });
-    },
     editCurrentList: () => set({ dialog: "editList" }),
     updateList: (nombre) => {
       const id = get().curPlaylist;
