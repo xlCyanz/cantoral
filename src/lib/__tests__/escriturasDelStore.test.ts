@@ -90,7 +90,21 @@ describe("reproduciendo en el portátil", () => {
 });
 
 describe("lo que devuelve el proyector", () => {
-  it("la misma posición del video no se vuelve a escribir", async () => {
+  it("un culto: la misma posición no se vuelve a escribir", async () => {
+    useStore.setState({ tracks: [pista("a")], curPlaylist: "p1", plOrder: { p1: ["a"] }, proyectando: true, proyeccionIdx: -1 });
+    await useStore.getState().escucharProyeccion();
+    useStore.getState().proyectarElemento(0);
+
+    // La salida avisa varias veces dentro del mismo segundo.
+    const n = escrituras(() => {
+      for (const pos of [5, 5, 5, 5, 6, 6, 6, 6]) contestar!({ src: "/m/a.mp3", pos, dur: 192, fin: false });
+    });
+
+    expect(n).toBe(2);
+    expect(useStore.getState()).toMatchObject({ proyeccionPos: 6, proyeccionDur: 192 });
+  });
+
+  it("un video del reproductor: igual con la posición de la barra", async () => {
     const video = pista("v", { video: true, path: "/m/v.mp4", formato: "MP4" });
     useStore.setState({ tracks: [video], queue: ["v"], playerId: "" });
     await useStore.getState().escucharProyeccion();

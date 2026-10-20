@@ -58,7 +58,7 @@ beforeEach(() => {
   deleteTracksCmd.mockResolvedValue(null);
   useStore.setState({
     tracks: CINCO,
-    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ids: [] }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ids: [], plantilla: false }],
     plOrder: { p1: [] },
     curPlaylist: "p1",
     selection: [],
@@ -155,7 +155,7 @@ describe("agregar a una lista", () => {
 
   /** Lo que devolvería el backend tras meter `ids` en la lista: solo las listas. */
   const conLaLista = (ids: string[]): Playlist[] => [
-    { id: "p1", nombre: "Culto", tocada: "", ids },
+    { id: "p1", nombre: "Culto", tocada: "", ids, plantilla: false },
   ];
 
   it("agregar a un culto no toca el catálogo", async () => {
@@ -303,12 +303,12 @@ describe("quitar en bloque", () => {
 
   it("nombra los cultos que pierden algo", () => {
     // Un número suelto no deja decidir: quitar una pista del culto del domingo
-    // que viene no es lo mismo que quitarla de uno de hace un año.
+    // que viene no es lo mismo que quitarla de una plantilla de hace un año.
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
-        { id: "p1", nombre: "Domingo de alabanza", tocada: "", ids: [] },
-        { id: "p2", nombre: "Reunión de jóvenes", tocada: "", ids: [] },
+        { id: "p1", nombre: "Domingo de alabanza", tocada: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Reunión de jóvenes", tocada: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["b"] },
     });
@@ -325,8 +325,8 @@ describe("quitar en bloque", () => {
     useStore.setState({
       selection: ["a"],
       playlists: [
-        { id: "p1", nombre: "Con la pista", tocada: "", ids: [] },
-        { id: "p2", nombre: "Sin nada suyo", tocada: "", ids: [] },
+        { id: "p1", nombre: "Con la pista", tocada: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Sin nada suyo", tocada: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["z"] },
     });
@@ -344,9 +344,9 @@ describe("quitar en bloque", () => {
     useStore.setState({
       selection: ["a", "b"],
       playlists: [
-        { id: "p1", nombre: "Uno", tocada: "", ids: [] },
-        { id: "p2", nombre: "Dos", tocada: "", ids: [] },
-        { id: "p3", nombre: "Tres", tocada: "", ids: [] },
+        { id: "p1", nombre: "Uno", tocada: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ids: [], plantilla: false },
+        { id: "p3", nombre: "Tres", tocada: "", ids: [], plantilla: false },
       ],
       plOrder: { p1: ["a"], p2: ["a"], p3: ["a", "b"] },
     });

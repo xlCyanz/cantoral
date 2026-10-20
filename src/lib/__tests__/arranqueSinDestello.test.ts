@@ -103,7 +103,7 @@ describe("los ajustes al arrancar", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(useStore.getState().view).toBe("biblioteca");
 
-    soltar({ tracks: [], folders: [], playlists: [{ id: "p9", nombre: "Domingo", ids: [], tocada: "" }] });
+    soltar({ tracks: [], folders: [], playlists: [{ id: "p9", nombre: "Domingo", ids: [], plantilla: false, tocada: "" }] });
     await arranque;
     expect(useStore.getState().view).toBe("lista");
     expect(useStore.getState().curPlaylist).toBe("p9");

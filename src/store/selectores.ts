@@ -1,5 +1,7 @@
-import type { Folder, GroupBy, Playlist, SortDir, SortKey, Track } from "../lib/types";
+import type { Folder, GroupBy, Momento, Playlist, SortDir, SortKey, Track } from "../lib/types";
 import { carpetaReal } from "../lib/carpetas";
+import { elementosDe, esMomento } from "../lib/momentos";
+import type { Elemento } from "../lib/momentos";
 import { enOrden, vigentes } from "../lib/selection";
 import type { CantoralState } from "./tipos";
 import { recordar } from "../lib/memo";
@@ -101,6 +103,30 @@ export const filasDeLista = recordar(
 );
 
 /**
+ * Los momentos sin música de todos los cultos, por id (#145).
+ *
+ * Uno solo para todas las listas: los ids de momento no se repiten entre
+ * cultos, y así la vista de un culto no tiene que buscar primero su lista.
+ */
+export const momentosPorId = recordar(
+  (playlists: readonly Playlist[]): ReadonlyMap<string, Momento> =>
+    new Map(playlists.flatMap((p) => (p.momentos ?? []).map((m) => [m.id, m] as const))),
+  (playlists: readonly Playlist[]) => [playlists],
+);
+
+/**
+ * Todo lo que tiene el culto abierto, en su orden: pistas y momentos (#145).
+ *
+ * Lo que dibuja el culto —la tabla, la hoja, la cola de la proyección— lee
+ * esto; lo que solo reproduce sigue con `filasDeLista`.
+ */
+export const elementosDeLista = recordar(
+  (s: CantoralState): Elemento[] =>
+    elementosDe(s.plOrder[s.curPlaylist] || [], pistasPorId(s.tracks), momentosPorId(s.playlists)),
+  (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks, s.playlists],
+);
+
+/**
  * Las pistas sobre las que actúa «Agregar a un culto».
  *
  * La selección si hay una; si no, la pista que el panel de detalle tiene
@@ -135,6 +161,18 @@ export const seleccionVigente = recordar(
   (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
+/**
+ * The lists kept as starting points for new ones.
+ *
+ * Remembered so that the «Nueva lista» dialog is handed the same array while
+ * nothing changed: a fresh one on every read would re-render the dialog on
+ * each tick of the player.
+ */
+export const plantillas = recordar(
+  (s: CantoralState): Playlist[] => s.playlists.filter((p) => p.plantilla),
+  (s: CantoralState) => [s.playlists],
+);
+
 /** Cuándo se tocó un culto, en milisegundos; `0` si no lo dice. */
 function cuandoSeToco(p: Playlist): number {
   const t = Date.parse(p.tocada);
@@ -142,7 +180,7 @@ function cuandoSeToco(p: Playlist): number {
 }
 
 /**
- * Los cultos, el último que se tocó arriba.
+ * Los cultos, el último que se tocó arriba. Las plantillas, fuera.
  *
  * Se compara el instante y no el texto: el núcleo escribe `+00:00` y el
  * navegador `Z`, y como texto esas dos formas del mismo momento no ordenan
@@ -151,13 +189,14 @@ function cuandoSeToco(p: Playlist): number {
  */
 export const cultos = recordar(
   (s: CantoralState): Playlist[] =>
-    s.playlists.slice().sort((a, b) => cuandoSeToco(b) - cuandoSeToco(a)),
+    s.playlists.filter((p) => !p.plantilla).sort((a, b) => cuandoSeToco(b) - cuandoSeToco(a)),
   (s: CantoralState) => [s.playlists],
 );
 
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
-  if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();
+  // Los momentos no suenan: «Reproducir todo» pasa de largo (#145).
+  if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).filter((id) => !esMomento(id));
   return applyFilters(s).map((t) => t.id);
 }
 
@@ -328,11 +367,6 @@ export const buildGroups = recordar(
   },
   (s: CantoralState, list: Track[]) => [list, s.groupBy, s.qf, s.folders, s.gruposColapsados],
 );
-
-/** «6 pistas»: cuántas canciones tiene el orden de un culto. */
-export function resumenDeOrden(ids: readonly string[]): string {
-  return `${ids.length} ${ids.length === 1 ? "pista" : "pistas"}`;
-}
 
 /**
  * Total playlist duration label, e.g. "23 min".

@@ -16,10 +16,10 @@ use std::path::Path;
 /// a list quietly imported with half its fields missing is worse than one that
 /// refused to be imported at all.
 ///
-/// La app escribe siempre el 1. El 2 lo escribían las versiones con momentos
-/// sin música (#145), que se quitaron: un archivo así se sigue abriendo, y sus
-/// momentos se ignoran —serde pasa por alto la clave—. Por eso el mayor que se
-/// acepta sigue siendo el 2.
+/// El 2 añade `momentos` (#145). Un culto sin momentos se sigue escribiendo
+/// como 1, para que una instalación de antes lo pueda abrir; uno con momentos
+/// sale como 2 y la de antes pide que la actualicen en vez de perder la
+/// oración por el camino sin decirlo.
 pub const VERSION: u32 = 2;
 
 /// What a shared playlist file holds.
@@ -30,6 +30,10 @@ pub struct PlaylistFile {
     pub cantoral: u32,
     pub lista: SharedPlaylist,
     pub pistas: Vec<SharedTrack>,
+    /// Los momentos sin música del culto (#145). Ausentes en un archivo de
+    /// antes, que es lo mismo que no tener ninguno.
+    #[serde(default)]
+    pub momentos: Vec<SharedMomento>,
     /// When it was exported, RFC3339. Only ever shown, never acted on.
     #[serde(default)]
     pub exportado: String,
@@ -38,9 +42,9 @@ pub struct PlaylistFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SharedPlaylist {
-    /// Lo único que se lleva de la lista. Un archivo de antes puede traer
-    /// también `plantilla`: se ignora, y la lista entra como un culto más.
     pub nombre: String,
+    #[serde(default)]
+    pub plantilla: bool,
 }
 
 /// One track, as much of it as is needed to find it again somewhere else.
@@ -57,6 +61,24 @@ pub struct SharedTrack {
     /// File name only — never the path it sat at on the other machine.
     #[serde(default)]
     pub archivo: String,
+}
+
+/// Un momento sin música, con su sitio contado en pistas.
+///
+/// `tras_pistas` es cuántas pistas del archivo van antes que él. Se cuenta en
+/// pistas y no en posiciones porque del otro lado pueden faltar algunas, y el
+/// momento tiene que quedar junto a las canciones que lo rodeaban.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedMomento {
+    #[serde(default)]
+    pub tras_pistas: usize,
+    #[serde(default)]
+    pub tipo: String,
+    #[serde(default)]
+    pub titulo: String,
+    #[serde(default)]
+    pub texto: String,
 }
 
 /// Whether a destination ends in `.json`.
@@ -94,8 +116,11 @@ pub fn leer(path: &Path) -> Result<PlaylistFile> {
              Actualiza la app para abrirla."
         );
     }
-    let archivo: PlaylistFile =
+    let mut archivo: PlaylistFile =
         serde_json::from_value(valor).context("La lista exportada está incompleta.")?;
+    // Un momento sin título no tendría nada que enseñar: se deja fuera en vez
+    // de tirar el archivo entero por él.
+    archivo.momentos.retain(|m| !m.titulo.trim().is_empty());
     if archivo.lista.nombre.trim().is_empty() {
         bail!("La lista exportada no tiene nombre.");
     }
@@ -135,14 +160,20 @@ mod tests {
     fn a_file_this_app_wrote_reads_back_whole() {
         let dir = Dir::new("round-trip");
         let original = PlaylistFile {
-            cantoral: 1,
-            lista: SharedPlaylist { nombre: "Culto 4 Ene".into() },
+            cantoral: VERSION,
+            lista: SharedPlaylist { nombre: "Culto 4 Ene".into(), plantilla: false },
             pistas: vec![SharedTrack {
                 titulo: "Sublime Gracia".into(),
                 artista: "Coro Congregacional".into(),
                 album: "Himnos".into(),
                 dur_sec: 252,
                 archivo: "sublime.mp3".into(),
+            }],
+            momentos: vec![SharedMomento {
+                tras_pistas: 1,
+                tipo: "oracion".into(),
+                titulo: "Oración".into(),
+                texto: "Pastor Luis".into(),
             }],
             exportado: "2026-01-01T00:00:00Z".into(),
         };
@@ -155,25 +186,55 @@ mod tests {
         assert_eq!(leido.pistas[0].titulo, "Sublime Gracia");
         assert_eq!(leido.pistas[0].dur_sec, 252);
         assert_eq!(leido.pistas[0].archivo, "sublime.mp3");
+        assert_eq!(leido.momentos.len(), 1);
+        assert_eq!(leido.momentos[0].tras_pistas, 1);
+        assert_eq!(leido.momentos[0].titulo, "Oración");
+        assert_eq!(leido.momentos[0].texto, "Pastor Luis");
     }
 
     #[test]
-    fn a_version_2_file_with_moments_opens_and_the_moments_are_ignored() {
-        // Lo escribía una versión con momentos sin música (#145). Las canciones
-        // se importan; los momentos, que ya no existen en la app, no.
+    fn a_file_from_before_moments_existed_opens_with_none() {
+        // Formato 1, escrito antes de #145: no trae la clave `momentos`.
+        let dir = Dir::new("sin-momentos");
+        let p = dir.escribir(
+            "lista.json",
+            r#"{"cantoral":1,"lista":{"nombre":"Culto"},"pistas":[{"titulo":"Santo"}]}"#,
+        );
+
+        let leido = leer(&p).unwrap();
+
+        assert_eq!(leido.pistas.len(), 1);
+        assert!(leido.momentos.is_empty());
+    }
+
+    #[test]
+    fn a_version_2_file_with_moments_is_read() {
         let dir = Dir::new("con-momentos");
         let p = dir.escribir(
             "lista.json",
-            r#"{"cantoral":2,"lista":{"nombre":"Culto"},"pistas":[{"titulo":"Santo"}],
+            r#"{"cantoral":2,"lista":{"nombre":"Culto"},"pistas":[],
                 "momentos":[{"trasPistas":0,"tipo":"anuncios","titulo":"Anuncios"}]}"#,
         );
 
         let leido = leer(&p).unwrap();
 
-        assert_eq!(leido.lista.nombre, "Culto");
-        assert_eq!(leido.pistas.len(), 1);
-        let otra_vez = serde_json::to_value(&leido).unwrap();
-        assert!(otra_vez.get("momentos").is_none());
+        assert_eq!(leido.momentos[0].tipo, "anuncios");
+        assert_eq!(leido.momentos[0].texto, "");
+    }
+
+    #[test]
+    fn a_moment_without_a_title_is_dropped_not_the_whole_file() {
+        let dir = Dir::new("momento-sin-titulo");
+        let p = dir.escribir(
+            "lista.json",
+            r#"{"cantoral":2,"lista":{"nombre":"Culto"},"pistas":[],
+                "momentos":[{"trasPistas":0,"titulo":"  "},{"trasPistas":0,"titulo":"Oración"}]}"#,
+        );
+
+        let leido = leer(&p).unwrap();
+
+        assert_eq!(leido.momentos.len(), 1);
+        assert_eq!(leido.momentos[0].titulo, "Oración");
     }
 
     #[test]
@@ -184,6 +245,7 @@ mod tests {
         let leido = leer(&p).unwrap();
 
         assert_eq!(leido.lista.nombre, "Culto");
+        assert!(!leido.lista.plantilla);
         assert!(leido.pistas.is_empty());
     }
 

@@ -2,7 +2,7 @@ import { backend } from "../lib/backend";
 import type { Contexto, Get, Set } from "./contexto";
 import { cur, queueForView, playQueue } from "./selectores";
 import type { CantoralState } from "./tipos";
-import { rutaProyectable } from "../lib/proyeccion";
+import { modoDeLaBarra, rutaProyectable } from "../lib/proyeccion";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // El reproductor y su cola.
@@ -105,6 +105,12 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
     },
     togglePlay: () => {
       const s = get();
+      // Con una pista del culto en el aire, la barra y Espacio pausan esa: es
+      // la que está sonando.
+      if (modoDeLaBarra(s) === "culto") {
+        get().alternarPausaProyeccion();
+        return;
+      }
       const t = cur(s);
       // Reanudar un video que se pausó al cerrar el panel (#125): sin el panel
       // no hay `<video>` que suene, así que se vuelve a abrir en esa pista, como
@@ -137,12 +143,10 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       const ids = playQueue(s);
       const i = ids.indexOf(s.playerId);
       let n: string;
-      // Al azar entre las que no son la que suena. Una cola con la misma pista
-      // dos veces —una canción que se repite al final del culto— y ninguna
-      // otra no tiene a cuál saltar, y el bucle de antes no terminaba nunca.
-      const otras = s.shuffle ? ids.filter((id) => id !== s.playerId) : [];
-      if (otras.length > 0) {
-        n = otras[Math.floor(Math.random() * otras.length)];
+      if (s.shuffle && ids.length > 1) {
+        do {
+          n = ids[Math.floor(Math.random() * ids.length)];
+        } while (n === s.playerId);
       } else {
         n = ids.length ? ids[(i + 1) % ids.length] : s.playerId;
       }
@@ -155,6 +159,10 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
     toggleMute: () => set((s) => ({ muted: !s.muted })),
     seekToFraction: (f) => {
       const s = get();
+      if (modoDeLaBarra(s) === "culto") {
+        get().buscarEnProyeccion(f);
+        return;
+      }
       const t = cur(s);
       if (!t) return;
       const pos = Math.round(Math.min(1, Math.max(0, f)) * t.durSec);

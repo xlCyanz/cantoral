@@ -1,6 +1,7 @@
 import { ListMusic, Plus } from "lucide-react";
 import type { CSSProperties } from "react";
-import { cultos, pistasParaAgregar, plDur, useStore } from "../store";
+import { cultos, pistasParaAgregar, plantillas, plDur, useStore } from "../store";
+import { soloPistas } from "../lib/momentos";
 import { gradientFor, inicialDe } from "../lib/covers";
 import Modal from "./Modal";
 
@@ -29,7 +30,9 @@ export default function AddToListDialog() {
   const ids = useStore(pistasParaAgregar);
   // En el mismo orden que la barra lateral: el culto que se está preparando
   // es el último que se tocó, y es al que casi siempre se agrega.
-  const playlists = useStore(cultos);
+  const losCultos = useStore(cultos);
+  const lasPlantillas = useStore(plantillas);
+  const playlists = [...losCultos, ...lasPlantillas];
   const plOrder = useStore((s) => s.plOrder);
   const tracks = useStore((s) => s.tracks);
   const closeDialog = useStore((s) => s.closeDialog);
@@ -60,7 +63,7 @@ export default function AddToListDialog() {
           <p style={{ ...fila, color: "var(--text-3)", fontSize: 12 }}>Todavía no hay cultos. Crea el primero abajo.</p>
         ) : (
           playlists.map((p) => {
-            const orden = plOrder[p.id] ?? p.ids;
+            const orden = soloPistas(plOrder[p.id] ?? p.ids);
             const yaEstaban = orden.filter((id) => elegidas.has(id)).length;
             return (
               <button key={p.id} onClick={() => addToListConfirm(p.id)} className="hb-s2" style={fila}>
@@ -76,6 +79,7 @@ export default function AddToListDialog() {
                   </span>
                   <span style={{ display: "block", fontSize: "10.5px", color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {[
+                      p.plantilla ? "Plantilla" : "",
                       `${orden.length} ${orden.length === 1 ? "pista" : "pistas"}`,
                       plDur({ tracks }, orden),
                       // Decirlo aquí evita el viaje de elegir, leer «ya estaban

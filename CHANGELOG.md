@@ -9,11 +9,6 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
-**Todo desde el reproductor.** Se van la vista de Proyección, los momentos sin
-música y las plantillas, que en la iglesia confundían más de lo que ayudaban.
-Un culto es una lista de canciones que se le da a reproducir, y la barra de
-abajo lo maneja todo —también el volumen del video que sale por el proyector—.
-
 ### Añadido
 
 - **Configuración → Tamaño de la interfaz**: Normal, Grande o Muy grande, para
@@ -27,50 +22,6 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
   doble clic en la barra de título o con Win + ↑, el contenido se asienta en
   un instante en vez de saltar de golpe. Si Windows tiene las animaciones
   apagadas, no se anima. En Mac ya lo hacía el sistema.
-
-### Cambiado
-
-- **Un solo modo: el reproductor.** Para proyectar un culto basta con darle a
-  «Reproducir todo»: cada video sale por la pantalla elegida en Configuración →
-  Proyección al llegarle el turno, y los audios suenan en el equipo con el
-  proyector en negro. La barra de abajo siempre enseña la canción que suena,
-  con su pausa, su tiempo y su volumen, también cuando la cola pasa a la
-  siguiente. El proyector se cierra con el botón de la pantalla tachada, en la
-  barra.
-- **El volumen y el silencio de la barra llegan al proyector.** Antes, con un
-  video en el proyector, la barra cambiaba el volumen por «En el proyector» y
-  había que bajarlo en el equipo de sonido.
-- **Las listas compartidas se exportan siempre en el formato de antes**, sin
-  momentos, así que cualquier instalación las abre.
-
-### Eliminado
-
-- **La vista de Proyección**, con su cola del culto, «Siguiente», el negro con
-  <kbd>B</kbd>, el paso con <kbd>→</kbd>, <kbd>Esc</kbd> para cortar la salida,
-  las transiciones y la cuenta atrás, «Cuando un elemento se acaba» y el botón
-  «Proyectar» de cada culto. Tampoco sale ya la portada de una canción por el
-  proyector: con un audio, el proyector se queda en negro. Quien tenía elegidos
-  esos ajustes no tiene que hacer nada.
-- **Los momentos sin música** («Añadir un momento…»): la oración, la lectura y
-  los anuncios ya no se añaden al culto ni salen en la hoja impresa. Los que ya
-  había se quedan guardados en la base de datos, sin verse, por si se abre con
-  una versión anterior; una lista compartida que los traiga se importa con sus
-  canciones.
-- **Las plantillas** («Guardar como plantilla», «Partir de una plantilla» y su
-  sección en las listas). Una lista que era plantilla aparece como un culto
-  más; para empezar un culto a partir de otro, «Duplicar lista».
-
-### Corregido
-
-- **No se podía cambiar el volumen de una canción puesta en aleatorio.** Al
-  caer la cola en un video que salía por el proyector, el volumen desaparecía
-  de la barra. Ahora sigue ahí y se aplica a lo que suene.
-- **Al pasar a otra canción proyectando**, la barra seguía en lo de antes o
-  dejaba de ofrecer la pausa y el volumen; ahora enseña siempre la que suena.
-- Un volumen movido justo mientras se cargaba la canción siguiente se perdía y
-  volvía al de antes.
-- «Aleatorio» se quedaba colgado con una cola en la que no había otra canción a
-  la que saltar.
 
 ## [0.6.0] - 2026-10-11
 

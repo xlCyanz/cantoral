@@ -34,7 +34,7 @@ function track(id: string, over: Partial<Track> = {}): Track {
 function conLista(ids: string[] = ["a", "b"]) {
   useStore.setState({
     tracks: [track("a"), track("b")],
-    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ids }],
+    playlists: [{ id: "p1", nombre: "Culto", tocada: "", ids, plantilla: false }],
     plOrder: { p1: ids },
     curPlaylist: "p1",
     view: "lista",

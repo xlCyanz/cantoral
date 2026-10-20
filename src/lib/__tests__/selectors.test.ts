@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, buildGroups, filasDeLista, pistasPorId, plDur, playQueue, queueForView, ultimoId } from "../../store";
+import { applyFilters, buildGroups, filasDeLista, pistasPorId, plantillas, plDur, playQueue, queueForView, ultimoId } from "../../store";
 import type { CantoralState } from "../../store";
 import type { Folder, Playlist, Track } from "../types";
 
@@ -291,6 +291,20 @@ describe("lo que los selectores recuerdan", () => {
   it("remembers the open list as well", () => {
     const s = state({ curPlaylist: "p1", plOrder: { p1: ["3", "1"] } });
     expect(filasDeLista(s)).toBe(filasDeLista(s));
+  });
+
+  it("remembers the templates", () => {
+    // It feeds views the player is sitting under, so a fresh array each read
+    // would re-render them once a second for nothing.
+    const listas = [
+      { id: "p1", nombre: "Culto", tocada: "", ids: [], plantilla: false },
+      { id: "p2", nombre: "Dominical", tocada: "", ids: [], plantilla: true },
+    ];
+    const s = state({ playlists: listas });
+
+    expect(plantillas(s)).toBe(plantillas(s));
+    expect(plantillas(s).map((p) => p.id)).toEqual(["p2"]);
+    expect(plantillas(state({ playlists: [...listas] }))).not.toBe(plantillas(s));
   });
 
   it("never lets the play queue hand out the remembered list itself", () => {

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Playlist, Track};
+use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Momento, Playlist, Track};
 
 /// Tauri-managed database handle.
 pub struct Db(pub Mutex<Connection>);
@@ -86,9 +86,9 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
   PRIMARY KEY (playlist_id, track_id)
 );
 
--- Los momentos sin música de un culto (#145). La app ya no los lee ni los
--- escribe, pero la tabla se queda: una versión anterior que abra esta base
--- los sigue encontrando donde estaban. Igual que en la migración 12.
+-- Los momentos sin música de un culto (#145). Comparten la numeración de
+-- `position` con `playlist_tracks`: el orden del culto es la mezcla de las dos
+-- tablas por esa columna. Igual que en la migración 12.
 CREATE TABLE IF NOT EXISTS playlist_momentos (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
@@ -943,53 +943,81 @@ pub fn touch_folder_scan(conn: &Connection, id: i64) -> Result<()> {
 pub fn list_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
     // El último que se tocó, arriba. `id` desempata para que el orden no
     // cambie entre dos llamadas.
-    //
-    // `es_plantilla` ya no se lee: las plantillas se quitaron, y una lista que
-    // lo era es un culto más. La columna se queda para una versión anterior
-    // que abra la misma base.
     let mut stmt = conn.prepare(
-        "SELECT id, nombre, tocada_at FROM playlists
+        "SELECT id, nombre, es_plantilla, tocada_at FROM playlists
          ORDER BY tocada_at DESC, id DESC",
     )?;
-    let base: Vec<(i64, String, String)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+    let base: Vec<(i64, String, bool, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
         .collect::<std::result::Result<_, _>>()?;
 
     // Every list's order in one query, grouped here, instead of one query per
     // list: with forty cultos that was forty-one round trips per snapshot.
     //
-    // Solo las pistas. Los momentos sin música (#145) se quitaron de la app;
-    // los que guardó una versión anterior siguen en `playlist_momentos`, sin
-    // leerse.
+    // Las pistas y los momentos (#145) comparten la numeración de `position`,
+    // así que el orden del culto es las dos tablas juntas y ordenadas por
+    // ella. En un empate —solo lo deja una base que tocó una versión anterior
+    // a los momentos— la pista va antes.
     let mut orden: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut momentos: HashMap<i64, Vec<Momento>> = HashMap::new();
     let mut ts = conn.prepare(
-        "SELECT playlist_id, track_id FROM playlist_tracks ORDER BY playlist_id, position, track_id",
+        "SELECT playlist_id, position, 0 AS clase, track_id, '', '', ''
+           FROM playlist_tracks
+         UNION ALL
+         SELECT playlist_id, position, 1, id, tipo, titulo, texto FROM playlist_momentos
+         ORDER BY 1, 2, 3, 4",
     )?;
-    let filas = ts.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?;
+    let filas = ts.query_map([], |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, i64>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get::<_, String>(4)?,
+            r.get::<_, String>(5)?,
+            r.get::<_, String>(6)?,
+        ))
+    })?;
     for fila in filas {
-        let (pl, id) = fila?;
-        orden.entry(pl).or_default().push(id.to_string());
+        let (pl, clase, id, tipo, titulo, texto) = fila?;
+        if clase == 0 {
+            orden.entry(pl).or_default().push(id.to_string());
+        } else {
+            let clave = Elemento::Momento(id).clave();
+            orden.entry(pl).or_default().push(clave.clone());
+            momentos.entry(pl).or_default().push(Momento { id: clave, tipo, titulo, texto });
+        }
     }
 
     Ok(base
         .into_iter()
-        .map(|(id, nombre, tocada)| Playlist {
+        .map(|(id, nombre, plantilla, tocada)| Playlist {
             id: id.to_string(),
             nombre,
             ids: orden.remove(&id).unwrap_or_default(),
+            plantilla,
             tocada,
+            momentos: momentos.remove(&id).unwrap_or_default(),
         })
         .collect())
 }
 
-/// Create an empty playlist.
-pub fn create_playlist(conn: &Connection, nombre: &str) -> Result<i64> {
+/// Create a playlist, optionally starting from the track order of another one.
+///
+/// One transaction: a list that came back with half of the template is worse
+/// than one that was never created, because nothing says which half is missing.
+pub fn create_playlist(conn: &Connection, nombre: &str, origen: Option<i64>) -> Result<i64> {
+    let tx = conn.unchecked_transaction()?;
     let ahora = now();
-    conn.execute(
+    tx.execute(
         "INSERT INTO playlists(nombre, created_at, tocada_at) VALUES(?1,?2,?2)",
         params![nombre, ahora],
     )?;
-    Ok(conn.last_insert_rowid())
+    let id = tx.last_insert_rowid();
+    if let Some(de) = origen {
+        copiar_pistas(&tx, de, id)?;
+    }
+    tx.commit()?;
+    Ok(id)
 }
 
 /// Copy one playlist's order into another, positions and all.
@@ -1006,6 +1034,14 @@ fn copiar_pistas(conn: &Connection, de: i64, a: i64) -> Result<()> {
     conn.execute(
         "INSERT INTO playlist_tracks(playlist_id, track_id, position)
          SELECT ?1, track_id, position FROM playlist_tracks WHERE playlist_id=?2",
+        params![a, de],
+    )?;
+    // Los momentos van con su sitio: una plantilla con «Oración» entre dos
+    // canciones da un culto con la oración en el mismo hueco.
+    conn.execute(
+        "INSERT INTO playlist_momentos(playlist_id, position, tipo, titulo, texto)
+         SELECT ?1, position, tipo, titulo, texto FROM playlist_momentos WHERE playlist_id=?2
+         ORDER BY position, id",
         params![a, de],
     )?;
     Ok(())
@@ -1077,10 +1113,56 @@ pub fn duplicate_playlist(conn: &Connection, id: i64) -> Result<i64> {
     Ok(nuevo)
 }
 
+/// Mark a list as a template, or stop treating it as one.
+pub fn set_playlist_template(conn: &Connection, id: i64, plantilla: bool) -> Result<()> {
+    conn.execute("UPDATE playlists SET es_plantilla=?1 WHERE id=?2", params![plantilla, id])?;
+    Ok(())
+}
+
+/// Una entrada del orden de un culto: una pista o un momento sin música (#145).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Elemento {
+    Pista(i64),
+    Momento(i64),
+}
+
+/// El prefijo con el que un momento viaja en el orden, delante de su id.
+pub const PREFIJO_MOMENTO: &str = "m:";
+
+impl Elemento {
+    /// Cómo lo escribe el orden que ve la interfaz: `12` o `m:12`.
+    pub fn clave(self) -> String {
+        match self {
+            Elemento::Pista(id) => id.to_string(),
+            Elemento::Momento(id) => format!("{PREFIJO_MOMENTO}{id}"),
+        }
+    }
+
+    /// Lo contrario de `clave`. `None` para lo que no es ninguna de las dos.
+    pub fn de_clave(clave: &str) -> Option<Elemento> {
+        match clave.strip_prefix(PREFIJO_MOMENTO) {
+            Some(id) => id.parse().ok().map(Elemento::Momento),
+            None => clave.parse().ok().map(Elemento::Pista),
+        }
+    }
+}
+
+impl From<i64> for Elemento {
+    fn from(id: i64) -> Self {
+        Elemento::Pista(id)
+    }
+}
+
 /// La posición que le toca a lo que se agregue al final de un culto.
+///
+/// Mira las dos tablas: con los momentos compartiendo la numeración, contar
+/// solo las pistas pondría una canción nueva antes de la oración del final.
 fn siguiente_posicion(conn: &Connection, playlist_id: i64) -> Result<i64> {
     Ok(conn.query_row(
-        "SELECT COALESCE(MAX(position)+1,0) FROM playlist_tracks WHERE playlist_id=?1",
+        "SELECT COALESCE(MAX(p)+1,0) FROM (
+           SELECT position AS p FROM playlist_tracks WHERE playlist_id=?1
+           UNION ALL
+           SELECT position FROM playlist_momentos WHERE playlist_id=?1)",
         params![playlist_id],
         |r| r.get(0),
     )?)
@@ -1093,16 +1175,102 @@ fn siguiente_posicion(conn: &Connection, playlist_id: i64) -> Result<i64> {
 /// deleted between the drag and the save trips the foreign key — left the
 /// service list truncated at whatever row had been reached.
 ///
-pub fn set_playlist_order(conn: &Connection, playlist_id: i64, ids: &[i64]) -> Result<()> {
+/// El orden es el culto entero, momentos incluidos (#145): un momento que no
+/// viene en él es que se quitó, y se borra. Uno que no es de este culto se
+/// ignora en vez de robárselo a otro.
+pub fn set_playlist_order<E: Copy + Into<Elemento>>(
+    conn: &Connection,
+    playlist_id: i64,
+    ids: &[E],
+) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM playlist_tracks WHERE playlist_id=?1", params![playlist_id])?;
-    for (pos, tid) in ids.iter().enumerate() {
-        tx.execute(
-            "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
-            params![playlist_id, tid, pos as i64],
-        )?;
+    let mut quedan: Vec<i64> = Vec::new();
+    for (pos, elemento) in ids.iter().enumerate() {
+        match (*elemento).into() {
+            Elemento::Pista(tid) => {
+                tx.execute(
+                    "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,?3)",
+                    params![playlist_id, tid, pos as i64],
+                )?;
+            }
+            Elemento::Momento(mid) => {
+                tx.execute(
+                    "UPDATE playlist_momentos SET position=?1 WHERE id=?2 AND playlist_id=?3",
+                    params![pos as i64, mid, playlist_id],
+                )?;
+                quedan.push(mid);
+            }
+        }
     }
+    let fuera = format!(
+        "DELETE FROM playlist_momentos WHERE playlist_id=?1 AND id NOT IN ({})",
+        lista_de_ids(&quedan)
+    );
+    tx.execute(&fuera, params![playlist_id])?;
     tx.commit()?;
+    Ok(())
+}
+
+/// Los tipos de momento que la interfaz sabe dibujar. Cualquier otro se
+/// guarda como «otro»: un archivo o una versión que traiga uno desconocido no
+/// puede dejar una fila sin icono.
+const TIPOS_DE_MOMENTO: &[&str] = &["oracion", "lectura", "anuncios", "ofrenda", "mensaje", "otro"];
+
+fn tipo_de_momento(tipo: &str) -> &str {
+    TIPOS_DE_MOMENTO.iter().find(|t| **t == tipo).copied().unwrap_or("otro")
+}
+
+/// Añadir un momento sin música al final de un culto. Devuelve su clave (`m:…`).
+pub fn add_playlist_momento(
+    conn: &Connection,
+    playlist_id: i64,
+    tipo: &str,
+    titulo: &str,
+    texto: &str,
+) -> Result<String> {
+    let titulo = titulo.trim();
+    if titulo.is_empty() {
+        bail!("El momento necesita un título.");
+    }
+    let tx = conn.unchecked_transaction()?;
+    let existe: i64 =
+        tx.query_row("SELECT COUNT(*) FROM playlists WHERE id=?1", params![playlist_id], |r| {
+            r.get(0)
+        })?;
+    if existe == 0 {
+        bail!("la lista {playlist_id} ya no existe");
+    }
+    let pos = siguiente_posicion(&tx, playlist_id)?;
+    tx.execute(
+        "INSERT INTO playlist_momentos(playlist_id, position, tipo, titulo, texto)
+         VALUES(?1,?2,?3,?4,?5)",
+        params![playlist_id, pos, tipo_de_momento(tipo), titulo, texto.trim()],
+    )?;
+    let id = tx.last_insert_rowid();
+    tx.commit()?;
+    Ok(Elemento::Momento(id).clave())
+}
+
+/// Cambiar el tipo, el título o el texto de un momento. Su sitio no se toca.
+pub fn update_playlist_momento(
+    conn: &Connection,
+    momento_id: i64,
+    tipo: &str,
+    titulo: &str,
+    texto: &str,
+) -> Result<()> {
+    let titulo = titulo.trim();
+    if titulo.is_empty() {
+        bail!("El momento necesita un título.");
+    }
+    let n = conn.execute(
+        "UPDATE playlist_momentos SET tipo=?1, titulo=?2, texto=?3 WHERE id=?4",
+        params![tipo_de_momento(tipo), titulo, texto.trim(), momento_id],
+    )?;
+    if n == 0 {
+        bail!("Ese momento ya no está en el culto.");
+    }
     Ok(())
 }
 
@@ -1710,7 +1878,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[c, a, b]).unwrap();
 
@@ -1724,7 +1892,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, a).unwrap();
 
         let n = add_tracks_to_playlist(&conn, pl, &[a, b]).unwrap();
@@ -1740,7 +1908,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, b).unwrap();
 
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
@@ -1758,7 +1926,7 @@ mod tests {
     #[test]
     fn adding_nothing_is_not_an_error() {
         let conn = mem();
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         assert_eq!(add_tracks_to_playlist(&conn, pl, &[]).unwrap(), 0);
     }
 
@@ -1786,7 +1954,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_tracks_to_playlist(&conn, pl, &[a, b, c]).unwrap();
 
         delete_tracks(&conn, &[a, c]).unwrap();
@@ -1800,7 +1968,7 @@ mod tests {
 
     /// Un culto con su «tocada» puesta a mano, para no depender del reloj.
     fn culto_tocado(conn: &Connection, nombre: &str, cuando: &str) -> i64 {
-        let id = create_playlist(conn, nombre).unwrap();
+        let id = create_playlist(conn, nombre, None).unwrap();
         conn.execute("UPDATE playlists SET tocada_at=?1 WHERE id=?2", params![cuando, id]).unwrap();
         id
     }
@@ -1836,7 +2004,7 @@ mod tests {
         let conn = mem();
         culto_tocado(&conn, "Viejo", "2020-01-01T00:00:00+00:00");
 
-        create_playlist(&conn, "Nuevo").unwrap();
+        create_playlist(&conn, "Nuevo", None).unwrap();
 
         assert_eq!(nombres(&conn)[0], "Nuevo");
     }
@@ -2543,7 +2711,7 @@ mod tests {
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
         let otra = pista(&conn, fid, "/m/z.mp3", "Otra", "Coro", 100, "MP3", 1_000);
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, otra).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2563,7 +2731,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let queda = pista(&conn, fid, "/m/a.wav", "Santo", "Coro", 300, "WAV", 9_000);
         let copia = pista(&conn, fid, "/m/a.mp3", "Santo", "Coro", 300, "MP3", 4_000);
-        let pl = create_playlist(&conn, "Culto").unwrap();
+        let pl = create_playlist(&conn, "Culto", None).unwrap();
         add_to_playlist(&conn, pl, queda).unwrap();
         add_to_playlist(&conn, pl, copia).unwrap();
 
@@ -2751,7 +2919,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto").unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
 
         add_to_playlist(&conn, pid, a).unwrap();
         add_to_playlist(&conn, pid, b).unwrap();
@@ -2764,68 +2932,211 @@ mod tests {
     }
 
     // ------------------------------------------------ momentos del culto (#145)
-    //
-    // Se quitaron de la app, pero la tabla se queda para una versión anterior
-    // que abra la misma base: ni se lee ni se escribe.
 
-    /// Un culto con dos pistas, A y B, y un momento entre las dos, como lo
-    /// dejaba una versión anterior.
-    fn culto_con_momento(conn: &Connection) -> (i64, i64, i64) {
+    /// Un culto con dos pistas, A y B, en ese orden.
+    fn culto_ab(conn: &Connection) -> (i64, i64, i64) {
         let fid = add_folder(conn, "/m", "m", true).unwrap();
         let a = add_track(conn, fid, "/m/a.mp3", "A");
         let b = add_track(conn, fid, "/m/b.mp3", "B");
-        let pl = create_playlist(conn, "Culto").unwrap();
-        conn.execute(
-            "INSERT INTO playlist_tracks(playlist_id, track_id, position) VALUES(?1,?2,0),(?1,?3,2)",
-            params![pl, a, b],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO playlist_momentos(playlist_id, position, tipo, titulo)
-             VALUES(?1,1,'oracion','Oración')",
-            params![pl],
-        )
-        .unwrap();
+        let pl = create_playlist(conn, "Culto", None).unwrap();
+        add_tracks_to_playlist(conn, pl, &[a, b]).unwrap();
         (pl, a, b)
-    }
-
-    fn momentos_guardados(conn: &Connection) -> i64 {
-        conn.query_row("SELECT COUNT(*) FROM playlist_momentos", [], |r| r.get(0)).unwrap()
     }
 
     fn el_culto(conn: &Connection, pl: i64) -> Playlist {
         list_playlists(conn).unwrap().into_iter().find(|p| p.id == pl.to_string()).unwrap()
     }
 
-    #[test]
-    fn a_service_with_moments_from_an_older_version_lists_only_its_tracks() {
-        let conn = mem();
-        let (pl, a, b) = culto_con_momento(&conn);
-
-        assert_eq!(el_culto(&conn, pl).ids, vec![a.to_string(), b.to_string()]);
+    fn momento(clave: &str) -> i64 {
+        match Elemento::de_clave(clave) {
+            Some(Elemento::Momento(id)) => id,
+            otra => panic!("{clave} no es un momento: {otra:?}"),
+        }
     }
 
     #[test]
-    fn reordering_copying_or_adding_leaves_the_old_moments_alone() {
+    fn an_order_key_says_whether_it_is_a_track_or_a_moment() {
+        assert_eq!(Elemento::de_clave("12"), Some(Elemento::Pista(12)));
+        assert_eq!(Elemento::de_clave("m:7"), Some(Elemento::Momento(7)));
+        assert_eq!(Elemento::de_clave("m:"), None);
+        assert_eq!(Elemento::de_clave("t1"), None);
+        assert_eq!(Elemento::Momento(7).clave(), "m:7");
+    }
+
+    #[test]
+    fn a_new_moment_goes_to_the_end_of_the_service() {
         let conn = mem();
-        let (pl, a, b) = culto_con_momento(&conn);
+        let (pl, a, b) = culto_ab(&conn);
+
+        let m = add_playlist_momento(&conn, pl, "oracion", "  Oración ", "").unwrap();
+
+        let p = el_culto(&conn, pl);
+        assert_eq!(p.ids, vec![a.to_string(), b.to_string(), m.clone()]);
+        assert_eq!(
+            p.momentos,
+            vec![Momento {
+                id: m,
+                tipo: "oracion".into(),
+                titulo: "Oración".into(),
+                texto: String::new()
+            }]
+        );
+    }
+
+    #[test]
+    fn a_moment_is_ordered_among_the_tracks_and_stays_there() {
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        let m = add_playlist_momento(&conn, pl, "oracion", "Oración", "").unwrap();
+
+        set_playlist_order(
+            &conn,
+            pl,
+            &[Elemento::Pista(a), Elemento::Momento(momento(&m)), Elemento::Pista(b)],
+        )
+        .unwrap();
+
+        assert_eq!(el_culto(&conn, pl).ids, vec![a.to_string(), m, b.to_string()]);
+    }
+
+    #[test]
+    fn a_track_added_after_a_moment_lands_after_it() {
+        // Con las posiciones contadas solo en `playlist_tracks`, la pista nueva
+        // caería antes de los anuncios del final.
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        let fid: i64 = conn.query_row("SELECT id FROM folders", [], |r| r.get(0)).unwrap();
+        let c = add_track(&conn, fid, "/m/c.mp3", "C");
+        let m = add_playlist_momento(&conn, pl, "anuncios", "Anuncios", "").unwrap();
+
+        add_tracks_to_playlist(&conn, pl, &[c]).unwrap();
+
+        assert_eq!(el_culto(&conn, pl).ids, vec![a.to_string(), b.to_string(), m, c.to_string()]);
+    }
+
+    #[test]
+    fn leaving_a_moment_out_of_the_order_removes_it() {
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        add_playlist_momento(&conn, pl, "oracion", "Oración", "").unwrap();
 
         set_playlist_order(&conn, pl, &[b, a]).unwrap();
-        duplicate_playlist(&conn, pl).unwrap();
-        let fid = add_folder(&conn, "/n", "n", true).unwrap();
-        let c = add_track(&conn, fid, "/n/c.mp3", "C");
-        add_to_playlist(&conn, pl, c).unwrap();
 
-        // Sin borrar el de antes y sin copiarlo a la lista nueva.
-        assert_eq!(momentos_guardados(&conn), 1);
-        assert_eq!(el_culto(&conn, pl).ids, vec![b.to_string(), a.to_string(), c.to_string()]);
+        let p = el_culto(&conn, pl);
+        assert_eq!(p.ids, vec![b.to_string(), a.to_string()]);
+        assert!(p.momentos.is_empty());
+        let filas: i64 =
+            conn.query_row("SELECT COUNT(*) FROM playlist_momentos", [], |r| r.get(0)).unwrap();
+        assert_eq!(filas, 0);
+    }
+
+    #[test]
+    fn a_moment_from_another_service_is_not_taken() {
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        let otro = create_playlist(&conn, "Otro", None).unwrap();
+        let ajeno = add_playlist_momento(&conn, otro, "oracion", "Ajena", "").unwrap();
+
+        set_playlist_order(
+            &conn,
+            pl,
+            &[Elemento::Pista(a), Elemento::Momento(momento(&ajeno)), Elemento::Pista(b)],
+        )
+        .unwrap();
+
+        assert_eq!(el_culto(&conn, pl).ids, vec![a.to_string(), b.to_string()]);
+        assert_eq!(el_culto(&conn, otro).ids, vec![ajeno]);
+    }
+
+    #[test]
+    fn a_moment_can_be_edited_without_moving() {
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        let m = add_playlist_momento(&conn, pl, "oracion", "Oración", "").unwrap();
+        set_playlist_order(
+            &conn,
+            pl,
+            &[Elemento::Momento(momento(&m)), Elemento::Pista(a), Elemento::Pista(b)],
+        )
+        .unwrap();
+
+        update_playlist_momento(&conn, momento(&m), "lectura", "Lectura", " Salmo 23 ").unwrap();
+
+        let p = el_culto(&conn, pl);
+        assert_eq!(p.ids[0], m);
+        assert_eq!(p.momentos[0].tipo, "lectura");
+        assert_eq!(p.momentos[0].titulo, "Lectura");
+        assert_eq!(p.momentos[0].texto, "Salmo 23");
+    }
+
+    #[test]
+    fn a_moment_needs_a_title_and_a_known_kind() {
+        let conn = mem();
+        let (pl, _, _) = culto_ab(&conn);
+
+        assert!(add_playlist_momento(&conn, pl, "oracion", "   ", "").is_err());
+        let m = add_playlist_momento(&conn, pl, "bautismo", "Bautismo", "").unwrap();
+        assert_eq!(el_culto(&conn, pl).momentos[0].tipo, "otro");
+        assert!(update_playlist_momento(&conn, momento(&m), "oracion", "", "").is_err());
+        assert!(update_playlist_momento(&conn, 9999, "oracion", "X", "").is_err());
+        assert!(add_playlist_momento(&conn, 9999, "oracion", "X", "").is_err());
+    }
+
+    #[test]
+    fn copying_a_service_copies_its_moments_in_place() {
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        let m = add_playlist_momento(&conn, pl, "oracion", "Oración", "Pastor").unwrap();
+        set_playlist_order(
+            &conn,
+            pl,
+            &[Elemento::Pista(a), Elemento::Momento(momento(&m)), Elemento::Pista(b)],
+        )
+        .unwrap();
+
+        let copia = el_culto(&conn, duplicate_playlist(&conn, pl).unwrap());
+        let desde = el_culto(&conn, create_playlist(&conn, "Nuevo", Some(pl)).unwrap());
+
+        for nueva in [copia, desde] {
+            assert_eq!(nueva.ids.len(), 3);
+            assert_eq!(nueva.ids[0], a.to_string());
+            assert_eq!(nueva.ids[2], b.to_string());
+            assert_ne!(nueva.ids[1], m, "the copy has a moment of its own");
+            assert_eq!(nueva.momentos[0].id, nueva.ids[1]);
+            assert_eq!(nueva.momentos[0].titulo, "Oración");
+            assert_eq!(nueva.momentos[0].texto, "Pastor");
+        }
+        assert_eq!(el_culto(&conn, pl).ids[1], m, "the original is untouched");
+    }
+
+    #[test]
+    fn deleting_a_service_takes_its_moments_with_it() {
+        let conn = mem();
+        let (pl, _, _) = culto_ab(&conn);
+        add_playlist_momento(&conn, pl, "oracion", "Oración", "").unwrap();
+
+        delete_playlist(&conn, pl).unwrap();
+
+        let filas: i64 =
+            conn.query_row("SELECT COUNT(*) FROM playlist_momentos", [], |r| r.get(0)).unwrap();
+        assert_eq!(filas, 0);
+    }
+
+    #[test]
+    fn removing_a_track_from_the_library_leaves_the_moments() {
+        let conn = mem();
+        let (pl, a, b) = culto_ab(&conn);
+        let m = add_playlist_momento(&conn, pl, "oracion", "Oración", "").unwrap();
+
+        delete_track(&conn, a).unwrap();
+
+        assert_eq!(el_culto(&conn, pl).ids, vec![b.to_string(), m]);
     }
 
     #[test]
     fn the_moments_migration_describes_the_same_table_as_the_schema() {
         // La migración y `SCHEMA` crean la tabla cada uno por su lado: una base
-        // migrada y una nueva tienen que acabar iguales, para que una versión
-        // anterior la encuentre.
+        // migrada y una nueva tienen que acabar iguales.
         let (_, sql) =
             MIGRATIONS.iter().find(|(_, sql)| sql.contains("playlist_momentos")).unwrap();
         let vieja = Connection::open_in_memory().unwrap();
@@ -2859,7 +3170,7 @@ mod tests {
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let mut esperado = Vec::new();
         for i in 0..40 {
-            let pid = create_playlist(&conn, &format!("Culto {i}")).unwrap();
+            let pid = create_playlist(&conn, &format!("Culto {i}"), None).unwrap();
             // Distintos órdenes, y alguna vacía, para que agrupar no pueda
             // mezclar una lista con la de al lado.
             let orden = match i % 3 {
@@ -2909,7 +3220,7 @@ mod tests {
             .collect();
         let listas: Vec<i64> = (0..40)
             .map(|i| {
-                let pl = create_playlist(&conn, &format!("Culto {i}")).unwrap();
+                let pl = create_playlist(&conn, &format!("Culto {i}"), None).unwrap();
                 let orden: Vec<i64> =
                     ids.iter().skip(i * 37).step_by(97).take(30).copied().collect();
                 set_playlist_order(&conn, pl, &orden).unwrap();
@@ -2961,7 +3272,7 @@ mod tests {
     #[test]
     fn update_playlist_changes_the_name_and_leaves_an_old_occasion_alone() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Sin título").unwrap();
+        let pid = create_playlist(&conn, "Sin título", None).unwrap();
         conn.execute("UPDATE playlists SET ocasion='Ensayo' WHERE id=?1", params![pid]).unwrap();
 
         update_playlist(&conn, pid, "Jóvenes").unwrap();
@@ -2973,7 +3284,7 @@ mod tests {
         assert_eq!(ocasion, "Ensayo", "lo que escribió una versión anterior no se borra");
     }
 
-    // ---- duplicating ----
+    // ---- duplicating and templates ----
 
     #[test]
     fn a_copy_keeps_the_order() {
@@ -2982,7 +3293,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto").unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[c, a, b]).unwrap();
 
         let copia = duplicate_playlist(&conn, pid).unwrap();
@@ -2999,7 +3310,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto").unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
         let copia = duplicate_playlist(&conn, pid).unwrap();
 
@@ -3013,7 +3324,7 @@ mod tests {
     #[test]
     fn copying_the_same_list_twice_gives_two_names_you_can_tell_apart() {
         let conn = mem();
-        let pid = create_playlist(&conn, "Culto").unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
 
         duplicate_playlist(&conn, pid).unwrap();
         duplicate_playlist(&conn, pid).unwrap();
@@ -3055,27 +3366,43 @@ mod tests {
     }
 
     #[test]
-    fn a_list_that_was_a_template_is_listed_as_a_normal_service() {
-        // Las plantillas se quitaron. Una base de una versión anterior puede
-        // tener una marcada; la columna se queda, pero ya no se lee.
+    fn a_new_list_can_start_from_a_template() {
         let conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
-        let pid = create_playlist(&conn, "Dominical").unwrap();
-        set_playlist_order(&conn, pid, &[a]).unwrap();
-        conn.execute("UPDATE playlists SET es_plantilla=1 WHERE id=?1", params![pid]).unwrap();
+        let b = add_track(&conn, fid, "/m/b.mp3", "B");
+        let plantilla = create_playlist(&conn, "Dominical", None).unwrap();
+        set_playlist_order(&conn, plantilla, &[b, a]).unwrap();
+        set_playlist_template(&conn, plantilla, true).unwrap();
+
+        let nueva = create_playlist(&conn, "Culto 4 Ene", Some(plantilla)).unwrap();
 
         let listas = list_playlists(&conn).unwrap();
+        let hecha = listas.iter().find(|p| p.id == nueva.to_string()).unwrap();
+        assert_eq!(hecha.ids, vec![b.to_string(), a.to_string()]);
+        // The copy is a service, not another template.
+        assert!(!hecha.plantilla);
+        assert!(listas.iter().find(|p| p.id == plantilla.to_string()).unwrap().plantilla);
+    }
 
-        assert_eq!(listas.len(), 1);
-        assert_eq!(listas[0].ids, vec![a.to_string()]);
-        let json = serde_json::to_value(&listas[0]).unwrap();
-        assert!(json.get("plantilla").is_none());
-        // Y la marca sigue en la base, para quien abra con una versión de antes.
-        let marca: i64 = conn
-            .query_row("SELECT es_plantilla FROM playlists WHERE id=?1", params![pid], |r| r.get(0))
-            .unwrap();
-        assert_eq!(marca, 1);
+    #[test]
+    fn starting_from_a_list_that_is_gone_leaves_no_list_behind() {
+        let conn = mem();
+
+        assert!(create_playlist(&conn, "Culto", Some(9_999)).is_err());
+        assert!(list_playlists(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_template_can_stop_being_one() {
+        let conn = mem();
+        let pid = create_playlist(&conn, "Dominical", None).unwrap();
+        set_playlist_template(&conn, pid, true).unwrap();
+        assert!(list_playlists(&conn).unwrap()[0].plantilla);
+
+        set_playlist_template(&conn, pid, false).unwrap();
+
+        assert!(!list_playlists(&conn).unwrap()[0].plantilla);
     }
 
     #[test]
@@ -3100,8 +3427,8 @@ mod tests {
         let listas = list_playlists(&conn).unwrap();
         assert_eq!(listas.len(), 1);
         assert_eq!(listas[0].nombre, "Vieja");
-        // La columna se añade igual: una versión anterior la espera.
-        assert!(columns(&conn, "playlists").iter().any(|c| c == "es_plantilla"));
+        // A list that predates templates is a service, not a template.
+        assert!(!listas[0].plantilla);
     }
 
     #[test]
@@ -3381,7 +3708,7 @@ mod tests {
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
-        let pid = create_playlist(&conn, "Culto").unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b]).unwrap();
 
         delete_track(&conn, a).unwrap();
@@ -3435,7 +3762,7 @@ mod tests {
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
         let c = add_track(&conn, fid, "/m/c.mp3", "C");
-        let pid = create_playlist(&conn, "Culto").unwrap();
+        let pid = create_playlist(&conn, "Culto", None).unwrap();
         set_playlist_order(&conn, pid, &[a, b, c]).unwrap();
 
         // 9999 no existe: la clave foránea hace fallar el tercer INSERT.

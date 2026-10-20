@@ -34,7 +34,7 @@ const delNucleo = (cambio: (p: Playlist) => Playlist = (p) => p): Playlist[] => 
 };
 
 function lista(id: string, tocada: string, extra: Partial<Playlist> = {}): Playlist {
-  return { id, nombre: id, ids: [], tocada, ...extra };
+  return { id, nombre: id, ids: [], plantilla: false, tocada, ...extra };
 }
 
 const ids = () => cultos(useStore.getState()).map((p) => p.id);
@@ -65,14 +65,10 @@ describe("el orden de los cultos", () => {
     expect(ids()).toEqual(["domingo", "cena", "jovenes"]);
   });
 
-  it("una lista que era una plantilla es un culto más", () => {
-    // Las plantillas se quitaron. Una base de antes puede seguir marcando una
-    // así —la columna se queda—, y el núcleo ya no lo dice; aunque llegara la
-    // marca, la lista se ve y se usa como cualquier culto.
-    const vieja = { ...lista("base", "2030-01-01T00:00:00.000Z"), plantilla: true } as Playlist;
-    useStore.setState((s) => ({ playlists: [...s.playlists, vieja] }));
+  it("las plantillas no son cultos", () => {
+    useStore.setState((s) => ({ playlists: [...s.playlists, lista("base", "2030-01-01T00:00:00.000Z", { plantilla: true })] }));
 
-    expect(ids()[0]).toBe("base");
+    expect(ids()).not.toContain("base");
   });
 
   it("compara el instante, no el texto", () => {

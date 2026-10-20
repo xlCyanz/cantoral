@@ -28,7 +28,7 @@ function pista(id: string, over: Partial<Track> = {}): Track {
 }
 
 function lista(id: string, ids: string[], over: Partial<Playlist> = {}): Playlist {
-  return { id, nombre: `Culto ${id}`, ids, tocada: "", ...over };
+  return { id, nombre: `Culto ${id}`, ids, plantilla: false, tocada: "", ...over };
 }
 
 let b: Backend;
@@ -98,12 +98,12 @@ describe("cultos", () => {
     expect(listas.find((p) => p.id === "p1")?.ids).toEqual(["a", "b", "c"]);
   });
 
-  it("una lista nueva empieza vacía", async () => {
-    const id = await b.createPlaylist("Nueva");
+  it("una lista nueva desde una plantilla copia su orden", async () => {
+    const id = await b.createPlaylist("Nueva", "p2");
 
     const nueva = (await b.getPlaylists()).find((p) => p.id === id)!;
-    expect(nueva.ids).toEqual([]);
-    expect(nueva).not.toHaveProperty("plantilla");
+    expect(nueva.ids).toEqual(["c", "a"]);
+    expect(nueva.plantilla).toBe(false);
   });
 
   it("duplicar nombra la copia y le da su propio orden", async () => {

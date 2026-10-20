@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import type { Folder, Playlist, Theme, Track } from "./types";
+import type { Folder, Playlist, SalidaDeAudio, Theme, Track, TransicionProyeccion } from "./types";
 import { parsearArchivo, type ArchivoDeLista } from "./compartir";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
@@ -438,13 +438,17 @@ export async function markVideoThumbnailFailed(id: string, path: string): Promis
   if (!isTauri()) return;
   await inv("mark_video_thumbnail_failed", { id, path });
 }
-export async function createPlaylistCmd(nombre: string): Promise<string> {
-  return inv<string>("create_playlist", { nombre });
+/** `desde` is the template to copy the order from, if the user picked one. */
+export async function createPlaylistCmd(nombre: string, desde?: string): Promise<string> {
+  return inv<string>("create_playlist", { nombre, desde: desde ?? null });
 }
 export async function duplicatePlaylistCmd(playlist: string): Promise<string> {
   return inv<string>("duplicate_playlist", { playlist });
 }
 // Lo que cambia una lista contesta con las listas, no con el catálogo (#136).
+export async function setPlaylistTemplateCmd(playlist: string, plantilla: boolean): Promise<Playlist[]> {
+  return inv<Playlist[]>("set_playlist_template", { playlist, plantilla });
+}
 export async function addToPlaylistCmd(playlist: string, track: string): Promise<Playlist[]> {
   return inv<Playlist[]>("add_to_playlist", { playlist, track });
 }
@@ -455,6 +459,24 @@ export async function updatePlaylistCmd(playlist: string, nombre: string): Promi
 export async function touchPlaylistCmd(playlist: string): Promise<void> {
   if (!isTauri()) return;
   await inv("touch_playlist", { playlist });
+}
+/** Añadir un momento sin música al final de un culto (#145). */
+export async function addPlaylistMomentoCmd(
+  playlist: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("add_playlist_momento", { playlist, tipo, titulo, texto });
+}
+/** Cambiar lo que dice un momento del culto; `momento` es su id (`m:…`). */
+export async function updatePlaylistMomentoCmd(
+  momento: string,
+  tipo: string,
+  titulo: string,
+  texto: string,
+): Promise<Playlist[]> {
+  return inv<Playlist[]>("update_playlist_momento", { momento, tipo, titulo, texto });
 }
 export async function deletePlaylistCmd(playlist: string): Promise<Playlist[]> {
   return inv<Playlist[]>("delete_playlist", { playlist });
@@ -668,29 +690,56 @@ export interface MonitorInfo {
   y: number;
 }
 
-/**
- * Lo que la ventana de salida está mostrando: el video que suena en el
- * reproductor, o negro. Un audio no pone nada delante de la congregación.
- */
+/** Lo que la ventana de salida está mostrando. */
 export type VistaProyeccion =
   | { modo: "negro" }
+  | { modo: "titulo"; titulo: string; sub?: string }
   | {
       modo: "media";
-      /** URL `asset://` del video. */
+      /** URL `asset://` del archivo. */
       src: string;
+      /** Si trae imagen. Un audio no llena la pantalla por sí solo. */
+      video: boolean;
       titulo: string;
       sub?: string;
       reproduciendo: boolean;
       /**
-       * El volumen de la barra, de 0 a 1, ya con el silencio aplicado. Viaja
-       * con el video para que arranque al volumen que se ve en la barra.
+       * Qué dibujar mientras suena, cuando el archivo no trae imagen.
+       *
+       * Ausente en un video: ahí la pantalla ya está llena. Salvo con «Negro»,
+       * la salida pone el título, que es mejor que un negro con el que nadie
+       * sabe si la app se colgó.
        */
-      volumen: number;
+      audio?: {
+        tipo: SalidaDeAudio;
+        /** URL `asset://` de la carátula, para el fondo. */
+        portada?: string;
+      };
     };
 
-/** El mensaje completo que recibe la salida. */
+/**
+ * El mensaje completo que recibe la salida.
+ *
+ * `precarga` no se ve: es el archivo siguiente del culto, que la salida carga
+ * en silencio y deja en pausa. Sin eso, pasar de un elemento a otro deja la
+ * pantalla grande en negro el tiempo que tarde el disco — medio segundo en un
+ * SSD, varios en un pendrive, que es de donde sale la música en muchas
+ * iglesias.
+ */
 export interface SalidaProyeccion {
   vista: VistaProyeccion;
+  precarga?: string;
+  /**
+   * Qué hacer antes de enseñar esto.
+   *
+   * Solo viene al cambiar de elemento del culto. Cortar a negro o cambiar un ajuste en marcha no llevan transición: serían
+   * medio segundo de negro en mitad de una canción.
+   *
+   * La cuenta la lleva la ventana de salida y no esta: es la que tiene el
+   * fotograma delante, y un temporizador que viaje entre ventanas llegaría
+   * tarde de forma distinta cada vez.
+   */
+  transicion?: TransicionProyeccion;
 }
 
 /**
@@ -702,18 +751,12 @@ export interface SalidaProyeccion {
  * `src` es a qué archivo se refiere: una orden que llega tarde, cuando ya se
  * pasó a otro, no mueve el que se está viendo.
  */
-export type OrdenProyeccion =
-  | {
-      orden: "buscar";
-      src: string;
-      /** El segundo al que saltar. */
-      pos: number;
-    }
-  /**
-   * El volumen de la barra, de 0 a 1, ya con el silencio aplicado. Sin `src`:
-   * vale para lo que esté sonando y para lo que venga.
-   */
-  | { orden: "volumen"; valor: number };
+export interface OrdenProyeccion {
+  orden: "buscar";
+  src: string;
+  /** El segundo al que saltar. */
+  pos: number;
+}
 
 /** Todo lo que puede recibir la ventana de salida. */
 export type MensajeProyeccion = SalidaProyeccion | OrdenProyeccion;

@@ -2,7 +2,7 @@
 
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type View = "biblioteca" | "colecciones" | "lista" | "config";
+export type View = "biblioteca" | "colecciones" | "lista" | "config" | "proyeccion";
 /**
  * What the library view has to show. A scan in flight is *not* one of these:
  * it runs alongside whatever the library already holds (see `scanning`).
@@ -18,6 +18,12 @@ export type GroupBy = "none" | "album" | "carpeta";
  * en la pantalla del atril sin tener que desplazarse a media alabanza.
  */
 export type Densidad = "comoda" | "compacta";
+/** Qué sale por el proyector cuando la pista es solo audio. */
+export type SalidaDeAudio = "negro" | "portada";
+/** Qué pasa por el proyector entre un elemento del culto y el siguiente. */
+export type TransicionProyeccion = "negro" | "cuenta";
+/** Qué hace la proyección cuando un elemento del culto se termina. */
+export type AvanceProyeccion = "negro" | "siguiente";
 export type SortKey = "titulo" | "album" | "dur";
 export type SortDir = "asc" | "desc";
 
@@ -68,14 +74,42 @@ export interface Folder {
 export interface Playlist {
   id: string;
   nombre: string;
-  /** Default order (live order is kept in store.plOrder): track ids. */
+  /**
+   * Default order (live order is kept in store.plOrder): track ids, and the
+   * ids of its momentos (`m:…`) where they fall (#145).
+   */
   ids: string[];
+  /** A list kept as a starting point rather than as a service of its own. */
+  plantilla: boolean;
   /**
    * La última vez que se abrió o se cambió, en ISO. Es lo que ordena los
    * cultos: no tienen fecha, y lo que se está preparando es lo último que se
    * tocó.
    */
   tocada: string;
+  /**
+   * Los momentos sin música del culto —oración, lectura, anuncios— (#145).
+   * Su sitio lo dice `ids`. Opcional: un culto sin ninguno puede no traerlo.
+   */
+  momentos?: Momento[];
+}
+
+/** Qué clase de momento sin música es. Decide el icono y el título de fábrica. */
+export type TipoMomento = "oracion" | "lectura" | "anuncios" | "ofrenda" | "mensaje" | "otro";
+
+/**
+ * Un elemento del culto que no es una pista (#145).
+ *
+ * En la proyección sale su título sobre negro y la cola se detiene ahí hasta
+ * que quien opera pulsa «Siguiente»; en la hoja, una fila sin duración.
+ */
+export interface Momento {
+  /** Empieza por `m:`, así nunca se confunde con el id de una pista en el orden. */
+  id: string;
+  tipo: TipoMomento;
+  titulo: string;
+  /** Opcional: la cita de la lectura, quién predica. */
+  texto: string;
 }
 
 /** Overlay of edited fields applied on top of a track until saved. */

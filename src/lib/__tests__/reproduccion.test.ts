@@ -1,7 +1,8 @@
 // Cantoral ya no le pasa ningún archivo al reproductor del sistema (#81). Lo
 // que se fija aquí es lo que hace en su lugar: que un video se reproduzca
 // dentro, que la única superficie donde se puede ver se abra sola al llegar a
-// él, y de dónde sale la cola que suena.
+// él, y que proyectar no deje dos cosas sonando a la vez por los altavoces del
+// culto.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Track } from "../types";
@@ -124,6 +125,30 @@ describe("reproducir un video", () => {
 
     expect(useStore.getState().playerId).toBe("");
     expect(useStore.getState().toast?.type).toBe("error");
+  });
+});
+
+describe("proyectar mientras algo suena", () => {
+  it("calla el reproductor del portátil", () => {
+    // Hay una sola salida de audio. Dos cosas a la vez por los altavoces del
+    // culto no es algo que nadie quiera, y con el video sonando dentro de la
+    // app es fácil acabar ahí sin darse cuenta.
+    useStore.getState().play("a");
+    useStore.setState({ proyectando: true });
+
+    useStore.getState().proyectarElemento(0);
+
+    expect(useStore.getState().playing).toBe(false);
+  });
+
+  it("y lo que se proyecta es lo que se pidió, no lo que sonaba", () => {
+    useStore.getState().play("a");
+    useStore.setState({ proyectando: true });
+
+    useStore.getState().proyectarElemento(1);
+
+    expect(useStore.getState().proyeccionIdx).toBe(1);
+    expect(useStore.getState().playerId).toBe("a");
   });
 });
 

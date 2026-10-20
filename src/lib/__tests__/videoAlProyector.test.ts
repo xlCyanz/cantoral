@@ -1,9 +1,9 @@
 // Poner un video a sonar lo saca por el proyector, en la pantalla elegida en
-// Configuración. No hay otra forma de proyectar: todo sale del reproductor, y
-// la barra de abajo lo controla siempre, también cuando la cola pasa a otra
-// pista. Lo que se fija aquí: que se abra en la pantalla que toca, qué pasa
-// cuando no está, que haya un solo sonido, y que play, pausa y la barra de
-// progreso lleguen a la salida.
+// Configuración, sin tener que armar un culto. Y mientras algo sale por el
+// proyector —un video suelto o un culto—, la barra del reproductor dice qué es
+// y lo controla. Lo que se fija aquí: que se abra en la pantalla que toca, qué
+// pasa cuando no está, que haya un solo sonido, y que play, pausa y la barra
+// de progreso lleguen a la salida.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EstadoProyeccion, MensajeProyeccion, MonitorInfo } from "../api";
@@ -31,7 +31,7 @@ vi.mock("../api", async (importOriginal) => ({
   onProjectionReady: () => Promise.resolve(() => {}),
 }));
 
-const { enElProyector, useStore } = await import("../../store");
+const { modoDeLaBarra, useStore } = await import("../../store");
 const initial = useStore.getState();
 
 function pantalla(indice: number, over: Partial<MonitorInfo> = {}): MonitorInfo {
@@ -101,7 +101,7 @@ describe("poner un video a sonar lo proyecta", () => {
     const s = useStore.getState();
     expect(s.proyectando).toBe(true);
     expect(s.proyeccionPista).toBe("v");
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ modo: "media", src: "/m/v.mp4", reproduciendo: true }) });
+    expect(ultimo()).toEqual({ vista: expect.objectContaining({ modo: "media", src: "/m/v.mp4", video: true, reproduciendo: true }) });
   });
 
   it("el índice puede haber cambiado desde que se eligió", async () => {
@@ -175,14 +175,17 @@ describe("poner un video a sonar lo proyecta", () => {
     expect(openProjectionCmd).not.toHaveBeenCalled();
   });
 
-  it("con la salida ya abierta, otro video la ocupa sin reabrirla", async () => {
-    useStore.setState({ proyectando: true });
+  it("con la salida ya abierta por un culto, el video la ocupa sin reabrirla", async () => {
+    useStore.setState({ proyectando: true, proyeccionLista: "p1", proyeccionIdx: 0, proyeccionEnNegro: false });
 
     useStore.getState().play("w");
     await esperar();
 
     expect(openProjectionCmd).not.toHaveBeenCalled();
     expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/w.mp4", reproduciendo: true }) });
+    // El culto no se pierde: sigue apuntado, en negro.
+    expect(useStore.getState().proyeccionIdx).toBe(0);
+    expect(useStore.getState().proyeccionEnNegro).toBe(true);
   });
 });
 
@@ -195,7 +198,7 @@ describe("un video en el proyector, desde la barra", () => {
 
   it("la barra habla del video y pausar pausa la salida", async () => {
     await proyectandoVideo();
-    expect(enElProyector(useStore.getState())).toBe(true);
+    expect(modoDeLaBarra(useStore.getState())).toBe("pista");
 
     useStore.getState().togglePlay();
 
@@ -278,174 +281,91 @@ describe("un video en el proyector, desde la barra", () => {
     expect(s.proyeccionPista).toBeNull();
   });
 
-});
+  it("proyectar un elemento del culto le quita la salida al video, y el video se para", async () => {
+    await proyectandoVideo();
 
-describe("la cola avanza y la barra sigue mandando", () => {
-  it("pasar a otro video deja la barra en él: pausa, salto y tiempo son los suyos", async () => {
-    useStore.getState().play("v", ["v", "w", "a"]);
-    await esperar();
-
-    useStore.getState().next();
-    setProjectionCmd.mockClear();
-
-    let s = useStore.getState();
-    expect(s.playerId).toBe("w");
-    expect(enElProyector(s)).toBe(true);
-
-    useStore.getState().togglePlay();
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/w.mp4", reproduciendo: false }) });
-
-    useStore.getState().togglePlay();
-    useStore.getState().seekToFraction(0.5);
-    expect(ultimo()).toEqual({ orden: "buscar", src: "/m/w.mp4", pos: 30 });
-
-    contestar?.({ src: "/m/w.mp4", pos: 12, dur: 60, fin: false });
-    s = useStore.getState();
-    expect(s.posSec).toBe(12);
-  });
-
-  it("y al pasar a un audio, el proyector queda en negro y el audio es de la barra", async () => {
-    useStore.getState().play("v", ["v", "a"]);
-    await esperar();
-
-    useStore.getState().next();
+    useStore.getState().proyectarElemento(0);
 
     const s = useStore.getState();
-    expect(s.playerId).toBe("a");
-    expect(s.playing).toBe(true);
-    expect(enElProyector(s)).toBe(false);
-    expect(ultimo()).toEqual({ vista: { modo: "negro" } });
-    expect(s.proyectando).toBe(true);
+    expect(s.proyeccionPista).toBeNull();
+    expect(s.playing).toBe(false);
+    expect(ultimo()).toMatchObject({ vista: { modo: "media", src: "/m/a.mp3" } });
+  });
+});
 
-    // Pausar el audio es pausar el audio: al proyector no se le manda nada.
+describe("un culto en el proyector, desde la barra", () => {
+  function cultoEnElAire() {
+    useStore.setState({ proyectando: true });
+    useStore.getState().proyectarElemento(0);
     setProjectionCmd.mockClear();
+  }
+
+  it("la barra enseña lo proyectado y aparece aunque no haya sonado nada en el portátil", () => {
+    expect(useStore.getState().haSonado).toBe(false);
+
+    cultoEnElAire();
+
+    const s = useStore.getState();
+    expect(modoDeLaBarra(s)).toBe("culto");
+    expect(s.haSonado).toBe(true);
+  });
+
+  it("play/pausa pausa la salida, y Espacio también", () => {
+    cultoEnElAire();
+
     useStore.getState().togglePlay();
+
+    expect(useStore.getState().proyeccionPausada).toBe(true);
     expect(useStore.getState().playing).toBe(false);
-    expect(setProjectionCmd).not.toHaveBeenCalled();
+    expect(ultimo()).toMatchObject({ vista: { src: "/m/a.mp3", reproduciendo: false } });
+
+    useStore.getState().togglePlay();
+    expect(ultimo()).toMatchObject({ vista: { src: "/m/a.mp3", reproduciendo: true } });
   });
 
-  it("volver con «Anterior» a un video lo saca otra vez por la misma salida", async () => {
-    useStore.getState().play("v", ["v", "a"]);
-    await esperar();
-    useStore.getState().next();
+  it("adelantar manda a la salida a ese segundo, con la duración que ella dice", () => {
+    cultoEnElAire();
+    contestar?.({ src: "/m/a.mp3", pos: 5, dur: 200, fin: false });
 
-    useStore.getState().prev();
+    useStore.getState().seekToFraction(0.25);
 
-    expect(enElProyector(useStore.getState())).toBe(true);
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/v.mp4", reproduciendo: true }) });
-    expect(openProjectionCmd).toHaveBeenCalledTimes(1);
+    expect(ultimo()).toEqual({ orden: "buscar", src: "/m/a.mp3", pos: 50 });
+    expect(useStore.getState().proyeccionPos).toBe(50);
   });
 
-  it("al terminar el último video de la cola, sigue la cola como en el equipo", async () => {
-    useStore.getState().play("w", ["v", "w"]);
-    await esperar();
+  it("«Anterior» al principio del culto rebobina en vez de salirse", () => {
+    cultoEnElAire();
 
-    contestar?.({ src: "/m/w.mp4", pos: 60, dur: 60, fin: true });
+    useStore.getState().proyeccionAnterior();
 
-    expect(useStore.getState().playerId).toBe("v");
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/v.mp4" }) });
-  });
-});
-
-describe("el volumen llega al proyector", () => {
-  it("mover el volumen de la barra con un video proyectado lo manda a la salida", async () => {
-    useStore.getState().play("v", ["v", "a"]);
-    await esperar();
-    setProjectionCmd.mockClear();
-
-    useStore.getState().setVolume(0.3);
-
-    expect(ultimo()).toEqual({ orden: "volumen", valor: 0.3 });
+    expect(ultimo()).toEqual({ orden: "buscar", src: "/m/a.mp3", pos: 0 });
+    expect(useStore.getState().proyeccionIdx).toBe(0);
   });
 
-  it("silenciar manda cero, y quitar el silencio vuelve al de la barra", async () => {
-    useStore.setState({ volume: 0.6 });
-    useStore.getState().play("v", ["v", "a"]);
-    await esperar();
+  it("poner algo a sonar en el portátil pausa el culto: un solo sonido", () => {
+    cultoEnElAire();
+    useStore.setState({ queue: ["w", "a"], plOrder: { p1: ["a", "v", "w"] } });
+    useStore.setState({ proyectarVideos: false });
 
-    useStore.getState().toggleMute();
-    expect(ultimo()).toEqual({ orden: "volumen", valor: 0 });
+    useStore.getState().play("a");
 
-    useStore.getState().toggleMute();
-    expect(ultimo()).toEqual({ orden: "volumen", valor: 0.6 });
+    expect(useStore.getState().proyeccionPausada).toBe(true);
+    expect(ultimo()).toMatchObject({ vista: { src: "/m/a.mp3", reproduciendo: false } });
+    // Y la barra pasa a ser la del portátil.
+    expect(modoDeLaBarra(useStore.getState())).toBe("local");
   });
 
-  it("un video que empieza en el proyector arranca al volumen de la barra", async () => {
-    useStore.setState({ volume: 0.4 });
+  it("en negro, la barra vuelve a ser la del reproductor", () => {
+    cultoEnElAire();
 
-    useStore.getState().play("v", ["v", "w"]);
-    await esperar();
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/v.mp4", volumen: 0.4 }) });
+    useStore.getState().proyeccionNegro();
 
-    // Y el siguiente de la cola, también: el volumen no se queda en el primero.
-    useStore.getState().setVolume(0.2);
-    useStore.getState().next();
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/w.mp4", volumen: 0.2 }) });
-  });
-
-  it("silenciado antes de empezar, el video arranca callado", async () => {
-    useStore.setState({ volume: 0.8, muted: true });
-
-    useStore.getState().play("v");
-    await esperar();
-
-    expect(ultimo()).toEqual({ vista: expect.objectContaining({ volumen: 0 }) });
-  });
-
-  it("con el proyector en negro por un audio, el volumen no se le manda: es del equipo", async () => {
-    useStore.getState().play("v", ["v", "a"]);
-    await esperar();
-    useStore.getState().next();
-    setProjectionCmd.mockClear();
-
-    useStore.getState().setVolume(0.1);
-
-    expect(setProjectionCmd).not.toHaveBeenCalled();
-    expect(useStore.getState().volume).toBe(0.1);
-  });
-});
-
-describe("«Aleatorio» y el volumen", () => {
-  it("una pista a la que se llega al azar se sigue pudiendo bajar (regresión)", async () => {
-    // Lo que contaron: con «Aleatorio» puesto, en cuanto la cola caía en un
-    // video la barra cambiaba el volumen por «En el proyector» y ya no había
-    // forma de bajarlo. Ahora el volumen sigue en la barra y llega a la salida.
-    useStore.setState({ shuffle: true });
-    useStore.getState().play("a", ["a", "v", "w"]);
-    const azar = vi.spyOn(Math, "random").mockReturnValue(0); // la primera de las otras: «v»
-
-    useStore.getState().next();
-    await esperar();
-    azar.mockRestore();
-
-    const s = useStore.getState();
-    expect(s.playerId).toBe("v");
-    expect(enElProyector(s)).toBe(true);
-
-    useStore.getState().setVolume(0.25);
-    expect(ultimo()).toEqual({ orden: "volumen", valor: 0.25 });
-  });
-
-  it("al azar nunca repite la que suena, y una cola sin otra pista no se cuelga", () => {
-    useStore.setState({ shuffle: true, proyectarVideos: false });
-    useStore.getState().play("a", ["a", "a"]);
-
-    // Antes, esto daba vueltas para siempre buscando una que no fuera «a».
-    useStore.getState().next();
-
-    expect(useStore.getState().playerId).toBe("a");
-
-    useStore.getState().play("a", ["a", "w", "a"]);
-    for (let i = 0; i < 5; i++) {
-      const antes = useStore.getState().playerId;
-      useStore.getState().next();
-      expect(useStore.getState().playerId).not.toBe(antes);
-    }
+    expect(modoDeLaBarra(useStore.getState())).toBe("local");
   });
 });
 
 describe("la pantalla de proyección se recuerda por lo que la describe", () => {
-  it("elegirla en Configuración la guarda para el próximo arranque", async () => {
+  it("elegirla en Proyección la guarda para Configuración y el próximo arranque", async () => {
     await useStore.getState().cargarMonitores();
 
     useStore.getState().elegirMonitor(PROYECTOR.indice);

@@ -133,7 +133,9 @@ describe("en el store", () => {
   const culto: Playlist = {
     id: "p1",
     nombre: "Domingo",
-    ids: ["a"],
+    ids: ["a", "m:1"],
+    momentos: [{ id: "m:1", tipo: "oracion", titulo: "Oración", texto: "" }],
+    plantilla: false,
     tocada: "",
   };
 
@@ -160,14 +162,15 @@ describe("en el store", () => {
     useStore.getState().agregarAlCultoAbierto(["c", "b"]);
 
     expect(useStore.getState().dialog).toBeNull();
-    await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a", "c", "b"]));
+    // Detrás del momento, que era lo último.
+    await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a", "m:1", "c", "b"]));
     expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final del culto.");
   });
 
   it("no repite las que ya estaban", async () => {
     useStore.getState().agregarAlCultoAbierto(["a", "b"]);
 
-    await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a", "b"]));
+    await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a", "m:1", "b"]));
   });
 
   it("no toca la selección de la biblioteca", async () => {
@@ -255,8 +258,7 @@ describe("dónde se abre", () => {
     expect(fila).not.toBeNull();
     expect(fila![1]).toContain("flex-wrap:wrap");
     const botones = fila![2].match(/<button[^>]*>/g) ?? [];
-    // Reproducir todo, Agregar canciones e Imprimir: «Proyectar» se fue con la vista.
-    expect(botones).toHaveLength(3);
+    expect(botones).toHaveLength(4);
     for (const b of botones) expect(b).toMatch(/white-space:nowrap;flex:0 0 auto/);
   });
 

@@ -175,7 +175,7 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
       if (ids.length === 0) return;
       // Qué cultos pierden algo, por su nombre. Un número suelto —«3 están en
       // alguna lista»— no deja decidir: quitar una pista del culto del domingo
-      // que viene no es lo mismo que quitarla de uno de hace un año.
+      // que viene no es lo mismo que quitarla de una plantilla de hace un año.
       const cultos = cultosAfectados(ids, get().playlists, get().plOrder);
       get().askConfirm({
         title:

@@ -3,6 +3,19 @@
 // Cmd/Ctrl+P → «Guardar como PDF» turns it into a PDF.
 
 import type { Playlist, Track } from "./types";
+import { etiquetaDeTipo } from "./momentos";
+import type { Elemento } from "./momentos";
+
+/**
+ * Lo que entra en la hoja: el culto entero en su orden (#145), o solo sus
+ * pistas, que es como se llamaba antes de que hubiera momentos.
+ */
+export type FilaDeHoja = Track | Elemento;
+
+function comoElemento(f: FilaDeHoja): Elemento {
+  return "clase" in f ? f : { clase: "pista", id: f.id, pista: f };
+}
+
 /** Escape text for HTML body / attribute interpolation. */
 function esc(value: string): string {
   return value
@@ -25,11 +38,26 @@ export function sheetFileName(nombre: string): string {
  */
 export function playlistSheetHtml(
   pl: Playlist,
-  tracks: readonly Track[],
+  filas: readonly FilaDeHoja[],
   durLabel: string,
 ): string {
-  const rows = tracks
-    .map((t, i) => {
+  const elementos = filas.map(comoElemento);
+  const tracks = elementos.flatMap((e) => (e.clase === "pista" ? [e.pista] : []));
+  const momentos = elementos.length - tracks.length;
+  const rows = elementos
+    .map((e, i) => {
+      // Un momento sin música es una fila sin duración, en cursiva (#145): quien
+      // dirige ve que ahí no se toca, y en qué orden va.
+      if (e.clase === "momento") {
+        const m = e.momento;
+        return `      <tr class="momento">
+        <td class="num">${i + 1}</td>
+        <td class="titulo">${esc(m.titulo)}</td>
+        <td>${[etiquetaDeTipo(m.tipo), m.texto].filter(Boolean).map(esc).join(" · ")}</td>
+        <td class="num"></td>
+      </tr>`;
+      }
+      const t = e.pista;
       const cells = [
         String(i + 1),
         esc(t.titulo),
@@ -47,6 +75,7 @@ export function playlistSheetHtml(
 
   const meta = [
     `${tracks.length} ${tracks.length === 1 ? "pista" : "pistas"}`,
+    momentos > 0 ? `${momentos} ${momentos === 1 ? "momento" : "momentos"}` : "",
     durLabel,
   ]
     .filter(Boolean)
@@ -82,6 +111,7 @@ export function playlistSheetHtml(
   td { padding: 9px 8px; border-bottom: 1px solid #e1e5ea; vertical-align: top; }
   tr { page-break-inside: avoid; }
   .titulo { font-weight: 600; }
+  tr.momento td { font-style: italic; color: #5a626d; }
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   th.num { text-align: right; }
   footer { margin-top: 26px; font-size: 10.5px; color: #8d95a1; }

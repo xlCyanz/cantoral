@@ -9,7 +9,7 @@
 
 import { esIdentidad, type IdentidadPantalla } from "./pantallas";
 import { esTamano, type TamanoUi } from "./tamano";
-import type { Densidad, GroupBy, SortDir, SortKey, View } from "./types";
+import type { AvanceProyeccion, Densidad, GroupBy, SalidaDeAudio, SortDir, SortKey, TransicionProyeccion, View } from "./types";
 
 /** What is remembered between sessions. */
 export interface UiPrefs {
@@ -25,6 +25,24 @@ export interface UiPrefs {
   /** How tall the library rows are. */
   densidad: Densidad;
   /**
+   * Qué sale por el proyector con una pista de solo audio, y qué pasa entre
+   * un elemento y el siguiente.
+   *
+   * Se recuerdan, al contrario que el resto del estado de proyección: una
+   * iglesia elige una vez si proyecta la portada o deja el negro, y no quiere
+   * volver a decidirlo cada domingo antes de empezar.
+   */
+  salidaDeAudio: SalidaDeAudio;
+  transicionProyeccion: TransicionProyeccion;
+  /**
+   * Si la proyección pasa sola al siguiente elemento del culto.
+   *
+   * Se recuerda como los otros dos: una iglesia que proyecta el culto entero
+   * seguido lo elige una vez, y otra que corta entre canción y canción para
+   * que alguien hable también.
+   */
+  avanceProyeccion: AvanceProyeccion;
+  /**
    * Si Cantoral pregunta a GitHub por una versión nueva al abrirse (#146).
    *
    * Activado de fábrica: el público son PCs de iglesia sin nadie técnico, y
@@ -33,7 +51,8 @@ export interface UiPrefs {
    */
   buscarActualizacionesAlAbrir: boolean;
   /**
-   * Por qué pantalla salen los videos que se ponen a sonar, o `null` si nadie la ha elegido y vale la de por defecto.
+   * Por qué pantalla sale la proyección —un culto o un video que se pone a
+   * sonar—, o `null` si nadie la ha elegido y vale la de por defecto.
    *
    * Por lo que la describe y no por su índice: ver `lib/pantallas.ts`.
    */
@@ -52,13 +71,17 @@ export const UI_PREFS_KEY = "ui";
 const SORT_KEYS: SortKey[] = ["titulo", "album", "dur"];
 const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "album", "carpeta"];
-// «proyeccion» se fue con la vista de Proyección: una preferencia guardada con
-// ella no pasa de aquí y se abre en la biblioteca.
+// «proyeccion» queda fuera a propósito: abrir Cantoral un martes por la tarde
+// en la pantalla de proyectar, sin proyector conectado, no es donde nadie
+// quiere aterrizar. Se recuerda dónde se estaba trabajando, no lo que se
+// estaba haciendo en vivo.
 const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
 const DENSIDADES: Densidad[] = ["comoda", "compacta"];
-// «salidaDeAudio», «transicionProyeccion» y «avanceProyeccion» se fueron con
-// la vista de Proyección: el proyector solo enseña el video que suena. Una
-// preferencia guardada con ellos se lee sin quejarse y se ignora.
+// «letra» y la portada con la letra encima se fueron con las letras: una
+// preferencia guardada con «letra» no pasa de aquí y queda la de por defecto.
+const SALIDAS_DE_AUDIO: SalidaDeAudio[] = ["negro", "portada"];
+const TRANSICIONES: TransicionProyeccion[] = ["negro", "cuenta"];
+const AVANCES: AvanceProyeccion[] = ["negro", "siguiente"];
 
 /** The fields worth writing back, in one place so a new one cannot be missed. */
 export const PREF_FIELDS = [
@@ -72,6 +95,9 @@ export const PREF_FIELDS = [
   "view",
   "curPlaylist",
   "densidad",
+  "salidaDeAudio",
+  "transicionProyeccion",
+  "avanceProyeccion",
   "buscarActualizacionesAlAbrir",
   "pantallaProyeccion",
   "proyectarVideos",
@@ -90,6 +116,9 @@ export function serialisePrefs(s: UiPrefs): string {
     view: s.view,
     curPlaylist: s.curPlaylist,
     densidad: s.densidad,
+    salidaDeAudio: s.salidaDeAudio,
+    transicionProyeccion: s.transicionProyeccion,
+    avanceProyeccion: s.avanceProyeccion,
     buscarActualizacionesAlAbrir: s.buscarActualizacionesAlAbrir,
     pantallaProyeccion: s.pantallaProyeccion,
     proyectarVideos: s.proyectarVideos,
@@ -136,6 +165,15 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   if (VIEWS.includes(o.view as View)) out.view = o.view as View;
   if (typeof o.curPlaylist === "string") out.curPlaylist = o.curPlaylist;
   if (DENSIDADES.includes(o.densidad as Densidad)) out.densidad = o.densidad as Densidad;
+  if (SALIDAS_DE_AUDIO.includes(o.salidaDeAudio as SalidaDeAudio)) {
+    out.salidaDeAudio = o.salidaDeAudio as SalidaDeAudio;
+  }
+  if (TRANSICIONES.includes(o.transicionProyeccion as TransicionProyeccion)) {
+    out.transicionProyeccion = o.transicionProyeccion as TransicionProyeccion;
+  }
+  if (AVANCES.includes(o.avanceProyeccion as AvanceProyeccion)) {
+    out.avanceProyeccion = o.avanceProyeccion as AvanceProyeccion;
+  }
   if (esBooleano(o.buscarActualizacionesAlAbrir)) {
     out.buscarActualizacionesAlAbrir = o.buscarActualizacionesAlAbrir;
   }

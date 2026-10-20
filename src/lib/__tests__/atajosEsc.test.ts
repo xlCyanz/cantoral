@@ -1,17 +1,14 @@
-// Esc es un solo atajo con una pila de prioridades, y no corta el proyector:
-// desde la biblioteca, Esc es borrar la búsqueda o salir del buscador, y cortar
-// la salida delante de la congregación sería la peor sorpresa (#129). Ya no hay
-// vista de Proyección con teclas propias: B no hace nada y → es la siguiente
-// pista de la cola, con la salida abierta o sin ella. El proyector se cierra
-// con el botón de la barra.
+// Esc es un solo atajo con una pila de prioridades. Lo que se fija aquí es que
+// cortar el proyector solo esté en esa pila desde la vista de Proyección: desde
+// la biblioteca, Esc es borrar la búsqueda o salir del buscador, y cortaba la
+// salida delante de la congregación (#129).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { useStore } from "../../store";
 import { registerShortcuts } from "../shortcuts";
 
 const initial = useStore.getState();
-const cerrarProyeccion = vi.fn();
-const next = vi.fn();
+const alternarProyeccion = vi.fn();
 let quitar: () => void;
 
 beforeAll(() => {
@@ -26,70 +23,61 @@ afterAll(() => {
 });
 
 beforeEach(() => {
-  cerrarProyeccion.mockReset();
-  next.mockReset();
-  useStore.setState({ ...initial, proyectando: true, cerrarProyeccion, next }, true);
+  alternarProyeccion.mockReset();
+  useStore.setState({ ...initial, proyectando: true, alternarProyeccion }, true);
 });
 
-function tecla(key: string) {
+function esc() {
   const e = new Event("keydown", { cancelable: true });
-  Object.assign(e, { key });
+  Object.assign(e, { key: "Escape" });
   document.dispatchEvent(e);
   return e;
 }
 
-describe("Esc con la salida abierta", () => {
+describe("Esc con la salida al aire", () => {
   it("en la biblioteca, con algo buscado, borra la búsqueda y no toca el proyector", () => {
     useStore.setState({ view: "biblioteca", query: "santo" });
 
-    tecla("Escape");
+    esc();
 
     expect(useStore.getState().query).toBe("");
-    expect(cerrarProyeccion).not.toHaveBeenCalled();
+    expect(alternarProyeccion).not.toHaveBeenCalled();
   });
 
   it("en la biblioteca, con pistas elegidas, deselecciona y no toca el proyector", () => {
     useStore.setState({ view: "biblioteca", selection: ["t1"] });
 
-    tecla("Escape");
+    esc();
 
     expect(useStore.getState().selection).toEqual([]);
-    expect(cerrarProyeccion).not.toHaveBeenCalled();
+    expect(alternarProyeccion).not.toHaveBeenCalled();
   });
 
   it("en otra vista sin nada que cerrar, no hace nada", () => {
     useStore.setState({ view: "lista" });
 
-    const e = tecla("Escape");
+    const e = esc();
 
-    expect(cerrarProyeccion).not.toHaveBeenCalled();
+    expect(alternarProyeccion).not.toHaveBeenCalled();
     expect(e.defaultPrevented).toBe(false);
   });
 
-  it("un diálogo abierto se cierra, y el proyector sigue", () => {
-    useStore.setState({ view: "lista", dialog: "help" });
+  it("en la vista de Proyección, corta la salida", () => {
+    useStore.setState({ view: "proyeccion", query: "santo" });
 
-    tecla("Escape");
+    esc();
+
+    expect(alternarProyeccion).toHaveBeenCalledTimes(1);
+    // Allí gana el proyector: la búsqueda de la biblioteca no se toca.
+    expect(useStore.getState().query).toBe("santo");
+  });
+
+  it("un diálogo abierto sigue cerrándose antes, también en Proyección", () => {
+    useStore.setState({ view: "proyeccion", dialog: "help" });
+
+    esc();
 
     expect(useStore.getState().dialog).toBeNull();
-    expect(cerrarProyeccion).not.toHaveBeenCalled();
-  });
-});
-
-describe("las teclas de la antigua vista de Proyección", () => {
-  it("→ pasa a la siguiente pista de la cola, también proyectando", () => {
-    useStore.setState({ view: "lista" });
-
-    tecla("ArrowRight");
-
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("B no deja el proyector en negro ni hace nada", () => {
-    const e = tecla("b");
-
-    expect(e.defaultPrevented).toBe(false);
-    expect(cerrarProyeccion).not.toHaveBeenCalled();
-    expect(useStore.getState().proyectando).toBe(true);
+    expect(alternarProyeccion).not.toHaveBeenCalled();
   });
 });

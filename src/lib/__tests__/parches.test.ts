@@ -15,7 +15,7 @@ function pista(id: string, over: Partial<Track> = {}): Track {
 }
 
 const CARPETAS: Folder[] = [{ id: "f1", nombre: "Himnos", ruta: "/m", count: 3 }];
-const CULTOS: Playlist[] = [{ id: "p1", nombre: "Domingo", ids: ["1", "2", "3"], tocada: "2026-01-01T00:00:00Z" }];
+const CULTOS: Playlist[] = [{ id: "p1", nombre: "Domingo", ids: ["1", "2", "3"], plantilla: false, tocada: "2026-01-01T00:00:00Z" }];
 
 describe("aplicarParche", () => {
   it("quita las que se fueron y deja las demás en el mismo objeto", () => {

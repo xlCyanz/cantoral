@@ -37,6 +37,9 @@ const GUARDADAS: UiPrefs = {
   view: "colecciones",
   curPlaylist: "p2",
   densidad: "compacta",
+  salidaDeAudio: "negro",
+  transicionProyeccion: "cuenta",
+  avanceProyeccion: "siguiente",
   buscarActualizacionesAlAbrir: false,
   pantallaProyeccion: { sistema: "DELL P2219H", ancho: 1920, alto: 1080, x: 2560, y: 0 },
   proyectarVideos: false,
@@ -73,6 +76,9 @@ describe("parsePrefs", () => {
       volume: "alto",
       curPlaylist: 7,
       densidad: "apretadísima",
+      salidaDeAudio: "fuegos artificiales",
+      transicionProyeccion: "fundido",
+      avanceProyeccion: "a lo loco",
       shuffle: true,
     });
 
@@ -94,21 +100,29 @@ describe("parsePrefs", () => {
     });
   });
 
-  it("olvida los ajustes de la vista de Proyección de una versión anterior", () => {
-    // La vista se fue: el proyector solo enseña el video que suena. Lo que
-    // guardó una versión de antes se ignora sin quejarse, y lo demás se lee.
-    const viejo = JSON.stringify({
-      salidaDeAudio: "portada",
-      transicionProyeccion: "cuenta",
-      avanceProyeccion: "siguiente",
-      densidad: "compacta",
-    });
-    expect(parsePrefs(viejo)).toEqual({ densidad: "compacta" });
+  it("recuerda los ajustes de la proyección", () => {
+    // Una iglesia elige una vez si proyecta la portada o deja el negro, y no
+    // quiere volver a decidirlo cada domingo antes de empezar.
+    const guardado = serialisePrefs({ ...GUARDADAS, salidaDeAudio: "portada", transicionProyeccion: "cuenta" });
+
+    expect(parsePrefs(guardado)).toMatchObject({ salidaDeAudio: "portada", transicionProyeccion: "cuenta" });
   });
 
-  it("y quien cerró la app en Proyección vuelve a la biblioteca", () => {
-    expect(parsePrefs(JSON.stringify({ view: "proyeccion", volume: 0.5 }))).toEqual({ volume: 0.5 });
-    expect(serialisePrefs(GUARDADAS)).not.toMatch(/salidaDeAudio|transicionProyeccion|avanceProyeccion/);
+  it("y recuerda si la proyección avanza sola", () => {
+    expect(parsePrefs(JSON.stringify({ avanceProyeccion: "siguiente" }))).toEqual({ avanceProyeccion: "siguiente" });
+    expect(parsePrefs(JSON.stringify({ avanceProyeccion: "negro" }))).toEqual({ avanceProyeccion: "negro" });
+  });
+
+  it("y acepta los dos modos de salida de audio", () => {
+    for (const modo of ["negro", "portada"] as const) {
+      expect(parsePrefs(JSON.stringify({ salidaDeAudio: modo }))).toEqual({ salidaDeAudio: modo });
+    }
+  });
+
+  it("una salida «letra» guardada por una versión anterior vuelve a la de fábrica", () => {
+    // La letra ya no se proyecta: quien la tenía elegida ve la portada, que
+    // con una pista sin carátula es el título sobre negro, como antes.
+    expect(parsePrefs(JSON.stringify({ salidaDeAudio: "letra", densidad: "compacta" }))).toEqual({ densidad: "compacta" });
   });
 
   it("y olvida «con letras» de la hoja impresa", () => {
@@ -203,11 +217,30 @@ describe("guardar los cambios", () => {
     expect(ultimoGuardado().volume).toBe(0.3);
   });
 
-  it("y también si los videos se proyectan", async () => {
-    useStore.getState().setProyectarVideos(false);
+  it("y también los ajustes de la proyección", async () => {
+    // Van por el mismo vigilante que el resto: si no estuvieran en la lista de
+    // campos observados, se elegiría «Negro» un domingo y el siguiente
+    // volvería a estar la portada.
+    useStore.getState().setSalidaDeAudio("negro");
+    useStore.getState().setTransicionProyeccion("cuenta");
+    useStore.getState().setAvanceProyeccion("siguiente");
     await vi.advanceTimersByTimeAsync(400);
 
-    expect(ultimoGuardado().proyectarVideos).toBe(false);
+    expect(ultimoGuardado().salidaDeAudio).toBe("negro");
+    expect(ultimoGuardado().transicionProyeccion).toBe("cuenta");
+    expect(ultimoGuardado().avanceProyeccion).toBe("siguiente");
+  });
+
+  it("y el avance solo, aunque no cambie nada más", async () => {
+    // A solas: si no estuviera en la lista de campos vigilados, cambiarlo no
+    // dispararía ninguna escritura y solo se guardaría de rebote, cuando se
+    // tocara otra cosa.
+    // «Siguiente» es el de fábrica, así que se prueba volviendo al negro.
+    useStore.getState().setAvanceProyeccion("negro");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(setSetting.mock.calls.filter(([k]) => k === UI_PREFS_KEY)).toHaveLength(1);
+    expect(ultimoGuardado().avanceProyeccion).toBe("negro");
   });
 
   it("recoge el cambio venga de donde venga", async () => {
@@ -280,8 +313,8 @@ describe("restaurar al arrancar", () => {
       tracks: [],
       folders: [],
       playlists: [
-        { id: "p1", nombre: "Uno", tocada: "", ids: [] },
-        { id: "p2", nombre: "Dos", tocada: "", ids: [] },
+        { id: "p1", nombre: "Uno", tocada: "", ids: [], plantilla: false },
+        { id: "p2", nombre: "Dos", tocada: "", ids: [], plantilla: false },
       ],
     });
     reconcileLibraryCmd.mockReset();
