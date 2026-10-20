@@ -90,7 +90,7 @@ export function playlistSheetHtml(
 </head>
 <body>
   <header>
-    <p class="eyebrow">Lista para culto</p>
+    <p class="eyebrow">Lista de canciones</p>
     <h1>${esc(pl.nombre)}</h1>
     <p class="meta">${meta}</p>
   </header>

@@ -183,7 +183,7 @@ describe("agregar a una lista", () => {
 
     return vi.waitFor(() => {
       expect(useStore.getState().toast?.titulo).toBe("Agregadas a «Culto»");
-      expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final del culto.");
+      expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final de la lista.");
     });
   });
 
@@ -193,7 +193,7 @@ describe("agregar a una lista", () => {
 
     useStore.getState().bulkAddToPlaylist("p1");
 
-    return vi.waitFor(() => expect(useStore.getState().toast?.detalle).toBe("1 pista, al final del culto."));
+    return vi.waitFor(() => expect(useStore.getState().toast?.detalle).toBe("1 pista, al final de la lista."));
   });
 
   it("y con una sola pista lo dice en singular", () => {
@@ -316,7 +316,7 @@ describe("quitar en bloque", () => {
     useStore.getState().bulkDelete();
 
     const msg = useStore.getState().confirm?.message ?? "";
-    expect(msg).toContain("2 cultos");
+    expect(msg).toContain("2 listas");
     expect(msg).toContain("Domingo de alabanza");
     expect(msg).toContain("Reunión de jóvenes");
   });
@@ -334,7 +334,7 @@ describe("quitar en bloque", () => {
     useStore.getState().bulkDelete();
 
     const msg = useStore.getState().confirm?.message ?? "";
-    expect(msg).toContain("1 culto (Con la pista)");
+    expect(msg).toContain("1 lista (Con la pista)");
     expect(msg).not.toContain("Sin nada suyo");
   });
 
@@ -353,7 +353,7 @@ describe("quitar en bloque", () => {
 
     useStore.getState().bulkDelete();
 
-    expect(useStore.getState().confirm?.message).toContain("3 cultos");
+    expect(useStore.getState().confirm?.message).toContain("3 listas");
   });
 
   it("al aceptar manda la selección y la vacía", async () => {

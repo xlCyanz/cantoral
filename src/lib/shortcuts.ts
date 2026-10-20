@@ -17,9 +17,9 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "Espacio", label: "Reproducir o pausar" },
   { keys: "← / →", label: "Pista anterior / siguiente" },
   { keys: "⌘/Ctrl + F", label: "Buscar en la biblioteca" },
-  { keys: "⌘/Ctrl + N", label: "Nueva lista para culto" },
+  { keys: "⌘/Ctrl + N", label: "Nueva lista de canciones" },
   { keys: "⌘/Ctrl + A", label: "Seleccionar todo lo que muestra la biblioteca" },
-  { keys: "A", label: "Agregar a un culto lo que esté elegido" },
+  { keys: "A", label: "Agregar a una lista lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
   { keys: "Esc", label: "Cerrar diálogo o panel" },
   { keys: "⌘/Ctrl + + / −", label: "Agrandar o achicar la interfaz" },
@@ -106,7 +106,7 @@ export function registerShortcuts(): () => void {
     // pressing space to pause must not reach through a confirmation.
     if (isTyping(e.target) || s.dialog || s.confirm) return;
 
-    // `A` a secas abre el único sitio desde el que se agrega a un culto. Sin
+    // `A` a secas abre el único sitio desde el que se agrega a una lista. Sin
     // modificador porque es lo que más se repite armando un domingo, y la
     // acción no decide nada por su cuenta: abre el diálogo, que dice cuántas
     // pistas va a mover antes de que se elija a dónde. Si no hay nada elegido

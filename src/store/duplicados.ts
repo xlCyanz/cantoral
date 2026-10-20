@@ -58,7 +58,7 @@ export function crearDuplicados(set: Set, get: Get, ctx: Contexto): DuplicadosSl
         message: `Se queda «${queda.titulo}» (${queda.formato}, ${queda.carpeta}). Las demás salen de la biblioteca.`,
         detail: copias.map((c) => `${c.formato} · ${c.carpeta}\n${c.path}`).join("\n\n"),
         safe:
-          "Su favorito y su sitio en las listas para culto pasan a la que se queda. " +
+          "Su favorito y su sitio en las listas de canciones pasan a la que se queda. " +
           "Los archivos de audio no se borran del disco. " +
           AVISO_COPIA_AUTOMATICA,
         confirmLabel: "Fusionar",
@@ -69,7 +69,7 @@ export function crearDuplicados(set: Set, get: Get, ctx: Contexto): DuplicadosSl
             .then((cambios) => {
               applyParche(cambios);
               toast(ids.length === 1 ? "1 copia fusionada" : `${ids.length} copias fusionadas`, {
-                detalle: "Se quedó una con el favorito y su sitio en los cultos.",
+                detalle: "Se quedó una con el favorito y su sitio en las listas.",
               });
               // `applyParche` cleared the list; fill it with what is left.
               get().findDuplicates();

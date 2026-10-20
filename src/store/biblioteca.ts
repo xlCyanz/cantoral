@@ -238,7 +238,7 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
           if (!cambios) return;
           applyParche(cambios);
           toast(`«${t.titulo}» vuelve a estar localizada`, {
-            detalle: "Conserva su favorito y su sitio en los cultos.",
+            detalle: "Conserva su favorito y su sitio en las listas.",
           });
         })
         .catch((err) => avisarFallo(err, String(err)));

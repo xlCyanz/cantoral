@@ -402,7 +402,7 @@ function ErrorState() {
         {/* Nada se ha perdido, y decirlo aquí importa: quien ve un error rojo
             sobre su biblioteca asume lo peor. */}
         <p style={{ margin: "0 0 16px", fontSize: "11.5px", lineHeight: 1.6, color: "var(--text-3)" }}>
-          Tus pistas y tus cultos siguen donde estaban: nada de la biblioteca se ha perdido.
+          Tus pistas y tus listas siguen donde estaban: nada de la biblioteca se ha perdido.
         </p>
         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
           <button onClick={retryError} className="hb-primary" style={btnEstado}>

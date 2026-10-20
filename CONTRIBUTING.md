@@ -325,7 +325,7 @@ Lo que más ayuda:
 > [!CAUTION]
 > Antes de experimentar con un fallo que toque la base de datos, haz una copia desde
 > **Configuración → Base de datos → Crear copia**. Restaurar reemplaza la biblioteca
-> entera y quitar una carpeta borra sus pistas de los cultos: los dos piden
+> entera y quitar una carpeta borra sus pistas de las listas: los dos piden
 > confirmación, pero lo que confirmas no se deshace. Si copias `cantoral.db` a mano,
 > cierra antes la app: con ella abierta, lo último escrito puede estar aún en
 > `cantoral.db-wal`.

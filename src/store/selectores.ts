@@ -101,7 +101,7 @@ export const filasDeLista = recordar(
 );
 
 /**
- * Las pistas sobre las que actúa «Agregar a un culto».
+ * Las pistas sobre las que actúa «Agregar a una lista».
  *
  * La selección si hay una; si no, la pista que el panel de detalle tiene
  * abierta. En ese orden, porque una selección es explícita y el panel puede

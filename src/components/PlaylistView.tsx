@@ -171,7 +171,7 @@ export default function PlaylistView() {
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
           <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--primary)", marginBottom: 8 }}>
-            Lista para culto
+            Lista de canciones
           </span>
           <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
@@ -230,7 +230,7 @@ export default function PlaylistView() {
           compact
           icon={<ListMusic size={42} strokeWidth={1.6} />}
           title="Esta lista está vacía"
-          desc="Elige de la biblioteca las canciones de este culto; puedes marcar varias de una vez."
+          desc="Elige de la biblioteca las canciones de esta lista; puedes marcar varias de una vez."
           action={
             // Era «Ir a la biblioteca», que sacaba de aquí para ir trayendo las
             // canciones de una en una. Esto las trae sin salir.
@@ -275,7 +275,7 @@ export default function PlaylistView() {
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 8px", color: "var(--text-3)", fontSize: "12.5px" }}>
-            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto, o usa los botones de cada fila. Con el teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd>.
+            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden de la lista, o usa los botones de cada fila. Con el teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd>.
           </div>
         </div>
       )}

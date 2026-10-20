@@ -7,7 +7,7 @@ import { encabezadoBiblioteca } from "../lib/encabezado";
 import type { Densidad, GroupBy } from "../lib/types";
 
 const titleMap: Record<string, string> = {
-  colecciones: "Listas para cultos",
+  colecciones: "Listas de canciones",
   config: "Configuración",
 };
 
@@ -173,7 +173,7 @@ export default function TopBar() {
               <ChevronDown size={13} style={{ position: "absolute", right: 9, color: "var(--text-3)", pointerEvents: "none" }} />
             </div>
             {/* Dos densidades, no un deslizador: son dos situaciones distintas
-                —preparar el culto y sostener el atril el domingo—, no un
+                —preparar la lista y sostener el atril el domingo—, no un
                 gradiente donde hay que encontrar el punto. */}
             <div style={{ display: "flex", alignItems: "center", flex: "0 0 auto", height: 34, border: "1px solid var(--border-2)", background: "var(--surface)", borderRadius: 9, overflow: "hidden" }}>
               {DENSIDADES.map((d, i) => (

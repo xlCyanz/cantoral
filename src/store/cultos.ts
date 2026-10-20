@@ -48,7 +48,7 @@ export interface CultosSlice {
   addToListConfirm: (playlistId: string) => void;
   /**
    * Abrir, desde el culto abierto, el diálogo que elige varias canciones de la
-   * biblioteca de una vez. La dirección contraria a «Agregar a un culto».
+   * biblioteca de una vez. La dirección contraria a «Agregar a una lista».
    */
   abrirAgregarCanciones: () => void;
   /** Agregar al final del culto abierto lo elegido en ese diálogo, y cerrarlo. */
@@ -107,7 +107,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         }
         tocarCulto(playlistId);
         toast(`Agregadas a «${nombre}»`, {
-          detalle: n === 1 ? "1 pista, al final del culto." : `${n} pistas, al final del culto.`,
+          detalle: n === 1 ? "1 pista, al final de la lista." : `${n} pistas, al final de la lista.`,
         });
       };
       const yaEstaban = (get().plOrder[playlistId] || []).length;
@@ -309,10 +309,10 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       const n = (st.plOrder[id] || []).length;
       st.askConfirm({
         title: "¿Eliminar esta lista?",
-        message: `«${pl.nombre}» se borrará de las listas para cultos.`,
+        message: `«${pl.nombre}» se borrará de las listas de canciones.`,
         detail:
           n > 0
-            ? `La lista tiene ${n} ${n === 1 ? "pista" : "pistas"} en su orden de culto. Ese orden se pierde y no se puede deshacer.`
+            ? `La lista tiene ${n} ${n === 1 ? "pista" : "pistas"} en su orden. Ese orden se pierde y no se puede deshacer.`
             : "La lista está vacía.",
         safe: "Las pistas siguen en tu biblioteca; solo se borra la lista.",
         confirmLabel: "Eliminar lista",

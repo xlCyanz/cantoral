@@ -20,24 +20,24 @@ describe("cultosAfectados", () => {
   it("nombra los que pierden alguna de las pistas", () => {
     const texto = cultosAfectados(["a", "b"], [DOMINGO, JOVENES], { p1: ["a"], p2: ["b"] });
 
-    expect(texto).toBe("2 cultos (Domingo de alabanza, Reunión de jóvenes)");
+    expect(texto).toBe("2 listas (Domingo de alabanza, Reunión de jóvenes)");
   });
 
   it("y deja fuera el que no pierde nada", () => {
     const texto = cultosAfectados(["a"], [DOMINGO, JOVENES], { p1: ["a"], p2: ["z"] });
 
-    expect(texto).toBe("1 culto (Domingo de alabanza)");
+    expect(texto).toBe("1 lista (Domingo de alabanza)");
   });
 
   it("uno solo va en singular", () => {
-    expect(cultosAfectados(["a"], [DOMINGO], { p1: ["a"] })).toContain("1 culto (");
+    expect(cultosAfectados(["a"], [DOMINGO], { p1: ["a"] })).toContain("1 lista (");
   });
 
   it("un culto con varias de las pistas se nombra una vez", () => {
     // Contando apariciones salía un número mayor que la propia selección.
     const texto = cultosAfectados(["a", "b", "c"], [DOMINGO], { p1: ["a", "b", "c"] });
 
-    expect(texto).toBe("1 culto (Domingo de alabanza)");
+    expect(texto).toBe("1 lista (Domingo de alabanza)");
   });
 
   it("con más de tres, se nombran tres y se dice cuántos quedan", () => {
@@ -50,18 +50,18 @@ describe("cultosAfectados", () => {
       p4: ["a"],
     });
 
-    expect(texto).toBe("4 cultos (Domingo de alabanza, Reunión de jóvenes, Santa Cena y 1 más)");
+    expect(texto).toBe("4 listas (Domingo de alabanza, Reunión de jóvenes, Santa Cena y 1 más)");
   });
 
   it("con exactamente tres no se dice «y 0 más»", () => {
     const texto = cultosAfectados(["a"], [DOMINGO, JOVENES, CENA], { p1: ["a"], p2: ["a"], p3: ["a"] });
 
     expect(texto).not.toContain("más");
-    expect(texto).toContain("3 cultos");
+    expect(texto).toContain("3 listas");
   });
 
   it("sin ningún culto afectado no dice nada", () => {
-    // Cadena vacía y no «0 cultos», para que quien lo use pueda saltarse la
+    // Cadena vacía y no «0 listas», para que quien lo use pueda saltarse la
     // frase entera.
     expect(cultosAfectados(["a"], [DOMINGO], { p1: ["z"] })).toBe("");
     expect(cultosAfectados([], [DOMINGO], { p1: ["a"] })).toBe("");
@@ -69,6 +69,6 @@ describe("cultosAfectados", () => {
   });
 
   it("un culto sin orden guardado no estorba", () => {
-    expect(cultosAfectados(["a"], [DOMINGO, JOVENES], { p1: ["a"] })).toBe("1 culto (Domingo de alabanza)");
+    expect(cultosAfectados(["a"], [DOMINGO, JOVENES], { p1: ["a"] })).toBe("1 lista (Domingo de alabanza)");
   });
 });

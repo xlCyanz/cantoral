@@ -187,16 +187,16 @@ export default function DetailPanel() {
             <AddToListButton
               className="hb-s3"
               style={{ flex: 1, minWidth: 0, height: 30, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 7, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
-              // Con el panel estrecho, «Agregar a culto…» parte en dos líneas y
+              // Con el panel estrecho, «Agregar a una lista…» parte en dos líneas y
               // rompe la fila. Se acorta antes que dejar que la corte.
-              label={estrecho ? "Agregar…" : "Agregar a culto…"}
+              label={estrecho ? "Agregar…" : "Agregar a una lista…"}
             />
           )}
         </div>
 
-        {/* datos del culto: lo que el equipo necesita saber de un vistazo */}
+        {/* datos de la canción: lo que el equipo necesita saber de un vistazo */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ ...sectionLabel, marginBottom: 8 }}>Datos del culto</div>
+          <div style={{ ...sectionLabel, marginBottom: 8 }}>Datos de la canción</div>
           {/* El artista, que hasta ahora se leía y no se podía corregir. En una
               biblioteca de iglesia media viene mal en las etiquetas del
               archivo —«Track 03», «Unknown Artist»— y no había dónde

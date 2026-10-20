@@ -161,7 +161,7 @@ describe("en el store", () => {
 
     expect(useStore.getState().dialog).toBeNull();
     await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a", "c", "b"]));
-    expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final del culto.");
+    expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final de la lista.");
   });
 
   it("no repite las que ya estaban", async () => {
@@ -203,7 +203,7 @@ describe("el diálogo", () => {
 
     expect(casillas).toHaveLength((estado.tracks as Track[]).length);
     expect(casillas.filter((c) => c.includes('disabled=""') && c.includes('checked=""'))).toHaveLength(enElCulto);
-    expect(h.match(/Ya está en el culto/g)).toHaveLength(enElCulto);
+    expect(h.match(/Ya está en la lista/g)).toHaveLength(enElCulto);
     // La pintada no se anuncia dos veces.
     expect(h).toMatch(/<span aria-hidden="true" class="casilla-marca"/);
   });

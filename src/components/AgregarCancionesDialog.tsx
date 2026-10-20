@@ -14,7 +14,7 @@ const VACIA: string[] = [];
 /**
  * Elegir varias canciones de la biblioteca y meterlas en el culto abierto.
  *
- * Es la dirección contraria a «Agregar a un culto»: allí se parte de la
+ * Es la dirección contraria a «Agregar a una lista»: allí se parte de la
  * biblioteca y se elige el culto; aquí se está armando el culto y se va a
  * buscar lo que falta, sin salir de él y sin ir canción por canción.
  *
@@ -190,7 +190,7 @@ function EleccionDeCanciones() {
               </h2>
               {/* Dónde caen y en qué orden, antes de marcar nada. */}
               <p id="agregar-canciones-ayuda" style={{ fontSize: "12.5px", color: "var(--text-2)", margin: 0 }}>
-                Entran al final del culto, en el orden en que las marques.
+                Entran al final de la lista, en el orden en que las marques.
               </p>
             </div>
           </div>
@@ -356,7 +356,7 @@ const FilaDeCancion = memo(function FilaDeCancion({
         </span>
       </span>
       {yaEsta ? (
-        <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 600, color: "var(--text-2)" }}>Ya está en el culto</span>
+        <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 600, color: "var(--text-2)" }}>Ya está en la lista</span>
       ) : (
         <span style={{ flex: "0 0 auto", fontSize: 12, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{t.dur}</span>
       )}

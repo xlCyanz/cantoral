@@ -22,7 +22,7 @@ export default function CollectionsView() {
       <Empty
         icon={<ListMusic size={42} strokeWidth={1.6} />}
         title="Aún no hay listas"
-        desc="Crea tu primera lista para armar el repertorio de un culto o ensayo."
+        desc="Crea tu primera lista: agrega canciones, ordénalas y dale a reproducir."
         action={
           // Importing has to be reachable from here as well: a fresh install
           // that was sent a list has no lists, which is exactly this screen.
@@ -43,7 +43,7 @@ export default function CollectionsView() {
     <div style={{ padding: "22px 24px 40px" }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 22 }}>
         <p style={{ fontSize: "13.5px", color: "var(--text-2)", margin: 0, maxWidth: 520, lineHeight: 1.5 }}>
-          Arma el repertorio de cada culto o ensayo. Reordena arrastrando, reproduce toda la lista y expórtala para el equipo.
+          Arma una lista de canciones para cada ocasión o ensayo. Reordena arrastrando, reproduce toda la lista y expórtala para el equipo.
         </p>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={importList} className="hb-s2" title="Abrir una lista exportada desde otra instalación" style={botonSecundario(38)}>
