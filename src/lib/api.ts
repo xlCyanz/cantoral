@@ -3,6 +3,7 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
 import type { Folder, Playlist, Theme, Track } from "./types";
@@ -77,6 +78,27 @@ export async function watchMaximized(cb: (maximized: boolean) => void): Promise<
   const w = getCurrentWindow();
   cb(await w.isMaximized());
   return w.onResized(async () => cb(await w.isMaximized()));
+}
+
+/**
+ * El interior de la ventana en píxeles lógicos —los del sistema, sin el zoom
+ * de la página—, o `null` fuera de Tauri.
+ *
+ * Se pregunta a la ventana y no a `innerWidth`, que con zoom ya viene
+ * dividido por él.
+ */
+export async function tamanoDeLaVentana(): Promise<{ ancho: number; alto: number } | null> {
+  if (!isTauri()) return null;
+  const w = getCurrentWindow();
+  const [fisico, escala] = await Promise.all([w.innerSize(), w.scaleFactor()]);
+  const logico = fisico.toLogical(escala);
+  return { ancho: logico.width, alto: logico.height };
+}
+
+/** El zoom de la página de esta ventana (1 = 100 %). Ver `lib/tamano.ts`. */
+export async function fijarZoom(factor: number): Promise<void> {
+  if (!isTauri()) return;
+  await getCurrentWebview().setZoom(factor);
 }
 
 // ---------------------------------------------------------------- os / files

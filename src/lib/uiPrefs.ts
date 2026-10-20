@@ -8,6 +8,7 @@
 // that preference at its default instead of poisoning the whole load.
 
 import { esIdentidad, type IdentidadPantalla } from "./pantallas";
+import { esTamano, type TamanoUi } from "./tamano";
 import type { Densidad, GroupBy, SortDir, SortKey, View } from "./types";
 
 /** What is remembered between sessions. */
@@ -39,6 +40,8 @@ export interface UiPrefs {
   pantallaProyeccion: IdentidadPantalla | null;
   /** Si poner un video a sonar lo saca por la pantalla de proyección. */
   proyectarVideos: boolean;
+  /** El tamaño de toda la interfaz. Ver `lib/tamano.ts`. */
+  tamanoUi: TamanoUi;
 }
 
 /** The settings key it is stored under. */
@@ -72,6 +75,7 @@ export const PREF_FIELDS = [
   "buscarActualizacionesAlAbrir",
   "pantallaProyeccion",
   "proyectarVideos",
+  "tamanoUi",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -89,6 +93,7 @@ export function serialisePrefs(s: UiPrefs): string {
     buscarActualizacionesAlAbrir: s.buscarActualizacionesAlAbrir,
     pantallaProyeccion: s.pantallaProyeccion,
     proyectarVideos: s.proyectarVideos,
+    tamanoUi: s.tamanoUi,
   };
   return JSON.stringify(limpio);
 }
@@ -140,6 +145,7 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
     out.pantallaProyeccion = { sistema: g.sistema, ancho: g.ancho, alto: g.alto, x: g.x, y: g.y };
   }
   if (esBooleano(o.proyectarVideos)) out.proyectarVideos = o.proyectarVideos;
+  if (esTamano(o.tamanoUi)) out.tamanoUi = o.tamanoUi;
   return out;
 }
 

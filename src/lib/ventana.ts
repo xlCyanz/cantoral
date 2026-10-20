@@ -36,3 +36,54 @@ export function useEstrecho(reservado = 0): boolean {
 
   return estrecho;
 }
+
+// ---------------------------------------------------------------- maximizar
+
+/**
+ * Si un cambio de «maximizada» se anima.
+ *
+ * En Windows la barra de título es nuestra (`decorations: false`). tao ya deja
+ * a la ventana los estilos de una ventana con marco (`WS_CAPTION`,
+ * `WS_THICKFRAME`) y esconde el marco con `WM_NCCALCSIZE`, así que lo nativo
+ * está hecho; aun así, al maximizar desde nuestros botones o con el doble clic
+ * el contenido salta de golpe al tamaño nuevo. Aquí el contenido se asienta
+ * en un momento, sea cual sea el camino —botón, doble clic, Win + ↑ o
+ * arrastrar la ventana arriba—, porque lo que se mira es el estado y no quién
+ * lo cambió.
+ *
+ * En macOS no: los semáforos son los del sistema, y el zoom ya se anima.
+ * Tampoco la primera vez que se sabe el estado, que no es un cambio.
+ */
+export function animaAlMaximizar(previo: boolean | null, ahora: boolean, mac: boolean): boolean {
+  return !mac && previo !== null && previo !== ahora;
+}
+
+/** La clase que hace la animación (ver `global.css`). */
+export const CLASE_ASENTANDO = "ventana-asentando";
+/** Lo que dura, con margen: se quita a mano porque sin animación no hay `animationend`. */
+const DURACION_MS = 260;
+
+/**
+ * Asentar el contenido de la ventana: un instante de escala y opacidad que
+ * termina en su sitio.
+ *
+ * Sobre `#root` y solo mientras dura: un `transform` en un antepasado cambia
+ * contra qué se colocan los `position: fixed` —diálogos, menú, avisos—, y
+ * dejarlo puesto los descolocaría. Como `#root` ocupa toda la ventana, durante
+ * esos milisegundos quedan igual. Con «reducir movimiento» la regla de CSS no
+ * anima nada.
+ */
+export function asentarLaVentana(raiz: HTMLElement | null = typeof document === "undefined" ? null : document.getElementById("root")): void {
+  if (!raiz) return;
+  // Quitar y volver a poner, para que un segundo cambio seguido vuelva a
+  // empezar en vez de quedarse a medias.
+  raiz.classList.remove(CLASE_ASENTANDO);
+  void raiz.offsetWidth;
+  raiz.classList.add(CLASE_ASENTANDO);
+  if (quitarAsentado) clearTimeout(quitarAsentado);
+  quitarAsentado = setTimeout(() => {
+    raiz.classList.remove(CLASE_ASENTANDO);
+    quitarAsentado = null;
+  }, DURACION_MS);
+}
+let quitarAsentado: ReturnType<typeof setTimeout> | null = null;

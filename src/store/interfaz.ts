@@ -2,6 +2,7 @@ import type { Theme, ThemeMode, View } from "../lib/types";
 import { onTemaDelSistema, temaDelSistema } from "../lib/api";
 import { backend } from "../lib/backend";
 import { leerTemaGuardado } from "../lib/temaGuardado";
+import { escalonar, leerTamanoGuardado, TAMANO_DE_FABRICA, type TamanoUi } from "../lib/tamano";
 import type { ConfirmRequest, ToastNotice, ToastType } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
@@ -15,6 +16,8 @@ export interface InterfazSlice {
   theme: Theme;
   themeMode: ThemeMode;
   view: View;
+  /** El tamaño de toda la interfaz. Ver `lib/tamano.ts`. */
+  tamanoUi: TamanoUi;
 
   // ---- dialog / scan ----
   dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "printPreview" | "addToList" | "agregarCanciones" | null;
@@ -34,6 +37,9 @@ export interface InterfazSlice {
   showConfig: () => void;
   onFolderClick: () => void;
   setThemeMode: (m: ThemeMode) => void;
+  setTamanoUi: (t: TamanoUi) => void;
+  /** Un escalón más grande (1), más pequeño (-1), o el de fábrica (0). */
+  cambiarTamanoUi: (paso: 1 | -1 | 0) => void;
   /**
    * Lo último que dijo la ventana nativa sobre el tema del sistema.
    *
@@ -66,6 +72,9 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
     theme: leerTemaGuardado() ?? resolveTheme("system"),
     temaSistema: null,
     view: "biblioteca",
+    // Como el tema: el del último dibujo, para no cambiar de tamaño cuando
+    // llegan los ajustes.
+    tamanoUi: leerTamanoGuardado() ?? TAMANO_DE_FABRICA,
 
     dialog: null,
 
@@ -97,6 +106,9 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
       // is the choice not surviving a restart.
       void backend().setSetting("themeMode", m).catch((err) => console.error("set_setting failed", err));
     },
+    setTamanoUi: (t) => set({ tamanoUi: t }),
+    cambiarTamanoUi: (paso) =>
+      set((s) => ({ tamanoUi: paso === 0 ? TAMANO_DE_FABRICA : escalonar(s.tamanoUi, paso) })),
     applySystemTheme: () => {
       if (get().themeMode === "system") set((st) => ({ theme: resolveTheme("system", st.temaSistema) }));
     },

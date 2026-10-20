@@ -101,6 +101,12 @@ button:focus:not(:focus-visible) { outline: none; }
 @keyframes canToast { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes canFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes canScanPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+/* Al maximizar o restaurar (ver `asentarLaVentana` en lib/ventana.ts): el
+   contenido llega un pelo más pequeño y transparente y se asienta. Solo
+   `transform` y `opacity`, que el compositor mueve sin volver a maquetar. */
+@keyframes canVentana { from { opacity: 0.6; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+.ventana-asentando { animation: canVentana 0.19s cubic-bezier(0.22, 1, 0.36, 1); transform-origin: 50% 0; }
+@media (prefers-reduced-motion: reduce) { .ventana-asentando { animation: none; } }
 
 /* ============================================================
    Hover / focus utility classes

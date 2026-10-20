@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { flushUiPrefs, useStore } from "./store";
 import { registerShortcuts } from "./lib/shortcuts";
+import { encajarAlCambiarLaVentana } from "./lib/tamano";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
@@ -108,8 +109,11 @@ export default function App() {
     return () => clearTimeout(id);
   }, [arranqueListo]);
 
-  // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?).
+  // Global keyboard shortcuts (space, arrows, ⌘F, ⌘N, Esc, ?, ⌘+/⌘−).
   useEffect(() => registerShortcuts(), []);
+
+  // El tamaño de la interfaz se vuelve a encajar cuando la ventana cambia.
+  useEffect(() => encajarAlCambiarLaVentana(), []);
 
   // Edits and interface preferences both wait out a short debounce before they
   // are written. Closing the window inside it would drop them, so flush on the

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window. From the opener it only gets `allow-reveal-item-in-dir`, to show a track or the log in the system file manager. It opens no URLs and no files: nothing in the app needs to, and the saved sheet stays where it was written instead of popping up in the browser (#142).",
+  "description": "Main window. From the opener it only gets `allow-reveal-item-in-dir`, to show a track or the log in the system file manager. `allow-set-webview-zoom` is for the interface size setting (Configuración → Tamaño de la interfaz): it zooms this window's page only; the projection window has its own capability and never gets it. It opens no URLs and no files: nothing in the app needs to, and the saved sheet stays where it was written instead of popping up in the browser (#142).",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -13,6 +13,7 @@
     "core:window:allow-is-maximized",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
+    "core:webview:allow-set-webview-zoom",
     "opener:allow-reveal-item-in-dir",
     "dialog:default",
     "dialog:allow-open"

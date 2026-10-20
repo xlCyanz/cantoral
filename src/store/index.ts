@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
 import { guardarTema } from "../lib/temaGuardado";
+import { aplicarTamano, guardarTamano } from "../lib/tamano";
 import { crearContexto, modulo } from "./contexto";
 import { crearInterfaz } from "./interfaz";
 import { crearBiblioteca } from "./biblioteca";
@@ -106,6 +107,21 @@ useStore.subscribe((s, previo) => {
  */
 useStore.subscribe((s, previo) => {
   if (s.theme !== previo.theme) guardarTema(s.theme);
+});
+
+// ============================================================
+// El tamaño de la interfaz
+// ============================================================
+
+/**
+ * Lo mismo con el tamaño, y además ponerlo: venga de Configuración, de
+ * Ctrl + / Ctrl − o de la base al arrancar, se apunta y se aplica aquí y en
+ * ningún otro sitio.
+ */
+useStore.subscribe((s, previo) => {
+  if (s.tamanoUi === previo.tamanoUi) return;
+  guardarTamano(s.tamanoUi);
+  void aplicarTamano(s.tamanoUi);
 });
 
 // ============================================================

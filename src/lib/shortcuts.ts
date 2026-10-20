@@ -2,6 +2,8 @@
 // while the user is typing so the bindings never eat text input.
 
 import { useStore } from "../store";
+import { isTauri } from "./registro";
+import { atajoDeTamano } from "./tamano";
 
 /** True when the event targets a text field, so single-key bindings must not fire. */
 function isTyping(target: EventTarget | null): boolean {
@@ -20,6 +22,8 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "A", label: "Agregar a un culto lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
   { keys: "Esc", label: "Cerrar diálogo o panel" },
+  { keys: "⌘/Ctrl + + / −", label: "Agrandar o achicar la interfaz" },
+  { keys: "⌘/Ctrl + 0", label: "Volver la interfaz a su tamaño de fábrica" },
   { keys: "?", label: "Mostrar esta ayuda" },
 ];
 
@@ -54,6 +58,17 @@ export function registerShortcuts(): () => void {
         e.preventDefault();
         s.clearQuery();
       }
+      return;
+    }
+
+    // El tamaño de la interfaz (ver `lib/tamano.ts`). También escribiendo y
+    // con un diálogo abierto: Ctrl + no escribe nada, y quien no ve bien la
+    // letra de un diálogo es justo quien lo necesita ahí. En el navegador no:
+    // el Ctrl + es suyo, y hace lo mismo.
+    const paso = atajoDeTamano(e);
+    if (paso !== null && isTauri()) {
+      e.preventDefault();
+      s.cambiarTamanoUi(paso);
       return;
     }
 

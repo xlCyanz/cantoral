@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Logotipo } from "./Logo";
 import { isMacOS, isTauri, registrar, watchMaximized, winClose, winMinimize, winToggleMaximize } from "../lib/api";
+import { animaAlMaximizar, asentarLaVentana } from "../lib/ventana";
 
 const ctrlBtn = { width: 46, height: 34, display: "grid", placeItems: "center", color: "var(--text-2)" } as const;
 
@@ -16,9 +17,16 @@ export default function TitleBar() {
 
   useEffect(() => {
     let un: (() => void) | undefined;
-    void watchMaximized(setMaximized).then((u) => (un = u));
+    // El último estado conocido, para animar solo cuando cambia. Aquí y no en
+    // el estado de React: cada `resize` lo vuelve a contar aunque sea igual.
+    let previo: boolean | null = null;
+    void watchMaximized((m) => {
+      if (animaAlMaximizar(previo, m, nativeMac)) asentarLaVentana();
+      previo = m;
+      setMaximized(m);
+    }).then((u) => (un = u));
     return () => un?.();
-  }, []);
+  }, [nativeMac]);
 
   return (
     // Arrastrar y el doble clic para maximizar los hace Tauri con el atributo:

@@ -14,6 +14,20 @@ música y las plantillas, que en la iglesia confundían más de lo que ayudaban.
 Un culto es una lista de canciones que se le da a reproducir, y la barra de
 abajo lo maneja todo —también el volumen del video que sale por el proyector—.
 
+### Añadido
+
+- **Configuración → Tamaño de la interfaz**: Normal, Grande o Muy grande, para
+  quien no ve bien la letra pequeña. Agranda letras, botones y listas en toda
+  la app (el proyector no cambia). Viene en «Grande». También con Ctrl + y
+  Ctrl − (⌘ en Mac), y Ctrl 0 la devuelve a «Grande». Se recuerda al cerrar, y
+  la app abre ya a ese tamaño. En una ventana pequeña crece hasta donde quepa.
+- Los diálogos que no caben en la ventana se pueden desplazar hasta sus
+  botones.
+- **Una animación al maximizar y al restaurar (Windows).** Con el botón, con el
+  doble clic en la barra de título o con Win + ↑, el contenido se asienta en
+  un instante en vez de saltar de golpe. Si Windows tiene las animaciones
+  apagadas, no se anima. En Mac ya lo hacía el sistema.
+
 ### Cambiado
 
 - **Un solo modo: el reproductor.** Para proyectar un culto basta con darle a
