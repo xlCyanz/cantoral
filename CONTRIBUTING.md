@@ -296,7 +296,7 @@ versión. Es más barato descubrirlo ahí que en un release ya publicado.
 ## Pruebas
 
 **Frontend** — `src/lib/__tests__/`, con Vitest. Lo que se prueba son los selectores
-puros del store y el generador de la hoja imprimible: lógica sin React, rápida y
+puros del store: lógica sin React, rápida y
 estable. Si añades filtros, ordenamientos o agrupaciones, ahí va la prueba.
 
 **Backend** — módulos `#[cfg(test)]` dentro de cada archivo de `src-tauri/src/`.
@@ -325,7 +325,7 @@ Lo que más ayuda:
 > [!CAUTION]
 > Antes de experimentar con un fallo que toque la base de datos, haz una copia desde
 > **Configuración → Base de datos → Crear copia**. Restaurar reemplaza la biblioteca
-> entera y quitar una carpeta borra sus pistas de los cultos: los dos piden
+> entera y quitar una carpeta borra sus pistas de las listas: los dos piden
 > confirmación, pero lo que confirmas no se deshace. Si copias `cantoral.db` a mano,
 > cierra antes la app: con ella abierta, lo último escrito puede estar aún en
 > `cantoral.db-wal`.

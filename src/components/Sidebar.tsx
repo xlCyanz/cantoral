@@ -135,7 +135,7 @@ export default function Sidebar() {
         <button onClick={showColecciones} aria-current={colActive ? "page" : undefined} className={colActive ? undefined : "hb-s2"} style={navBtn(colActive)}>
           <span style={etiquetaFila}>
             <CalendarDays size={14} style={{ flex: "0 0 auto" }} />
-            Listas para cultos
+            Listas de canciones
           </span>
           {/* Cuenta lo que está justo debajo: un 6 sobre cinco filas se lee
               como que falta una. */}

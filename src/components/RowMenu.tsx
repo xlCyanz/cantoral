@@ -160,7 +160,7 @@ export default function RowMenu() {
         )}
 
         <button role="menuitem" tabIndex={-1} onClick={hacer(openAddToList)} className="hb-s2" style={opcion()}>
-          <span>Agregar a culto…</span>
+          <span>Agregar a una lista…</span>
           <span style={atajo}>A</span>
         </button>
 

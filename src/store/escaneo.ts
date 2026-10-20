@@ -333,7 +333,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
           if (!cambios) return;
           applyParche(cambios);
           toast(`«${f.nombre}» ahora apunta a su nueva ubicación`, {
-            detalle: "Sus pistas conservan favoritos y su sitio en los cultos.",
+            detalle: "Sus pistas conservan favoritos y su sitio en las listas.",
           });
         })
         .catch((err) => avisarFallo(err, String(err)));

@@ -11,7 +11,7 @@ import type { Playlist } from "./types";
  * Los cultos que pierden alguna de estas pistas, escrito para leerlo.
  *
  * Cadena vacía cuando no hay ninguno, para que quien lo use pueda saltarse la
- * frase entera en vez de decir «y de 0 cultos».
+ * frase entera en vez de decir «y de 0 listas».
  *
  * Se nombran hasta tres. Con más, la lista sería más larga que el aviso y
  * dejaría de leerse; el número sigue estando.
@@ -27,7 +27,7 @@ export function cultosAfectados(
     .map((p) => p.nombre);
   if (nombres.length === 0) return "";
 
-  const cuantos = `${nombres.length} ${nombres.length === 1 ? "culto" : "cultos"}`;
+  const cuantos = `${nombres.length} ${nombres.length === 1 ? "lista" : "listas"}`;
   const muestra = nombres.slice(0, 3).join(", ");
   return nombres.length > 3 ? `${cuantos} (${muestra} y ${nombres.length - 3} más)` : `${cuantos} (${muestra})`;
 }

@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, resumenDeOrden, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { botonPrimario, botonSecundario, emptyBtnPrimary, ocupadoStyle } from "../lib/styles";
@@ -26,7 +26,7 @@ const menuItem = {
 /**
  * Un botón de la fila de acciones del culto: su rótulo en una línea, sin
  * encogerse. Lo que no cabe baja entero a la siguiente fila; partido en dos
- * líneas empujaba «Imprimir» fuera de la cabecera a 800 px.
+ * líneas empujaba los botones fuera de la cabecera a 800 px.
  */
 const enUnaLinea: CSSProperties = { whiteSpace: "nowrap", flex: "0 0 auto" };
 
@@ -147,7 +147,6 @@ export default function PlaylistView() {
   const rows = useStore(filasDeLista);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
-  const openPrintPreview = useStore((s) => s.openPrintPreview);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
@@ -171,7 +170,7 @@ export default function PlaylistView() {
         </div>
         <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
           <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--primary)", marginBottom: 8 }}>
-            Lista para culto
+            Lista de canciones
           </span>
           <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
@@ -185,13 +184,6 @@ export default function PlaylistView() {
                 una vez, en lugar de ir y volver por cada canción. */}
             <button onClick={abrirAgregarCanciones} className="hb-s2" title="Elegir varias canciones de la biblioteca" style={{ ...botonSecundario(42), ...enUnaLinea }}>
               <ListPlus size={16} />Agregar canciones…
-            </button>
-            {/* Era «Exportar», que escribía un .html y lo abría en el
-                navegador para que allí alguien pulsara Cmd/Ctrl+P. Lo que se
-                quería era la hoja; el archivo suelto era el peaje. Guardar el
-                .html sigue estando, dentro de la vista previa. */}
-            <button onClick={openPrintPreview} className="hb-s2" style={{ ...botonSecundario(42), ...enUnaLinea }}>
-              <Printer size={16} />Imprimir
             </button>
             <div style={{ position: "relative", flex: "0 0 auto" }}>
               <button title="Más acciones" onClick={() => setMenuOpen((v) => !v)} className="hb-s2t" style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
@@ -207,9 +199,7 @@ export default function PlaylistView() {
                     <button onClick={() => { setMenuOpen(false); duplicateCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Copy size={15} />Duplicar lista
                     </button>
-                    {/* «Exportar» ya existe y hace una hoja para imprimir.
-                        Esto es lo otro: el archivo que entiende otra copia de
-                        Cantoral, no una persona. */}
+                    {/* El archivo que entiende otra copia de Cantoral. */}
                     <button onClick={() => { setMenuOpen(false); shareCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Share2 size={15} />Enviar a otra instalación
                     </button>
@@ -230,7 +220,7 @@ export default function PlaylistView() {
           compact
           icon={<ListMusic size={42} strokeWidth={1.6} />}
           title="Esta lista está vacía"
-          desc="Elige de la biblioteca las canciones de este culto; puedes marcar varias de una vez."
+          desc="Elige de la biblioteca las canciones de esta lista; puedes marcar varias de una vez."
           action={
             // Era «Ir a la biblioteca», que sacaba de aquí para ir trayendo las
             // canciones de una en una. Esto las trae sin salir.
@@ -275,7 +265,7 @@ export default function PlaylistView() {
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 8px", color: "var(--text-3)", fontSize: "12.5px" }}>
-            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden del culto, o usa los botones de cada fila. Con el teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd>.
+            <ArrowUpDown size={14} />Arrastra las pistas para cambiar el orden de la lista, o usa los botones de cada fila. Con el teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd>.
           </div>
         </div>
       )}

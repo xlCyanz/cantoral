@@ -70,7 +70,7 @@ function ListForm({
         </div>
         <div>
           <h2 id="list-dialog-title" style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>
-            {editing ? "Editar lista" : "Nueva lista para culto"}
+            {editing ? "Editar lista" : "Nueva lista de canciones"}
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
             {editing ? "Cambia el nombre de la lista." : "Dale un nombre y arma el repertorio."}
@@ -81,7 +81,7 @@ function ListForm({
       <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <label htmlFor="lista-nombre" style={label}>Nombre</label>
-          <input id="lista-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Culto Domingo…" className="in-focus" style={field} />
+          <input id="lista-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoFocus placeholder="Domingo de alabanza…" className="in-focus" style={field} />
         </div>
       </div>
 

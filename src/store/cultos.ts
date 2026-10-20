@@ -8,7 +8,7 @@ import type { Contexto, Get, Set } from "./contexto";
 import { filasDeLista, pistasParaAgregar, seleccionVigente } from "./selectores";
 
 // Parte del store (#134). Ver src/store/index.ts.
-// Las listas para cultos: crearlas, ordenarlas, compartirlas e imprimirlas.
+// Las listas de canciones: crearlas, ordenarlas y compartirlas.
 
 export interface CultosSlice {
   playlists: Playlist[];
@@ -37,9 +37,7 @@ export interface CultosSlice {
   bulkAddToPlaylist: (playlistId: string) => void;
 
   playAll: () => void;
-  exportPl: () => void;
   /** Show the sheet as it will be printed, before anything leaves the app. */
-  openPrintPreview: () => void;
   newList: () => void;
   createList: (nombre: string) => void;
   editCurrentList: () => void;
@@ -48,7 +46,7 @@ export interface CultosSlice {
   addToListConfirm: (playlistId: string) => void;
   /**
    * Abrir, desde el culto abierto, el diálogo que elige varias canciones de la
-   * biblioteca de una vez. La dirección contraria a «Agregar a un culto».
+   * biblioteca de una vez. La dirección contraria a «Agregar a una lista».
    */
   abrirAgregarCanciones: () => void;
   /** Agregar al final del culto abierto lo elegido en ese diálogo, y cerrarlo. */
@@ -74,7 +72,7 @@ export interface CultosSlice {
 }
 
 export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
-  const { toast, avisarFallo, applyPlaylists, escribirHoja, saveOrder, tocarCulto } = ctx;
+  const { toast, avisarFallo, applyPlaylists, saveOrder, tocarCulto } = ctx;
   return {
     playlists: [],
     plOrder: {},
@@ -107,7 +105,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         }
         tocarCulto(playlistId);
         toast(`Agregadas a «${nombre}»`, {
-          detalle: n === 1 ? "1 pista, al final del culto." : `${n} pistas, al final del culto.`,
+          detalle: n === 1 ? "1 pista, al final de la lista." : `${n} pistas, al final de la lista.`,
         });
       };
       const yaEstaban = (get().plOrder[playlistId] || []).length;
@@ -164,26 +162,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         get().play(ord[0], ord.slice());
         toast("Reproduciendo la lista completa");
       }
-    },
-    exportPl: () => {
-      const s = get();
-      const pl = s.playlists.find((p) => p.id === s.curPlaylist);
-      const ord = s.plOrder[s.curPlaylist] || [];
-      const rows = filasDeLista(s);
-      if (!pl || rows.length === 0) {
-        toast("La lista está vacía");
-        return;
-      }
-      escribirHoja(pl, rows, ord);
-    },
-    openPrintPreview: () => {
-      const s = get();
-      const hay = filasDeLista(s).length > 0;
-      if (!s.playlists.some((p) => p.id === s.curPlaylist) || !hay) {
-        toast("La lista está vacía");
-        return;
-      }
-      set({ dialog: "printPreview" });
     },
     newList: () => set({ dialog: "newList" }),
     createList: (nombre) => {
@@ -309,10 +287,10 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       const n = (st.plOrder[id] || []).length;
       st.askConfirm({
         title: "¿Eliminar esta lista?",
-        message: `«${pl.nombre}» se borrará de las listas para cultos.`,
+        message: `«${pl.nombre}» se borrará de las listas de canciones.`,
         detail:
           n > 0
-            ? `La lista tiene ${n} ${n === 1 ? "pista" : "pistas"} en su orden de culto. Ese orden se pierde y no se puede deshacer.`
+            ? `La lista tiene ${n} ${n === 1 ? "pista" : "pistas"} en su orden. Ese orden se pierde y no se puede deshacer.`
             : "La lista está vacía.",
         safe: "Las pistas siguen en tu biblioteca; solo se borra la lista.",
         confirmLabel: "Eliminar lista",

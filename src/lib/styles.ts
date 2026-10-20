@@ -5,7 +5,7 @@ import type { SortDir, SortKey } from "./types";
 // React.CSSProperties objects instead of inline CSS strings.
 
 /**
- * A top-level sidebar entry: Biblioteca, Listas para cultos, Configuración.
+ * A top-level sidebar entry: Biblioteca, Listas de canciones, Configuración.
  *
  * Ported from the design's `botonNav`. The label sits left and whatever it
  * counts sits right, so the three rows line up as a column of numbers.
@@ -31,7 +31,7 @@ export function navBtn(active: boolean): CSSProperties {
 
 /**
  * A sidebar entry that belongs to the one above it: a filter under Biblioteca,
- * a list under Listas para cultos.
+ * a list under Listas de canciones.
  *
  * Ported from the design's `botonSub`. The 32px left padding is what says
  * «this belongs to that» — it is the indent, not decoration, so it holds even
@@ -174,7 +174,7 @@ export function botonPrimario(alto: keyof typeof MEDIDA_PRIMARIO): CSSProperties
   };
 }
 
-/** Outline button with an icon: «Proyectar», «Imprimir», «Importar lista». */
+/** Outline button with an icon: «Importar lista». */
 export function botonSecundario(alto: keyof typeof MEDIDA_SECUNDARIO): CSSProperties {
   return {
     ...MEDIDA_SECUNDARIO[alto],

@@ -262,7 +262,7 @@ export default function PlayerBar() {
           </span>
         ) : (
           <span
-            title={otraCola ? "Lo que suena sigue el orden de la biblioteca, no el de este culto" : undefined}
+            title={otraCola ? "Lo que suena sigue el orden de la biblioteca, no el de esta lista" : undefined}
             style={{
               fontSize: "10.5px",
               whiteSpace: "nowrap",
@@ -271,7 +271,7 @@ export default function PlayerBar() {
                 : { color: "var(--text-3)" }),
             }}
           >
-            Suena: {queueOrigen === "culto" ? "el culto" : "la biblioteca"}
+            Suena: {queueOrigen === "culto" ? "la lista" : "la biblioteca"}
           </span>
         )}
         {proyectando && (

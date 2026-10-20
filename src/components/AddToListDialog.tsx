@@ -46,18 +46,18 @@ export default function AddToListDialog() {
     <Modal labelledBy="agregar-culto-titulo" describedBy="agregar-culto-cuantas" onClose={closeDialog} maxWidth={360}>
       <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid var(--border)" }}>
         <h2 id="agregar-culto-titulo" style={{ fontSize: 13, fontWeight: 600, margin: "0 0 1px" }}>
-          Agregar a un culto
+          Agregar a una lista
         </h2>
         {/* Cuántas y dónde caen, antes de elegir: si van al final, eso no
             debería ser una sorpresa que se descubre mirando la lista después. */}
         <p id="agregar-culto-cuantas" style={{ fontSize: 11, color: "var(--text-2)", margin: 0 }}>
-          {cuantas === 1 ? "Se agrega 1 pista al final del culto." : `Se agregan ${cuantas} pistas al final del culto.`}
+          {cuantas === 1 ? "Se agrega 1 pista al final de la lista." : `Se agregan ${cuantas} pistas al final de la lista.`}
         </p>
       </div>
 
       <div style={{ maxHeight: 212, overflowY: "auto", padding: 5 }}>
         {playlists.length === 0 ? (
-          <p style={{ ...fila, color: "var(--text-3)", fontSize: 12 }}>Todavía no hay cultos. Crea el primero abajo.</p>
+          <p style={{ ...fila, color: "var(--text-3)", fontSize: 12 }}>Todavía no hay listas. Crea la primera abajo.</p>
         ) : (
           playlists.map((p) => {
             const orden = plOrder[p.id] ?? p.ids;
@@ -94,7 +94,7 @@ export default function AddToListDialog() {
 
       <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", display: "flex", gap: 7, alignItems: "center" }}>
         <button onClick={newList} className="hb-s2" style={{ height: 28, display: "flex", alignItems: "center", gap: 6, padding: "0 11px", borderRadius: 7, border: "1px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)", fontSize: "11.5px", fontWeight: 600 }}>
-          <Plus size={13} />Nuevo culto…
+          <Plus size={13} />Nueva lista…
         </button>
         <div style={{ flex: 1 }} />
         <button onClick={closeDialog} className="hb-text" style={{ height: 28, padding: "0 11px", borderRadius: 7, background: "transparent", color: "var(--text-2)", fontSize: "11.5px" }}>
@@ -106,7 +106,7 @@ export default function AddToListDialog() {
 }
 
 /** El botón que abre el diálogo, igual desde donde se pulse. */
-export function AddToListButton({ style, className, icono = true, label = "Agregar a un culto…" }: { style?: CSSProperties; className?: string; icono?: boolean; label?: string }) {
+export function AddToListButton({ style, className, icono = true, label = "Agregar a una lista…" }: { style?: CSSProperties; className?: string; icono?: boolean; label?: string }) {
   const openAddToList = useStore((s) => s.openAddToList);
   return (
     <button onClick={openAddToList} className={className} style={style}>

@@ -702,22 +702,6 @@ pub fn touch_playlist(db: State<Db>, playlist: String) -> CmdResult<()> {
     db::touch_playlist(&conn, playlist.parse::<i64>().map_err(e)?).map_err(e)
 }
 
-/// Write a printable playlist sheet. The frontend renders the HTML; this only
-/// puts it on disk. Restricted to .html/.htm so the command cannot be used as a
-/// general-purpose write-anything primitive.
-#[tauri::command(async)]
-pub fn export_playlist(dest: String, html: String) -> CmdResult<()> {
-    let ext = std::path::Path::new(&dest)
-        .extension()
-        .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase())
-        .unwrap_or_default();
-    if ext != "html" && ext != "htm" {
-        return Err("El archivo exportado debe terminar en .html".into());
-    }
-    std::fs::write(&dest, html.as_bytes()).map_err(e)
-}
-
 /// Las pantallas conectadas, para elegir por cuál sale la proyección.
 #[tauri::command(async)]
 pub fn projection_monitors(app: AppHandle) -> CmdResult<Vec<crate::proyeccion::Monitor>> {
@@ -844,10 +828,8 @@ pub fn set_autostart(app: AppHandle, activar: bool) -> CmdResult<bool> {
 
 /// Write a playlist as the `.cantoral.json` another installation can import.
 ///
-/// Its own command rather than a looser `export_playlist`: that one is capped
-/// at .html precisely so it cannot become a write-anything primitive, and
-/// widening it to take a second extension would trade that guarantee away for
-/// nothing. The frontend builds the JSON; this only puts it on disk.
+/// Capped at .json so it cannot become a write-anything primitive. The
+/// frontend builds the JSON; this only puts it on disk.
 #[tauri::command(async)]
 pub fn export_playlist_json(dest: String, json: String) -> CmdResult<()> {
     if !compartir::es_json(&dest) {
@@ -1027,7 +1009,7 @@ pub fn get_db_info(db: State<Db>, db_path: State<DbPath>) -> CmdResult<DbInfo> {
 
 /// Whether a backup destination ends in `.db`, in any case.
 ///
-/// Same guard as `export_playlist` and `export_playlist_json`, and for the
+/// Same guard as `export_playlist_json`, and for the
 /// same reason (#131): without it this command could overwrite any writable
 /// file with the contents of `cantoral.db`. Only `.db` because it is what the
 /// save dialog proposes and the only thing the restore dialog lets you pick.
@@ -1088,8 +1070,8 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
 #[cfg(test)]
 mod tests {
     use super::{
-        copiar_respaldo, export_playlist, export_playlist_json, fusionar, quitar_carpeta,
-        restaurar, rutas_con_alcance,
+        copiar_respaldo, export_playlist_json, fusionar, quitar_carpeta, restaurar,
+        rutas_con_alcance,
     };
     use crate::{copias, db};
     use std::path::Path;
@@ -1125,16 +1107,6 @@ mod tests {
     }
 
     #[test]
-    fn export_writes_the_sheet_verbatim() {
-        let dir = Dir::new("verbatim");
-        let dest = dir.path("culto.html");
-
-        export_playlist(dest.clone(), "<h1>Culto</h1>".into()).unwrap();
-
-        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "<h1>Culto</h1>");
-    }
-
-    #[test]
     fn the_json_export_writes_what_it_is_given() {
         let dir = Dir::new("json-verbatim");
         let dest = dir.path("culto.json");
@@ -1145,29 +1117,13 @@ mod tests {
     }
 
     #[test]
-    fn the_json_export_is_no_looser_than_the_sheet_one() {
-        // Two commands with one extension each, rather than one command with
-        // two: neither may become a way to write arbitrary bytes anywhere.
+    fn the_json_export_refuses_anything_that_is_not_json() {
+        // It must not become a way to write arbitrary bytes anywhere.
         let dir = Dir::new("json-refuses");
         for bad in ["culto.html", "culto.db", "culto.sh", "culto"] {
             let dest = dir.path(bad);
             assert!(export_playlist_json(dest.clone(), "{}".into()).is_err(), "{bad}");
             assert!(!std::path::Path::new(&dest).exists(), "{bad} must not have been written");
-        }
-        // And the sheet export still refuses .json, for the same reason.
-        let dest = dir.path("culto.json");
-        assert!(export_playlist(dest.clone(), "<h1>x</h1>".into()).is_err());
-        assert!(!std::path::Path::new(&dest).exists());
-    }
-
-    #[test]
-    fn export_refuses_anything_that_is_not_html() {
-        // The command must not double as a write-anything primitive.
-        let dir = Dir::new("refuses");
-        for bad in ["culto.db", "culto.sh", "culto"] {
-            let dest = dir.path(bad);
-            assert!(export_playlist(dest.clone(), "x".into()).is_err(), "{bad} should be refused");
-            assert!(!std::path::Path::new(&dest).exists(), "{bad} must not be created");
         }
     }
 
@@ -1187,15 +1143,6 @@ mod tests {
             let dest = dir.path(ok);
             copiar_respaldo(&src, &dest).unwrap_or_else(|err| panic!("{ok}: {err}"));
             assert_eq!(std::fs::read(&dest).unwrap(), std::fs::read(&src).unwrap());
-        }
-    }
-
-    #[test]
-    fn export_accepts_either_html_spelling_and_ignores_case() {
-        let dir = Dir::new("spellings");
-        for ok in ["culto.htm", "culto.HTML"] {
-            let dest = dir.path(ok);
-            assert!(export_playlist(dest.clone(), "x".into()).is_ok(), "{ok} should be accepted");
         }
     }
 

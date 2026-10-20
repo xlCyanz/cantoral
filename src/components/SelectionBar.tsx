@@ -78,7 +78,7 @@ export default function SelectionBar() {
           pistas va a mover antes de elegir a dónde. El atajo va escrito
           porque el diálogo se abre igual con `A`. */}
       <button onClick={openAddToList} className="hb-primary" style={botonPrincipal}>
-        <ListPlus size={13} />Agregar a un culto… <span style={{ opacity: 0.7 }}>A</span>
+        <ListPlus size={13} />Agregar a una lista… <span style={{ opacity: 0.7 }}>A</span>
       </button>
 
       <button onClick={() => bulkFav(true)} title="Marcar como favoritas" aria-label="Marcar la selección como favoritas" className="hb-s2" style={boton}>

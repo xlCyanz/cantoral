@@ -168,18 +168,6 @@ export async function pickFolder(): Promise<string | null> {
   return typeof res === "string" ? res : null;
 }
 
-/** Native save dialog for an exported playlist sheet. */
-export async function pickExportPath(defaultPath: string): Promise<string | null> {
-  if (!isTauri()) return null;
-  const res = await (await dialogos()).save({ defaultPath, filters: [{ name: "Página web", extensions: ["html"] }] });
-  return res ?? null;
-}
-
-/** Write the rendered playlist sheet to disk. */
-export async function exportPlaylistCmd(dest: string, html: string): Promise<void> {
-  await inv("export_playlist", { dest, html });
-}
-
 /** Native save dialog for a playlist another installation can import. */
 export async function pickShareExportPath(defaultPath: string): Promise<string | null> {
   if (!isTauri()) return null;

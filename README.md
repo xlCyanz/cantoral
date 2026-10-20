@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="export-logo/github-banner.png" alt="Cantoral — Repertorios, proyección y búsqueda de cantos para el culto" width="100%" />
+<img src="export-logo/github-banner.png" alt="Cantoral — Repertorios, proyección y búsqueda de cantos para la iglesia" width="100%" />
 
 <p>
   <a href="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml"><img src="https://github.com/xlCyanz/cantoral/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
@@ -20,7 +20,7 @@
 
 </div>
 
-**Cantoral** prepara y reproduce el culto. Arma el repertorio una vez y dale al
+**Cantoral** prepara y reproduce listas de canciones. Arma el repertorio una vez y dale al
 play: todo se maneja desde la barra de abajo —pausa, volumen, la siguiente—, y
 los videos salen solos por el proyector mientras el sonido sale del equipo.
 Detrás, una biblioteca con toda la música de la iglesia que se busca, se filtra
@@ -60,15 +60,14 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 
 ## ✨ Funciones
 
-- 📋 **Cultos** — un culto es una lista de canciones preparada: se arma una vez, se le da a «Reproducir todo» y suena entero, pasando solo de una canción a la siguiente. No llevan fecha; arriba sale el último que abriste o cambiaste, que es el que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
-- ▶️ **Todo desde el reproductor** — todo suena dentro de la app, con una cola que sigue el orden del culto, y todo se maneja desde la barra de abajo: reproducir y pausar, anterior y siguiente, adelantar, aleatorio, repetir y el **volumen**, también cuando la cola pasa a otra canción. Nada se le pasa a otro programa: en mitad de un culto, otra ventana encima es lo último que quieres.
+- 📋 **Listas de canciones** — una lista se arma una vez, se le da a «Reproducir todo» y suena entera, pasando sola de una canción a la siguiente. No llevan fecha; arriba sale la última que abriste o cambiaste, que es la que estás preparando. Añade pistas de varias en varias: elígelas con <kbd>Mayús</kbd> o <kbd>⌘</kbd>/<kbd>Ctrl</kbd>, arrástralas a la lista, o usa el clic derecho. Reordena arrastrando, con los botones de cada fila o con <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: ninguna función central de la app depende de poder apuntar con precisión.
+- ▶️ **Todo desde el reproductor** — todo suena dentro de la app, con una cola que sigue el orden de la lista, y todo se maneja desde la barra de abajo: reproducir y pausar, anterior y siguiente, adelantar, aleatorio, repetir y el **volumen**, también cuando la cola pasa a otra canción. Nada se le pasa a otro programa: en mitad de la reunión, otra ventana encima es lo último que quieres.
 - 📽️ **Videos en el proyector** — un video que pones a sonar —doble clic, el play, «Reproducir todo» o el siguiente de la cola— sale solo por la pantalla elegida en **Configuración → Proyección**, en una ventana propia a pantalla completa: negra, sin controles y sin cursor, así que la congregación nunca ve tu escritorio. El sonido sale siempre del equipo, al volumen de la barra. Si lo siguiente es un audio, el proyector se queda en negro hasta el próximo video. Sin otra pantalla conectada, el video se ve en el panel de detalle. El botón de la pantalla tachada, en la barra, cierra el proyector.
-- 🎵 **Biblioteca** — tabla ordenable y agrupable (álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a un culto, ver el detalle, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
+- 🎵 **Biblioteca** — tabla ordenable y agrupable (álbum / carpeta), búsqueda instantánea, favoritos y aviso de archivos faltantes. **Recién agregadas** enseña lo que entró con el último escaneo; un re-escaneo sin novedades la deja vacía. Cada fila tiene su menú —clic derecho o el botón de acciones—: reproducir ahora, agregar a una lista, ver el detalle, mostrar el archivo en el Finder o el Explorador y quitar de la biblioteca.
 - 🎼 **Artista** — corrígelo desde el panel de detalle. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo. **Fijar** deja el panel abierto: <kbd>Esc</kbd> ya no lo cierra, para ir pista por pista sin perder el sitio.
 - ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
-- 🔁 **Duplicar** — duplica un culto con su orden para armar el siguiente a partir de él.
+- 🔁 **Duplicar** — duplica una lista con su orden para armar la siguiente a partir de ella.
 - 📤 **Compartir una lista** — mándala a otra instalación de Cantoral en un `.cantoral.json` y ábrela allí. No viaja el audio ni la ruta de tu disco, solo lo justo para volver a encontrar cada pista; al importar, una pantalla dice qué se encontró y qué falta antes de crear nada.
-- 🖨️ **Imprimir** — la hoja de la lista (título, artista, duración) se ve dentro de la app tal como va a salir y de ahí pasa al diálogo del sistema, donde está tu impresora y también «Guardar como PDF». También puedes guardar el `.html` si prefieres mandarla por correo.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder lo que lleva escrito, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. La **única** petición de red que hace por su cuenta es buscar actualizaciones: al abrirse pide a GitHub el archivo con la última versión, sin mandar ningún dato tuyo ni de tu biblioteca, y se puede apagar en **Configuración → Actualizaciones** (detalle en [Qué se pide al abrir, y cómo apagarlo](#qué-se-pide-al-abrir-y-cómo-apagarlo)). Todo lo demás —tipografías incluidas— va dentro del paquete, así que sin conexión funciona igual.
@@ -86,12 +85,12 @@ La misma lista está dentro de la app: <kbd>?</kbd>.
 | <kbd>Espacio</kbd> | Reproducir o pausar |
 | <kbd>←</kbd> / <kbd>→</kbd> | Pista anterior / siguiente |
 | <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>F</kbd> | Buscar en la biblioteca |
-| <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>N</kbd> | Nueva lista para culto |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>N</kbd> | Nueva lista de canciones |
 | <kbd>Enter</kbd> | Abrir el detalle de la pista enfocada |
 | <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Reproducir la pista enfocada |
 | <kbd>Mayús</kbd> / <kbd>⌘</kbd> + clic | Elegir un tramo o sumar pistas a la selección |
 | <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>A</kbd> | Seleccionar todo lo que muestra la biblioteca |
-| <kbd>A</kbd> | Agregar a un culto lo que esté elegido |
+| <kbd>A</kbd> | Agregar a una lista lo que esté elegido |
 | <kbd>Esc</kbd> | Cerrar diálogo o panel |
 | <kbd>?</kbd> | Mostrar la ayuda |
 
@@ -486,7 +485,7 @@ vuelve a abrir la app: al arrancar se re-verifica todo el catálogo. Si los
 archivos cambiaron de sitio, **Localizar…** en el panel de detalle apunta la pista
 a su archivo nuevo, y en Configuración cada carpeta se puede apuntar entera a su
 nueva ubicación —cuando el disco cambia de letra, por ejemplo—. Las dos cosas
-conservan favoritos y el sitio en los cultos.
+conservan favoritos y el sitio en las listas.
 </details>
 
 <details>
@@ -503,10 +502,10 @@ intentarlo.
 </details>
 
 <details>
-<summary><b>¿Cómo saco un culto por el proyector?</b></summary>
+<summary><b>¿Cómo saco una lista por el proyector?</b></summary>
 
 Conecta el proyector, elige su pantalla una vez en **Configuración →
-Proyección** y dale a **Reproducir todo** en el culto. Cada video sale por el
+Proyección** y dale a **Reproducir todo** en la lista. Cada video sale por el
 proyector al llegarle el turno; los audios suenan en el equipo con el proyector
 en negro. Ya no hay una vista de Proyección aparte: pausa, adelanta, sube o
 baja el volumen y pasa a la siguiente desde la barra de abajo, que siempre
@@ -528,10 +527,10 @@ proyector conectado, desmarca «Proyectar los videos al reproducirlos».
 <details>
 <summary><b>¿Qué pasó con los momentos sin música y las plantillas?</b></summary>
 
-Se quitaron a pedido de quienes usan la app en la iglesia: un culto es ahora
-una lista de canciones. Nada se borra de la base de datos: los momentos y la
+Se quitaron a pedido de quienes usan la app en la iglesia: una lista es ahora
+solo una lista de canciones. Nada se borra de la base de datos: los momentos y la
 marca de plantilla siguen guardados por si se abre con una versión anterior.
-Una lista que era plantilla aparece como un culto más, y una lista compartida
+Una lista que era plantilla aparece como una lista más, y una lista compartida
 con momentos se importa con sus canciones.
 </details>
 

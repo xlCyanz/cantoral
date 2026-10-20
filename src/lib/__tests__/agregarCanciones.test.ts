@@ -161,7 +161,7 @@ describe("en el store", () => {
 
     expect(useStore.getState().dialog).toBeNull();
     await vi.waitFor(() => expect(useStore.getState().plOrder.p1).toEqual(["a", "c", "b"]));
-    expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final del culto.");
+    expect(useStore.getState().toast?.detalle).toBe("2 pistas, al final de la lista.");
   });
 
   it("no repite las que ya estaban", async () => {
@@ -203,7 +203,7 @@ describe("el diálogo", () => {
 
     expect(casillas).toHaveLength((estado.tracks as Track[]).length);
     expect(casillas.filter((c) => c.includes('disabled=""') && c.includes('checked=""'))).toHaveLength(enElCulto);
-    expect(h.match(/Ya está en el culto/g)).toHaveLength(enElCulto);
+    expect(h.match(/Ya está en la lista/g)).toHaveLength(enElCulto);
     // La pintada no se anuncia dos veces.
     expect(h).toMatch(/<span aria-hidden="true" class="casilla-marca"/);
   });
@@ -248,15 +248,16 @@ describe("dónde se abre", () => {
 
   it("la fila de acciones baja a otra línea antes que salirse de la cabecera", () => {
     // A 800 px «Agregar canciones…» se partía en dos líneas y empujaba
-    // «Imprimir» fuera de la fila. Cada botón va en una línea y la fila envuelve.
+    // botones fuera de la fila. Cada botón va en una línea y la fila envuelve.
     const h = html(PlaylistView);
     const fila = h.match(/<div data-acciones-culto="true" style="([^"]*)">([\s\S]*?)<div style="position:relative;flex:0 0 auto">/);
 
     expect(fila).not.toBeNull();
     expect(fila![1]).toContain("flex-wrap:wrap");
     const botones = fila![2].match(/<button[^>]*>/g) ?? [];
-    // Reproducir todo, Agregar canciones e Imprimir: «Proyectar» se fue con la vista.
-    expect(botones).toHaveLength(3);
+    // Reproducir todo y Agregar canciones: «Proyectar» se fue con la vista e
+    // «Imprimir» con la hoja impresa.
+    expect(botones).toHaveLength(2);
     for (const b of botones) expect(b).toMatch(/white-space:nowrap;flex:0 0 auto/);
   });
 

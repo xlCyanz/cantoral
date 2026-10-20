@@ -11,7 +11,7 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 **Todo desde el reproductor.** Se van la vista de Proyección, los momentos sin
 música y las plantillas, que en la iglesia confundían más de lo que ayudaban.
-Un culto es una lista de canciones que se le da a reproducir, y la barra de
+Una lista es solo eso, canciones que se le dan a reproducir, y la barra de
 abajo lo maneja todo —también el volumen del video que sale por el proyector—.
 
 ### Añadido
@@ -30,7 +30,11 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 
 ### Cambiado
 
-- **Un solo modo: el reproductor.** Para proyectar un culto basta con darle a
+- **Las listas para cultos ahora se llaman listas de canciones.** La barra
+  lateral dice «Listas de canciones», se agrega con «Agregar a una lista…» y
+  la barra de abajo dice «Suena: la lista». Las listas que ya tenías no cambian
+  ni se renombran.
+- **Un solo modo: el reproductor.** Para proyectar una lista basta con darle a
   «Reproducir todo»: cada video sale por la pantalla elegida en Configuración →
   Proyección al llegarle el turno, y los audios suenan en el equipo con el
   proyector en negro. La barra de abajo siempre enseña la canción que suena,
@@ -45,20 +49,23 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 
 ### Eliminado
 
-- **La vista de Proyección**, con su cola del culto, «Siguiente», el negro con
+- **Imprimir.** Se quita el botón «Imprimir» de las listas, con su vista
+  previa y «Guardar .html». Para mandar una lista a otra instalación sigue
+  estando «Enviar a otra instalación».
+- **La vista de Proyección**, con su cola de la lista, «Siguiente», el negro con
   <kbd>B</kbd>, el paso con <kbd>→</kbd>, <kbd>Esc</kbd> para cortar la salida,
   las transiciones y la cuenta atrás, «Cuando un elemento se acaba» y el botón
-  «Proyectar» de cada culto. Tampoco sale ya la portada de una canción por el
+  «Proyectar» de cada lista. Tampoco sale ya la portada de una canción por el
   proyector: con un audio, el proyector se queda en negro. Quien tenía elegidos
   esos ajustes no tiene que hacer nada.
 - **Los momentos sin música** («Añadir un momento…»): la oración, la lectura y
-  los anuncios ya no se añaden al culto ni salen en la hoja impresa. Los que ya
+  los anuncios ya no se añaden a la lista ni salen en la hoja impresa. Los que ya
   había se quedan guardados en la base de datos, sin verse, por si se abre con
   una versión anterior; una lista compartida que los traiga se importa con sus
   canciones.
 - **Las plantillas** («Guardar como plantilla», «Partir de una plantilla» y su
-  sección en las listas). Una lista que era plantilla aparece como un culto
-  más; para empezar un culto a partir de otro, «Duplicar lista».
+  sección en las listas). Una lista que era plantilla aparece como una lista
+  más; para empezar una lista a partir de otra, «Duplicar lista».
 
 ### Corregido
 
