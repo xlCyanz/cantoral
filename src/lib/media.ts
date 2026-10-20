@@ -149,9 +149,9 @@ export function useReproductor(
     onEnded: () => {
       const st = useStore.getState();
       st.advance();
-      // Repetir una: el elemento ya disparó `ended`, así que hay que rebobinarlo
+      // Repetir la canción: el elemento ya disparó `ended`, así que hay que rebobinarlo
       // y arrancarlo a mano.
-      if (st.repeat) {
+      if (st.repeat === "una") {
         const el = ref.current;
         if (el) {
           el.currentTime = 0;

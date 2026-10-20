@@ -30,7 +30,7 @@ const GUARDADAS: UiPrefs = {
   volume: 0.2,
   muted: true,
   shuffle: true,
-  repeat: true,
+  repeat: "una",
   sortKey: "album",
   sortDir: "desc",
   groupBy: "carpeta",
@@ -297,7 +297,7 @@ describe("restaurar al arrancar", () => {
     expect(s.volume).toBe(0.2);
     expect(s.muted).toBe(true);
     expect(s.shuffle).toBe(true);
-    expect(s.repeat).toBe(true);
+    expect(s.repeat).toBe("una");
     expect(s.sortKey).toBe("album");
     expect(s.sortDir).toBe("desc");
     expect(s.groupBy).toBe("carpeta");

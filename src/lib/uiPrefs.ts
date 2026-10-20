@@ -7,6 +7,7 @@
 // field is checked on its own and whatever does not hold up is dropped, leaving
 // that preference at its default instead of poisoning the whole load.
 
+import { MODOS_REPETIR, type ModoRepetir } from "./cola";
 import { esIdentidad, type IdentidadPantalla } from "./pantallas";
 import { esTamano, type TamanoUi } from "./tamano";
 import type { Densidad, GroupBy, SortDir, SortKey, View } from "./types";
@@ -16,7 +17,7 @@ export interface UiPrefs {
   volume: number;
   muted: boolean;
   shuffle: boolean;
-  repeat: boolean;
+  repeat: ModoRepetir;
   sortKey: SortKey;
   sortDir: SortDir;
   groupBy: GroupBy;
@@ -126,7 +127,11 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   }
   if (esBooleano(o.muted)) out.muted = o.muted;
   if (esBooleano(o.shuffle)) out.shuffle = o.shuffle;
-  if (esBooleano(o.repeat)) out.repeat = o.repeat;
+  // Antes era un sí/no que repetía la canción: un `true` guardado sigue
+  // siendo «Repetir la canción».
+  if (o.repeat === true) out.repeat = "una";
+  else if (o.repeat === false) out.repeat = "no";
+  else if (MODOS_REPETIR.includes(o.repeat as ModoRepetir)) out.repeat = o.repeat as ModoRepetir;
   if (SORT_KEYS.includes(o.sortKey as SortKey)) out.sortKey = o.sortKey as SortKey;
   if (SORT_DIRS.includes(o.sortDir as SortDir)) out.sortDir = o.sortDir as SortDir;
   if (GROUP_BYS.includes(o.groupBy as GroupBy)) out.groupBy = o.groupBy as GroupBy;

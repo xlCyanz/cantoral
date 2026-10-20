@@ -3,6 +3,7 @@ import type { Contexto, Get, Set } from "./contexto";
 import { cur, queueForView, playQueue } from "./selectores";
 import type { CantoralState } from "./tipos";
 import { rutaProyectable } from "../lib/proyeccion";
+import { anterior, siguiente, siguienteModo, type ModoRepetir } from "../lib/cola";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // El reproductor y su cola.
@@ -34,11 +35,18 @@ export interface ReproductorSlice {
   volume: number;
   muted: boolean;
   shuffle: boolean;
-  repeat: boolean;
+  /** «Sin repetir», «Repetir la lista» o «Repetir la canción». */
+  repeat: ModoRepetir;
+  /**
+   * Las que ya sonaron en esta vuelta en aleatorio, para que ninguna se repita
+   * antes de que suenen todas. Se vacía al poner otra cola o al cambiar el
+   * aleatorio.
+   */
+  sonadas: string[];
 
   play: (id: string, queue?: string[]) => void;
   togglePlay: () => void;
-  /** Auto-advance when a track finishes (honours «repetir»). */
+  /** Al acabarse una pista: la misma con «Repetir la canción»; si no, la siguiente. */
   advance: () => void;
   /** Poner el transporte en una pista, abriendo lo que haga falta para verla. */
   irAPista: (id: string) => void;
@@ -77,7 +85,8 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
     volume: 0.72,
     muted: false,
     shuffle: false,
-    repeat: false,
+    repeat: "no",
+    sonadas: [],
     play: (id, queue) => {
       const s = get();
       const t = s.tracks.find((x) => x.id === id);
@@ -97,7 +106,7 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       // Todo de una vez y no «play» y luego la pista: quien vigila el play
       // para sacar un video por el proyector vería un instante la pista de
       // antes sonando, y la proyectaría.
-      set({ queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true, ...patchDeIrA(id) });
+      set({ sonadas: [], queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true, ...patchDeIrA(id) });
       // Volver a darle al mismo video que ya estaba en el proyector lo empieza
       // otra vez, como a cualquier pista: la pista no cambia, así que la
       // salida no se entera sola.
@@ -118,8 +127,8 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       set({ playing: !s.playing });
     },
     advance: () => {
-      // «Repetir» loops the current track; the queue already wraps by itself.
-      if (get().repeat) {
+      // «Repetir la canción»: la misma, desde el principio.
+      if (get().repeat === "una") {
         set({ posSec: 0, playing: true });
         return;
       }
@@ -127,31 +136,30 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
     },
     prev: () => {
       const s = get();
-      const ids = playQueue(s);
-      const i = ids.indexOf(s.playerId);
-      const n = ids.length ? ids[(i - 1 + ids.length) % ids.length] : s.playerId;
-      get().irAPista(n);
+      const id = anterior(playQueue(s), s.playerId, s.repeat);
+      if (!id || id === s.playerId) {
+        // La primera de la cola: se vuelve a empezar, no se salta a la última.
+        set({ posSec: 0 });
+        return;
+      }
+      get().irAPista(id);
     },
     next: () => {
       const s = get();
-      const ids = playQueue(s);
-      const i = ids.indexOf(s.playerId);
-      let n: string;
-      // Al azar entre las que no son la que suena. Una cola con la misma pista
-      // dos veces —una canción que se repite al final del culto— y ninguna
-      // otra no tiene a cuál saltar, y el bucle de antes no terminaba nunca.
-      const otras = s.shuffle ? ids.filter((id) => id !== s.playerId) : [];
-      if (otras.length > 0) {
-        n = otras[Math.floor(Math.random() * otras.length)];
-      } else {
-        n = ids.length ? ids[(i + 1) % ids.length] : s.playerId;
+      const paso = siguiente(playQueue(s), s.playerId, { aleatorio: s.shuffle, repetir: s.repeat, sonadas: s.sonadas });
+      if (!paso.id) {
+        // Se acabó la cola y nadie pidió repetir: se para en la última, en vez
+        // de volver a empezar sola.
+        set({ playing: false, posSec: 0, sonadas: [] });
+        return;
       }
-      get().irAPista(n);
+      set({ sonadas: paso.sonadas });
+      get().irAPista(paso.id);
     },
 
     irAPista: (id) => set(patchDeIrA(id)),
-    toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
-    toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
+    toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle, sonadas: [] })),
+    toggleRepeat: () => set((s) => ({ repeat: siguienteModo(s.repeat) })),
     toggleMute: () => set((s) => ({ muted: !s.muted })),
     seekToFraction: (f) => {
       const s = get();

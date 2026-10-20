@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { Heart, MonitorX, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { Heart, MonitorX, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { cur, enElProyector, useStore } from "../store";
+import { NOMBRE_REPETIR } from "../lib/cola";
 import { useReproductor } from "../lib/media";
 import { coverStyle, fmt } from "../lib/covers";
 import GlifoDePista from "./GlifoDePista";
@@ -242,8 +243,10 @@ export default function PlayerBar() {
           <button onClick={irSiguiente} title="Siguiente" aria-label="Siguiente" className="hb-s2t" style={transportBtn}>
             <SkipForward size={15} fill="currentColor" />
           </button>
-          <button onClick={toggleRepeat} title="Repetir" aria-label="Repetir" aria-pressed={repeat} className="hb-text" style={{ ...secundarioBtn, transition: "color .13s", color: repeat ? "var(--primary)" : "var(--text-3)" }}>
-            <Repeat size={14} />
+          {/* Tres modos en un botón: sin repetir, la lista o la canción. El
+              icono con el 1 es la canción, como en cualquier reproductor. */}
+          <button onClick={toggleRepeat} title={NOMBRE_REPETIR[repeat]} aria-label={NOMBRE_REPETIR[repeat]} aria-pressed={repeat !== "no"} className="hb-text" style={{ ...secundarioBtn, transition: "color .13s", color: repeat !== "no" ? "var(--primary)" : "var(--text-3)" }}>
+            {repeat === "una" ? <Repeat1 size={14} /> : <Repeat size={14} />}
           </button>
         </div>
         <Progreso track={track} />

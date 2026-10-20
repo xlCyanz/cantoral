@@ -30,6 +30,12 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 
 ### Cambiado
 
+- **Repetir tiene tres modos**: «Repetir: no», «Repetir la lista» y «Repetir
+  la canción», que se recorren pulsando el mismo botón de la barra.
+- **Ninguna canción se repite sin pedirlo.** Sin «Repetir», la cola se para al
+  acabar la última en vez de volver a empezar sola, y «Anterior» en la primera
+  la vuelve a empezar en lugar de saltar a la última. En aleatorio, cada
+  canción suena una vez antes de que pueda volver a salir.
 - **Todos los videos salen por el proyector.** Se quita la casilla «Proyectar
   los videos al reproducirlos»: con la pantalla de proyección conectada, todo
   video que se pone a sonar sale por ella. Sin otra pantalla, se ve en el

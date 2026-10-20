@@ -252,7 +252,7 @@ describe("un video en el proyector, desde la barra", () => {
 
   it("con «Repetir», al terminar rebobina la salida", async () => {
     await proyectandoVideo();
-    useStore.setState({ repeat: true });
+    useStore.setState({ repeat: "una" });
 
     contestar?.({ src: "/m/v.mp4", pos: 180, dur: 180, fin: true });
 
@@ -336,7 +336,8 @@ describe("la cola avanza y la barra sigue mandando", () => {
     expect(openProjectionCmd).toHaveBeenCalledTimes(1);
   });
 
-  it("al terminar el último video de la cola, sigue la cola como en el equipo", async () => {
+  it("al terminar el último video de la cola, con «Repetir la lista» vuelve al primero", async () => {
+    useStore.setState({ repeat: "lista" });
     useStore.getState().play("w", ["v", "w"]);
     await esperar();
 
@@ -435,6 +436,7 @@ describe("«Aleatorio» y el volumen", () => {
 
     expect(useStore.getState().playerId).toBe("a");
 
+    useStore.setState({ repeat: "lista" });
     useStore.getState().play("a", ["a", "w", "a"]);
     for (let i = 0; i < 5; i++) {
       const antes = useStore.getState().playerId;
