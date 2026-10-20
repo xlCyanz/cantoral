@@ -5,7 +5,6 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Playlist, Track } from "../types";
-import { playlistSheetHtml } from "../exportSheet";
 
 const { useStore, filasDeLista, playQueue } = await import("../../store");
 const initial = useStore.getState();
@@ -40,13 +39,5 @@ describe("un orden con un momento de antes", () => {
     useStore.getState().next();
 
     expect(useStore.getState().playerId).toBe("b");
-  });
-
-  it("la hoja impresa no tiene fila para él", () => {
-    const html = playlistSheetHtml(culto, filasDeLista(useStore.getState()), "6:00");
-
-    expect(html).toContain("2 pistas");
-    expect(html).not.toContain("m:1");
-    expect(html).not.toMatch(/momento/i);
   });
 });

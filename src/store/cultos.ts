@@ -8,7 +8,7 @@ import type { Contexto, Get, Set } from "./contexto";
 import { filasDeLista, pistasParaAgregar, seleccionVigente } from "./selectores";
 
 // Parte del store (#134). Ver src/store/index.ts.
-// Las listas para cultos: crearlas, ordenarlas, compartirlas e imprimirlas.
+// Las listas de canciones: crearlas, ordenarlas y compartirlas.
 
 export interface CultosSlice {
   playlists: Playlist[];
@@ -37,9 +37,7 @@ export interface CultosSlice {
   bulkAddToPlaylist: (playlistId: string) => void;
 
   playAll: () => void;
-  exportPl: () => void;
   /** Show the sheet as it will be printed, before anything leaves the app. */
-  openPrintPreview: () => void;
   newList: () => void;
   createList: (nombre: string) => void;
   editCurrentList: () => void;
@@ -74,7 +72,7 @@ export interface CultosSlice {
 }
 
 export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
-  const { toast, avisarFallo, applyPlaylists, escribirHoja, saveOrder, tocarCulto } = ctx;
+  const { toast, avisarFallo, applyPlaylists, saveOrder, tocarCulto } = ctx;
   return {
     playlists: [],
     plOrder: {},
@@ -164,26 +162,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         get().play(ord[0], ord.slice());
         toast("Reproduciendo la lista completa");
       }
-    },
-    exportPl: () => {
-      const s = get();
-      const pl = s.playlists.find((p) => p.id === s.curPlaylist);
-      const ord = s.plOrder[s.curPlaylist] || [];
-      const rows = filasDeLista(s);
-      if (!pl || rows.length === 0) {
-        toast("La lista está vacía");
-        return;
-      }
-      escribirHoja(pl, rows, ord);
-    },
-    openPrintPreview: () => {
-      const s = get();
-      const hay = filasDeLista(s).length > 0;
-      if (!s.playlists.some((p) => p.id === s.curPlaylist) || !hay) {
-        toast("La lista está vacía");
-        return;
-      }
-      set({ dialog: "printPreview" });
     },
     newList: () => set({ dialog: "newList" }),
     createList: (nombre) => {

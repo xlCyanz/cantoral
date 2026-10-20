@@ -303,10 +303,6 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     // Sin disco no hay copias automáticas: la lista queda vacía, no es un fallo.
     listAutoBackups: async () => [],
 
-    saveSheet: async (nombre, html) => {
-      descargar(nombre, html, "text/html");
-      return nombre;
-    },
     saveSharedList: async (nombre, json) => {
       descargar(nombre, json, "application/json");
       return true;

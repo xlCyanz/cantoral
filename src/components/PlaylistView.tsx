@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpDown, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Printer, Trash2, Video } from "lucide-react";
+import { ArrowUpDown, Share2, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Trash2, Video } from "lucide-react";
 import { filasDeLista, plDur, resumenDeOrden, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { botonPrimario, botonSecundario, emptyBtnPrimary, ocupadoStyle } from "../lib/styles";
@@ -26,7 +26,7 @@ const menuItem = {
 /**
  * Un botón de la fila de acciones del culto: su rótulo en una línea, sin
  * encogerse. Lo que no cabe baja entero a la siguiente fila; partido en dos
- * líneas empujaba «Imprimir» fuera de la cabecera a 800 px.
+ * líneas empujaba los botones fuera de la cabecera a 800 px.
  */
 const enUnaLinea: CSSProperties = { whiteSpace: "nowrap", flex: "0 0 auto" };
 
@@ -147,7 +147,6 @@ export default function PlaylistView() {
   const rows = useStore(filasDeLista);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
   const playAll = useStore((s) => s.playAll);
-  const openPrintPreview = useStore((s) => s.openPrintPreview);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
   const duplicateCurrentList = useStore((s) => s.duplicateCurrentList);
@@ -186,13 +185,6 @@ export default function PlaylistView() {
             <button onClick={abrirAgregarCanciones} className="hb-s2" title="Elegir varias canciones de la biblioteca" style={{ ...botonSecundario(42), ...enUnaLinea }}>
               <ListPlus size={16} />Agregar canciones…
             </button>
-            {/* Era «Exportar», que escribía un .html y lo abría en el
-                navegador para que allí alguien pulsara Cmd/Ctrl+P. Lo que se
-                quería era la hoja; el archivo suelto era el peaje. Guardar el
-                .html sigue estando, dentro de la vista previa. */}
-            <button onClick={openPrintPreview} className="hb-s2" style={{ ...botonSecundario(42), ...enUnaLinea }}>
-              <Printer size={16} />Imprimir
-            </button>
             <div style={{ position: "relative", flex: "0 0 auto" }}>
               <button title="Más acciones" onClick={() => setMenuOpen((v) => !v)} className="hb-s2t" style={{ width: 42, height: 42, display: "grid", placeItems: "center", borderRadius: 11, border: "1px solid var(--border-2)", background: "var(--surface)", color: "var(--text-2)" }}>
                 <EllipsisVertical size={18} />
@@ -207,9 +199,7 @@ export default function PlaylistView() {
                     <button onClick={() => { setMenuOpen(false); duplicateCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Copy size={15} />Duplicar lista
                     </button>
-                    {/* «Exportar» ya existe y hace una hoja para imprimir.
-                        Esto es lo otro: el archivo que entiende otra copia de
-                        Cantoral, no una persona. */}
+                    {/* El archivo que entiende otra copia de Cantoral. */}
                     <button onClick={() => { setMenuOpen(false); shareCurrentList(); }} className="hb-s2" style={menuItem}>
                       <Share2 size={15} />Enviar a otra instalación
                     </button>
