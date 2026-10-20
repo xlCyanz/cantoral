@@ -79,16 +79,6 @@ export const tauri: Backend = {
   restoreDatabase: (src) => api.restoreDatabaseCmd(src),
   listAutoBackups: () => api.listAutoBackups(),
 
-  saveSharedList: async (nombre, json) => {
-    const dest = await api.pickShareExportPath(nombre);
-    if (!dest) return false;
-    await api.exportPlaylistJsonCmd(dest, json);
-    return true;
-  },
-  openSharedList: async () => {
-    const src = await api.pickPlaylistFile();
-    return src ? api.readPlaylistFileCmd(src) : null;
-  },
   revealLog: async () => {
     const ruta = await api.rutaDelLog();
     if (ruta) await api.revealFile(ruta);

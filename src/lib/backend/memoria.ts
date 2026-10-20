@@ -12,7 +12,6 @@
 // restaurar una base— contesta con `NoDisponible`, que el store enseña como
 // un aviso.
 
-import { leerArchivoDelNavegador } from "../api";
 import type { DuplicateReport, Parche, ScanProgressEvent, Snapshot } from "../api";
 import { nombreDeCopia } from "../copias";
 import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "../seed";
@@ -25,16 +24,6 @@ const PASO_ESCANEO_MS = 160;
 
 /** La carpeta que «elige» el navegador, que no tiene selector de carpetas. */
 export const CARPETA_DE_EJEMPLO = "C:\\Música\\Iglesia\\Nuevas";
-
-/** Descarga un archivo desde la página: lo único que un navegador sabe guardar. */
-function descargar(nombre: string, contenido: string, tipo: string) {
-  const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nombre;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 /** Con qué datos empieza una base en memoria. */
 export interface Semilla {
@@ -303,11 +292,6 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     // Sin disco no hay copias automáticas: la lista queda vacía, no es un fallo.
     listAutoBackups: async () => [],
 
-    saveSharedList: async (nombre, json) => {
-      descargar(nombre, json, "application/json");
-      return true;
-    },
-    openSharedList: () => leerArchivoDelNavegador(),
     revealLog: async () => {
       throw new NoDisponible("El registro solo existe en la app de escritorio");
     },

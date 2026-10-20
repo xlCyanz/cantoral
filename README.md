@@ -67,7 +67,6 @@ legible con listas largas y sin nada que aprender el domingo por la mañana.
 - 🎼 **Artista** — corrígelo desde el panel de detalle. El artista corregido a mano sobrevive a los re-escaneos, que si no lo pisarían con lo que diga el archivo. **Fijar** deja el panel abierto: <kbd>Esc</kbd> ya no lo cierra, para ir pista por pista sin perder el sitio.
 - ✅ **Selección múltiple** — <kbd>Mayús</kbd> para un tramo, <kbd>⌘</kbd>/<kbd>Ctrl</kbd> para sumar, <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> para todo lo que muestra el filtro. Sobre lo elegido: agregar a una lista, marcar favoritas o quitarlas de la biblioteca, de una vez.
 - 🔁 **Duplicar** — duplica una lista con su orden para armar la siguiente a partir de ella.
-- 📤 **Compartir una lista** — mándala a otra instalación de Cantoral en un `.cantoral.json` y ábrela allí. No viaja el audio ni la ruta de tu disco, solo lo justo para volver a encontrar cada pista; al importar, una pantalla dice qué se encontró y qué falta antes de crear nada.
 - 🧭 **Archivos que se movieron** — localiza una pista perdida sin perder lo que lleva escrito, o apunta la carpeta entera a su nueva ubicación cuando el disco cambia de letra.
 - 📂 **Escaneo sin mover archivos** — indexa carpetas con lectura de metadatos (`lofty`), con o sin subcarpetas; tus archivos permanecen donde están.
 - 🔒 **Privado por diseño** — base de datos SQLite local; sin nube, sin cuentas, sin telemetría. La **única** petición de red que hace por su cuenta es buscar actualizaciones: al abrirse pide a GitHub el archivo con la última versión, sin mandar ningún dato tuyo ni de tu biblioteca, y se puede apagar en **Configuración → Actualizaciones** (detalle en [Qué se pide al abrir, y cómo apagarlo](#qué-se-pide-al-abrir-y-cómo-apagarlo)). Todo lo demás —tipografías incluidas— va dentro del paquete, así que sin conexión funciona igual.
@@ -397,8 +396,8 @@ cantoral/
 │   │                       # ventana del proyector), diálogos, …
 │   ├── lib/                # api (puente con Tauri) · backend (Tauri o en
 │   │                       # memoria) · seed (datos de ejemplo) ·
-│   │                       # buscar · formatos · media · compartir ·
-│   │                       # exportSheet · shortcuts · … · __tests__/
+│   │                       # buscar · formatos · media · shortcuts ·
+│   │                       # … · __tests__/
 │   ├── store/              # Estado global (Zustand), un slice por dominio:
 │   │                       # biblioteca · cultos · reproductor · proyeccion ·
 │   │                       # duplicados · … · selectores (puros) · index (los junta)
@@ -408,7 +407,6 @@ cantoral/
     ├── db.rs               # Esquema, migraciones y consultas SQLite
     ├── scanner.rs          # Escaneo incremental + lofty + eventos de progreso
     ├── proyeccion.rs       # La ventana de salida del proyector
-    ├── compartir.rs        # Leer y escribir un .cantoral.json
     ├── updates.rs          # Buscar e instalar versiones nuevas
     ├── commands.rs         # Comandos IPC
     └── lib.rs              # Plugins, estado y handlers

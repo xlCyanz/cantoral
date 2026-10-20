@@ -50,11 +50,12 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 - **El volumen y el silencio de la barra llegan al proyector.** Antes, con un
   video en el proyector, la barra cambiaba el volumen por «En el proyector» y
   había que bajarlo en el equipo de sonido.
-- **Las listas compartidas se exportan siempre en el formato de antes**, sin
-  momentos, así que cualquier instalación las abre.
 
 ### Eliminado
 
+- **Compartir una lista con otra instalación.** Se van «Enviar a otra
+  instalación», en el menú de cada lista, e «Importar lista». Las listas se
+  arman en cada equipo.
 - **Imprimir.** Se quita el botón «Imprimir» de las listas, con su vista
   previa y «Guardar .html». Para mandar una lista a otra instalación sigue
   estando «Enviar a otra instalación».
@@ -65,10 +66,8 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
   proyector: con un audio, el proyector se queda en negro. Quien tenía elegidos
   esos ajustes no tiene que hacer nada.
 - **Los momentos sin música** («Añadir un momento…»): la oración, la lectura y
-  los anuncios ya no se añaden a la lista ni salen en la hoja impresa. Los que ya
-  había se quedan guardados en la base de datos, sin verse, por si se abre con
-  una versión anterior; una lista compartida que los traiga se importa con sus
-  canciones.
+  los anuncios ya no se añaden a la lista. Los que ya había se quedan guardados
+  en la base de datos, sin verse, por si se abre con una versión anterior.
 - **Las plantillas** («Guardar como plantilla», «Partir de una plantilla» y su
   sección en las listas). Una lista que era plantilla aparece como una lista
   más; para empezar una lista a partir de otra, «Duplicar lista».

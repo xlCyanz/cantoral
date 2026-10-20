@@ -20,7 +20,7 @@ export interface InterfazSlice {
   tamanoUi: TamanoUi;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | "importList" | "addToList" | "agregarCanciones" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "addToList" | "agregarCanciones" | null;
 
   // ---- toast ----
   toast: ToastNotice | null;
@@ -129,7 +129,7 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
       return onTemaDelSistema(aplicar);
     },
     openHelp: () => set({ dialog: "help" }),
-    closeDialog: () => set({ dialog: null, importPreview: null }),
+    closeDialog: () => set({ dialog: null }),
 
     askConfirm: (req) => set({ confirm: req }),
     closeConfirm: () => set({ confirm: null }),

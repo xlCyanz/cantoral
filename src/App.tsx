@@ -21,19 +21,17 @@ import Toast from "./components/Toast";
 import TrabajosDeFondo from "./components/TrabajosDeFondo";
 
 // Lo que casi nunca se abre se carga al abrirlo, y no al arrancar: la
-// configuración y los diálogos de ayuda, importar y
+// configuración y los diálogos de ayuda y
 // «Agregar canciones». Un rato después de arrancar se cargan
 // igual, en un momento libre, para que la primera vez que se abran no
 // esperen a nada.
 const cargarConfig = () => import("./components/ConfigView");
 const cargarAgregar = () => import("./components/AgregarCancionesDialog");
-const cargarImportar = () => import("./components/ImportListDialog");
 const cargarAyuda = () => import("./components/HelpDialog");
 const ConfigView = lazy(cargarConfig);
 const AgregarCancionesDialog = lazy(cargarAgregar);
-const ImportListDialog = lazy(cargarImportar);
 const HelpDialog = lazy(cargarAyuda);
-const DIFERIDOS = [cargarConfig, cargarAgregar, cargarImportar, cargarAyuda];
+const DIFERIDOS = [cargarConfig, cargarAgregar, cargarAyuda];
 
 /**
  * Lo diferido, sin nada en su lugar mientras llega: es un archivo local que
@@ -167,7 +165,6 @@ export default function App() {
       {/* Cada uno se monta solo abierto: cerrado no pinta nada, y así ni se
           carga ni sigue al store mientras tanto. */}
       {dialog === "agregarCanciones" && <Diferido><AgregarCancionesDialog /></Diferido>}
-      {dialog === "importList" && <Diferido><ImportListDialog /></Diferido>}
       {dialog === "help" && <Diferido><HelpDialog /></Diferido>}
       <ConfirmDialog />
       <RowMenu />
