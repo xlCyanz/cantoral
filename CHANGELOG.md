@@ -9,10 +9,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
-**Todo desde el reproductor.** Se van la vista de Proyección, los momentos sin
-música y las plantillas, que en la iglesia confundían más de lo que ayudaban.
-Una lista es solo eso, canciones que se le dan a reproducir, y la barra de
-abajo lo maneja todo —también el volumen del video que sale por el proyector—.
+## [0.7.0] - 2026-10-20
+
+**Todo desde el reproductor, y más fácil de leer.** Se van la vista de
+Proyección, los momentos sin música, las plantillas, la impresión y el
+compartir con otra instalación, que en la iglesia confundían más de lo que
+ayudaban. Una lista de canciones se le da a reproducir y la barra de abajo lo
+maneja todo —también el volumen del video que sale por el proyector—. Y la
+interfaz viene más grande, con un ajuste para agrandarla aún más.
 
 ### Añadido
 
@@ -30,6 +34,8 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 
 ### Cambiado
 
+- **El buscador de la biblioteca es más grande** y ocupa todo el ancho, hasta
+  «Agregar carpeta».
 - **Repetir tiene tres modos**: «Repetir: no», «Repetir la lista» y «Repetir
   la canción», que se recorren pulsando el mismo botón de la barra.
 - **Ninguna canción se repite sin pedirlo.** Sin «Repetir», la cola se para al
@@ -1359,7 +1365,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.6.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/xlCyanz/cantoral/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/xlCyanz/cantoral/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/xlCyanz/cantoral/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/xlCyanz/cantoral/compare/v0.3.2...v0.4.0
