@@ -67,10 +67,12 @@ export default function TopBar() {
         </div>
       )}
 
-      <div style={{ height: 60, display: "flex", alignItems: "center", gap: 14, padding: "0 20px" }}>
+      <div style={{ height: 68, display: "flex", alignItems: "center", gap: 14, padding: "0 20px" }}>
         {showSearch ? (
-          <div style={{ flex: "1 1 0", minWidth: 0, maxWidth: 440, position: "relative", display: "flex", alignItems: "center" }}>
-            <Search size={17} style={{ position: "absolute", left: 13, color: "var(--text-3)", pointerEvents: "none" }} />
+          // Grande y a todo lo ancho, hasta «Agregar carpeta»: es lo primero que
+          // se busca en la biblioteca, y con 440 px quedaba media fila vacía.
+          <div style={{ flex: "1 1 0", minWidth: 0, position: "relative", display: "flex", alignItems: "center" }}>
+            <Search size={19} style={{ position: "absolute", left: 15, color: "var(--text-3)", pointerEvents: "none" }} />
             <input
               data-search-input
               value={query}
@@ -79,12 +81,12 @@ export default function TopBar() {
               className="in-focus"
               style={{
                 width: "100%",
-                height: 38,
+                height: 46,
                 border: "1px solid var(--border-2)",
                 background: "var(--surface)",
-                borderRadius: 10,
-                padding: "0 34px 0 38px",
-                fontSize: "13.5px",
+                borderRadius: 12,
+                padding: "0 40px 0 44px",
+                fontSize: 15,
                 outline: "none",
                 transition: "border-color .14s,box-shadow .14s",
               }}
@@ -94,9 +96,9 @@ export default function TopBar() {
                 onClick={clearQuery}
                 title="Limpiar"
                 className="hb-s2t"
-                style={{ position: "absolute", right: 9, width: 22, height: 22, borderRadius: 6, display: "grid", placeItems: "center", color: "var(--text-3)" }}
+                style={{ position: "absolute", right: 10, width: 26, height: 26, borderRadius: 7, display: "grid", placeItems: "center", color: "var(--text-3)" }}
               >
-                <X size={13} strokeWidth={2.2} />
+                <X size={15} strokeWidth={2.2} />
               </button>
             )}
           </div>
@@ -117,7 +119,7 @@ export default function TopBar() {
           </div>
         )}
 
-        <div style={{ flex: 1 }} />
+        {!showSearch && <div style={{ flex: 1 }} />}
 
         {/* add folder */}
         {showAgregarCarpeta && (
@@ -128,14 +130,14 @@ export default function TopBar() {
           className="hb-primary hb-active"
           style={{
             ...ocupadoStyle(scanning),
-            height: 38,
+            height: 46,
             flex: "0 0 auto",
             whiteSpace: "nowrap",
             display: "flex",
             alignItems: "center",
             gap: 8,
             padding: "0 15px",
-            borderRadius: 10,
+            borderRadius: 12,
             background: "var(--primary-fill)",
             color: "var(--on-primary)",
             fontSize: "13.5px",
