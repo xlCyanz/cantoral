@@ -101,7 +101,8 @@ describe("reproducir un video", () => {
   });
 
   it("y llegar al video hacia atrás, igual", () => {
-    useStore.setState({ playerId: "a" });
+    // Desde la primera, «Anterior» solo da la vuelta con «Repetir la lista».
+    useStore.setState({ playerId: "a", repeat: "lista" });
 
     useStore.getState().prev();
 
