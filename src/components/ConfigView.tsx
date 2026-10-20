@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, HelpCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
@@ -115,7 +115,6 @@ export default function ConfigView() {
   const restore = useStore((s) => s.restore);
   const backup = useStore((s) => s.backup);
   const copiaDeEstaSesion = useStore((s) => s.ultimaCopia);
-  const openHelp = useStore((s) => s.openHelp);
   const mostrarRegistro = useStore((s) => s.mostrarRegistro);
 
   const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
@@ -267,14 +266,6 @@ export default function ConfigView() {
         </button>
       </div>
 
-      <div style={tarjeta}>
-        <h2 style={h2Style}>Ayuda</h2>
-        <p style={{ ...pStyle, marginBottom: 10 }}>¿Primera vez con Cantoral? Repasa cómo funciona en un minuto.</p>
-        <button onClick={openHelp} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
-          <HelpCircle size={13} />¿Cómo funciona?
-        </button>
-      </div>
-
       <AbrirConElSistema />
 
       {/* actualizaciones */}
@@ -331,15 +322,13 @@ function megas(bytes: number): string {
  * Donde no existe —el navegador— la tarjeta no sale.
  */
 /**
- * La pantalla de proyección, y si un video que se pone a sonar sale por ella.
+ * La pantalla de proyección. Todo video que se pone a sonar sale por ella.
  *
  * Es el único sitio donde se elige: se hace una vez, el día que se instala el
  * proyector, y no cada domingo.
  */
 function AjustesDeProyeccion() {
   const cargarMonitores = useStore((s) => s.cargarMonitores);
-  const proyectarVideos = useStore((s) => s.proyectarVideos);
-  const setProyectarVideos = useStore((s) => s.setProyectarVideos);
 
   // Se vuelven a mirar al entrar: el proyector se conecta con la app abierta.
   useEffect(() => {
@@ -349,26 +338,8 @@ function AjustesDeProyeccion() {
   return (
     <div style={tarjeta}>
       <h2 style={h2Style}>Proyección</h2>
-      <p style={{ ...pStyle, marginBottom: 8 }}>La pantalla por la que salen los videos que pongas a sonar. El sonido sale siempre por el equipo. Se recuerda aunque desconectes el proyector.</p>
+      <p style={{ ...pStyle, marginBottom: 8 }}>Todos los videos que pongas a sonar salen por esta pantalla; la pausa, el volumen y la siguiente se manejan desde la barra de abajo, y el sonido sale por el equipo. Si no hay otra pantalla conectada, el video se ve en el panel de la pista.</p>
       <SelectorDePantalla />
-      <label className="casilla" style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 9, marginTop: 10, cursor: "pointer" }}>
-        <input
-          type="checkbox"
-          className="solo-lector"
-          checked={proyectarVideos}
-          onChange={(e) => setProyectarVideos(e.target.checked)}
-          aria-describedby="proyectar-videos-ayuda"
-        />
-        <div aria-hidden className="casilla-marca" style={{ width: 16, height: 16, borderRadius: 5, flex: "0 0 auto", marginTop: 1, display: "grid", placeItems: "center", ...(proyectarVideos ? { background: "var(--primary-fill)" } : { border: "1.5px solid var(--border-2)", background: "var(--surface)" }) }}>
-          {proyectarVideos && <Check size={11} color="var(--on-primary)" strokeWidth={3} />}
-        </div>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600 }}>Proyectar los videos al reproducirlos</div>
-          <div id="proyectar-videos-ayuda" style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>
-            Lo demás —pausa, volumen, la siguiente— se maneja desde la barra de abajo. Si no hay otra pantalla conectada, el video se ve en el panel de la pista.
-          </div>
-        </div>
-      </label>
     </div>
   );
 }

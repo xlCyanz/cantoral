@@ -158,7 +158,7 @@ describe("poner un video a sonar lo proyecta", () => {
     expect(useStore.getState().videoEnPanel).toBe("v");
   });
 
-  it("con el ajuste apagado, el video se ve en el panel como antes", async () => {
+  it("si no se proyecta, el video se ve en el panel como antes", async () => {
     useStore.setState({ proyectarVideos: false });
 
     useStore.getState().play("v");
@@ -478,7 +478,7 @@ describe("la pantalla de proyección se recuerda por lo que la describe", () => 
 
   it("lo guardado se lee con cuidado", () => {
     const g = identidadDe(PROYECTOR);
-    expect(parsePrefs(JSON.stringify({ pantallaProyeccion: g, proyectarVideos: false }))).toEqual({ pantallaProyeccion: g, proyectarVideos: false });
+    expect(parsePrefs(JSON.stringify({ pantallaProyeccion: g, proyectarVideos: false }))).toEqual({ pantallaProyeccion: g });
     expect(parsePrefs(JSON.stringify({ pantallaProyeccion: { sistema: 3 } }))).toEqual({});
     expect(parsePrefs(JSON.stringify({ pantallaProyeccion: null }))).toEqual({ pantallaProyeccion: null });
   });

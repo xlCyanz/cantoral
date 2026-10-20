@@ -39,7 +39,6 @@ const GUARDADAS: UiPrefs = {
   densidad: "compacta",
   buscarActualizacionesAlAbrir: false,
   pantallaProyeccion: { sistema: "DELL P2219H", ancho: 1920, alto: 1080, x: 2560, y: 0 },
-  proyectarVideos: false,
   tamanoUi: "muyGrande",
 };
 
@@ -203,11 +202,9 @@ describe("guardar los cambios", () => {
     expect(ultimoGuardado().volume).toBe(0.3);
   });
 
-  it("y también si los videos se proyectan", async () => {
-    useStore.getState().setProyectarVideos(false);
-    await vi.advanceTimersByTimeAsync(400);
-
-    expect(ultimoGuardado().proyectarVideos).toBe(false);
+  it("ya no guarda si los videos se proyectan: siempre se proyectan", () => {
+    // Un «apagado» guardado por una versión anterior se ignora al leerlo.
+    expect(parsePrefs(JSON.stringify({ proyectarVideos: false }))).toEqual({});
   });
 
   it("recoge el cambio venga de donde venga", async () => {

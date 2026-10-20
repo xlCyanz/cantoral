@@ -30,6 +30,12 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 
 ### Cambiado
 
+- **Todos los videos salen por el proyector.** Se quita la casilla «Proyectar
+  los videos al reproducirlos»: con la pantalla de proyección conectada, todo
+  video que se pone a sonar sale por ella. Sin otra pantalla, se ve en el
+  panel de la pista.
+- **«¿Cómo funciona?» está en la barra lateral**, encima de Configuración, en
+  lugar de dentro de los ajustes.
 - **Las listas para cultos ahora se llaman listas de canciones.** La barra
   lateral dice «Listas de canciones», se agrega con «Agregar a una lista…» y
   la barra de abajo dice «Suena: la lista». Las listas que ya tenías no cambian
