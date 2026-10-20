@@ -296,7 +296,7 @@ versión. Es más barato descubrirlo ahí que en un release ya publicado.
 ## Pruebas
 
 **Frontend** — `src/lib/__tests__/`, con Vitest. Lo que se prueba son los selectores
-puros del store y el generador de la hoja imprimible: lógica sin React, rápida y
+puros del store: lógica sin React, rápida y
 estable. Si añades filtros, ordenamientos o agrupaciones, ahí va la prueba.
 
 **Backend** — módulos `#[cfg(test)]` dentro de cada archivo de `src-tauri/src/`.

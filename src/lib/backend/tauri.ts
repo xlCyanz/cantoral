@@ -79,16 +79,6 @@ export const tauri: Backend = {
   restoreDatabase: (src) => api.restoreDatabaseCmd(src),
   listAutoBackups: () => api.listAutoBackups(),
 
-  saveSheet: async (nombre, html) => {
-    const dest = await api.pickExportPath(nombre);
-    if (!dest) return null;
-    await api.exportPlaylistCmd(dest, html);
-    // Solo se escribe. Antes se abría además en el navegador, y quien la
-    // guardaba para mandarla por correo veía saltar una ventana —quizá encima
-    // de la proyección— sin haberla pedido (#142). Imprimir tiene su vista
-    // previa dentro de la app; esto es solo el archivo.
-    return dest;
-  },
   saveSharedList: async (nombre, json) => {
     const dest = await api.pickShareExportPath(nombre);
     if (!dest) return false;

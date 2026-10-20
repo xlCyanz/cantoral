@@ -1,10 +1,9 @@
 import type { Folder, Playlist, Track } from "../lib/types";
-import { playlistSheetHtml, sheetFileName } from "../lib/exportSheet";
 import { assetUrl, type Parche, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
 import type { CantoralState, ToastType } from "./tipos";
-import { ultimoId, cur, plDur } from "./selectores";
+import { ultimoId, cur } from "./selectores";
 import { aplicarParche, conservarIguales } from "../lib/reutilizar";
 
 // Parte del store (#134). Ver src/store/index.ts.
@@ -288,20 +287,6 @@ export function crearContexto(set: Set, get: Get) {
     modulo.refreshTimer = null;
   };
 
-  /** Build the printable page for a list and hand it wherever it goes. */
-  const escribirHoja = (pl: Playlist, rows: readonly Track[], ord: string[]) => {
-    const html = playlistSheetHtml(pl, rows, plDur(get(), ord));
-    const name = sheetFileName(pl.nombre);
-    backend()
-      .saveSheet(name, html)
-      .then((dest) => {
-        // Se dice dónde quedó y nada más: abrirla con otra aplicación es cosa
-        // de quien la guardó, no de la app (#142).
-        if (dest) toast("Hoja guardada", { detalle: dest });
-      })
-      .catch((err) => avisarFallo(err, "No se pudo guardar la hoja"));
-  };
-
   /**
    * Write the track that is waiting out the debounce.
    *
@@ -380,7 +365,7 @@ export function crearContexto(set: Set, get: Get) {
     backend().touchPlaylist(id).catch((err) => console.error("touch_playlist failed", err));
   };
 
-  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, applyParche, marcarFaltantes, cambiarCaratulas, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, escribirHoja, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
+  return { toast, avisarFallo, pausarVideoSiDejaDeVerse, conCaratula, listasDe, applyPlaylists, applySnapshot, applyParche, marcarFaltantes, cambiarCaratulas, REFRESCO_MS, REFRESCO_MAX_MS, startLiveRefresh, stopLiveRefresh, writePendingEdit, scheduleSave, saveOrder, tocarCulto };
 }
 
 export type Contexto = ReturnType<typeof crearContexto>;

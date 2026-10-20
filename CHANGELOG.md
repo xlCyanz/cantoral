@@ -49,6 +49,9 @@ abajo lo maneja todo —también el volumen del video que sale por el proyector�
 
 ### Eliminado
 
+- **Imprimir.** Se quita el botón «Imprimir» de las listas, con su vista
+  previa y «Guardar .html». Para mandar una lista a otra instalación sigue
+  estando «Enviar a otra instalación».
 - **La vista de Proyección**, con su cola de la lista, «Siguiente», el negro con
   <kbd>B</kbd>, el paso con <kbd>→</kbd>, <kbd>Esc</kbd> para cortar la salida,
   las transiciones y la cuenta atrás, «Cuando un elemento se acaba» y el botón

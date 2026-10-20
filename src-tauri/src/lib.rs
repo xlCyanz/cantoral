@@ -176,7 +176,6 @@ pub fn run() {
             commands::update_playlist,
             commands::touch_playlist,
             commands::delete_playlist,
-            commands::export_playlist,
             commands::export_playlist_json,
             commands::read_playlist_file,
             commands::get_setting,
