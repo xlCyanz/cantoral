@@ -27,7 +27,6 @@ const { useStore: storeReal } = await vi.importActual<typeof import("../../store
 const { default: PlayerBar } = await import("../../components/PlayerBar");
 const { default: AddFolderDialog } = await import("../../components/AddFolderDialog");
 const { default: LibraryView } = await import("../../components/LibraryView");
-const { default: ProjectionView } = await import("../../components/ProjectionView");
 const { default: NewListDialog } = await import("../../components/NewListDialog");
 
 beforeEach(() => {
@@ -125,19 +124,6 @@ describe("la tabla de la biblioteca", () => {
     const h = html(LibraryView);
 
     expect(h).toMatch(/<div role="row" aria-rowindex="2"><div role="gridcell" aria-colspan="5"><button[^>]*aria-expanded="true"/);
-  });
-});
-
-describe("Proyección", () => {
-  it("ninguna opción explica lo que hace solo en `title`", () => {
-    const h = html(ProjectionView);
-
-    // Cada botón apunta a su explicación, que está en la página.
-    const descritos = [...h.matchAll(/aria-describedby="(proy-[^"]+)"/g)].map((m) => m[1]);
-    expect(descritos.length).toBe(6);
-    for (const id of descritos) expect(h).toContain(`id="${id}"`);
-    // Y la del elegido se ve.
-    expect(h).toContain("Al acabarse un elemento, arranca solo el de después.");
   });
 });
 

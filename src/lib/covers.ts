@@ -85,21 +85,6 @@ export function coverStyle(
   return { ...base, background: `linear-gradient(140deg,${p[0]},${p[1]})` };
 }
 
-/**
- * La versión mediana de una carátula, para el fondo «Portada» de la
- * proyección, o la misma URL si no tiene.
- *
- * El núcleo guarda cada carátula reducida a 160 px para la interfaz y a 640
- * al lado con `-g` (ver `caratulas.rs`); estirar la pequeña a toda la pantalla
- * dejaría ver los bloques. Las miniaturas de video y las carátulas de antes de
- * la pasada única no tienen otra: se quedan como están. Funciona igual sobre
- * la ruta o sobre la URL de `asset://`, que codifica la barra como `%2F` o
- * `%5C` y deja el nombre del archivo tal cual.
- */
-export function caratulaGrande(url: string): string {
-  return url.replace(/((?:\/|\\|%2F|%5C)a-[0-9a-f]{16})\.jpg$/i, "$1-g.jpg");
-}
-
 /** Whether a track shows real cover art (so the white glyph overlay is hidden). */
 export function hasCover(t: Pick<Track, "missing" | "cover"> | null | undefined): boolean {
   return !!(t && t.cover && !t.missing);

@@ -16,6 +16,7 @@ import { isTauri, toAssetUrl, updateTrackDuration } from "./api";
 import { fmt } from "./covers";
 import { motivoDeError } from "./formatos";
 import { useStore } from "../store";
+import { volumenEfectivo } from "./proyeccion";
 import type { Track } from "./types";
 
 /** Manejadores para el elemento, que informan al store de lo que va pasando. */
@@ -85,7 +86,10 @@ export function useReproductor(
         const actual = ref.current;
         if (cancelado || !actual) return;
         actual.src = url;
-        actual.volume = muted ? 0 : volume;
+        // El de ahora y no el de cuando se pidió el archivo: entre una cosa y
+        // otra se puede haber movido la barra —pasa al saltar de pista con el
+        // dedo en el volumen—, y el efecto de abajo ya lo había puesto.
+        actual.volume = volumenEfectivo(useStore.getState());
         if (useStore.getState().playing) actual.play().catch(() => {});
       });
       return () => {
@@ -107,7 +111,7 @@ export function useReproductor(
 
   useEffect(() => {
     const el = ref.current;
-    if (el) el.volume = muted ? 0 : volume;
+    if (el) el.volume = volumenEfectivo({ volume, muted });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [volume, muted]);
 

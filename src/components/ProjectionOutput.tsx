@@ -1,87 +1,52 @@
 import { useEffect, useRef, useState } from "react";
 import { emitTo, listen } from "@tauri-apps/api/event";
-import type { EstadoProyeccion, MensajeProyeccion, OrdenProyeccion, SalidaProyeccion, VistaProyeccion } from "../lib/api";
+import type { EstadoProyeccion, MensajeProyeccion, OrdenProyeccion, SalidaProyeccion } from "../lib/api";
 import { ERROR_AUTOPLAY } from "../lib/formatos";
 import { hayQueReportar } from "../lib/estadoDeSalida";
-import { caratulaGrande } from "../lib/covers";
 
 /**
  * Lo que se ve por el proyector.
  *
  * Esta es toda la interfaz de la ventana de salida: no monta la app, no lee la
  * biblioteca y no puede tocar nada. Recibe por evento lo que tiene que
- * mostrar y lo muestra. Si la ventana principal se cuelga, aquí se queda lo
- * último que llegó en vez de aparecer un error delante de la congregación.
+ * mostrar —el video que suena en el reproductor, o negro— y lo muestra. Si la
+ * ventana principal se cuelga, aquí se queda lo último que llegó en vez de
+ * aparecer un error delante de la congregación.
  *
  * Arranca en negro y vuelve a negro: en una proyección el fondo por defecto no
  * es blanco ni gris, es apagado.
  */
-
-/** El elemento que no es este. */
-const otro = (c: "a" | "b"): "a" | "b" => (c === "a" ? "b" : "a");
-
-/** Cuánto dura el negro entre un elemento y otro. */
-const NEGRO_MS = 500;
-/** Desde dónde cuenta la cuenta atrás, y cada cuánto baja. */
-const CUENTA_DESDE = 3;
-const CUENTA_MS = 1000;
-
-/** El mismo mensaje, en pausa: lo que se manda mientras corre la transición. */
-function enPausa(p: SalidaProyeccion): SalidaProyeccion {
-  return p.vista.modo === "media" ? { ...p, vista: { ...p.vista, reproduciendo: false } } : p;
-}
-
 export default function ProjectionOutput() {
   const [salida, setSalida] = useState<SalidaProyeccion>({ vista: { modo: "negro" } });
-  /** `null` mientras no hay transición; `0` es el negro y 3..1 la cuenta. */
-  const [cuenta, setCuenta] = useState<number | null>(null);
-
-  // Dos reproductores y no uno.
-  //
-  // Cambiar la `src` de un elemento que está en pantalla lo deja negro
-  // mientras carga el archivo nuevo. Con dos, el siguiente del culto ya está
-  // cargado y en pausa en el que no se ve, y pasar a él es enseñarlo y darle
-  // al play: sin parpadeo, que es la única diferencia que nota la congregación.
-  const refA = useRef<HTMLVideoElement>(null);
-  const refB = useRef<HTMLVideoElement>(null);
-  const ref = (cual: "a" | "b") => (cual === "a" ? refA : refB);
-  /** Qué archivo tiene cargado cada uno, que no es lo mismo que su `src`
-   *  resuelta: el navegador la convierte en absoluta y dejaría de coincidir. */
-  const cargado = useRef<{ a: string | null; b: string | null }>({ a: null, b: null });
+  const ref = useRef<HTMLVideoElement>(null);
+  /** Qué archivo tiene cargado, que no es lo mismo que su `src` resuelta: el
+   *  navegador la convierte en absoluta y dejaría de coincidir. */
+  const cargado = useRef<string | null>(null);
   /** Lo último que se le contó a la principal, para no repetírselo. */
   const reportado = useRef<EstadoProyeccion | null>(null);
-  const [activo, setActivo] = useState<"a" | "b">("a");
-  // Lo mismo que `activo` y `salida`, para quien escucha los eventos: se
-  // suscribe una vez y vería siempre los del primer dibujo.
-  const activoRef = useRef(activo);
+  // Lo mismo que `salida`, para quien escucha los eventos: se suscribe una vez
+  // y vería siempre la del primer dibujo.
   const salidaRef = useRef(salida);
+  /**
+   * El volumen de la barra de la ventana principal. Llega con cada video y,
+   * entre uno y otro, por su orden: se guarda aparte para que una orden que
+   * llegue mientras se carga el archivo no se pierda.
+   */
+  const volumen = useRef(1);
   useEffect(() => {
-    activoRef.current = activo;
     salidaRef.current = salida;
-  }, [activo, salida]);
-
-  /** Los temporizadores de la transición en curso, para poder cortarla. */
-  const relojes = useRef<number[]>([]);
+  }, [salida]);
 
   useEffect(() => {
-    const parar = () => {
-      for (const id of relojes.current) window.clearTimeout(id);
-      relojes.current = [];
-    };
-    const luego = (ms: number, fn: () => void) => {
-      relojes.current.push(window.setTimeout(fn, ms));
-    };
-
     /**
      * Saltar a un segundo de lo que está en pantalla, sin tocar qué se ve.
      *
      * Solo si lo que se ve es el archivo al que se refiere: una orden que
      * llega tarde, con lo siguiente ya en pantalla, no lo puede mover.
      */
-    const buscar = (o: OrdenProyeccion) => {
-      const cual = activoRef.current;
-      const el = (cual === "a" ? refA : refB).current;
-      if (!el || cargado.current[cual] !== o.src) return;
+    const buscar = (o: Extract<OrdenProyeccion, { orden: "buscar" }>) => {
+      const el = ref.current;
+      if (!el || cargado.current !== o.src) return;
       el.currentTime = o.pos;
       // Un video que ya había terminado se queda parado al rebobinarlo; si lo
       // que se pide es que suene, se arranca.
@@ -89,41 +54,18 @@ export default function ProjectionOutput() {
       if (v.modo === "media" && v.reproduciendo && el.paused) void el.play().catch(() => {});
     };
 
+    /** El volumen, en el acto: no cambia qué se ve, así que no pasa por el estado. */
+    const ponerVolumen = (valor: number) => {
+      volumen.current = Math.min(1, Math.max(0, valor));
+      if (ref.current) ref.current.volume = volumen.current;
+    };
+
     const aplicar = (m: MensajeProyeccion) => {
-      if ("orden" in m) {
-        buscar(m);
-        return;
-      }
-      const p = m;
-      // Lo que llegue corta la transición que hubiera: un «negro» pulsado en
-      // mitad de una cuenta atrás tiene que cortar ya, no dentro de dos
-      // segundos.
-      parar();
-      if (!p.transicion) {
-        setCuenta(null);
-        setSalida(p);
-        return;
-      }
-      // Se manda ya, pero en pausa: así el archivo se carga —o se reconoce
-      // como ya cargado— detrás del negro, y al acabar la transición arranca
-      // sin nada que esperar.
-      setSalida(enPausa(p));
-      if (p.transicion === "negro") {
-        setCuenta(0);
-        luego(NEGRO_MS, () => {
-          setCuenta(null);
-          setSalida(p);
-        });
-        return;
-      }
-      setCuenta(CUENTA_DESDE);
-      for (let n = CUENTA_DESDE - 1; n >= 1; n--) {
-        luego((CUENTA_DESDE - n) * CUENTA_MS, () => setCuenta(n));
-      }
-      luego(CUENTA_DESDE * CUENTA_MS, () => {
-        setCuenta(null);
-        setSalida(p);
-      });
+      if (!("orden" in m)) {
+        if (m.vista.modo === "media") ponerVolumen(m.vista.volumen);
+        setSalida(m);
+      } else if (m.orden === "volumen") ponerVolumen(m.valor);
+      else buscar(m);
     };
 
     let soltar: (() => void) | undefined;
@@ -133,10 +75,7 @@ export default function ProjectionOutput() {
       // principal tiene que encontrar a alguien escuchando.
       void emitTo("main", "proyeccion-lista", {});
     });
-    return () => {
-      soltar?.();
-      parar();
-    };
+    return () => soltar?.();
   }, []);
 
   const vista = salida.vista;
@@ -144,68 +83,49 @@ export default function ProjectionOutput() {
   const reproduciendo = vista.modo === "media" && vista.reproduciendo;
 
   useEffect(() => {
-    const poner = (cual: "a" | "b", archivo: string) => {
-      const el = ref(cual).current;
-      if (!el) return;
-      cargado.current[cual] = archivo;
-      el.src = archivo;
-      el.load();
-    };
-
-    // Quién muestra lo pedido: el que ya lo tiene cargado si alguno lo tiene,
-    // y sólo si no, se carga encima del que está en pantalla.
-    let cual = activo;
-    if (src) {
-      if (cargado.current[activo] === src) cual = activo;
-      else if (cargado.current[otro(activo)] === src) cual = otro(activo);
-      else poner(activo, src);
-      if (cual !== activo) setActivo(cual);
-
-      ref(otro(cual)).current?.pause();
-      const el = ref(cual).current;
-      if (el) {
-        if (reproduciendo) {
-          // Un webview puede negarse a arrancar sin que nadie haya tocado la
-          // ventana. Callarlo dejaría la pantalla grande en negro sin motivo,
-          // así que se devuelve como cualquier otro fallo.
-          void el.play().catch(() => {
-            void emitTo("main", "proyeccion-estado", {
-              src,
-              pos: 0,
-              dur: 0,
-              fin: false,
-              error: ERROR_AUTOPLAY,
-            } satisfies EstadoProyeccion);
-          });
-        } else {
-          el.pause();
-        }
-      }
-    } else {
-      // Negro o un título: se para lo que hubiera sonando, pero no se descarga
-      // — volver de un negro a lo mismo tiene que ser instantáneo.
-      refA.current?.pause();
-      refB.current?.pause();
+    const el = ref.current;
+    if (!el) return;
+    if (!src) {
+      // Negro: se para lo que hubiera sonando, pero no se descarga — volver
+      // al mismo video tiene que ser instantáneo.
+      el.pause();
+      return;
     }
-
-    // La precarga va siempre al que no se ve.
-    const libre = otro(cual);
-    const siguiente = salida.precarga ?? null;
-    if (siguiente && cargado.current[libre] !== siguiente) poner(libre, siguiente);
-  }, [src, reproduciendo, salida.precarga, activo]);
+    if (cargado.current !== src) {
+      cargado.current = src;
+      el.src = src;
+      el.load();
+    }
+    el.volume = volumen.current;
+    if (reproduciendo) {
+      // Un webview puede negarse a arrancar sin que nadie haya tocado la
+      // ventana. Callarlo dejaría la pantalla grande en negro sin motivo, así
+      // que se devuelve como cualquier otro fallo.
+      void el.play().catch(() => {
+        void emitTo("main", "proyeccion-estado", {
+          src,
+          pos: 0,
+          dur: 0,
+          fin: false,
+          error: ERROR_AUTOPLAY,
+        } satisfies EstadoProyeccion);
+      });
+    } else {
+      el.pause();
+    }
+  }, [src, reproduciendo]);
 
   /**
-   * Lo que se devuelve a quien opera, sólo del elemento que está en pantalla.
+   * Lo que se devuelve a quien opera.
    *
    * Solo a la ventana principal, que es la única que escucha, y solo cuando
    * cambia algo que se ve (ver `estadoDeSalida.ts`): el `timeupdate` llega
    * unas cuatro veces por segundo y la principal enseña segundos enteros.
    */
-  const reportar = (cual: "a" | "b", parcial: Partial<EstadoProyeccion>, forzar = false) => {
-    if (cual !== activo) return;
-    const el = ref(cual).current;
+  const reportar = (parcial: Partial<EstadoProyeccion>, forzar = false) => {
+    const el = ref.current;
     const estado: EstadoProyeccion = {
-      src: cargado.current[cual] ?? "",
+      src: cargado.current ?? "",
       pos: Math.floor(el?.currentTime ?? 0),
       dur: Number.isFinite(el?.duration) ? Math.round(el?.duration ?? 0) : 0,
       fin: false,
@@ -215,32 +135,6 @@ export default function ProjectionOutput() {
     reportado.current = estado;
     void emitTo("main", "proyeccion-estado", estado);
   };
-
-  const reproductor = (cual: "a" | "b") => (
-    <video
-      key={cual}
-      ref={ref(cual)}
-      preload="auto"
-      playsInline
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        objectFit: "contain",
-        background: "#000",
-        // Sólo se ve el activo, y sólo si lo que trae es imagen: un audio no
-        // pinta un rectángulo vacío, pinta lo que diga el ajuste de salida.
-        opacity: cual === activo && vista.modo === "media" && vista.video ? 1 : 0,
-      }}
-      onTimeUpdate={() => reportar(cual, {})}
-      onLoadedMetadata={() => reportar(cual, {}, true)}
-      onPlay={() => reportar(cual, {}, true)}
-      onPause={() => reportar(cual, {}, true)}
-      onEnded={() => reportar(cual, { fin: true })}
-      onError={() => reportar(cual, { error: ref(cual).current?.error?.code ?? 0 })}
-    />
-  );
 
   return (
     // Una pantalla para la congregación, no una interfaz: que un lector de
@@ -252,9 +146,6 @@ export default function ProjectionOutput() {
         position: "fixed",
         inset: 0,
         background: "#000",
-        color: "rgba(255,255,255,.94)",
-        display: "grid",
-        placeItems: "center",
         // Nada de esta ventana se puede tocar: es una pantalla, no una
         // interfaz. Sin cursor y sin selección, por si alguien mueve el ratón.
         cursor: "none",
@@ -262,75 +153,27 @@ export default function ProjectionOutput() {
         overflow: "hidden",
       }}
     >
-      {reproductor("a")}
-      {reproductor("b")}
-      <Contenido vista={vista} />
-
-      {/* La transición va encima de todo: mientras corre no se ve ni lo que se
-          va ni lo que viene, que es de lo que se trata. */}
-      {cuenta !== null && (
-        <div style={{ position: "absolute", inset: 0, background: "#000", display: "grid", placeItems: "center" }}>
-          {cuenta > 0 && (
-            <div className="display" style={{ fontSize: "16vh", lineHeight: 1, color: "rgba(255,255,255,.5)", fontVariantNumeric: "tabular-nums" }}>
-              {cuenta}
-            </div>
-          )}
-        </div>
-      )}
+      <video
+        ref={ref}
+        preload="auto"
+        playsInline
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          background: "#000",
+          // En negro no se ve el último fotograma: se tapa, no se descarga.
+          opacity: src ? 1 : 0,
+        }}
+        onTimeUpdate={() => reportar({})}
+        onLoadedMetadata={() => reportar({}, true)}
+        onPlay={() => reportar({}, true)}
+        onPause={() => reportar({}, true)}
+        onEnded={() => reportar({ fin: true })}
+        onError={() => reportar({ error: ref.current?.error?.code ?? 0 })}
+      />
     </div>
-  );
-}
-
-/**
- * Lo que va encima del negro: el título, sobre la carátula si la lleva, o nada.
- *
- * Un video no pasa por aquí —ya llena la pantalla—, y con «Negro» elegido
- * tampoco se pinta nada: hay cultos donde lo que se quiere mientras suena la
- * ofrenda es una pantalla apagada.
- */
-function Contenido({ vista }: { vista: VistaProyeccion }) {
-  if (vista.modo === "negro") return null;
-  if (vista.modo === "media" && vista.video) return null;
-
-  const audio = vista.modo === "media" ? vista.audio : undefined;
-  if (audio?.tipo === "negro") return null;
-
-  // El título —también el de una pista cuyo archivo no se puede abrir—. Es
-  // mejor que un negro con el que nadie sabe si la app se colgó.
-  const sub = vista.modo === "titulo" || vista.modo === "media" ? vista.sub : undefined;
-  return (
-    <>
-      {audio?.portada && <Portada src={audio.portada} />}
-      <div style={{ position: "relative", padding: 40, textAlign: "center", maxWidth: "80vw" }}>
-        <div className="display" style={{ fontSize: "5vw", lineHeight: 1.15, textWrap: "balance" }}>
-          {vista.titulo}
-        </div>
-        {sub && <div style={{ marginTop: "1.2vw", fontSize: "1.8vw", color: "rgba(255,255,255,.55)" }}>{sub}</div>}
-      </div>
-    </>
-  );
-}
-
-/** La carátula de la pista a pantalla completa, de fondo para el título. */
-function Portada({ src }: { src: string }) {
-  // La mediana encima y la pequeña debajo: si la mediana no está —una
-  // miniatura de video, o una carátula que la pasada única aún no redujo—, se
-  // ve la otra en vez del negro.
-  const grande = caratulaGrande(src);
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "absolute",
-        inset: 0,
-        backgroundImage: grande === src ? `url(${src})` : `url(${grande}), url(${src})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        // Apagada y desenfocada: es un fondo para que el título se lea
-        // encima, no una foto que compita con él.
-        filter: "brightness(.32) blur(6px)",
-        transform: "scale(1.06)",
-      }}
-    />
   );
 }

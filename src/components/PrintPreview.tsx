@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import { Download, Printer } from "lucide-react";
-import { elementosDeLista, plDur, useStore } from "../store";
+import { filasDeLista, plDur, useStore } from "../store";
 import { playlistSheetHtml } from "../lib/exportSheet";
 import Modal from "./Modal";
 
@@ -21,8 +21,7 @@ export default function PrintPreview() {
   const closeDialog = useStore((s) => s.closeDialog);
   const exportPl = useStore((s) => s.exportPl);
   const pl = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
-  // El culto entero: los momentos sin música salen en la hoja en su sitio (#145).
-  const rows = useStore(elementosDeLista);
+  const rows = useStore(filasDeLista);
   const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || []));
   const marco = useRef<HTMLIFrameElement>(null);
 

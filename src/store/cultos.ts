@@ -1,12 +1,11 @@
-import type { Playlist, TipoMomento } from "../lib/types";
-import { armarArchivoDeCulto, emparejar, nombreDeArchivo, ordenDelImportado } from "../lib/compartir";
+import type { Playlist } from "../lib/types";
+import { armarArchivo, emparejar, idsParaLaLista, nombreDeArchivo } from "../lib/compartir";
 import type { ArchivoDeLista } from "../lib/compartir";
-import { esMomento, soloPistas } from "../lib/momentos";
 import { backend } from "../lib/backend";
 import type { ImportPreview } from "./tipos";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
-import { elementosDeLista, momentosPorId, pistasParaAgregar, seleccionVigente } from "./selectores";
+import { filasDeLista, pistasParaAgregar, seleccionVigente } from "./selectores";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // Las listas para cultos: crearlas, ordenarlas, compartirlas e imprimirlas.
@@ -42,8 +41,7 @@ export interface CultosSlice {
   /** Show the sheet as it will be printed, before anything leaves the app. */
   openPrintPreview: () => void;
   newList: () => void;
-  /** `desde` is the id of the template whose order the new list starts from. */
-  createList: (nombre: string, desde?: string) => void;
+  createList: (nombre: string) => void;
   editCurrentList: () => void;
   updateList: (nombre: string) => void;
   openAddToList: () => void;
@@ -60,25 +58,12 @@ export interface CultosSlice {
   duplicateList: (id: string) => void;
   /** Copy the open list. */
   duplicateCurrentList: () => void;
-  /** Keep the open list as a starting point for new ones, or stop doing so. */
-  toggleCurrentTemplate: () => void;
   /** Write the open list as a file another installation can import. */
   shareCurrentList: () => void;
   /** Read a shared list and show what it matched, without creating anything. */
   importList: () => void;
   /** Create the list the import preview describes. */
   confirmImport: () => void;
-  /**
-   * Qué momento está abriendo el diálogo de momentos: su id para cambiarlo,
-   * `null` para añadir uno nuevo al final del culto abierto (#145).
-   */
-  momentoEditado: string | null;
-  /** Abrir el diálogo para añadir un momento sin música al culto abierto. */
-  nuevoMomento: () => void;
-  /** Abrir el diálogo sobre un momento que ya está en el culto. */
-  editarMomento: (id: string) => void;
-  /** Guardar lo que dice el diálogo: el momento nuevo o el cambio. */
-  guardarMomento: (tipo: TipoMomento, titulo: string, texto: string) => void;
   removeFromPl: (id: string) => void;
   reorderPl: (toId: string) => void;
   /** Move a track up or down the open list. The keyboard's way in. */
@@ -94,7 +79,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     playlists: [],
     plOrder: {},
     importPreview: null,
-    momentoEditado: null,
 
     curPlaylist: "",
     draggingId: null,
@@ -175,8 +159,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     },
 
     playAll: () => {
-      // Los momentos no suenan: «Reproducir todo» pasa de largo (#145).
-      const ord = soloPistas(get().plOrder[get().curPlaylist] || []);
+      const ord = filasDeLista(get()).map((t) => t.id);
       if (ord.length) {
         get().play(ord[0], ord.slice());
         toast("Reproduciendo la lista completa");
@@ -186,8 +169,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       const s = get();
       const pl = s.playlists.find((p) => p.id === s.curPlaylist);
       const ord = s.plOrder[s.curPlaylist] || [];
-      // El culto entero, momentos incluidos: la hoja los enseña en su sitio.
-      const rows = elementosDeLista(s);
+      const rows = filasDeLista(s);
       if (!pl || rows.length === 0) {
         toast("La lista está vacía");
         return;
@@ -196,7 +178,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     },
     openPrintPreview: () => {
       const s = get();
-      const hay = elementosDeLista(s).length > 0;
+      const hay = filasDeLista(s).length > 0;
       if (!s.playlists.some((p) => p.id === s.curPlaylist) || !hay) {
         toast("La lista está vacía");
         return;
@@ -204,15 +186,15 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       set({ dialog: "printPreview" });
     },
     newList: () => set({ dialog: "newList" }),
-    createList: (nombre, desde) => {
+    createList: (nombre) => {
       set({ dialog: null });
       const name = nombre.trim() || "Lista sin título";
       backend()
-        .createPlaylist(name, desde)
+        .createPlaylist(name)
         .then(async (id) => {
           applyPlaylists(await backend().getPlaylists());
           set({ view: "lista", curPlaylist: id });
-          toast(desde ? "Lista creada desde la plantilla" : "Lista creada");
+          toast("Lista creada");
         })
         .catch((err) => {
           console.error(err);
@@ -239,13 +221,13 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     shareCurrentList: () => {
       const s = get();
       const pl = s.playlists.find((p) => p.id === s.curPlaylist);
-      const rows = elementosDeLista(s);
+      const rows = filasDeLista(s);
       if (!pl) return;
       if (rows.length === 0) {
         toast("La lista está vacía");
         return;
       }
-      const json = JSON.stringify(armarArchivoDeCulto(pl, rows), null, 2);
+      const json = JSON.stringify(armarArchivo(pl, rows), null, 2);
       const name = nombreDeArchivo(pl.nombre);
       backend()
         .saveSharedList(name, json)
@@ -274,7 +256,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     confirmImport: () => {
       const previo = get().importPreview;
       if (!previo) return;
-      const momentos = previo.archivo.momentos ?? [];
       if (previo.resultado.encontradas.length === 0) return;
       const { nombre } = previo.archivo.lista;
       set({ dialog: null, importPreview: null });
@@ -291,17 +272,9 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       backend()
         .createPlaylist(nombre)
         .then(async (id) => {
-          // Los momentos se crean primero, uno a uno —cada uno entra al final—,
-          // y después el orden los pone en su sitio entre las pistas.
-          const creados: { trasPistas: number; id: string }[] = [];
-          for (const m of momentos) {
-            const listas = await backend().addPlaylistMomento(id, m.tipo, m.titulo, m.texto);
-            const ids = listas.find((p) => p.id === id)?.ids ?? [];
-            const nuevo = ids[ids.length - 1];
-            if (nuevo && esMomento(nuevo)) creados.push({ trasPistas: m.trasPistas, id: nuevo });
-          }
-          const orden = ordenDelImportado(previo.archivo.pistas, previo.resultado.encontradas, creados);
-          await backend().setPlaylistOrder(id, orden);
+          // Solo las canciones: los momentos sin música que traiga un archivo
+          // de formato 2 ya no existen en la app (#145).
+          await backend().setPlaylistOrder(id, idsParaLaLista(previo.resultado.encontradas));
           applyPlaylists(await backend().getPlaylists());
           set({ view: "lista", curPlaylist: id });
           aviso();
@@ -309,24 +282,6 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         .catch((err) => {
           console.error(err);
           toast("No se pudo importar la lista", { tipo: "error" });
-        });
-    },
-    toggleCurrentTemplate: () => {
-      const st = get();
-      const id = st.curPlaylist;
-      const pl = st.playlists.find((p) => p.id === id);
-      if (!pl) return;
-      const plantilla = !pl.plantilla;
-      const aviso = plantilla ? "Guardada como plantilla" : "Ya no es una plantilla";
-      backend()
-        .setPlaylistTemplate(id, plantilla)
-        .then((listas) => {
-          applyPlaylists(listas);
-          toast(aviso);
-        })
-        .catch((err) => {
-          console.error(err);
-          toast("No se pudo cambiar la plantilla", { tipo: "error" });
         });
     },
     editCurrentList: () => set({ dialog: "editList" }),
@@ -351,7 +306,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       const id = st.curPlaylist;
       const pl = st.playlists.find((p) => p.id === id);
       if (!pl) return;
-      const n = soloPistas(st.plOrder[id] || []).length;
+      const n = (st.plOrder[id] || []).length;
       st.askConfirm({
         title: "¿Eliminar esta lista?",
         message: `«${pl.nombre}» se borrará de las listas para cultos.`,
@@ -376,38 +331,12 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
         },
       });
     },
-    nuevoMomento: () => set({ dialog: "momento", momentoEditado: null }),
-    editarMomento: (id) => set({ dialog: "momento", momentoEditado: id }),
-    guardarMomento: (tipo, titulo, texto) => {
-      const limpio = titulo.trim();
-      if (!limpio) return;
-      const editado = get().momentoEditado;
-      const pid = get().curPlaylist;
-      set({ dialog: null, momentoEditado: null });
-      const pedido = editado
-        ? backend().updatePlaylistMomento(editado, tipo, limpio, texto)
-        : backend().addPlaylistMomento(pid, tipo, limpio, texto);
-      pedido
-        .then((listas) => {
-          applyPlaylists(listas);
-          tocarCulto(pid);
-          toast(editado ? "Momento actualizado" : `«${limpio}» añadido al culto`, {
-            detalle: editado ? undefined : "Al final del orden. Arrástralo a su sitio.",
-          });
-        })
-        .catch((err) => {
-          console.error(editado ? "update_playlist_momento failed" : "add_playlist_momento failed", err);
-          toast(editado ? "No se pudo cambiar el momento" : "No se pudo añadir el momento", { tipo: "error" });
-        });
-    },
     removeFromPl: (id) => {
       const cur2 = get().curPlaylist;
       const prev = get().plOrder[cur2] || [];
       const next = prev.filter((x) => x !== id);
-      // Quitar un momento lo borra: no está en la biblioteca, solo en este
-      // culto. El orden que se guarda sin él es lo que se lo dice al núcleo.
       saveOrder(cur2, next, prev);
-      toast(esMomento(id) ? "Momento quitado del culto" : "Quitada de la lista");
+      toast("Quitada de la lista");
     },
     setDragging: (id) => {
       modulo.dragId = id;
@@ -445,9 +374,7 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
       next.splice(desde, 1);
       next.splice(hasta, 0, id);
       saveOrder(pid, next, prev);
-      const titulo = esMomento(id)
-        ? (momentosPorId(get().playlists).get(id)?.titulo ?? "El momento")
-        : (get().tracks.find((t) => t.id === id)?.titulo ?? "La pista");
+      const titulo = get().tracks.find((t) => t.id === id)?.titulo ?? "La pista";
       set({ reorderNotice: `«${titulo}», posición ${hasta + 1} de ${next.length}` });
     },
     clearDrag: () => {

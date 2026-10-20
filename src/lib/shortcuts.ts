@@ -21,9 +21,7 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘/Ctrl + A", label: "Seleccionar todo lo que muestra la biblioteca" },
   { keys: "A", label: "Agregar a un culto lo que esté elegido" },
   { keys: "Mayús / ⌘ + clic", label: "Elegir un tramo o sumar pistas a la selección" },
-  { keys: "Esc", label: "Cerrar diálogo o panel; en Proyección, cortar la salida" },
-  { keys: "B", label: "Dejar el proyector en negro" },
-  { keys: "→", label: "Pasar al siguiente elemento proyectado" },
+  { keys: "Esc", label: "Cerrar diálogo o panel" },
   { keys: "⌘/Ctrl + + / −", label: "Agrandar o achicar la interfaz" },
   { keys: "⌘/Ctrl + 0", label: "Volver la interfaz a su tamaño de fábrica" },
   { keys: "?", label: "Mostrar esta ayuda" },
@@ -53,17 +51,6 @@ export function registerShortcuts(): () => void {
       } else if (s.rowMenu) {
         e.preventDefault();
         s.closeRowMenu();
-      } else if (s.proyectando && s.view === "proyeccion") {
-        // Con la salida abierta y la vista de Proyección delante, Esc la corta.
-        // Va aquí y no antes porque un diálogo encima sigue siendo lo más
-        // interno; y va antes que la selección y la búsqueda porque, ahí, Esc
-        // quiere decir «quita eso de la pantalla grande».
-        //
-        // Solo ahí, como B y →. Desde la biblioteca, quien pulsa Esc está
-        // borrando lo que buscaba o saliendo del buscador, y cortaba el
-        // proyector delante de la congregación (#129).
-        e.preventDefault();
-        s.alternarProyeccion();
       } else if (s.selection.length) {
         e.preventDefault();
         s.clearSelection();
@@ -118,24 +105,6 @@ export function registerShortcuts(): () => void {
     // Everything below is a bare key, so never while typing or in a dialog —
     // pressing space to pause must not reach through a confirmation.
     if (isTyping(e.target) || s.dialog || s.confirm) return;
-
-    // La vista de proyección se queda con las teclas de la barra de abajo
-    // mientras está delante: `B` para el negro y `→` para pasar al siguiente
-    // del culto. `→` a secas significaría «siguiente pista de la cola de
-    // reproducción», que no es lo que ve la congregación y sería la peor
-    // sorpresa posible estando en vivo.
-    if (s.view === "proyeccion" && s.proyectando) {
-      if (e.key === "b" || e.key === "B") {
-        e.preventDefault();
-        s.proyeccionNegro();
-        return;
-      }
-      if (e.key === "ArrowRight" || e.key === "PageDown") {
-        e.preventDefault();
-        s.proyeccionSiguiente();
-        return;
-      }
-    }
 
     // `A` a secas abre el único sitio desde el que se agrega a un culto. Sin
     // modificador porque es lo que más se repite armando un domingo, y la

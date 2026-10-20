@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { UI_PREFS_KEY, PREF_FIELDS, serialisePrefs } from "../lib/uiPrefs";
 import { backend } from "../lib/backend";
-import { modoDeLaBarra } from "../lib/proyeccion";
 import { guardarTema } from "../lib/temaGuardado";
 import { aplicarTamano, guardarTamano } from "../lib/tamano";
 import { crearContexto, modulo } from "./contexto";
@@ -26,8 +25,7 @@ import type { CantoralState } from "./tipos";
 export * from "./tipos";
 export * from "./selectores";
 export { detalleDeOmitidos } from "./reglas";
-export { filasProyectadas, modoDeLaBarra, pistaEnElAire } from "../lib/proyeccion";
-export type { ModoDeLaBarra } from "../lib/proyeccion";
+export { enElProyector } from "../lib/proyeccion";
 export type { InterfazSlice } from "./interfaz";
 export type { BibliotecaSlice } from "./biblioteca";
 export type { DetalleSlice } from "./detalle";
@@ -132,13 +130,11 @@ useStore.subscribe((s, previo) => {
 
 /**
  * Mirando `playing` y no desde `play` o `togglePlay`, porque se pone a sonar
- * desde muchos sitios —la barra, el doble clic, Espacio, el culto, la
- * proyección—, y la barra tiene que aparecer en todos.
+ * desde muchos sitios —la barra, el doble clic, Espacio, «Reproducir todo»—,
+ * y la barra tiene que aparecer en todos.
  */
 useStore.subscribe((s) => {
-  // También al proyectar: con un culto en el aire, la barra es la que dice qué
-  // suena y la que lo adelanta.
-  if (!s.haSonado && (s.playing || modoDeLaBarra(s) !== "local")) useStore.setState({ haSonado: true });
+  if (!s.haSonado && s.playing) useStore.setState({ haSonado: true });
 });
 
 // ============================================================
@@ -153,4 +149,19 @@ useStore.subscribe((s) => {
 useStore.subscribe((s, previo) => {
   if (s.playerId === previo.playerId && s.playing === previo.playing && s.proyectarVideos === previo.proyectarVideos) return;
   s.sincronizarVideo();
+});
+
+// ============================================================
+// El volumen de la barra llega también al proyector
+// ============================================================
+
+/**
+ * El volumen se cambia desde la barra, las flechas del deslizador, el botón
+ * de silencio o lo guardado al arrancar. Venga de donde venga, el video que
+ * sale por el proyector tiene que oírse a lo que dice la barra: es el mismo
+ * sonido, solo que lo reproduce la otra ventana.
+ */
+useStore.subscribe((s, previo) => {
+  if (s.volume === previo.volume && s.muted === previo.muted) return;
+  s.enviarVolumen();
 });
