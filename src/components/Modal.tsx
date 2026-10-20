@@ -79,10 +79,16 @@ export default function Modal({
   // a desenfocar todo lo que queda debajo del diálogo en cada repintado —la
   // barra del reproductor avanzando, una animación—, y en WebView2 con una
   // gráfica integrada eso se notaba al mover el ratón por el diálogo.
+  //
+  // El velo se desplaza, y la caja se centra con `margin: auto` y no con
+  // `placeItems`: con la interfaz en «Muy grande» y una ventana baja, un
+  // diálogo alto no cabe, y centrado a la fuerza se cortaba por arriba y por
+  // abajo sin forma de llegar a sus botones. Así, si cabe queda en medio, y si
+  // no, empieza arriba y se baja hasta el final.
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, zIndex: overlayZ, background: "rgba(25,18,12,.42)", display: "grid", placeItems: "center", padding: 24, animation: "canOverlay .18s ease", ...overlayStyle }}
+      style={{ position: "fixed", inset: 0, zIndex: overlayZ, background: "rgba(25,18,12,.42)", display: "grid", overflowY: "auto", padding: 24, animation: "canOverlay .18s ease", ...overlayStyle }}
     >
       <div
         ref={caja}
@@ -91,7 +97,7 @@ export default function Modal({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)", ...boxStyle }}
+        style={{ width: "100%", maxWidth, margin: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, boxShadow: "var(--sh-lg)", overflow: "hidden", animation: "canDialog .24s cubic-bezier(.22,1,.36,1)", ...boxStyle }}
       >
         {children}
       </div>

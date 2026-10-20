@@ -4,6 +4,7 @@ import App from "./App";
 import { isTauri, registrar } from "./lib/api";
 import { cargarNavegador } from "./lib/backend";
 import { aplicarTemaGuardado } from "./lib/temaGuardado";
+import { aplicarTamanoGuardado } from "./lib/tamano";
 import "./styles/global.css";
 
 // El tema antes del primer dibujo, para no pintar claro a quien lo usa oscuro
@@ -28,6 +29,9 @@ async function arrancar() {
   // Fuera de Tauri —`pnpm dev`— la app corre sobre los datos de ejemplo, que
   // van en un trozo aparte para no pesar en la de escritorio.
   if (!isTauri()) await cargarNavegador();
+  // Y el tamaño de la interfaz, por lo mismo: con la página todavía vacía no
+  // hay nada que se vea cambiar de tamaño. Son unos milisegundos.
+  await aplicarTamanoGuardado();
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <App />
