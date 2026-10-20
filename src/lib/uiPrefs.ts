@@ -39,7 +39,6 @@ export interface UiPrefs {
    */
   pantallaProyeccion: IdentidadPantalla | null;
   /** Si poner un video a sonar lo saca por la pantalla de proyección. */
-  proyectarVideos: boolean;
   /** El tamaño de toda la interfaz. Ver `lib/tamano.ts`. */
   tamanoUi: TamanoUi;
 }
@@ -74,7 +73,6 @@ export const PREF_FIELDS = [
   "densidad",
   "buscarActualizacionesAlAbrir",
   "pantallaProyeccion",
-  "proyectarVideos",
   "tamanoUi",
 ] as const;
 
@@ -92,7 +90,6 @@ export function serialisePrefs(s: UiPrefs): string {
     densidad: s.densidad,
     buscarActualizacionesAlAbrir: s.buscarActualizacionesAlAbrir,
     pantallaProyeccion: s.pantallaProyeccion,
-    proyectarVideos: s.proyectarVideos,
     tamanoUi: s.tamanoUi,
   };
   return JSON.stringify(limpio);
@@ -144,7 +141,6 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
     const g = o.pantallaProyeccion;
     out.pantallaProyeccion = { sistema: g.sistema, ancho: g.ancho, alto: g.alto, x: g.x, y: g.y };
   }
-  if (esBooleano(o.proyectarVideos)) out.proyectarVideos = o.proyectarVideos;
   if (esTamano(o.tamanoUi)) out.tamanoUi = o.tamanoUi;
   return out;
 }

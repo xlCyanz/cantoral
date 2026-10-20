@@ -17,7 +17,7 @@ let avisadoUnaPantalla = false;
 //
 // Un solo modelo: el reproductor. No hay una cola de proyección aparte ni una
 // vista desde la que manejarla. Lo que suena en la barra es lo que manda: si es
-// un video y «Proyectar los videos al reproducirlos» está puesto, sale por la
+// un video, sale por la
 // pantalla de proyección; si es un audio, suena en el equipo y el proyector se
 // queda en negro. Play, pausa, saltar y pasar de pista se hacen desde la barra,
 // siempre.
@@ -38,8 +38,10 @@ export interface ProyeccionSlice {
    */
   pantallaProyeccion: IdentidadPantalla | null;
   /**
-   * Si poner un video a sonar lo saca por la pantalla de proyección. Se
-   * recuerda. Activado de fábrica.
+   * Si poner un video a sonar lo saca por la pantalla de proyección. Siempre
+   * sí: ya no hay ajuste para apagarlo, porque en la iglesia todo video va al
+   * proyector. Queda como campo para que las pruebas del video en el panel
+   * puedan simular que no se proyecta.
    */
   proyectarVideos: boolean;
   /**
@@ -64,7 +66,6 @@ export interface ProyeccionSlice {
   /** Cerrar la salida. Desde el botón de la barra. */
   cerrarProyeccion: () => void;
   proyectar: (mensaje: MensajeProyeccion) => void;
-  setProyectarVideos: (v: boolean) => void;
   /**
    * Llevar la salida al día con el reproductor: un video que suena sale por
    * el proyector, y lo que no es video la deja en negro. La llama una
@@ -152,7 +153,6 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
       void setProjectionCmd(mensaje).catch((err) => console.error("set_projection failed", err));
     },
 
-    setProyectarVideos: (v) => set({ proyectarVideos: v }),
 
     sincronizarVideo: () => {
       const s = get();

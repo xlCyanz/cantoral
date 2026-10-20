@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Heart, Library, Plus, Settings } from "lucide-react";
+import { CalendarDays, CircleHelp, Clock, Heart, Library, Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import { cuentasDePistas, cultos as cultosPorUso, useStore } from "../store";
 import { navBtn, navCount, subBtn } from "../lib/styles";
@@ -44,6 +44,7 @@ export default function Sidebar() {
   const buscando = useStore((s) => !!s.query.trim());
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
+  const openHelp = useStore((s) => s.openHelp);
   const onQuickFilter = useStore((s) => s.onQuickFilter);
   const openPlaylist = useStore((s) => s.openPlaylist);
   const newList = useStore((s) => s.newList);
@@ -196,6 +197,14 @@ export default function Sidebar() {
       </nav>
 
       <div style={{ flex: "0 0 auto" }}>
+        {/* La ayuda a la vista, encima de Configuración: quien abre la app
+            por primera vez la busca aquí, no dentro de los ajustes. */}
+        <button onClick={openHelp} className="hb-s2" style={navBtn(false)}>
+          <span style={etiquetaFila}>
+            <CircleHelp size={14} style={{ flex: "0 0 auto" }} />
+            ¿Cómo funciona?
+          </span>
+        </button>
         <button onClick={showConfig} aria-current={cfgActive ? "page" : undefined} className={cfgActive ? undefined : "hb-s2"} style={navBtn(cfgActive)}>
           <span style={etiquetaFila}>
             <Settings size={14} style={{ flex: "0 0 auto" }} />
