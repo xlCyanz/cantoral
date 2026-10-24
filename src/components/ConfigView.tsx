@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, Mic2, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
@@ -9,13 +9,13 @@ import TamanoDeLaInterfaz from "./TamanoDeLaInterfaz";
 import { getDbInfo, isMacOS, openCreditProfile, type CopiaAutomatica, type DbInfo } from "../lib/api";
 import { backend } from "../lib/backend";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
-import type { ThemeMode } from "../lib/types";
+import type { PestanaConfig, ThemeMode } from "../lib/types";
 import { Logotipo } from "./Logo";
 
 // El rediseño pone cada cosa en su tarjeta en vez de encadenar secciones con
-// títulos sueltos y 30 px de aire entre ellas. Configuración se mira entera de
-// una sentada —qué carpetas hay, si hay duplicadas, cuándo fue la última
-// copia—, y así entra sin tener que recorrerla.
+// títulos sueltos y 30 px de aire entre ellas. Con la interfaz en «Grande» ya
+// no entraba entera, así que las tarjetas van repartidas en pestañas: cada una
+// se mira de una sentada, sin tener que recorrer la página.
 const tarjeta: CSSProperties = {
   border: "1px solid var(--border)",
   borderRadius: 10,
@@ -103,7 +103,75 @@ const PEOPLE = [
   { initials: "EL", name: "Eliezer Lorenzo", role: "Desarrollo", github: "elorenzog" },
 ];
 
+const PESTANAS: { id: PestanaConfig; nombre: string }[] = [
+  { id: "general", nombre: "General" },
+  { id: "biblioteca", nombre: "Biblioteca" },
+  { id: "cantantes", nombre: "Cantantes" },
+  { id: "proyeccion", nombre: "Proyección" },
+  { id: "copias", nombre: "Copias de seguridad" },
+  { id: "acerca", nombre: "Acerca de" },
+];
+
+/**
+ * La fila de pestañas. Se queda arriba al bajar por una pestaña larga, y se
+ * maneja con el teclado como cualquier otra: flechas, Inicio y Fin.
+ */
+function Pestanas({ actual, onCambiar }: { actual: PestanaConfig; onCambiar: (p: PestanaConfig) => void }) {
+  const ir = (e: KeyboardEvent<HTMLDivElement>) => {
+    const i = PESTANAS.findIndex((p) => p.id === actual);
+    const destino =
+      e.key === "ArrowRight" ? (i + 1) % PESTANAS.length
+      : e.key === "ArrowLeft" ? (i - 1 + PESTANAS.length) % PESTANAS.length
+      : e.key === "Home" ? 0
+      : e.key === "End" ? PESTANAS.length - 1
+      : null;
+    if (destino === null) return;
+    // Las flechas a secas pasan de canción (`lib/shortcuts.ts`): aquí mueven
+    // de pestaña y nada más.
+    e.preventDefault();
+    e.stopPropagation();
+    const id = PESTANAS[destino].id;
+    onCambiar(id);
+    document.getElementById(`config-tab-${id}`)?.focus();
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Secciones de Configuración"
+      onKeyDown={ir}
+      style={{ position: "sticky", top: 0, zIndex: 1, display: "flex", gap: 2, padding: "12px 0 0", marginBottom: 14, background: "var(--bg)", boxShadow: "inset 0 -1px 0 var(--border)", overflowX: "auto", overflowY: "hidden" }}
+    >
+      {PESTANAS.map((p) => {
+        const activa = p.id === actual;
+        return (
+          <button
+            key={p.id}
+            id={`config-tab-${p.id}`}
+            role="tab"
+            aria-selected={activa}
+            aria-controls={`config-panel-${p.id}`}
+            tabIndex={activa ? 0 : -1}
+            onClick={() => onCambiar(p.id)}
+            className={activa ? undefined : "hb-s2"}
+            style={{ flex: "0 0 auto", padding: "8px 12px 9px", borderRadius: "7px 7px 0 0", fontSize: "12.5px", fontWeight: activa ? 600 : 500, whiteSpace: "nowrap", cursor: "pointer", color: activa ? "var(--text)" : "var(--text-2)", background: "transparent", borderBottom: `2px solid ${activa ? "var(--primary)" : "transparent"}` }}
+          >
+            {p.nombre}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ConfigView() {
+  const pestana = useStore((s) => s.pestanaConfig);
+  const setPestana = useStore((s) => s.setPestanaConfig);
+  // Cada pestaña empieza por arriba: si no, al cambiar desde lo hondo de una
+  // larga se cae en mitad de la otra.
+  useEffect(() => {
+    document.querySelector("main")?.scrollTo({ top: 0 });
+  }, [pestana]);
   const folders = useStore((s) => s.folders);
   const totalTracks = useStore((s) => s.tracks.length);
   const tracks = useStore((s) => s.tracks);
@@ -141,169 +209,188 @@ export default function ConfigView() {
     .pop();
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 18px 24px" }}>
-      <div style={tarjeta}>
-        <h2 style={h2Style}>Apariencia</h2>
-        <p style={{ ...pStyle, marginBottom: 10 }}>El oscuro está pensado para un templo con las luces bajas.</p>
-        <div style={{ display: "flex", gap: 9 }}>
-          <ThemeCard value="light" label="Claro" />
-          <ThemeCard value="dark" label="Oscuro" />
-          <ThemeCard value="system" label="Seguir al sistema" />
-        </div>
-      </div>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 18px 24px" }}>
+      <Pestanas actual={pestana} onCambiar={setPestana} />
 
-      <TamanoDeLaInterfaz />
-
-      <AjustesDeProyeccion />
-
-      <div style={tarjeta}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
-          <h2 style={{ ...h2Style, margin: 0, flex: "0 0 auto" }}>Carpetas indexadas</h2>
-          <p style={{ ...pStyle, minWidth: 0 }}>Cantoral las lee; los archivos no se tocan.</p>
-          <div style={{ flex: 1 }} />
-          <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 26, display: "flex", alignItems: "center", gap: 6, fontSize: "11.5px", fontWeight: 600, ...ocupadoStyle(scanning) }}>
-            <Plus size={13} strokeWidth={2.2} />Añadir carpeta…
-          </button>
-        </div>
-        {folders.length === 0 && (
-          <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
-            Todavía no hay ninguna. Señala la carpeta donde está la música y Cantoral la lee de ahí.
-          </p>
-        )}
-        {folders.map((f) => (
-          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid var(--border)" }}>
-            <Folder size={15} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div title={f.ruta} style={{ fontSize: 12, fontFamily: "ui-monospace,Menlo,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.ruta}</div>
-              <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{metaDeCarpeta(f, faltantesPorCarpeta[f.id] ?? 0, formatScan(f.lastScan))}</div>
-            </div>
-            {/* Con su nombre y no un icono: «reapuntar» no tiene dibujo que se
-                entienda solo, y equivocarse de botón aquí quita una carpeta. */}
-            <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
-              Reescanear
-            </button>
-            <button onClick={() => relocateFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "La carpeta cambió de sitio: apuntarla al nuevo sin perder lo que lleven sus pistas"} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
-              Reapuntar…
-            </button>
-            <button onClick={() => removeFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-danger" style={{ ...botonFila, color: "var(--danger)", ...ocupadoStyle(scanning) }}>
-              Quitar…
-            </button>
-          </div>
-        ))}
-        {folders.length > 0 && (
-          <div style={{ paddingTop: 9, borderTop: "1px solid var(--border)", fontSize: "10.5px", color: "var(--text-3)" }}>
-            Última actualización: {formatScan(lastScan)} · {totalTracks} pistas en total
-          </div>
-        )}
-      </div>
-
-      <DuplicateGroups />
-
-      <SingerManagement />
-
-      <div style={tarjeta}>
-        <h2 style={h2Style}>Base de datos</h2>
-        <p style={{ ...pStyle, marginBottom: 10 }}>
-          Tu catálogo y tus listas viven en un solo archivo.{" "}
-          {dbInfo ? (
-            <span title={dbInfo.path} style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: "10.5px", color: "var(--text-3)" }}>
-              {dbInfo.path} · {formatSize(dbInfo.size)}
-            </span>
-          ) : (
-            "Haz copias periódicas."
-          )}
-        </p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={backup} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
-            <Download size={13} />Crear copia de seguridad
-          </button>
-          <button onClick={() => restore()} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, ...ocupadoStyle(scanning) }}>
-            Restaurar una copia…
-          </button>
-        </div>
-        {/* Lo que un PC compartido necesita saber antes de fiarse: si hay copia
-            y de cuándo. Solo cuenta la que llegó a escribirse (#128). */}
-        {dbInfo && (
-          <p style={{ ...pStyle, marginTop: 8, fontSize: "10.5px", color: "var(--text-3)" }}>
-            Última copia: {formatFecha(copiaDeEstaSesion ?? dbInfo.ultimaCopia, "todavía ninguna")}
-          </p>
-        )}
-
-        {/* El «deshacer» de quitar, restaurar y fusionar (#143): restaurar una
-            de estas pasa por la misma confirmación con números de siempre. */}
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-          <h3 style={{ ...h2Style, fontSize: 12 }}>Copias automáticas</h3>
-          <p style={{ ...pStyle, marginBottom: copiasAuto.length ? 6 : 0 }}>
-            Cantoral guarda una antes de quitar una carpeta, restaurar un respaldo o fusionar duplicados, y conserva las
-            últimas cinco. Están en este mismo disco: no sustituyen una copia en otro equipo o en una memoria USB.
-            {copiasAuto.length === 0 && " Todavía no hay ninguna."}
-          </p>
-          {copiasAuto.map((c) => (
-            <div key={c.ruta} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--border)" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12 }}>
-                  {formatFecha(c.fecha, c.fecha)}, {MOTIVO_DE_COPIA[c.motivo] ?? c.motivo}
-                </div>
-                <div title={c.ruta} style={{ fontSize: "10.5px", color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {formatSize(c.tamano)}
+      <div role="tabpanel" id={`config-panel-${pestana}`} aria-labelledby={`config-tab-${pestana}`} tabIndex={0} style={{ outline: "none" }}>
+        {pestana === "general" && (
+          <>
+              <div style={tarjeta}>
+                <h2 style={h2Style}>Apariencia</h2>
+                <p style={{ ...pStyle, marginBottom: 10 }}>El oscuro está pensado para un templo con las luces bajas.</p>
+                <div style={{ display: "flex", gap: 9 }}>
+                  <ThemeCard value="light" label="Claro" />
+                  <ThemeCard value="dark" label="Oscuro" />
+                  <ThemeCard value="system" label="Seguir al sistema" />
                 </div>
               </div>
-              <button onClick={() => restore(c.ruta)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
-                Restaurar…
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Para cuando algo falla en una PC que quien arregla no tiene delante:
-          el archivo se manda tal cual, sin buscar la carpeta a mano. */}
-      <div style={tarjeta}>
-        <h2 style={h2Style}>Diagnóstico</h2>
-        <p style={{ ...pStyle, marginBottom: 10 }}>
-          Cantoral anota lo que hace en un registro. Si algo falla, envía ese archivo a quien te ayuda con la app.
-        </p>
-        <button onClick={mostrarRegistro} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
-          <FileText size={13} />Mostrar el registro
-        </button>
-      </div>
+            <TamanoDeLaInterfaz />
+            <AbrirConElSistema />
+          </>
+        )}
 
-      <AbrirConElSistema />
+        {pestana === "biblioteca" && (
+          <>
+              <div style={tarjeta}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+                  <h2 style={{ ...h2Style, margin: 0, flex: "0 0 auto" }}>Carpetas indexadas</h2>
+                  <p style={{ ...pStyle, minWidth: 0 }}>Cantoral las lee; los archivos no se tocan.</p>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={openAddFolder} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 26, display: "flex", alignItems: "center", gap: 6, fontSize: "11.5px", fontWeight: 600, ...ocupadoStyle(scanning) }}>
+                    <Plus size={13} strokeWidth={2.2} />Añadir carpeta…
+                  </button>
+                </div>
+                {folders.length === 0 && (
+                  <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
+                    Todavía no hay ninguna. Señala la carpeta donde está la música y Cantoral la lee de ahí.
+                  </p>
+                )}
+                {folders.map((f) => (
+                  <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid var(--border)" }}>
+                    <Folder size={15} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div title={f.ruta} style={{ fontSize: 12, fontFamily: "ui-monospace,Menlo,monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.ruta}</div>
+                      <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{metaDeCarpeta(f, faltantesPorCarpeta[f.id] ?? 0, formatScan(f.lastScan))}</div>
+                    </div>
+                    {/* Con su nombre y no un icono: «reapuntar» no tiene dibujo que se
+                        entienda solo, y equivocarse de botón aquí quita una carpeta. */}
+                    <button onClick={() => rescanFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
+                      Reescanear
+                    </button>
+                    <button onClick={() => relocateFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : "La carpeta cambió de sitio: apuntarla al nuevo sin perder lo que lleven sus pistas"} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
+                      Reapuntar…
+                    </button>
+                    <button onClick={() => removeFolder(f.id)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-danger" style={{ ...botonFila, color: "var(--danger)", ...ocupadoStyle(scanning) }}>
+                      Quitar…
+                    </button>
+                  </div>
+                ))}
+                {folders.length > 0 && (
+                  <div style={{ paddingTop: 9, borderTop: "1px solid var(--border)", fontSize: "10.5px", color: "var(--text-3)" }}>
+                    Última actualización: {formatScan(lastScan)} · {totalTracks} pistas en total
+                  </div>
+                )}
+              </div>
 
-      {/* actualizaciones */}
-      <Actualizaciones />
+            <DuplicateGroups />
+          </>
+        )}
 
-      <div style={tarjeta}>
-        <h2 style={h2Style}>Créditos</h2>
-        <p style={{ ...pStyle, marginBottom: 10 }}>Quienes hacen posible Cantoral.</p>
-        {PEOPLE.map((p, i) => (
-          <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--border)" : undefined }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--brand-grad)", display: "grid", placeItems: "center", flex: "0 0 auto", color: "#fff", fontSize: 11, fontWeight: 700 }}>{p.initials}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{p.name}</div>
-              <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{p.role}</div>
-            </div>
-            {/* Un botón y no un `<a href>`: la ventana no abre enlaces por su
-                cuenta (#142); el perfil lo abre el núcleo, que solo conoce
-                estos dos. */}
-            <button
-              onClick={() => void openCreditProfile(p.github).catch((err) => console.error("could not open the profile", err))}
-              aria-label={`Perfil de GitHub de ${p.name}`}
-              title={`github.com/${p.github}`}
-              className="hb-s2"
-              style={{ ...botonFila, height: 24, padding: "0 9px", borderRadius: 6, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, flex: "0 0 auto" }}
-            >
-              <ExternalLink size={12} />@{p.github}
-            </button>
-          </div>
-        ))}
-      </div>
+        {pestana === "cantantes" && <SingerManagement />}
 
-      {/* Lo más parecido a un «Acerca de» que tiene la app: el manual pone aquí
-          el logotipo con el símbolo a 64 px. */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: "var(--text-3)", fontSize: 11, padding: "14px 0 4px" }}>
-        <Logotipo cuerpo={64 / (1.14 * (244 / 200))} />
-        <span>Versión {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza</span>
+        {pestana === "proyeccion" && <AjustesDeProyeccion />}
+
+        {pestana === "copias" && (
+          <>
+              <div style={tarjeta}>
+                <h2 style={h2Style}>Base de datos</h2>
+                <p style={{ ...pStyle, marginBottom: 10 }}>
+                  Tu catálogo y tus listas viven en un solo archivo.{" "}
+                  {dbInfo ? (
+                    <span title={dbInfo.path} style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: "10.5px", color: "var(--text-3)" }}>
+                      {dbInfo.path} · {formatSize(dbInfo.size)}
+                    </span>
+                  ) : (
+                    "Haz copias periódicas."
+                  )}
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={backup} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+                    <Download size={13} />Crear copia de seguridad
+                  </button>
+                  <button onClick={() => restore()} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, ...ocupadoStyle(scanning) }}>
+                    Restaurar una copia…
+                  </button>
+                </div>
+                {/* Lo que un PC compartido necesita saber antes de fiarse: si hay copia
+                    y de cuándo. Solo cuenta la que llegó a escribirse (#128). */}
+                {dbInfo && (
+                  <p style={{ ...pStyle, marginTop: 8, fontSize: "10.5px", color: "var(--text-3)" }}>
+                    Última copia: {formatFecha(copiaDeEstaSesion ?? dbInfo.ultimaCopia, "todavía ninguna")}
+                  </p>
+                )}
+
+                {/* El «deshacer» de quitar, restaurar y fusionar (#143): restaurar una
+                    de estas pasa por la misma confirmación con números de siempre. */}
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                  <h3 style={{ ...h2Style, fontSize: 12 }}>Copias automáticas</h3>
+                  <p style={{ ...pStyle, marginBottom: copiasAuto.length ? 6 : 0 }}>
+                    Cantoral guarda una antes de quitar una carpeta, restaurar un respaldo o fusionar duplicados, y conserva las
+                    últimas cinco. Están en este mismo disco: no sustituyen una copia en otro equipo o en una memoria USB.
+                    {copiasAuto.length === 0 && " Todavía no hay ninguna."}
+                  </p>
+                  {copiasAuto.map((c) => (
+                    <div key={c.ruta} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12 }}>
+                          {formatFecha(c.fecha, c.fecha)}, {MOTIVO_DE_COPIA[c.motivo] ?? c.motivo}
+                        </div>
+                        <div title={c.ruta} style={{ fontSize: "10.5px", color: "var(--text-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {formatSize(c.tamano)}
+                        </div>
+                      </div>
+                      <button onClick={() => restore(c.ruta)} disabled={scanning} title={scanning ? "Hay un escaneo en curso" : undefined} className="hb-s2" style={{ ...botonFila, ...ocupadoStyle(scanning) }}>
+                        Restaurar…
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+          </>
+        )}
+
+        {pestana === "acerca" && (
+          <>
+            <Actualizaciones />
+
+              {/* Para cuando algo falla en una PC que quien arregla no tiene delante:
+                  el archivo se manda tal cual, sin buscar la carpeta a mano. */}
+              <div style={tarjeta}>
+                <h2 style={h2Style}>Diagnóstico</h2>
+                <p style={{ ...pStyle, marginBottom: 10 }}>
+                  Cantoral anota lo que hace en un registro. Si algo falla, envía ese archivo a quien te ayuda con la app.
+                </p>
+                <button onClick={mostrarRegistro} className="hb-s2" style={{ ...botonFila, height: 28, padding: "0 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+                  <FileText size={13} />Mostrar el registro
+                </button>
+              </div>
+
+              <div style={tarjeta}>
+                <h2 style={h2Style}>Créditos</h2>
+                <p style={{ ...pStyle, marginBottom: 10 }}>Quienes hacen posible Cantoral.</p>
+                {PEOPLE.map((p, i) => (
+                  <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--border)" : undefined }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--brand-grad)", display: "grid", placeItems: "center", flex: "0 0 auto", color: "#fff", fontSize: 11, fontWeight: 700 }}>{p.initials}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{p.name}</div>
+                      <div style={{ fontSize: "10.5px", color: "var(--text-3)" }}>{p.role}</div>
+                    </div>
+                    {/* Un botón y no un `<a href>`: la ventana no abre enlaces por su
+                        cuenta (#142); el perfil lo abre el núcleo, que solo conoce
+                        estos dos. */}
+                    <button
+                      onClick={() => void openCreditProfile(p.github).catch((err) => console.error("could not open the profile", err))}
+                      aria-label={`Perfil de GitHub de ${p.name}`}
+                      title={`github.com/${p.github}`}
+                      className="hb-s2"
+                      style={{ ...botonFila, height: 24, padding: "0 9px", borderRadius: 6, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, flex: "0 0 auto" }}
+                    >
+                      <ExternalLink size={12} />@{p.github}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Lo más parecido a un «Acerca de» que tiene la app: el manual pone aquí
+                  el logotipo con el símbolo a 64 px. */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, color: "var(--text-3)", fontSize: 11, padding: "14px 0 4px" }}>
+                <Logotipo cuerpo={64 / (1.14 * (244 / 200))} />
+                <span>Versión {__APP_VERSION__} · Hecho con cuidado para el ministerio de alabanza</span>
+              </div>
+          </>
+        )}
       </div>
     </div>
   );
