@@ -172,7 +172,7 @@ describe("buscar al abrir (#146)", () => {
   /** Arranca la app con lo que haya guardado en `ui`. */
   async function arrancarCon(ui: string | null) {
     getSetting.mockImplementation((k) => Promise.resolve(k === UI_PREFS_KEY ? ui : null));
-    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [] });
+    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [], singers: [] });
     await useStore.getState().hydrate();
   }
 

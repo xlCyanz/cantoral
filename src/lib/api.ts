@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import type { Folder, Playlist, Theme, Track } from "./types";
+import type { Singer, Folder, Playlist, Theme, Track } from "./types";
 import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "./formatos";
 
 // Lo mínimo vive en `registro.ts`, para que la ventana de salida no cargue
@@ -196,6 +196,7 @@ export interface Snapshot {
   tracks: Track[];
   folders: Folder[];
   playlists: Playlist[];
+  singers: Singer[];
 }
 
 /**
@@ -325,6 +326,33 @@ export async function getLibrary(): Promise<Snapshot | null> {
   if (!isTauri()) return null;
   return inv<Snapshot>("get_library");
 }
+
+// ---------------------------------------------------------------- singers
+
+/** Añadir un cantante nuevo. */
+export async function addSingerCmd(name: string): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("add_singer", { name });
+}
+
+/** Renombrar un cantante existente. */
+export async function renameSingerCmd(id: string, name: string): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("rename_singer", { id, name });
+}
+
+/** Quitar un cantante y todo lo que se le sabía. */
+export async function deleteSingerCmd(id: string): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("delete_singer", { id });
+}
+
+/** Guardar quiénes se saben una pista. */
+export async function setTrackSingersCmd(track: string, singers: string[]): Promise<Snapshot | null> {
+  if (!isTauri()) return null;
+  return inv<Snapshot>("set_track_singers", { track, singers });
+}
+
 export async function addAndScanFolder(path: string, recursive: boolean): Promise<Snapshot> {
   return inv<Snapshot>("add_and_scan_folder", { path, recursive });
 }

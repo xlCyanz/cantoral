@@ -93,6 +93,14 @@ export interface Backend {
   dismissDuplicates(signature: string): Promise<DuplicateReport>;
   restoreDismissedDuplicates(): Promise<DuplicateReport>;
 
+  // ---- cantantes
+  addSinger(nombre: string): Promise<Snapshot>;
+  renameSinger(id: string, nombre: string): Promise<Snapshot>;
+  /** La cascada lleva fuera lo que se le sabía; contesta con el catálogo entero. */
+  deleteSinger(id: string): Promise<Snapshot>;
+  /** Guardar quiénes se saben una pista, por id de cantante. */
+  setTrackSingers(track: string, singers: string[]): Promise<Snapshot>;
+
   // ---- ajustes
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;

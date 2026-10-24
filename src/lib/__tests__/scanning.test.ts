@@ -53,12 +53,13 @@ function track(id: string): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
+    singers: [],
     added: 1,
   };
 }
 
 function snapshot(ids: string[]): Snapshot {
-  return { tracks: ids.map(track), folders: [], playlists: [] };
+  return { tracks: ids.map(track), folders: [], playlists: [], singers: [] };
 }
 
 function novedades(ids: string[]): Novedades {

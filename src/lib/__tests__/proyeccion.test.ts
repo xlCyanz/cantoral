@@ -199,6 +199,7 @@ const VIDEO: Track = {
   carpeta: "Música",
   fav: false,
   missing: false,
+  singers: [],
   added: 0,
   path: "/m/v.mp4",
   video: true,

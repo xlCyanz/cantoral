@@ -1,9 +1,15 @@
 import type { DuplicateGroup, DuplicateTrack } from "./api";
-import type { Folder, Playlist, Track } from "./types";
+import type { Singer, Folder, Playlist, Track } from "./types";
 
 // Seed catalogue — transcribed verbatim from design/Cantoral.dc.html.
 // Used by the dev/browser mock backend so the UI is fully explorable
 // without the Rust process. The real backend replaces this at runtime.
+
+export const SEED_SINGERS: Singer[] = [
+  { id: "c1", nombre: "María" },
+  { id: "c2", nombre: "José" },
+  { id: "c3", nombre: "Ana" },
+];
 
 export const SCAN_FILES = [
   "Himnos\\Sublime Gracia.mp3",
@@ -23,25 +29,25 @@ export const SEED_FOLDERS: Folder[] = [
 ];
 
 const PISTAS: Omit<Track, "path">[] = [
-  { id: "t1", titulo: "Sublime Gracia", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 1", dur: "4:12", durSec: 252, formato: "MP3", carpeta: "Himnos", fav: true, missing: false, added: 6 },
-  { id: "t2", titulo: "Santo, Santo, Santo", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 1", dur: "3:48", durSec: 228, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 5 },
-  { id: "t3", titulo: "Castillo Fuerte", artista: "Coro Congregacional", album: "Herencia de la Reforma", dur: "3:20", durSec: 200, formato: "WAV", carpeta: "Coros", fav: false, missing: false, added: 4 },
-  { id: "t4", titulo: "Cuán Grande Es Él", artista: "Voces de Gracia", album: "Adoración en Vivo", dur: "5:02", durSec: 302, formato: "MP3", carpeta: "Himnos", fav: true, missing: true, added: 9 },
-  { id: "t5", titulo: "Al Mundo Paz", artista: "Coro Navideño", album: "Navidad Congregacional", dur: "3:05", durSec: 185, formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: false, added: 10 },
-  { id: "t6", titulo: "Roca de la Eternidad", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 2", dur: "4:30", durSec: 270, formato: "FLAC", carpeta: "Himnos", fav: false, missing: false, added: 3 },
-  { id: "t7", titulo: "A Solas al Huerto", artista: "Adoración Central", album: "Momentos de Reflexión", dur: "4:44", durSec: 284, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 2 },
-  { id: "t8", titulo: "Firmes y Adelante", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:12", durSec: 192, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 7 },
-  { id: "t9", titulo: "Tuya Es la Gloria", artista: "Voces de Gracia", album: "Resurrección", dur: "3:58", durSec: 238, formato: "WAV", carpeta: "Pistas 2025", fav: true, missing: false, added: 8 },
-  { id: "t10", titulo: "Mil Voces Para Celebrar", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:30", durSec: 210, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 1 },
-  { id: "t11", titulo: "Cariñoso Salvador", artista: "Adoración Central", album: "Comunión", dur: "4:08", durSec: 248, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 5 },
-  { id: "t12", titulo: "Dulce Comunión", artista: "Ensamble Getsemaní", album: "Comunión", dur: "3:36", durSec: 216, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 4 },
-  { id: "t13", titulo: "Cristo Ya Resucitó", artista: "Voces de Gracia", album: "Resurrección", dur: "3:22", durSec: 202, formato: "WAV", carpeta: "Pistas 2025", fav: false, missing: false, added: 8 },
-  { id: "t14", titulo: "Oh Dios, Nuestro Auxilio", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 2", dur: "4:00", durSec: 240, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 2 },
-  { id: "t15", titulo: "Alma, Bendice al Señor", artista: "Adoración Central", album: "Adoración en Vivo", dur: "4:20", durSec: 260, formato: "MP3", carpeta: "Coros", fav: true, missing: false, added: 6 },
-  { id: "t16", titulo: "En la Cruz", artista: "Ensamble Getsemaní", album: "Momentos de Reflexión", dur: "4:55", durSec: 295, formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: true, added: 3 },
-  { id: "t17", titulo: "Sublime Gracia — Video con letra", artista: "Proyección", album: "Recursos de Proyección", dur: "4:20", durSec: 260, formato: "MP4", carpeta: "Pistas 2025", fav: false, missing: false, added: 10, video: true },
-  { id: "t18", titulo: "Fondo de Adoración (loop)", artista: "Recurso Visual", album: "Recursos de Proyección", dur: "6:00", durSec: 360, formato: "MOV", carpeta: "Pistas 2025", fav: false, missing: false, added: 9, video: true },
-  { id: "t19", titulo: "Cristo Ya Resucitó — Video", artista: "Proyección", album: "Resurrección", dur: "3:22", durSec: 202, formato: "MP4", carpeta: "Coros", fav: false, missing: false, added: 7, video: true },
+  { id: "t1", titulo: "Sublime Gracia", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 1", dur: "4:12", durSec: 252, formato: "MP3", carpeta: "Himnos", fav: true, missing: false, added: 6, singers: ["María", "José"] },
+  { id: "t2", titulo: "Santo, Santo, Santo", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 1", dur: "3:48", durSec: 228, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 5, singers: ["María"] },
+  { id: "t3", titulo: "Castillo Fuerte", artista: "Coro Congregacional", album: "Herencia de la Reforma", dur: "3:20", durSec: 200, formato: "WAV", carpeta: "Coros", fav: false, missing: false, added: 4, singers: ["José", "Ana"] },
+  { id: "t4", titulo: "Cuán Grande Es Él", artista: "Voces de Gracia", album: "Adoración en Vivo", dur: "5:02", durSec: 302, formato: "MP3", carpeta: "Himnos", fav: true, missing: true, added: 9, singers: [] },
+  { id: "t5", titulo: "Al Mundo Paz", artista: "Coro Navideño", album: "Navidad Congregacional", dur: "3:05", durSec: 185, formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: false, added: 10, singers: ["Ana"] },
+  { id: "t6", titulo: "Roca de la Eternidad", artista: "Ensamble Getsemaní", album: "Himnos Clásicos, Vol. 2", dur: "4:30", durSec: 270, formato: "FLAC", carpeta: "Himnos", fav: false, missing: false, added: 3, singers: ["María", "José", "Ana"] },
+  { id: "t7", titulo: "A Solas al Huerto", artista: "Adoración Central", album: "Momentos de Reflexión", dur: "4:44", durSec: 284, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 2, singers: ["José"] },
+  { id: "t8", titulo: "Firmes y Adelante", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:12", durSec: 192, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 7, singers: ["María", "Ana"] },
+  { id: "t9", titulo: "Tuya Es la Gloria", artista: "Voces de Gracia", album: "Resurrección", dur: "3:58", durSec: 238, formato: "WAV", carpeta: "Pistas 2025", fav: true, missing: false, added: 8, singers: ["José"] },
+  { id: "t10", titulo: "Mil Voces Para Celebrar", artista: "Coro Congregacional", album: "Himnos de Fe", dur: "3:30", durSec: 210, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 1, singers: [] },
+  { id: "t11", titulo: "Cariñoso Salvador", artista: "Adoración Central", album: "Comunión", dur: "4:08", durSec: 248, formato: "MP3", carpeta: "Coros", fav: false, missing: false, added: 5, singers: ["Ana"] },
+  { id: "t12", titulo: "Dulce Comunión", artista: "Ensamble Getsemaní", album: "Comunión", dur: "3:36", durSec: 216, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 4, singers: ["María"] },
+  { id: "t13", titulo: "Cristo Ya Resucitó", artista: "Voces de Gracia", album: "Resurrección", dur: "3:22", durSec: 202, formato: "WAV", carpeta: "Pistas 2025", fav: false, missing: false, added: 8, singers: ["María", "José"] },
+  { id: "t14", titulo: "Oh Dios, Nuestro Auxilio", artista: "Coro Congregacional", album: "Himnos Clásicos, Vol. 2", dur: "4:00", durSec: 240, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 2, singers: [] },
+  { id: "t15", titulo: "Alma, Bendice al Señor", artista: "Adoración Central", album: "Adoración en Vivo", dur: "4:20", durSec: 260, formato: "MP3", carpeta: "Coros", fav: true, missing: false, added: 6, singers: ["José", "Ana"] },
+  { id: "t16", titulo: "En la Cruz", artista: "Ensamble Getsemaní", album: "Momentos de Reflexión", dur: "4:55", durSec: 295, formato: "MP3", carpeta: "Pistas 2025", fav: false, missing: true, added: 3, singers: [] },
+  { id: "t17", titulo: "Sublime Gracia — Video con letra", artista: "Proyección", album: "Recursos de Proyección", dur: "4:20", durSec: 260, formato: "MP4", carpeta: "Pistas 2025", fav: false, missing: false, added: 10, video: true, singers: ["María", "José"] },
+  { id: "t18", titulo: "Fondo de Adoración (loop)", artista: "Recurso Visual", album: "Recursos de Proyección", dur: "6:00", durSec: 360, formato: "MOV", carpeta: "Pistas 2025", fav: false, missing: false, added: 9, video: true, singers: [] },
+  { id: "t19", titulo: "Cristo Ya Resucitó — Video", artista: "Proyección", album: "Resurrección", dur: "3:22", durSec: 202, formato: "MP4", carpeta: "Coros", fav: false, missing: false, added: 7, video: true, singers: ["María", "José"] },
 ];
 
 /**

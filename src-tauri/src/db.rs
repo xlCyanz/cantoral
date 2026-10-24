@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Playlist, Track};
+use crate::models::{fmt_dur, DuplicateGroup, DuplicateTrack, Folder, Playlist, Singer, Track};
 
 /// Tauri-managed database handle.
 pub struct Db(pub Mutex<Connection>);
@@ -109,8 +109,22 @@ CREATE TABLE IF NOT EXISTS duplicate_dismissals (
   dismissed_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cantantes (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre   TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS cantante_pista (
+  cantante_id INTEGER NOT NULL REFERENCES cantantes(id) ON DELETE CASCADE,
+  track_id    INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  PRIMARY KEY (cantante_id, track_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_tracks_titulo ON tracks(titulo);
 CREATE INDEX IF NOT EXISTS idx_tracks_folder ON tracks(folder_id);
+-- `listar_pistas` sabe a quién se le sabe cada pista con una sola consulta por
+-- catálogo; este índice hace que sea una pasada por la tabla de relaciones.
+CREATE INDEX IF NOT EXISTS idx_cantante_pista_track ON cantante_pista(track_id);
 -- `list_playlists` lee el orden de todas las listas de una vez, en este orden.
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_orden ON playlist_tracks(playlist_id, position);
 -- Borrar una pista (o una carpeta entera) busca sus filas en las listas por
@@ -235,6 +249,22 @@ const MIGRATIONS: &[(i64, &str)] = &[
     // de miles de pistas recorría la tabla una vez por pista. `playlist_momentos`
     // no apunta a ninguna pista, así que no necesita otro.
     (15, "CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track ON playlist_tracks(track_id);"),
+    // Los cantantes (#feature): quiénes se saben cada canción. Dos tablas y un
+    // índice, así que se sostiene solo: no toca ninguna fila de antes. La
+    // cascada lleva las relaciones fuera al quitar una pista o un cantante.
+    (
+        16,
+        "CREATE TABLE IF NOT EXISTS cantantes (
+           id       INTEGER PRIMARY KEY AUTOINCREMENT,
+           nombre   TEXT NOT NULL UNIQUE
+         );
+         CREATE TABLE IF NOT EXISTS cantante_pista (
+           cantante_id INTEGER NOT NULL REFERENCES cantantes(id) ON DELETE CASCADE,
+           track_id    INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+           PRIMARY KEY (cantante_id, track_id)
+         );
+         CREATE INDEX IF NOT EXISTS idx_cantante_pista_track ON cantante_pista(track_id);",
+    ),
 ];
 
 /// The schema version this build writes and understands: the last migration.
@@ -394,9 +424,11 @@ fn listar_pistas(conn: &Connection, filtro: &str, p: impl rusqlite::Params) -> R
          WHERE {filtro}
          ORDER BY t.id"
     ))?;
+    let mut ids: Vec<i64> = Vec::new();
     let rows = stmt.query_map(p, |r| {
         let id: i64 = r.get(0)?;
         let dur_sec: i64 = r.get(5)?;
+        ids.push(id);
         Ok(Track {
             id: id.to_string(),
             path: r.get(1)?,
@@ -414,9 +446,18 @@ fn listar_pistas(conn: &Connection, filtro: &str, p: impl rusqlite::Params) -> R
             cover: r.get::<_, Option<String>>(11)?,
             nueva: r.get::<_, i64>(12)? != 0,
             miniatura_fallida: r.get::<_, i64>(13)? != 0,
+            singers: vec![],
         })
     })?;
-    Ok(rows.collect::<std::result::Result<_, _>>()?)
+    let mut tracks: Vec<Track> = rows.collect::<std::result::Result<_, _>>()?;
+    drop(stmt);
+    // Quién se la sabe, una consulta para el lote entero: en una biblioteca
+    // grande, una por pista serían miles de idas y vueltas a la base.
+    let mut por_pista = singers_by_track(conn, &ids)?;
+    for t in &mut tracks {
+        t.singers = por_pista.remove(&t.id.parse::<i64>().unwrap_or(0)).unwrap_or_default();
+    }
+    Ok(tracks)
 }
 
 /// Guardar lo que se edita de una pista desde el panel de detalle.
@@ -1655,6 +1696,92 @@ pub fn merge_tracks(conn: &Connection, keep_id: i64, drop_ids: &[i64]) -> Result
 /// text from outside, so there is nothing here for a quote to escape.
 fn lista_de_ids(ids: &[i64]) -> String {
     ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")
+}
+
+// ---------------------------------------------------------------- cantantes
+
+/// Nombres de cantantes por id de pista, para un lote de pistas.
+///
+/// Una sola consulta en lugar de una por fila: en una biblioteca grande eso
+/// sería miles de idas y vueltas a la base de datos.
+pub fn singers_by_track(conn: &Connection, track_ids: &[i64]) -> Result<HashMap<i64, Vec<String>>> {
+    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
+    if track_ids.is_empty() {
+        return Ok(map);
+    }
+    let lista = lista_de_ids(track_ids);
+    let mut stmt = conn.prepare(&format!(
+        "SELECT cp.track_id, c.nombre
+         FROM cantante_pista cp
+         JOIN cantantes c ON c.id = cp.cantante_id
+         WHERE cp.track_id IN ({lista})
+         ORDER BY c.nombre"
+    ))?;
+    let rows = stmt.query_map([], |r| {
+        let track_id: i64 = r.get(0)?;
+        let nombre: String = r.get(1)?;
+        Ok((track_id, nombre))
+    })?;
+    for row in rows {
+        let (track_id, nombre) = row?;
+        map.entry(track_id).or_default().push(nombre);
+    }
+    Ok(map)
+}
+
+/// Todas las personas registradas como cantantes, ordenadas por nombre.
+pub fn list_singers(conn: &Connection) -> Result<Vec<Singer>> {
+    let mut stmt = conn.prepare("SELECT id, nombre FROM cantantes ORDER BY nombre")?;
+    let rows = stmt
+        .query_map([], |r| Ok(Singer { id: r.get::<_, i64>(0)?.to_string(), nombre: r.get(1)? }))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Añadir un cantante nuevo. Devuelve su id.
+pub fn add_singer(conn: &Connection, name: &str) -> Result<i64> {
+    conn.execute("INSERT INTO cantantes(nombre) VALUES(?1)", params![name])?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// Cambiar el nombre de un cantante.
+pub fn rename_singer(conn: &Connection, id: i64, name: &str) -> Result<()> {
+    let filas = conn.execute("UPDATE cantantes SET nombre=?1 WHERE id=?2", params![name, id])?;
+    if filas == 0 {
+        bail!("el cantante ya no existe");
+    }
+    Ok(())
+}
+
+/// Quitar un cantante y todo lo que se le sabía. La relación cae en cascada.
+pub fn delete_singer(conn: &Connection, id: i64) -> Result<()> {
+    let filas = conn.execute("DELETE FROM cantantes WHERE id=?1", params![id])?;
+    if filas == 0 {
+        bail!("el cantante ya no existe");
+    }
+    Ok(())
+}
+
+/// Ids de los cantantes que se saben una pista. Para las pruebas.
+#[allow(dead_code)]
+pub fn track_singer_ids(conn: &Connection, track_id: i64) -> Result<Vec<i64>> {
+    let mut stmt = conn
+        .prepare("SELECT cantante_id FROM cantante_pista WHERE track_id=?1 ORDER BY cantante_id")?;
+    let rows = stmt.query_map(params![track_id], |r| r.get::<_, i64>(0))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
+/// Guardar quiénes se saben una pista, reemplazando lo que hubiera.
+pub fn set_track_singer_ids(conn: &Connection, track_id: i64, cantante_ids: &[i64]) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM cantante_pista WHERE track_id=?1", params![track_id])?;
+    for cid in cantante_ids {
+        tx.execute(
+            "INSERT INTO cantante_pista(cantante_id, track_id) VALUES(?1,?2)",
+            params![cid, track_id],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------- tests
@@ -3515,5 +3642,105 @@ mod tests {
         set_setting(&conn, "themeMode", "dark").unwrap();
         set_setting(&conn, "themeMode", "system").unwrap();
         assert_eq!(get_setting(&conn, "themeMode").unwrap(), Some("system".into()));
+    }
+
+    // ---- cantantes ----
+
+    #[test]
+    fn singers_start_empty_and_are_returned_sorted() {
+        let conn = mem();
+        assert!(list_singers(&conn).unwrap().is_empty());
+
+        add_singer(&conn, "María").unwrap();
+        add_singer(&conn, "Ana").unwrap();
+
+        let nombres: Vec<String> =
+            list_singers(&conn).unwrap().into_iter().map(|c| c.nombre).collect();
+        assert_eq!(nombres, vec!["Ana", "María"]);
+    }
+
+    #[test]
+    fn a_singer_can_be_renamed() {
+        let conn = mem();
+        let id = add_singer(&conn, "Ana").unwrap();
+
+        rename_singer(&conn, id, "Ana María").unwrap();
+
+        assert_eq!(list_singers(&conn).unwrap()[0].nombre, "Ana María");
+    }
+
+    #[test]
+    fn deleting_a_singer_drops_their_track_links() {
+        let conn = mem();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let t = add_track(&conn, fid, "/m/a.mp3", "A");
+        let c = add_singer(&conn, "Ana").unwrap();
+        set_track_singer_ids(&conn, t, &[c]).unwrap();
+        assert!(!list_tracks(&conn).unwrap()[0].singers.is_empty());
+
+        delete_singer(&conn, c).unwrap();
+
+        assert!(list_singers(&conn).unwrap().is_empty());
+        assert!(list_tracks(&conn).unwrap()[0].singers.is_empty());
+    }
+
+    #[test]
+    fn deleting_a_track_drops_its_singer_links() {
+        let conn = mem();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let t = add_track(&conn, fid, "/m/a.mp3", "A");
+        let c = add_singer(&conn, "Ana").unwrap();
+        set_track_singer_ids(&conn, t, &[c]).unwrap();
+
+        delete_track(&conn, t).unwrap();
+
+        assert!(track_singer_ids(&conn, t).unwrap().is_empty());
+    }
+
+    #[test]
+    fn setting_singers_for_a_track_replaces_the_previous_ones() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let t = add_track(&conn, fid, "/m/a.mp3", "A");
+        let ana = add_singer(&conn, "Ana").unwrap();
+        let maria = add_singer(&conn, "María").unwrap();
+        let jose = add_singer(&conn, "José").unwrap();
+
+        set_track_singer_ids(&conn, t, &[ana, maria]).unwrap();
+        assert_eq!(list_tracks(&conn).unwrap()[0].singers, vec!["Ana", "María"]);
+
+        set_track_singer_ids(&conn, t, &[maria, jose]).unwrap();
+        assert_eq!(list_tracks(&conn).unwrap()[0].singers, vec!["José", "María"]);
+    }
+
+    #[test]
+    fn a_database_without_singer_tables_gains_them_on_open() {
+        let dir = Dir::new("cantantes-migration");
+        let path = dir.path("vieja.db");
+        {
+            let vieja = Connection::open(&path).unwrap();
+            vieja
+                .execute_batch(
+                    "CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL UNIQUE,
+                        nombre TEXT NOT NULL, added_at TEXT NOT NULL, last_scan TEXT);
+                     CREATE TABLE tracks (id INTEGER PRIMARY KEY AUTOINCREMENT, folder_id INTEGER,
+                        path TEXT NOT NULL UNIQUE, titulo TEXT NOT NULL DEFAULT '',
+                        artista TEXT NOT NULL DEFAULT '', album TEXT NOT NULL DEFAULT '',
+                        dur_sec INTEGER NOT NULL DEFAULT 0, formato TEXT NOT NULL DEFAULT '',
+                        bpm INTEGER NOT NULL DEFAULT 0, ocasion TEXT NOT NULL DEFAULT '',
+                        fav INTEGER NOT NULL DEFAULT 0, missing INTEGER NOT NULL DEFAULT 0,
+                        video INTEGER NOT NULL DEFAULT 0, added_at TEXT NOT NULL);
+                     INSERT INTO tracks(path, titulo, added_at) VALUES('/m/a.mp3','Vieja','2020-01-01');",
+                )
+                .unwrap();
+        }
+
+        let conn = open_and_migrate(&path).unwrap();
+
+        // No falla, y se pueden usar inmediatamente.
+        add_singer(&conn, "Ana").unwrap();
+        assert_eq!(list_singers(&conn).unwrap().len(), 1);
     }
 }

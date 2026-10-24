@@ -8,6 +8,7 @@ import type { ProyeccionSlice } from "./proyeccion";
 import type { DuplicadosSlice } from "./duplicados";
 import type { ActualizacionesSlice } from "./actualizaciones";
 import type { SistemaSlice } from "./sistema";
+import type { SingersSlice } from "./singers";
 
 // Parte del store (#134). Ver src/store/index.ts.
 
@@ -62,4 +63,5 @@ export type CantoralState = InterfazSlice &
   ProyeccionSlice &
   DuplicadosSlice &
   ActualizacionesSlice &
-  SistemaSlice;
+  SistemaSlice &
+  SingersSlice;

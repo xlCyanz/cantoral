@@ -11,7 +11,7 @@ import { aplicarParche } from "../reutilizar";
 import type { Folder, Playlist, Track } from "../types";
 
 function pista(id: string, over: Partial<Track> = {}): Track {
-  return { id, titulo: `T${id}`, artista: "Coro", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: Number(id), path: `/m/${id}.mp3`, ...over };
+  return { id, titulo: `T${id}`, artista: "Coro", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, singers: [], added: Number(id), path: `/m/${id}.mp3`, ...over };
 }
 
 const CARPETAS: Folder[] = [{ id: "f1", nombre: "Himnos", ruta: "/m", count: 3 }];

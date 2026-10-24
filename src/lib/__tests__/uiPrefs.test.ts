@@ -40,6 +40,7 @@ const GUARDADAS: UiPrefs = {
   buscarActualizacionesAlAbrir: false,
   pantallaProyeccion: { sistema: "DELL P2219H", ancho: 1920, alto: 1080, x: 2560, y: 0 },
   tamanoUi: "muyGrande",
+  askSingersAtEnd: true,
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
@@ -178,7 +179,7 @@ describe("guardar los cambios", () => {
     getSetting.mockReset();
     getSetting.mockResolvedValue(null);
     getLibrary.mockReset();
-    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [] });
+    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [], singers: [] });
     reconcileLibraryCmd.mockReset();
     reconcileLibraryCmd.mockResolvedValue(null);
   });
@@ -280,6 +281,7 @@ describe("restaurar al arrancar", () => {
         { id: "p1", nombre: "Uno", tocada: "", ids: [] },
         { id: "p2", nombre: "Dos", tocada: "", ids: [] },
       ],
+      singers: [],
     });
     reconcileLibraryCmd.mockReset();
     reconcileLibraryCmd.mockResolvedValue(null);

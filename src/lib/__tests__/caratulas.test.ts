@@ -6,7 +6,7 @@ import type { CaratulaNueva } from "../api";
 import type { Track } from "../types";
 
 function pista(id: string, over: Partial<Track> = {}): Track {
-  return { id, titulo: `T${id}`, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 0, path: `/m/${id}.mp3`, ...over };
+  return { id, titulo: `T${id}`, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, singers: [], added: 0, path: `/m/${id}.mp3`, ...over };
 }
 
 let oyente: ((lote: CaratulaNueva[]) => void) | null = null;

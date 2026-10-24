@@ -52,6 +52,14 @@ export interface Track {
    * vuelve a intentar hasta que el archivo cambie o se reubique.
    */
   miniaturaFallida?: boolean;
+  /** Nombres de los cantantes que se saben esta pista. */
+  singers: string[];
+}
+
+/** Una persona que canta en la iglesia. */
+export interface Singer {
+  id: string;
+  nombre: string;
 }
 
 export interface Folder {

@@ -14,6 +14,7 @@ function track(id: string): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
+    singers: [],
     added: 1,
   };
 }

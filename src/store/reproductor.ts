@@ -127,10 +127,18 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       set({ playing: !s.playing });
     },
     advance: () => {
+      const s = get();
       // «Repetir la canción»: la misma, desde el principio.
-      if (get().repeat === "una") {
+      if (s.repeat === "una") {
         set({ posSec: 0, playing: true });
         return;
+      }
+      // Si hay cantantes elegidos, se pregunta al terminar quién se la sabe.
+      // Proyectando se sigue preguntando: el aviso vive en la ventana de
+      // control y la de salida ni se entera — la de salida solo enseña lo que
+      // el reproductor le manda.
+      if (s.askSingersAtEnd && s.singingToday.length > 0 && s.playerId) {
+        set({ singerCheckTrack: s.playerId });
       }
       get().next();
     },

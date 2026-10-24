@@ -185,6 +185,10 @@ pub fn run() {
             commands::get_autostart,
             commands::set_autostart,
             commands::open_credit_profile,
+            commands::add_singer,
+            commands::rename_singer,
+            commands::delete_singer,
+            commands::set_track_singers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

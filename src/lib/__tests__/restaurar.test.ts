@@ -39,6 +39,7 @@ function track(id: string): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
+    singers: [],
     added: 1,
   };
 }
@@ -95,7 +96,7 @@ describe("la versión del respaldo en la confirmación", () => {
 describe("restaurar una copia automática (#143)", () => {
   it("va directo a la confirmación con números, sin pedir el archivo", async () => {
     const ruta = "/datos/respaldos/cantoral-2026-09-29-213005-quitar-carpeta.db";
-    restoreDatabaseCmd.mockResolvedValue({ tracks: [track("a")], folders: [], playlists: [] });
+    restoreDatabaseCmd.mockResolvedValue({ tracks: [track("a")], folders: [], playlists: [], singers: [] });
 
     useStore.getState().restore(ruta);
     await vi.waitFor(() => expect(useStore.getState().confirm).toBeTruthy());

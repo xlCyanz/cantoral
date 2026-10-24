@@ -41,6 +41,7 @@ export function encabezadoBiblioteca(
   total: number,
   groupBy: GroupBy,
   buscando: boolean,
+  singingToday: string[] = [],
 ): Encabezado {
   const titulo = qf ? NOMBRE_FILTRO[qf] : "Biblioteca";
 
@@ -71,10 +72,13 @@ export function encabezadoBiblioteca(
   const partes: string[] = [];
   // Sin filtro ni búsqueda, «19 de 19» sobra.
   partes.push(
-    mostradas === total && !buscando
+    mostradas === total && !buscando && singingToday.length === 0
       ? `${total} ${total === 1 ? "pista" : "pistas"}`
       : `${mostradas} de ${total} ${total === 1 ? "pista" : "pistas"}`,
   );
+  if (singingToday.length > 0) {
+    partes.push(`cantan ${singingToday.join(", ")}`);
+  }
   if (groupBy !== "none") partes.push(`agrupadas por ${NOMBRE_GRUPO[groupBy]}`);
   return { titulo, subtitulo: partes.join(" · ") };
 }

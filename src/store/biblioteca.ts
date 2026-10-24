@@ -19,6 +19,13 @@ export interface BibliotecaSlice {
   // ---- library filters ----
   query: string;
   qf: QuickFilter;
+  /**
+   * Cantantes elegidos en «Hoy cantan». Vacío = no filtrar por cantante.
+   *
+   * Nombres y no ids: es lo que la pista ya lleva en `cantantes`, y así el
+   * filtro es puro sin depender de la lista de personas registradas.
+   */
+  singingToday: string[];
   groupBy: GroupBy;
   densidad: Densidad;
   /**
@@ -50,6 +57,10 @@ export interface BibliotecaSlice {
   onQuery: (v: string) => void;
   clearQuery: () => void;
   onQuickFilter: (q: Exclude<QuickFilter, null>) => void;
+  /** Meter o sacar un cantante del filtro «Hoy cantan». */
+  toggleSingingToday: (nombre: string) => void;
+  /** Quitar del todo el filtro «Hoy cantan». */
+  clearSingingToday: () => void;
   onGroupBy: (g: GroupBy) => void;
   setDensidad: (d: Densidad) => void;
   toggleGrupo: (clave: string) => void;
@@ -90,6 +101,7 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
 
     query: "",
     qf: null,
+    singingToday: [],
     groupBy: "none",
     densidad: "comoda",
     gruposColapsados: [],
@@ -105,6 +117,13 @@ export function crearBiblioteca(set: Set, get: Get, ctx: Contexto): BibliotecaSl
     clearQuery: () => set({ query: "" }),
     onQuickFilter: (q) =>
       set((s) => ({ qf: s.qf === q ? null : q, view: "biblioteca", libState: estadoDeLaBiblioteca(s) })),
+    toggleSingingToday: (nombre) =>
+      set((s) => ({
+        singingToday: s.singingToday.includes(nombre)
+          ? s.singingToday.filter((n) => n !== nombre)
+          : [...s.singingToday, nombre],
+      })),
+    clearSingingToday: () => set({ singingToday: [] }),
     // Cambiar el eje deja las claves plegadas sin sentido —«f1/Clásicos» no
     // quiere decir nada cuando se agrupa por álbum—, así que se olvidan.
     onGroupBy: (g) => set({ groupBy: g, gruposColapsados: [] }),

@@ -83,7 +83,7 @@ describe("los ajustes al arrancar", () => {
     expect(s.view).toBe("config");
     expect(s.libState).not.toBe("content");
 
-    soltar({ tracks: [], folders: [], playlists: [] });
+    soltar({ tracks: [], folders: [], playlists: [], singers: [] });
     await arranque;
     expect(useStore.getState().view).toBe("config");
     usarBackend(null);
@@ -103,7 +103,7 @@ describe("los ajustes al arrancar", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(useStore.getState().view).toBe("biblioteca");
 
-    soltar({ tracks: [], folders: [], playlists: [{ id: "p9", nombre: "Domingo", ids: [], tocada: "" }] });
+    soltar({ tracks: [], folders: [], playlists: [{ id: "p9", nombre: "Domingo", ids: [], tocada: "" }], singers: [] });
     await arranque;
     expect(useStore.getState().view).toBe("lista");
     expect(useStore.getState().curPlaylist).toBe("p9");

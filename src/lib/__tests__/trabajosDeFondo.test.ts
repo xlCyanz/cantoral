@@ -41,6 +41,7 @@ function video(id: string, over: Partial<Track> = {}): Track {
     carpeta: "Videos",
     fav: false,
     missing: false,
+    singers: [],
     added: 0,
     path: `/v/${id}.mp4`,
     video: true,
@@ -121,7 +122,7 @@ describe("lo que piden los hooks en cada cambio del store", () => {
 describe("nada empieza antes de que termine el arranque", () => {
   it("el arranque está listo cuando la biblioteca se reconcilió, no al cargarla", async () => {
     let reconciliar!: (s: Reconciliacion | null) => void;
-    getLibrary.mockResolvedValue({ tracks: [video("a")], folders: [], playlists: [] });
+    getLibrary.mockResolvedValue({ tracks: [video("a")], folders: [], playlists: [], singers: [] });
     reconcileLibraryCmd.mockReturnValue(new Promise((r) => (reconciliar = r)));
 
     await useStore.getState().hydrate();
@@ -134,7 +135,7 @@ describe("nada empieza antes de que termine el arranque", () => {
   });
 
   it("y también si la reconciliación falla", async () => {
-    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [] });
+    getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [], singers: [] });
     reconcileLibraryCmd.mockRejectedValue(new Error("usb"));
 
     await useStore.getState().hydrate();

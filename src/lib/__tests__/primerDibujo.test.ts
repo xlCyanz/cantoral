@@ -12,7 +12,7 @@ vi.mock("../api", async (importOriginal) => ({
   registrar: (nivel: string, mensaje: string) => registrar(nivel, mensaje),
   getSetting: () => Promise.resolve(null),
   setSetting: () => Promise.resolve(),
-  getLibrary: (): Promise<Snapshot> => Promise.resolve({ tracks: [], folders: [], playlists: [] }),
+  getLibrary: (): Promise<Snapshot> => Promise.resolve({ tracks: [], folders: [], playlists: [], singers: [] }),
   reconcileLibraryCmd: (): Promise<Reconciliacion> => Promise.resolve({ cambiados: [] }),
 }));
 

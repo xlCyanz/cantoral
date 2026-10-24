@@ -9,7 +9,7 @@ import { faltantesPorCarpetaDe } from "../carpetas";
 import type { Folder, GroupBy, Track } from "../types";
 
 function pista(id: string, path: string | undefined, over: Partial<Track> = {}): Track {
-  return { id, titulo: id, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Suelta", fav: false, missing: false, added: 0, path, ...over };
+  return { id, titulo: id, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Suelta", fav: false, missing: false, singers: [], added: 0, path, ...over };
 }
 
 const NADA: string[] = [];

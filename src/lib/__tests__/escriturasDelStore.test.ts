@@ -45,6 +45,7 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     carpeta: "Música",
     fav: false,
     missing: false,
+    singers: [],
     added: 0,
     path: `/m/${id}.mp3`,
     ...over,

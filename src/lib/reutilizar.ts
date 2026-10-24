@@ -9,12 +9,23 @@
 
 import type { Track } from "./types";
 
+/** Si dos listas de nombres de cantantes dicen lo mismo. */
+function mismosNombres(a: readonly string[], b: readonly string[]): boolean {
+  return a === b || (a.length === b.length && a.every((nombre, i) => nombre === b[i]));
+}
+
 /** Si dos pistas dicen lo mismo, campo a campo. */
 export function mismaPista(a: Track, b: Track): boolean {
   if (a === b) return true;
   const campos = Object.keys(a) as (keyof Track)[];
   if (campos.length !== Object.keys(b).length) return false;
-  return campos.every((k) => Object.is(a[k], b[k]));
+  return campos.every((k) =>
+    k === "singers"
+      ? // Dos listas gemelas no son el mismo objeto y `Object.is` no las
+        // diferencia: los nombres comparados por contenido no mueven una fila.
+        mismosNombres(a.singers, b.singers)
+      : Object.is(a[k], b[k]),
+  );
 }
 
 /**

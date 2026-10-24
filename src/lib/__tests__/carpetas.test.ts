@@ -20,6 +20,7 @@ function pista(path: string, over: Partial<Track> = {}): Track {
     carpeta: "Himnos",
     fav: false,
     missing: false,
+    singers: [],
     added: 1,
     path,
     ...over,

@@ -60,7 +60,7 @@ beforeEach(() => {
   for (const m of [findDuplicatesCmd, mergeDuplicatesCmd, dismissDuplicatesCmd, restoreDismissedDuplicatesCmd, getLibrary, getSetting, reconcileLibraryCmd]) {
     m.mockReset();
   }
-  getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [] });
+  getLibrary.mockResolvedValue({ tracks: [], folders: [], playlists: [], singers: [] });
   getSetting.mockResolvedValue(null);
   reconcileLibraryCmd.mockResolvedValue(null);
   findDuplicatesCmd.mockResolvedValue(INFORME);

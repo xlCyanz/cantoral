@@ -10,7 +10,7 @@ import { coincideEnCampos, sinTildes } from "../buscar";
 import type { QuickFilter, SortDir, SortKey, Track } from "../types";
 
 function pista(over: Partial<Track> & { id: string }): Track {
-  return { titulo: "Pista", artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "", fav: false, missing: false, added: 0, ...over };
+  return { titulo: "Pista", artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "", fav: false, missing: false, singers: [], added: 0, ...over };
 }
 
 function estado(over: Partial<CantoralState>): CantoralState {

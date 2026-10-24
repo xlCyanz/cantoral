@@ -101,6 +101,22 @@ export const filasDeLista = recordar(
 );
 
 /**
+ * Lo que la vista del culto enseña y «Reproducir todo» toca: el orden de la
+ * lista y, con «Hoy cantan» puesto, solo las canciones que se sabe al menos
+ * uno de los elegidos. El orden guardado no se toca: quitar el filtro devuelve
+ * la lista entera tal como estaba.
+ */
+export const visibleListRows = recordar(
+  (s: CantoralState): Track[] => {
+    const filas = filasDeLista(s);
+    const hoy = s.singingToday;
+    if (!hoy?.length) return filas;
+    return filas.filter((t) => hoy.some((nombre) => t.singers.includes(nombre)));
+  },
+  (s: CantoralState) => [s.curPlaylist, s.plOrder[s.curPlaylist], s.tracks, s.singingToday],
+);
+
+/**
  * Las pistas sobre las que actúa «Agregar a una lista».
  *
  * La selección si hay una; si no, la pista que el panel de detalle tiene
@@ -132,7 +148,7 @@ export const seleccionVigente = recordar(
     const visibles = applyFilters(s).map((t) => t.id);
     return enOrden(visibles, vigentes(visibles, s.selection));
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir, s.selection],
+  (s: CantoralState) => [s.tracks, s.qf, s.singingToday, s.query, s.sortKey, s.sortDir, s.selection],
 );
 
 /** Cuándo se tocó un culto, en milisegundos; `0` si no lo dice. */
@@ -226,13 +242,17 @@ export const applyFilters = recordar(
     let list = s.qf === "recent" ? recientes(s.tracks) : ordenadas(s.tracks, s.sortKey, s.sortDir);
     if (s.qf === "fav") list = list.filter((t) => t.fav);
     else if (s.qf === "missing") list = list.filter((t) => t.missing);
+    // «Hoy cantan»: las canciones que se sabe AL MENOS UNO de los elegidos.
+    if (s.singingToday?.length > 0) {
+      list = list.filter((t) => s.singingToday.some((nombre) => t.singers.includes(nombre)));
+    }
     if (s.query) {
       const q = sinTildes(s.query);
       list = list.filter((t) => coincideEnCampos(t, q));
     }
     return list as Track[];
   },
-  (s: CantoralState) => [s.tracks, s.qf, s.query, s.sortKey, s.sortDir],
+  (s: CantoralState) => [s.tracks, s.qf, s.singingToday, s.query, s.sortKey, s.sortDir],
 );
 
 export interface Group {

@@ -93,6 +93,7 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
         view: "biblioteca",
         libState: estadoDeLaBiblioteca(s),
         qf: null,
+        singingToday: [],
         query: "",
       })),
     showColecciones: () => set({ view: "colecciones" }),
