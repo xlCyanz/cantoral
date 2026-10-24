@@ -24,6 +24,7 @@ function punto(color: string, size = 6): CSSProperties {
 
 const seccion: CSSProperties = { display: "flex", flexDirection: "column", gap: 2 };
 const etiquetaFila: CSSProperties = { display: "flex", alignItems: "center", gap: 6, minWidth: 0 };
+const pildoraNueva: CSSProperties = { flex: "0 0 auto", padding: "1px 7px", borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", fontSize: "10px", fontWeight: 700, whiteSpace: "nowrap" };
 const recorta: CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 
 export default function Sidebar() {
@@ -44,6 +45,7 @@ export default function Sidebar() {
   const buscando = useStore((s) => !!s.query.trim());
   const showColecciones = useStore((s) => s.showColecciones);
   const showConfig = useStore((s) => s.showConfig);
+  const hayVersionNueva = useStore((s) => s.update?.estado === "disponible" && s.updateState !== "downloading");
   const openHelp = useStore((s) => s.openHelp);
   const onQuickFilter = useStore((s) => s.onQuickFilter);
   const openPlaylist = useStore((s) => s.openPlaylist);
@@ -205,11 +207,20 @@ export default function Sidebar() {
             ¿Cómo funciona?
           </span>
         </button>
-        <button onClick={() => showConfig()} aria-current={cfgActive ? "page" : undefined} className={cfgActive ? undefined : "hb-s2"} style={navBtn(cfgActive)}>
+        {/* La comprobación al abrir es callada (#146): esto es lo único que
+            dice que hay una versión nueva sin que nadie vaya a mirar, y lleva
+            directo a donde se instala. */}
+        <button
+          onClick={() => showConfig(hayVersionNueva ? "acerca" : undefined)}
+          aria-current={cfgActive ? "page" : undefined}
+          className={cfgActive ? undefined : "hb-s2"}
+          style={navBtn(cfgActive)}
+        >
           <span style={etiquetaFila}>
             <Settings size={14} style={{ flex: "0 0 auto" }} />
             Configuración
           </span>
+          {hayVersionNueva && <span style={pildoraNueva}>Nueva versión</span>}
         </button>
         <div style={{ padding: "4px 10px 2px", fontSize: "10.5px", color: "var(--text-3)", lineHeight: 1.5 }}>
           {resumen}

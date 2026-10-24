@@ -30,12 +30,33 @@ export interface ActualizacionesSlice {
    * answers, because silence after pressing a button reads as broken.
    */
   checkForUpdate: (manual?: boolean) => Promise<void>;
-  /** Download, install and restart into the new version. */
+  /**
+   * Download, install and restart into the new version. With music playing it
+   * asks first: the restart cuts the song, and in the middle of a service
+   * that is not something to do by accident.
+   */
   installUpdate: () => void;
 }
 
 export function crearActualizaciones(set: Set, get: Get, ctx: Contexto): ActualizacionesSlice {
   const { toast } = ctx;
+
+  const instalar = () => {
+    set({ updateState: "downloading", updateProgress: { descargado: 0, total: null }, updateError: null });
+    void onUpdateProgress((updateProgress) => set({ updateProgress })).then((parar) => {
+      modulo.pararProgreso = parar;
+    });
+    installUpdateCmd()
+      // No hay `then`: si funciona, la app se reinicia y nada de esto sigue vivo.
+      .catch((err) => {
+        console.error("update install failed", err);
+        modulo.pararProgreso?.();
+        modulo.pararProgreso = null;
+        set({ updateState: "error", updateError: String(err), updateProgress: null });
+        toast("No se pudo instalar la actualización", { tipo: "error" });
+      });
+  };
+
   return {
     update: null,
     updateState: "idle",
@@ -64,19 +85,19 @@ export function crearActualizaciones(set: Set, get: Get, ctx: Contexto): Actuali
     installUpdate: () => {
       const s = get();
       if (s.update?.estado !== "disponible" || s.updateState === "downloading") return;
-      set({ updateState: "downloading", updateProgress: { descargado: 0, total: null }, updateError: null });
-      void onUpdateProgress((updateProgress) => set({ updateProgress })).then((parar) => {
-        modulo.pararProgreso = parar;
-      });
-      installUpdateCmd()
-        // No hay `then`: si funciona, la app se reinicia y nada de esto sigue vivo.
-        .catch((err) => {
-          console.error("update install failed", err);
-          modulo.pararProgreso?.();
-          modulo.pararProgreso = null;
-          set({ updateState: "error", updateError: String(err), updateProgress: null });
-          toast("No se pudo instalar la actualización", { tipo: "error" });
+      if (s.playing) {
+        s.askConfirm({
+          title: `¿Instalar Cantoral ${s.update.version} ahora?`,
+          message: "Cantoral se reinicia al terminar de instalar, y la canción que está sonando se corta.",
+          safe: "Tus listas, tus canciones y lo que hayas apuntado se quedan como están.",
+          confirmLabel: "Reiniciar e instalar",
+          onConfirm: () => {
+            if (get().updateState !== "downloading") instalar();
+          },
         });
+        return;
+      }
+      instalar();
     },
   };
 }

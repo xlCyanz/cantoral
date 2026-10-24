@@ -11,6 +11,7 @@ import { backend } from "../lib/backend";
 import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { PestanaConfig, ThemeMode } from "../lib/types";
 import { Logotipo } from "./Logo";
+import { bloquesDeNotas, fechaDeVersion, type Trozo } from "../lib/notasDeVersion";
 
 // El rediseño pone cada cosa en su tarjeta en vez de encadenar secciones con
 // títulos sueltos y 30 px de aire entre ellas. Con la interfaz en «Grande» ya
@@ -117,6 +118,8 @@ const PESTANAS: { id: PestanaConfig; nombre: string }[] = [
  * maneja con el teclado como cualquier otra: flechas, Inicio y Fin.
  */
 function Pestanas({ actual, onCambiar }: { actual: PestanaConfig; onCambiar: (p: PestanaConfig) => void }) {
+  // El mismo aviso que en la barra lateral, en la pestaña donde se instala.
+  const hayVersionNueva = useStore((s) => s.update?.estado === "disponible" && s.updateState !== "downloading");
   const ir = (e: KeyboardEvent<HTMLDivElement>) => {
     const i = PESTANAS.findIndex((p) => p.id === actual);
     const destino =
@@ -157,6 +160,10 @@ function Pestanas({ actual, onCambiar }: { actual: PestanaConfig; onCambiar: (p:
             style={{ flex: "0 0 auto", padding: "8px 12px 9px", borderRadius: "7px 7px 0 0", fontSize: "12.5px", fontWeight: activa ? 600 : 500, whiteSpace: "nowrap", cursor: "pointer", color: activa ? "var(--text)" : "var(--text-2)", background: "transparent", borderBottom: `2px solid ${activa ? "var(--primary)" : "transparent"}` }}
           >
             {p.nombre}
+            {p.id === "acerca" && hayVersionNueva && (
+              <span aria-hidden style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--primary)", marginLeft: 6, verticalAlign: "middle" }} />
+            )}
+            {p.id === "acerca" && hayVersionNueva && <span className="solo-lector">, hay una versión nueva</span>}
           </button>
         );
       })}
@@ -608,6 +615,37 @@ function AbrirConElSistema() {
   );
 }
 
+function ConNegritas({ trozos }: { trozos: Trozo[] }) {
+  return <>{trozos.map((t, i) => (t.negrita ? <strong key={i} style={{ color: "var(--text)", fontWeight: 600 }}>{t.texto}</strong> : <span key={i}>{t.texto}</span>))}</>;
+}
+
+/** Las notas de la versión nueva, como se escribieron en el CHANGELOG. */
+function NotasDeVersion({ md }: { md: string }) {
+  return (
+    <div style={{ fontSize: 11, color: "var(--text-2)", margin: "0 0 9px", lineHeight: 1.6, maxHeight: 220, overflowY: "auto" }}>
+      {bloquesDeNotas(md).map((b, i) =>
+        b.tipo === "titulo" ? (
+          <h3 key={i} style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", margin: "8px 0 2px" }}>
+            <ConNegritas trozos={b.trozos} />
+          </h3>
+        ) : b.tipo === "parrafo" ? (
+          <p key={i} style={{ margin: "0 0 6px" }}>
+            <ConNegritas trozos={b.trozos} />
+          </p>
+        ) : (
+          <ul key={i} style={{ margin: "0 0 6px", paddingLeft: 16, listStyle: "disc" }}>
+            {b.items.map((item, j) => (
+              <li key={j} style={{ marginBottom: 2 }}>
+                <ConNegritas trozos={item} />
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
+}
+
 /**
  * Buscar e instalar una versión nueva.
  *
@@ -692,13 +730,16 @@ function Actualizaciones() {
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
               <ArrowUpCircle size={15} color="var(--primary)" style={{ flex: "0 0 auto" }} />
-              <span style={{ fontSize: 12, fontWeight: 600 }}>Cantoral {update.version} está disponible</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>
+                Cantoral {update.version} está disponible
+                {fechaDeVersion(update.fecha) && (
+                  <span style={{ fontWeight: 400, color: "var(--text-3)" }}>
+                    {" "}· publicada el {fechaDeVersion(update.fecha)!.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}
+                  </span>
+                )}
+              </span>
             </div>
-            {update.notas.trim() && (
-              <pre style={{ fontSize: 11, color: "var(--text-2)", margin: "0 0 9px", whiteSpace: "pre-wrap", fontFamily: "inherit", lineHeight: 1.6, maxHeight: 150, overflowY: "auto" }}>
-                {update.notas.trim()}
-              </pre>
-            )}
+            {update.notas.trim() && <NotasDeVersion md={update.notas} />}
             {/* Hasta que exista el certificado de Apple, la app actualizada
                 vuelve a quedar en cuarentena y macOS dirá que está dañada.
                 Decirlo antes evita el susto. */}
