@@ -350,7 +350,7 @@ export async function deleteSingerCmd(id: string): Promise<Snapshot | null> {
 /** Guardar quiénes se saben una pista. */
 export async function setTrackSingersCmd(track: string, singers: string[]): Promise<Snapshot | null> {
   if (!isTauri()) return null;
-  return inv<Snapshot>("set_track_singers", { track, singers });
+  return inv<Snapshot>("set_track_singers", { track, cantantes: singers });
 }
 
 export async function addAndScanFolder(path: string, recursive: boolean): Promise<Snapshot> {
