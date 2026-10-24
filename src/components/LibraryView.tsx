@@ -408,7 +408,7 @@ function ErrorState() {
           <button onClick={retryError} className="hb-primary" style={btnEstado}>
             <RefreshCw size={15} strokeWidth={2.2} />Volver a intentarlo
           </button>
-          <button onClick={showConfig} className="hb-s2" style={btnEstadoSec}>
+          <button onClick={() => showConfig("biblioteca")} className="hb-s2" style={btnEstadoSec}>
             Administrar carpetas
           </button>
         </div>
