@@ -1,4 +1,4 @@
-import type { Theme, ThemeMode, View } from "../lib/types";
+import type { PestanaConfig, Theme, ThemeMode, View } from "../lib/types";
 import { onTemaDelSistema, temaDelSistema } from "../lib/api";
 import { backend } from "../lib/backend";
 import { leerTemaGuardado } from "../lib/temaGuardado";
@@ -16,6 +16,8 @@ export interface InterfazSlice {
   theme: Theme;
   themeMode: ThemeMode;
   view: View;
+  /** La pestaña que se ve al entrar en Configuración. */
+  pestanaConfig: PestanaConfig;
   /** El tamaño de toda la interfaz. Ver `lib/tamano.ts`. */
   tamanoUi: TamanoUi;
 
@@ -34,7 +36,9 @@ export interface InterfazSlice {
   /** Ir a la biblioteca y soltar todo lo que la esté estrechando. */
   verTodaLaBiblioteca: () => void;
   showColecciones: () => void;
-  showConfig: () => void;
+  /** Ir a Configuración, en la pestaña dada o en la última que se vio. */
+  showConfig: (pestana?: PestanaConfig) => void;
+  setPestanaConfig: (p: PestanaConfig) => void;
   onFolderClick: () => void;
   setThemeMode: (m: ThemeMode) => void;
   setTamanoUi: (t: TamanoUi) => void;
@@ -72,6 +76,7 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
     theme: leerTemaGuardado() ?? resolveTheme("system"),
     temaSistema: null,
     view: "biblioteca",
+    pestanaConfig: "general",
     // Como el tema: el del último dibujo, para no cambiar de tamaño cuando
     // llegan los ajustes.
     tamanoUi: leerTamanoGuardado() ?? TAMANO_DE_FABRICA,
@@ -96,7 +101,8 @@ export function crearInterfaz(set: Set, get: Get, _ctx: Contexto): InterfazSlice
         query: "",
       })),
     showColecciones: () => set({ view: "colecciones" }),
-    showConfig: () => set({ view: "config" }),
+    showConfig: (pestana) => set(pestana ? { view: "config", pestanaConfig: pestana } : { view: "config" }),
+    setPestanaConfig: (p) => set({ pestanaConfig: p }),
     onFolderClick: () =>
       set((s) => ({ view: "biblioteca", libState: estadoDeLaBiblioteca(s), qf: null })),
     setThemeMode: (m) => {

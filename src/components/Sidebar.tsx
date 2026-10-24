@@ -205,7 +205,7 @@ export default function Sidebar() {
             ¿Cómo funciona?
           </span>
         </button>
-        <button onClick={showConfig} aria-current={cfgActive ? "page" : undefined} className={cfgActive ? undefined : "hb-s2"} style={navBtn(cfgActive)}>
+        <button onClick={() => showConfig()} aria-current={cfgActive ? "page" : undefined} className={cfgActive ? undefined : "hb-s2"} style={navBtn(cfgActive)}>
           <span style={etiquetaFila}>
             <Settings size={14} style={{ flex: "0 0 auto" }} />
             Configuración

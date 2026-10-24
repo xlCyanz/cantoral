@@ -3,6 +3,8 @@
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
 export type View = "biblioteca" | "colecciones" | "lista" | "config";
+/** Las pestañas de Configuración. */
+export type PestanaConfig = "general" | "biblioteca" | "proyeccion" | "copias" | "acerca";
 /**
  * What the library view has to show. A scan in flight is *not* one of these:
  * it runs alongside whatever the library already holds (see `scanning`).
