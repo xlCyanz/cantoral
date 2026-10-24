@@ -9,13 +9,23 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.8.0] - 2026-10-24
+
+**Quién canta hoy.** Se registran los cantantes de la iglesia y, canción por
+canción, quiénes se la saben: con «Hoy cantan» la biblioteca y la lista
+muestran solo lo que se saben los de hoy, y al acabar una canción la app
+pregunta quién se la sabe para apuntarlo en el momento. Configuración, que
+con la interfaz grande ya no entraba en una pantalla, va en pestañas, y una
+versión nueva ya no pasa desapercibida.
+
 ### Añadido
 
 - **Cantantes**: las personas que pueden cantar en el culto se registran en
-  Configuración, y en el panel de cada canción se marca quiénes se la saben.
+  Configuración → Cantantes, y en el panel de cada canción se marca quiénes
+  se la saben.
 - **Filtro «Hoy cantan»**: en la biblioteca y junto a «Reproducir todo», se
   elige quiénes cantan hoy y se muestran —o se reproduce— solo lo que se sabe
-  al menos uno. Se suela al cerrar la app; el orden de la lista no se toca.
+  al menos uno. Se suelta al cerrar la app; el orden de la lista no se toca.
 - **Aviso al terminar la canción**: si hay cantantes elegidos, al acabarse
   una pista pregunta «¿Quién se la sabe?» con una casilla por persona, para
   apuntarlo en el momento y no después. Se salta con «Repetir la canción», se
@@ -24,6 +34,11 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Cambiado
 
+- **Configuración va en pestañas**: General, Biblioteca, Cantantes,
+  Proyección, Copias de seguridad y Acerca de. La fila de pestañas se queda
+  arriba al bajar y se maneja con el teclado (flechas, Inicio y Fin) sin que
+  las flechas pasen además de canción. «Administrar carpetas» abre directamente
+  la de Biblioteca.
 - **Las actualizaciones se ven sin ir a buscarlas.** Cuando hay una versión
   nueva, «Configuración» lo dice en la barra lateral con «Nueva versión» y
   lleva directo a «Acerca de», que también lo marca. Las notas se leen con sus
@@ -1394,7 +1409,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.7.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/xlCyanz/cantoral/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/xlCyanz/cantoral/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/xlCyanz/cantoral/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/xlCyanz/cantoral/compare/v0.4.0...v0.5.0
