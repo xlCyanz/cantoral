@@ -7,7 +7,7 @@ import type { Reconciliacion, Snapshot } from "../api";
 import type { Track } from "../types";
 
 function pista(id: string, over: Partial<Track> = {}): Track {
-  return { id, titulo: `T${id}`, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, added: 0, path: `/m/${id}.mp3`, ...over };
+  return { id, titulo: `T${id}`, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Himnos", fav: false, missing: false, singers: [], added: 0, path: `/m/${id}.mp3`, ...over };
 }
 
 const getLibrary = vi.fn<() => Promise<Snapshot | null>>();
@@ -36,7 +36,7 @@ describe("el arranque", () => {
     useStore.setState(initial, true);
     getLibrary.mockReset();
     reconcileLibraryCmd.mockReset();
-    getLibrary.mockResolvedValue({ tracks: [pista("1"), pista("2"), pista("3")], folders: [], playlists: [] });
+    getLibrary.mockResolvedValue({ tracks: [pista("1"), pista("2"), pista("3")], folders: [], playlists: [], singers: [] });
   });
 
   it("sin cambios en el disco, el catálogo se escribe una sola vez", async () => {
@@ -70,7 +70,7 @@ describe("el arranque", () => {
   });
 
   it("un archivo que volvió deja de estar marcado", async () => {
-    getLibrary.mockResolvedValue({ tracks: [pista("1", { missing: true })], folders: [], playlists: [] });
+    getLibrary.mockResolvedValue({ tracks: [pista("1", { missing: true })], folders: [], playlists: [], singers: [] });
     reconcileLibraryCmd.mockResolvedValue({ cambiados: [{ id: "1", missing: false }, { id: "99", missing: true }] });
 
     await arrancar();

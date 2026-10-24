@@ -9,6 +9,25 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Cantantes**: las personas que pueden cantar en el culto se registran en
+  Configuración, y en el panel de cada canción se marca quiénes se la saben.
+- **Filtro «Hoy cantan»**: en la biblioteca y junto a «Reproducir todo», se
+  elige quiénes cantan hoy y se muestran —o se reproduce— solo lo que se sabe
+  al menos uno. Se suela al cerrar la app; el orden de la lista no se toca.
+- **Aviso al terminar la canción**: si hay cantantes elegidos, al acabarse
+  una pista pregunta «¿Quién se la sabe?» con una casilla por persona, para
+  apuntarlo en el momento y no después. Se salta con «Repetir la canción», se
+  apaga desde el propio aviso y siempre aparece en la ventana de control, que
+  es donde está quien anota — también estando proyectando.
+
+### Corregido
+
+- «Reproducir todo» arrancaba en la primera pista sin mirar si su archivo
+  existe: con una que faltara al principio, el clic no hacía nada. Arranca
+  donde haya archivo y la cola salta las que faltan.
+
 ## [0.7.0] - 2026-10-20
 
 **Todo desde el reproductor, y más fácil de leer.** Se van la vista de

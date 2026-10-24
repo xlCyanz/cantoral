@@ -40,6 +40,9 @@ export function registerShortcuts(): () => void {
       if (s.confirm) {
         e.preventDefault();
         s.closeConfirm();
+      } else if (s.singerCheckTrack) {
+        e.preventDefault();
+        s.closeSingerCheck();
       } else if (s.dialog) {
         e.preventDefault();
         s.closeDialog();
@@ -90,7 +93,7 @@ export function registerShortcuts(): () => void {
     if (mod && (e.key === "a" || e.key === "A")) {
       // Only in the library, and never while typing — where ⌘A means «select
       // this text» and taking it would be infuriating.
-      if (isTyping(e.target) || s.view !== "biblioteca" || s.dialog || s.confirm) return;
+      if (isTyping(e.target) || s.view !== "biblioteca" || s.singerCheckTrack || s.dialog || s.confirm) return;
       e.preventDefault();
       s.selectAllVisible();
       return;
@@ -104,7 +107,7 @@ export function registerShortcuts(): () => void {
 
     // Everything below is a bare key, so never while typing or in a dialog —
     // pressing space to pause must not reach through a confirmation.
-    if (isTyping(e.target) || s.dialog || s.confirm) return;
+    if (isTyping(e.target) || s.singerCheckTrack || s.dialog || s.confirm) return;
 
     // `A` a secas abre el único sitio desde el que se agrega a una lista. Sin
     // modificador porque es lo que más se repite armando un domingo, y la

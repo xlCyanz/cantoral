@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
-import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, Mic2, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
@@ -106,6 +106,7 @@ const PEOPLE = [
 const PESTANAS: { id: PestanaConfig; nombre: string }[] = [
   { id: "general", nombre: "General" },
   { id: "biblioteca", nombre: "Biblioteca" },
+  { id: "cantantes", nombre: "Cantantes" },
   { id: "proyeccion", nombre: "Proyección" },
   { id: "copias", nombre: "Copias de seguridad" },
   { id: "acerca", nombre: "Acerca de" },
@@ -276,6 +277,8 @@ export default function ConfigView() {
           </>
         )}
 
+        {pestana === "cantantes" && <SingerManagement />}
+
         {pestana === "proyeccion" && <AjustesDeProyeccion />}
 
         {pestana === "copias" && (
@@ -396,6 +399,141 @@ export default function ConfigView() {
 /** `12345678` → `12,3 MB`, para una descarga en curso. */
 function megas(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * Las personas que pueden cantar en el culto, y de paso dónde se quitan.
+ *
+ * Este listado no es catálogo: sirve al filtro «Hoy cantan» de la biblioteca y
+ * a las casillas de «Se la saben» del panel. Quitar a alguien borra también lo
+ * que se le sabía, y por eso el botón va con la palabra entera y no solo con
+ * un icono.
+ */
+function SingerManagement() {
+  const singers = useStore((s) => s.singers);
+  const add = useStore((s) => s.addSinger);
+  const rename = useStore((s) => s.renameSinger);
+  const remove = useStore((s) => s.deleteSinger);
+  const [nuevo, setNuevo] = useState("");
+  const [editando, setEditando] = useState<{ id: string; nombre: string } | null>(null);
+
+  const confirmarNuevo = () => {
+    if (!nuevo.trim()) return;
+    add(nuevo.trim());
+    setNuevo("");
+  };
+
+  return (
+    <div style={tarjeta}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+        <h2 style={{ ...h2Style, margin: 0, flex: "0 0 auto" }}>Cantantes</h2>
+        <p style={{ ...pStyle, minWidth: 0 }}>Las personas que pueden cantar en el culto.</p>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+        <input
+          value={nuevo}
+          onChange={(e) => setNuevo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") confirmarNuevo();
+          }}
+          placeholder="Añadir cantante…"
+          className="in-focus"
+          style={{
+            flex: 1,
+            height: 28,
+            border: "1px solid var(--border-2)",
+            background: "var(--surface-2)",
+            borderRadius: 6,
+            padding: "0 8px",
+            fontSize: 12,
+            color: "var(--text)",
+            outline: "none",
+          }}
+        />
+        <button
+          onClick={confirmarNuevo}
+          disabled={!nuevo.trim()}
+          className="hb-s2"
+          style={{ ...botonFila, height: 28, display: "flex", alignItems: "center", gap: 5 }}
+        >
+          <Plus size={13} strokeWidth={2.2} />Añadir
+        </button>
+      </div>
+
+      {singers.length === 0 && (
+        <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
+          Todavía no hay cantantes registrados. Añade a quienes cantan en la iglesia para poder
+          filtrar por ellos y apuntar quién se sabe cada canción.
+        </p>
+      )}
+
+      {singers.map((c) => (
+        <div
+          key={c.id}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--border)" }}
+        >
+          <Mic2 size={14} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
+          {editando?.id === c.id ? (
+            <>
+              <input
+                value={editando.nombre}
+                onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    rename(c.id, editando.nombre);
+                    setEditando(null);
+                  }
+                  if (e.key === "Escape") setEditando(null);
+                }}
+                autoFocus
+                className="in-focus"
+                style={{
+                  flex: 1,
+                  height: 26,
+                  border: "1px solid var(--primary)",
+                  background: "var(--surface-2)",
+                  borderRadius: 6,
+                  padding: "0 7px",
+                  fontSize: 12,
+                  color: "var(--text)",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={() => {
+                  rename(c.id, editando.nombre);
+                  setEditando(null);
+                }}
+                className="hb-s2"
+                style={{ ...botonFila, height: 26 }}
+              >
+                Guardar
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{c.nombre}</div>
+              <button
+                onClick={() => setEditando({ id: c.id, nombre: c.nombre })}
+                className="hb-s2"
+                style={{ ...botonFila, height: 26 }}
+              >
+                Renombrar
+              </button>
+              <button
+                onClick={() => remove(c.id)}
+                className="hb-danger"
+                style={{ ...botonFila, height: 26, color: "var(--danger)", display: "flex", alignItems: "center", gap: 5 }}
+              >
+                <Trash2 size={12} strokeWidth={2.2} />Quitar
+              </button>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**

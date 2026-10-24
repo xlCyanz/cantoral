@@ -4,7 +4,7 @@ export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
 export type View = "biblioteca" | "colecciones" | "lista" | "config";
 /** Las pestañas de Configuración. */
-export type PestanaConfig = "general" | "biblioteca" | "proyeccion" | "copias" | "acerca";
+export type PestanaConfig = "general" | "biblioteca" | "cantantes" | "proyeccion" | "copias" | "acerca";
 /**
  * What the library view has to show. A scan in flight is *not* one of these:
  * it runs alongside whatever the library already holds (see `scanning`).
@@ -54,6 +54,14 @@ export interface Track {
    * vuelve a intentar hasta que el archivo cambie o se reubique.
    */
   miniaturaFallida?: boolean;
+  /** Nombres de los cantantes que se saben esta pista. */
+  singers: string[];
+}
+
+/** Una persona que canta en la iglesia. */
+export interface Singer {
+  id: string;
+  nombre: string;
 }
 
 export interface Folder {

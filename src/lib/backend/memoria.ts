@@ -14,8 +14,8 @@
 
 import type { DuplicateReport, Parche, ScanProgressEvent, Snapshot } from "../api";
 import { nombreDeCopia } from "../copias";
-import { SCAN_FILES, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "../seed";
-import type { Folder, Playlist, Track } from "../types";
+import { SCAN_FILES, SEED_SINGERS, SEED_FOLDERS, SEED_PLAYLISTS, SEED_TRACKS, seedDuplicates } from "../seed";
+import type { Singer, Folder, Playlist, Track } from "../types";
 import { NoDisponible } from "./tipos";
 import type { Backend } from "./tipos";
 
@@ -30,6 +30,7 @@ export interface Semilla {
   tracks: Track[];
   folders: Folder[];
   playlists: Playlist[];
+  singers: Singer[];
 }
 
 /**
@@ -41,6 +42,7 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
   const tracks: Track[] = structuredClone(semilla.tracks ?? SEED_TRACKS);
   let folders: Folder[] = structuredClone(semilla.folders ?? SEED_FOLDERS);
   let playlists: Playlist[] = structuredClone(semilla.playlists ?? SEED_PLAYLISTS);
+  let singers: Singer[] = structuredClone(semilla.singers ?? SEED_SINGERS);
   const settings = new Map<string, string>();
   const descartados = new Set<string>();
   const oyentes = new Set<(p: ScanProgressEvent) => void>();
@@ -51,7 +53,8 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
   const ahora = () => new Date().toISOString();
   // Copias, siempre: el store no puede quedarse con los mismos objetos que
   // esta base sigue cambiando por dentro.
-  const snapshot = (): Snapshot => structuredClone({ tracks, folders, playlists });
+  const snapshot = (): Snapshot =>
+    structuredClone({ tracks, folders, playlists, singers: [...singers] });
   const listas = (): Playlist[] => structuredClone(playlists);
   /** Lo que contesta el núcleo a quitar o fusionar pistas: ver `Parche`. */
   const parche = (quitadas: readonly string[], cambiadas: readonly string[], conListas: boolean): Parche =>
@@ -271,6 +274,39 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     restoreDismissedDuplicates: async () => {
       descartados.clear();
       return informe();
+    },
+
+    addSinger: async (nombre) => {
+      singers = [...singers, { id: nuevoId("c", singers), nombre }];
+      return snapshot();
+    },
+    renameSinger: async (id, nombre) => {
+      const c = singers.find((x) => x.id === id);
+      if (!c) throw new Error(`No existe el cantante ${id}`);
+      const antes = c.nombre;
+      c.nombre = nombre;
+      // Como el UPDATE en SQLite: las pistas que llevaban el nombre cambian con él.
+      tracks.forEach((t) => {
+        t.singers = t.singers.map((n) => (n === antes ? nombre : n));
+      });
+      return snapshot();
+    },
+    deleteSinger: async (id) => {
+      const c = singers.find((x) => x.id === id);
+      if (!c) throw new Error(`No existe el cantante ${id}`);
+      singers = singers.filter((x) => x.id !== id);
+      // Como la cascada de SQLite: la relación, fuera; lo demás de cada pista se queda.
+      tracks.forEach((t) => {
+        t.singers = t.singers.filter((n) => n !== c.nombre);
+      });
+      return snapshot();
+    },
+    setTrackSingers: async (track, ids) => {
+      pista(track).singers = ids
+        .map((id) => singers.find((c) => c.id === id)?.nombre)
+        .filter((n): n is string => !!n)
+        .sort((a, b) => a.localeCompare(b, "es"));
+      return snapshot();
     },
 
     getSetting: async (key) => settings.get(key) ?? null,

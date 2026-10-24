@@ -62,6 +62,7 @@ function biblioteca(n: number): { tracks: Track[]; folders: Folder[] } {
       carpeta: f.nombre,
       fav: r() < 0.1,
       missing: r() < 0.02,
+      singers: [],
       added: i,
       video,
       path: `${f.ruta}${sub}\\${titulo} ${i}.${video ? "mp4" : "mp3"}`,

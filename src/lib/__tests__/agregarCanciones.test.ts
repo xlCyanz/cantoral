@@ -46,6 +46,7 @@ function pista(id: string, over: Partial<Track> = {}): Track {
     carpeta: "Música",
     fav: false,
     missing: false,
+    singers: [],
     added: 0,
     ...over,
   };
@@ -239,7 +240,10 @@ describe("el diálogo", () => {
 
 describe("dónde se abre", () => {
   beforeEach(() => {
-    estado = { ...useStore.getState(), ...estadoDeEjemplo(), view: "lista" };
+    // Sin cantantes a propósito: lo que este describe mira es la fila de
+    // acciones del culto, y el estado real del store puede llevar el aviso de
+    // otra prueba — el filtro «Hoy cantan» añadiría su chip a la fila.
+    estado = { ...useStore.getState(), ...estadoDeEjemplo(), singers: [], view: "lista" };
   });
 
   it("junto a las acciones del culto", () => {

@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::copias::{self, Motivo};
 use crate::db::{self, Db};
-use crate::models::{DuplicateGroup, Folder, Playlist, Track};
+use crate::models::{DuplicateGroup, Folder, Playlist, Singer, Track};
 use crate::scanner::{self, ScanClaim, ScanSlot, Tarea};
 
 /// Everything the frontend needs to hydrate its store.
@@ -14,6 +14,7 @@ pub struct Snapshot {
     pub tracks: Vec<Track>,
     pub folders: Vec<Folder>,
     pub playlists: Vec<Playlist>,
+    pub singers: Vec<Singer>,
 }
 
 fn snapshot(conn: &Connection) -> anyhow::Result<Snapshot> {
@@ -21,6 +22,7 @@ fn snapshot(conn: &Connection) -> anyhow::Result<Snapshot> {
         tracks: db::list_tracks(conn)?,
         folders: db::list_folders(conn)?,
         playlists: db::list_playlists(conn)?,
+        singers: db::list_singers(conn)?,
     })
 }
 
@@ -1033,6 +1035,46 @@ pub async fn backup_database(app: AppHandle, dest: String) -> CmdResult<String> 
         Ok(cuando)
     })
     .await
+}
+
+// ---------------------------------------------------------------- cantantes
+
+/// Añadir un cantante nuevo.
+#[tauri::command(async)]
+pub fn add_singer(db: State<Db>, name: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::add_singer(&conn, &name).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Renombrar un cantante existente.
+#[tauri::command(async)]
+pub fn rename_singer(db: State<Db>, id: String, name: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::rename_singer(&conn, id.parse::<i64>().map_err(e)?, &name).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Quitar un cantante y todo lo que se le sabía.
+#[tauri::command(async)]
+pub fn delete_singer(db: State<Db>, id: String) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    db::delete_singer(&conn, id.parse::<i64>().map_err(e)?).map_err(e)?;
+    snapshot(&conn).map_err(e)
+}
+
+/// Guardar quiénes se saben una pista, reemplazando las relaciones anteriores.
+#[tauri::command(async)]
+pub fn set_track_singers(
+    db: State<Db>,
+    track: String,
+    cantantes: Vec<String>,
+) -> CmdResult<Snapshot> {
+    let conn = db.0.lock().map_err(e)?;
+    let track_id = track.parse::<i64>().map_err(e)?;
+    let ids = ids_de(&cantantes)?;
+    db::set_track_singer_ids(&conn, track_id, &ids).map_err(e)?;
+    snapshot(&conn).map_err(e)
 }
 
 #[cfg(test)]

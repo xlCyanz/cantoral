@@ -1,12 +1,13 @@
 import { memo, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowUpDown, ChevronDown, ChevronUp, Copy, EllipsisVertical, GripVertical, ListMusic, ListPlus, Pencil, Play, Trash2, Video } from "lucide-react";
-import { filasDeLista, plDur, resumenDeOrden, useStore } from "../store";
+import { visibleListRows, plDur, resumenDeOrden, useStore } from "../store";
 import { coverStyle, gradientFor, inicialDe } from "../lib/covers";
 import { botonPrimario, botonSecundario, emptyBtnPrimary, ocupadoStyle } from "../lib/styles";
 import type { Track } from "../lib/types";
 import Empty from "./Empty";
 import GlifoDePista from "./GlifoDePista";
+import SingingTodayDropdown from "./SingingTodayDropdown";
 
 const GRID = "26px 26px minmax(150px,3fr) 58px 86px";
 
@@ -144,8 +145,12 @@ export default function PlaylistView() {
   const curPlaylist = useStore((s) => s.curPlaylist);
   const pl = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
   const order = useStore((s) => s.plOrder[s.curPlaylist] || VACIA);
-  const rows = useStore(filasDeLista);
-  const duracion = useStore((s) => plDur(s, s.plOrder[s.curPlaylist] || VACIA));
+  const rows = useStore(visibleListRows);
+  const duracion = useStore((s) => plDur(s, visibleListRows(s).map((t) => t.id)));
+  const singers = useStore((s) => s.singers);
+  const singingToday = useStore((s) => s.singingToday);
+  const toggleSingingToday = useStore((s) => s.toggleSingingToday);
+  const clearSingingToday = useStore((s) => s.clearSingingToday);
   const playAll = useStore((s) => s.playAll);
   const editCurrentList = useStore((s) => s.editCurrentList);
   const deleteCurrentList = useStore((s) => s.deleteCurrentList);
@@ -173,12 +178,34 @@ export default function PlaylistView() {
           </span>
           <h1 className="display" style={{ fontSize: 34, lineHeight: 1.05, margin: "0 0 10px", textWrap: "balance" } as CSSProperties}>{pl?.nombre}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--text-2)", fontSize: 13, fontWeight: 500, flexWrap: "wrap" }}>
-            <span>{resumenDeOrden(order)} · {duracion}</span>
+            <span>
+              {singingToday.length > 0 && rows.length !== order.length
+                ? `${resumenDeOrden(rows.map((t) => t.id))} de ${resumenDeOrden(order)}`
+                : resumenDeOrden(order)}{" "}
+              · {duracion}
+            </span>
+            {singingToday.length > 0 && (
+              <span style={{ fontSize: 12, color: "var(--primary)", background: "var(--primary-soft)", padding: "1px 8px", borderRadius: 6, fontWeight: 600 }}>
+                Hoy cantan: {singingToday.join(", ")}
+              </span>
+            )}
           </div>
           <div data-acciones-culto style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 18 }}>
             <button onClick={playAll} className="hb-primary hb-active-scale" style={{ ...botonPrimario(42), ...enUnaLinea, fontWeight: 700, transition: "background .14s,transform .08s" }}>
               <Play size={17} fill="currentColor" stroke="none" />Reproducir todo
             </button>
+            {/* Lo mismo que en la biblioteca: quiénes cantan hoy. Con algún
+                cantante elegido, la lista se queda con lo que saben y «Reproducir
+                todo» lo toca en su orden. */}
+            {singers.length > 0 && (
+              <SingingTodayDropdown
+                singers={singers}
+                singingToday={singingToday}
+                toggle={toggleSingingToday}
+                clear={clearSingingToday}
+                tamanio="accion"
+              />
+            )}
             {/* Armar el culto sin salir de él: elegir varias de la biblioteca de
                 una vez, en lugar de ir y volver por cada canción. */}
             <button onClick={abrirAgregarCanciones} className="hb-s2" title="Elegir varias canciones de la biblioteca" style={{ ...botonSecundario(42), ...enUnaLinea }}>

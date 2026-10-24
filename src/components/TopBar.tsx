@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, FolderPlus, ListFilter, Rows3, Rows4, Search,
 import type { CSSProperties, ReactNode } from "react";
 import { applyFilters, seleccionVigente, useStore } from "../store";
 import SelectionBar from "./SelectionBar";
+import SingingTodayDropdown from "./SingingTodayDropdown";
 import { ocupadoStyle, segmento } from "../lib/styles";
 import { encabezadoBiblioteca } from "../lib/encabezado";
 import type { Densidad, GroupBy } from "../lib/types";
@@ -25,6 +26,8 @@ export default function TopBar() {
   const total = useStore((s) => applyFilters(s).length);
   const indexadas = useStore((s) => s.tracks.length);
   const qf = useStore((s) => s.qf);
+  const singingToday = useStore((s) => s.singingToday);
+  const singers = useStore((s) => s.singers);
   const haySeleccion = useStore((s) => seleccionVigente(s).length > 0);
 
   const onQuery = useStore((s) => s.onQuery);
@@ -32,13 +35,15 @@ export default function TopBar() {
   const showColecciones = useStore((s) => s.showColecciones);
   const openAddFolder = useStore((s) => s.openAddFolder);
   const onGroupBy = useStore((s) => s.onGroupBy);
+  const toggleSingingToday = useStore((s) => s.toggleSingingToday);
+  const clearSingingToday = useStore((s) => s.clearSingingToday);
   const densidad = useStore((s) => s.densidad);
   const setDensidad = useStore((s) => s.setDensidad);
 
   const showSearch = view === "biblioteca";
   // La biblioteca es la única vista cuyo nombre no cabía en la barra: ese
   // hueco lo ocupa el buscador. Va en su propia fila, con el recuento debajo.
-  const encabezado = encabezadoBiblioteca(qf, total, indexadas, groupBy, !!query.trim());
+  const encabezado = encabezadoBiblioteca(qf, total, indexadas, groupBy, !!query.trim(), singingToday);
   const isLista = view === "lista";
   const pageTitle = isLista ? listaTitulo : titleMap[view] || "";
   const showFilterBar = view === "biblioteca" && libState === "content";
@@ -161,6 +166,14 @@ export default function TopBar() {
           {!haySeleccion && <div style={{ flex: 1 }} />}
           {!haySeleccion && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+            {singers.length > 0 && (
+              <SingingTodayDropdown
+                singers={singers}
+                singingToday={singingToday}
+                toggle={toggleSingingToday}
+                clear={clearSingingToday}
+              />
+            )}
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
               <ListFilter size={14} style={{ position: "absolute", left: 10, color: "var(--text-3)", pointerEvents: "none" }} />
               <select

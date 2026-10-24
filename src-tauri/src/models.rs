@@ -29,6 +29,16 @@ pub struct Track {
     /// Si es un video del que la webview no pudo sacar miniatura. No se vuelve
     /// a intentar hasta que el archivo cambie.
     pub miniatura_fallida: bool,
+    /// Nombres de los cantantes que se saben esta pista.
+    pub singers: Vec<String>,
+}
+
+/// Una persona que canta en la iglesia.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Singer {
+    pub id: String,
+    pub nombre: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

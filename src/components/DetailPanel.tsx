@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, FolderOpen, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, FolderOpen, Mic2, Play, Save, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { pistasPorId, useStore } from "../store";
 import type { SaveState } from "../store";
 import { coverStyle } from "../lib/covers";
@@ -86,6 +86,8 @@ export default function DetailPanel() {
   const revealTrack = useStore((s) => s.revealTrack);
   const detailFijado = useStore((s) => s.detailFijado);
   const toggleDetailFijado = useStore((s) => s.toggleDetailFijado);
+  const singers = useStore((s) => s.singers);
+  const toggleSingerOnTrack = useStore((s) => s.toggleSingerOnTrack);
   const estrecho = useEstrecho(300);
 
   if (!detailOpen || !sel) return null;
@@ -213,6 +215,44 @@ export default function DetailPanel() {
             />
           </div>
         </div>
+
+        {/* Se la saben: quiénes de los cantantes registrados se saben esta
+            pista. Sin cantantes registrados no hace falta ni enseñarlo. */}
+        {singers.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ ...sectionLabel, marginBottom: 8 }}>Se la saben</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {singers.map((c) => {
+                const activo = sel.singers.includes(c.nombre);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => toggleSingerOnTrack(c.nombre)}
+                    className="hb-s2"
+                    style={{
+                      height: 28,
+                      padding: "0 10px",
+                      borderRadius: 7,
+                      border: `1px solid ${activo ? "var(--primary)" : "var(--border-2)"}`,
+                      background: activo ? "var(--primary-soft)" : "var(--surface-2)",
+                      color: activo ? "var(--primary)" : "var(--text)",
+                      fontSize: "11.5px",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title={activo ? "Hacer que no se la sepa" : "Marcar que se la sabe"}
+                  >
+                    <Mic2 size={12} />
+                    {c.nombre}
+                    {activo && <Check size={12} strokeWidth={2.5} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* El archivo: lo que hay que saber para encontrarlo, no una ficha
             técnica. El álbum y la duración ya están en la tabla de al lado. */}

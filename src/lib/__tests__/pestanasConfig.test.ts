@@ -43,6 +43,7 @@ describe("las pestañas de Configuración", () => {
     expect(biblioteca).toContain("Carpetas indexadas");
     expect(biblioteca).not.toContain("Apariencia");
 
+    expect(pintar("cantantes")).toContain("Cantantes</h2>");
     expect(pintar("proyeccion")).toContain("Proyección</h2>");
     expect(pintar("copias")).toContain("Base de datos");
 
@@ -55,10 +56,10 @@ describe("las pestañas de Configuración", () => {
   it("la fila se lee como pestañas, con la elegida marcada y la única con Tab", () => {
     const html = pintar("copias");
     expect(html).toContain('role="tablist"');
-    expect(html.match(/role="tab"/g)).toHaveLength(5);
+    expect(html.match(/role="tab"/g)).toHaveLength(6);
     expect(html.match(/aria-selected="true"/g)).toHaveLength(1);
     expect(html).toMatch(/id="config-tab-copias"[^>]*aria-selected="true"[^>]*tabindex="0"/);
-    expect(html.match(/tabindex="-1"/g)).toHaveLength(4);
+    expect(html.match(/tabindex="-1"/g)).toHaveLength(5);
     expect(html).toContain('role="tabpanel" id="config-panel-copias" aria-labelledby="config-tab-copias"');
   });
 });

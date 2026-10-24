@@ -1,4 +1,4 @@
-import type { Folder, Playlist, Track } from "../lib/types";
+import type { Singer, Folder, Playlist, Track } from "../lib/types";
 import { assetUrl, type Parche, type Snapshot } from "../lib/api";
 import { NoDisponible, backend } from "../lib/backend";
 import type { StoreApi } from "zustand";
@@ -61,6 +61,13 @@ export function mismasCarpetas(a: readonly Folder[], b: readonly Folder[]): bool
       x.recursive === y.recursive
     );
   });
+}
+
+/** Si dos listas de cantantes dicen lo mismo, campo a campo. */
+export function sameSingers(a: readonly Singer[], b: readonly Singer[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((x, i) => x.id === b[i].id && x.nombre === b[i].nombre);
 }
 
 export function crearContexto(set: Set, get: Get) {
@@ -155,6 +162,11 @@ export function crearContexto(set: Set, get: Get) {
     // y el orden de la tabla. Ver `conservarIguales`.
     const tracks = conservarIguales(get().tracks, conCaratula(snap.tracks));
     ponerCatalogo(tracks, snap.folders, snap.playlists);
+    // Los cantantes siempre vienen con la instantánea; si llegan iguales no
+    // hay que escribirlos, para no despertar a quienes solo miran la lista.
+    if (!sameSingers(get().singers, snap.singers)) {
+      set({ singers: snap.singers });
+    }
   };
 
   /**

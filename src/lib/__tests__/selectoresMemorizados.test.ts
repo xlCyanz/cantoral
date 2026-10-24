@@ -8,7 +8,7 @@ import { buscarCanciones } from "../elegirCanciones";
 import type { Track } from "../types";
 
 function pista(id: string, titulo: string, over: Partial<Track> = {}): Track {
-  return { id, titulo, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "", fav: false, missing: false, added: 0, path: `/m/${id}.mp3`, ...over };
+  return { id, titulo, artista: "", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "", fav: false, missing: false, singers: [], added: 0, path: `/m/${id}.mp3`, ...over };
 }
 
 describe("la selección como conjunto", () => {

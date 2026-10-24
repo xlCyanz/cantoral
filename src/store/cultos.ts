@@ -2,7 +2,7 @@ import type { Playlist } from "../lib/types";
 import { backend } from "../lib/backend";
 import { modulo } from "./contexto";
 import type { Contexto, Get, Set } from "./contexto";
-import { filasDeLista, pistasParaAgregar, seleccionVigente } from "./selectores";
+import { visibleListRows, pistasParaAgregar, seleccionVigente } from "./selectores";
 
 // Parte del store (#134). Ver src/store/index.ts.
 // Las listas de canciones: crearlas y ordenarlas.
@@ -146,11 +146,28 @@ export function crearCultos(set: Set, get: Get, ctx: Contexto): CultosSlice {
     },
 
     playAll: () => {
-      const ord = filasDeLista(get()).map((t) => t.id);
-      if (ord.length) {
-        get().play(ord[0], ord.slice());
-        toast("Reproduciendo la lista completa");
+      // Con «Hoy cantan» puesto, solo lo que se sabe al menos uno: dar a
+      // «Reproducir todo» con un filtro puesto no puede traer canciones que el
+      // filtro escondió.
+      const filas = visibleListRows(get());
+      if (filas.length === 0) return;
+      // Que la primera que falte no bloquee la lista entera: el transporte
+      // arranca donde haya algo que de verdad suene.
+      const primera = filas.find((t) => !t.missing);
+      if (!primera) {
+        toast("Ninguna de estas pistas tiene el archivo en el disco", { tipo: "error" });
+        return;
       }
+      // La cola también salta las que faltan: llegando a una, no se queda
+      // minutos callada fingiendo que suena.
+      const cola = filas.filter((t) => !t.missing).map((t) => t.id);
+      const conFiltro = get().singingToday.length > 0;
+      get().play(primera.id, cola);
+      toast(
+        conFiltro
+          ? `Reproduciendo lo filtrado: ${cola.length} ${cola.length === 1 ? "pista" : "pistas"}`
+          : "Reproduciendo la lista completa",
+      );
     },
     newList: () => set({ dialog: "newList" }),
     createList: (nombre) => {

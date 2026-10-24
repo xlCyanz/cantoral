@@ -10,7 +10,7 @@ const { useStore, filasDeLista, playQueue } = await import("../../store");
 const initial = useStore.getState();
 
 function pista(id: string): Track {
-  return { id, titulo: `Canción ${id}`, artista: "Coro", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Música", fav: false, missing: false, added: 0 };
+  return { id, titulo: `Canción ${id}`, artista: "Coro", album: "", dur: "3:00", durSec: 180, formato: "MP3", carpeta: "Música", fav: false, missing: false, singers: [], added: 0 };
 }
 
 const culto: Playlist = { id: "p1", nombre: "Domingo", ids: ["a", "m:1", "b"], tocada: "" };

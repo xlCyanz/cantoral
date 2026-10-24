@@ -58,6 +58,12 @@ export const tauri: Backend = {
   touchPlaylist: (playlist) => api.touchPlaylistCmd(playlist),
   deletePlaylist: (playlist) => api.deletePlaylistCmd(playlist),
 
+  addSinger: async (nombre) => requerido(await api.addSingerCmd(nombre), "add_cantante"),
+  renameSinger: async (id, nombre) => requerido(await api.renameSingerCmd(id, nombre), "rename_cantante"),
+  deleteSinger: async (id) => requerido(await api.deleteSingerCmd(id), "delete_cantante"),
+  setTrackSingers: async (track, singers) =>
+    requerido(await api.setTrackSingersCmd(track, singers), "set_track_singers"),
+
   findDuplicates: async () => requerido(await api.findDuplicatesCmd(), "find_duplicates"),
   mergeDuplicates: async (keep, drop) => requerido(await api.mergeDuplicatesCmd(keep, drop), "merge_duplicates"),
   dismissDuplicates: async (signature) =>

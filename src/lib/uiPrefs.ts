@@ -42,6 +42,12 @@ export interface UiPrefs {
   /** Si poner un video a sonar lo saca por la pantalla de proyección. */
   /** El tamaño de toda la interfaz. Ver `lib/tamano.ts`. */
   tamanoUi: TamanoUi;
+  /**
+   * Si al terminar una canción se pregunta a los cantantes de hoy quién se la
+   * sabe, para apuntarlo. Activado de fábrica: apuntarlo a mano después, en
+   * mitad de un culto, es lo que se olvida.
+   */
+  askSingersAtEnd: boolean;
 }
 
 /** The settings key it is stored under. */
@@ -75,6 +81,7 @@ export const PREF_FIELDS = [
   "buscarActualizacionesAlAbrir",
   "pantallaProyeccion",
   "tamanoUi",
+  "askSingersAtEnd",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -92,6 +99,7 @@ export function serialisePrefs(s: UiPrefs): string {
     buscarActualizacionesAlAbrir: s.buscarActualizacionesAlAbrir,
     pantallaProyeccion: s.pantallaProyeccion,
     tamanoUi: s.tamanoUi,
+    askSingersAtEnd: s.askSingersAtEnd,
   };
   return JSON.stringify(limpio);
 }
@@ -147,6 +155,7 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
     out.pantallaProyeccion = { sistema: g.sistema, ancho: g.ancho, alto: g.alto, x: g.x, y: g.y };
   }
   if (esTamano(o.tamanoUi)) out.tamanoUi = o.tamanoUi;
+  if (esBooleano(o.askSingersAtEnd)) out.askSingersAtEnd = o.askSingersAtEnd;
   return out;
 }
 

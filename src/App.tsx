@@ -19,6 +19,7 @@ import ScanProgress from "./components/ScanProgress";
 import RowMenu from "./components/RowMenu";
 import Toast from "./components/Toast";
 import TrabajosDeFondo from "./components/TrabajosDeFondo";
+import SingerCheckDialog from "./components/SingerCheckDialog";
 
 // Lo que casi nunca se abre se carga al abrirlo, y no al arrancar: la
 // configuración y los diálogos de ayuda y
@@ -168,6 +169,7 @@ export default function App() {
       {dialog === "help" && <Diferido><HelpDialog /></Diferido>}
       <ConfirmDialog />
       <RowMenu />
+      <SingerCheckDialog />
       <ScanProgress />
       <Toast />
       <TrabajosDeFondo />
