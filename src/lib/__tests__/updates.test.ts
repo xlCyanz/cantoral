@@ -166,6 +166,32 @@ describe("instalar", () => {
     // Y la actualización sigue ahí para reintentarla.
     expect(useStore.getState().update).toEqual(DISPONIBLE);
   });
+  it("con música sonando pregunta antes, porque el reinicio corta la canción", async () => {
+    await conActualizacion();
+    useStore.setState({ playing: true });
+
+    useStore.getState().installUpdate();
+
+    expect(installUpdateCmd).not.toHaveBeenCalled();
+    const pregunta = useStore.getState().confirm;
+    expect(pregunta?.title).toContain("9.9.9");
+    expect(pregunta?.message).toContain("se corta");
+
+    useStore.getState().acceptConfirm();
+    expect(installUpdateCmd).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().updateState).toBe("downloading");
+  });
+
+  it("y si se cancela, no baja nada", async () => {
+    await conActualizacion();
+    useStore.setState({ playing: true });
+
+    useStore.getState().installUpdate();
+    useStore.getState().closeConfirm();
+
+    expect(installUpdateCmd).not.toHaveBeenCalled();
+    expect(useStore.getState().updateState).toBe("idle");
+  });
 });
 
 describe("buscar al abrir (#146)", () => {

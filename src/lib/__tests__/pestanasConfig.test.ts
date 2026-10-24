@@ -64,6 +64,28 @@ describe("las pestañas de Configuración", () => {
   });
 });
 
+describe("con una versión nueva", () => {
+  const DISPONIBLE = { estado: "disponible", version: "9.9.9", notas: "### Añadido\n\n- **Algo** nuevo", fecha: null } as const;
+
+  it("la pestaña «Acerca de» lo dice, también al lector de pantalla", () => {
+    useStore.setState({ update: DISPONIBLE });
+    expect(pintar("general")).toContain("hay una versión nueva");
+  });
+
+  it("y sus notas se leen sin el Markdown a la vista", () => {
+    useStore.setState({ update: DISPONIBLE });
+    const html = pintar("acerca");
+    expect(html).toContain("<strong");
+    expect(html).toContain("<li");
+    expect(html).not.toContain("**");
+    expect(html).not.toContain("###");
+  });
+
+  it("sin nada nuevo, ningún aviso", () => {
+    expect(pintar("general")).not.toContain("hay una versión nueva");
+  });
+});
+
 describe("ir a Configuración", () => {
   it("desde la barra lateral vuelve a la última pestaña que se vio", () => {
     useStore.getState().setPestanaConfig("acerca");

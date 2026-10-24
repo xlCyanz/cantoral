@@ -22,6 +22,16 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
   apaga desde el propio aviso y siempre aparece en la ventana de control, que
   es donde está quien anota — también estando proyectando.
 
+### Cambiado
+
+- **Las actualizaciones se ven sin ir a buscarlas.** Cuando hay una versión
+  nueva, «Configuración» lo dice en la barra lateral con «Nueva versión» y
+  lleva directo a «Acerca de», que también lo marca. Las notas se leen con sus
+  títulos, viñetas y negritas en vez del texto con asteriscos, junto a la fecha
+  en que se publicó.
+- **Instalar con música sonando pregunta antes**: el reinicio corta la
+  canción, y en medio del culto eso no se hace sin querer.
+
 ### Corregido
 
 - «Reproducir todo» arrancaba en la primera pista sin mirar si su archivo
