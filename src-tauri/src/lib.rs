@@ -153,6 +153,8 @@ pub fn run() {
             commands::reconcile_library,
             commands::remove_folder,
             commands::relocate_track,
+            commands::descartar_formatos,
+            commands::marcar_sin_imagen,
             commands::delete_track,
             commands::relocate_folder,
             commands::set_track_fav,

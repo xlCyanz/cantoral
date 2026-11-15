@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
-import { ArrowUpCircle, Check, CircleCheck, Download, ExternalLink, FileText, Folder, Mic2, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowUpCircle, Check, CircleCheck, CircleX, Download, ExternalLink, FileText, Folder, Mic2, Play, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { useStore } from "../store";
 import { botonFila, ocupadoStyle } from "../lib/styles";
 import DuplicateGroups from "./DuplicateGroups";
@@ -12,6 +12,7 @@ import { faltantesPorCarpetaDe, metaDeCarpeta } from "../lib/carpetas";
 import type { PestanaConfig, ThemeMode } from "../lib/types";
 import { Logotipo } from "./Logo";
 import { bloquesDeNotas, fechaDeVersion, type Trozo } from "../lib/notasDeVersion";
+import { MUESTRAS, type Muestra } from "../lib/pruebaDeFormatos";
 
 // El rediseño pone cada cosa en su tarjeta en vez de encadenar secciones con
 // títulos sueltos y 30 px de aire entre ellas. Con la interfaz en «Grande» ya
@@ -39,6 +40,7 @@ const MOTIVO_DE_COPIA: Record<CopiaAutomatica["motivo"], string> = {
   "quitar-carpeta": "antes de quitar una carpeta",
   restaurar: "antes de restaurar un respaldo",
   fusionar: "antes de fusionar duplicados",
+  "descartar-formatos": "antes de quitar pistas en formatos descartados",
 };
 
 function formatScan(iso: string | undefined): string {
@@ -280,6 +282,7 @@ export default function ConfigView() {
                 )}
               </div>
 
+            <PruebaDeFormatos />
             <DuplicateGroups />
           </>
         )}
@@ -323,7 +326,8 @@ export default function ConfigView() {
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
                   <h3 style={{ ...h2Style, fontSize: 12 }}>Copias automáticas</h3>
                   <p style={{ ...pStyle, marginBottom: copiasAuto.length ? 6 : 0 }}>
-                    Cantoral guarda una antes de quitar una carpeta, restaurar un respaldo o fusionar duplicados, y conserva las
+                    Cantoral guarda una antes de quitar una carpeta, restaurar un respaldo, fusionar duplicados o quitar
+            pistas en formatos que este equipo no reproduce, y conserva las
                     últimas cinco. Están en este mismo disco: no sustituyen una copia en otro equipo o en una memoria USB.
                     {copiasAuto.length === 0 && " Todavía no hay ninguna."}
                   </p>
@@ -539,6 +543,87 @@ function SingerManagement() {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * La prueba de audio y video (`lib/pruebaDeFormatos.ts`).
+ *
+ * Qué suena depende del equipo, así que se prueba en él: un archivo corto de
+ * cada formato, uno detrás de otro, y la lista se va llenando a la vista. Los
+ * que no suenan quedan descartados y el escáner deja de indexarlos.
+ */
+function PruebaDeFormatos() {
+  const prueba = useStore((s) => s.pruebaDeFormatos);
+  const descartados = useStore((s) => s.formatosDescartados);
+  const scanning = useStore((s) => s.scanning);
+  const probar = useStore((s) => s.probarFormatos);
+  const probando = prueba.estado === "probando";
+  const porExt = new Map(prueba.resultados.map((r) => [r.ext, r]));
+
+  const fila = (m: Muestra) => {
+    const r = porExt.get(m.ext);
+    return (
+      <li key={m.ext} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: "1px solid var(--border)", fontSize: 12, minWidth: 0 }}>
+        {r?.ok ? (
+          <CircleCheck size={14} color="var(--primary)" style={{ flex: "0 0 auto" }} aria-hidden />
+        ) : r ? (
+          <CircleX size={14} color="var(--danger)" style={{ flex: "0 0 auto" }} aria-hidden />
+        ) : (
+          <span aria-hidden style={{ width: 14, height: 14, flex: "0 0 auto", borderRadius: "50%", border: "1.5px dashed var(--border-2)" }} />
+        )}
+        <span style={{ flex: 1, minWidth: 0 }}>
+          {m.nombre}
+          {r && !r.ok && r.motivo && <span style={{ display: "block", fontSize: "10.5px", color: "var(--text-3)" }}>{r.motivo}</span>}
+        </span>
+        <span style={{ flex: "0 0 auto", fontSize: 11, color: r?.ok ? "var(--text-2)" : r ? "var(--danger)" : "var(--text-3)" }}>
+          {r?.ok ? "Se reproduce" : r ? "Descartado" : probando ? "Probando…" : ""}
+        </span>
+      </li>
+    );
+  };
+
+  const columna = (titulo: string, tipo: Muestra["tipo"]) => (
+    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+      <h3 style={{ ...h2Style, fontSize: 11, color: "var(--text-2)", margin: "0 0 4px" }}>{titulo}</h3>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>{MUESTRAS.filter((m) => m.tipo === tipo).map(fila)}</ul>
+    </div>
+  );
+
+  return (
+    <div style={tarjeta}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={h2Style}>Prueba de audio y video</h2>
+          <p style={pStyle}>
+            Reproduce en silencio un archivo corto de cada formato en este equipo. Los que no suenan se descartan: no
+            se indexan al escanear, y si ya hay canciones en ellos se te pregunta si quitarlas.
+          </p>
+        </div>
+        <button
+          onClick={() => void probar()}
+          disabled={probando || scanning}
+          title={scanning ? "Hay un escaneo en curso" : undefined}
+          className="hb-s2"
+          style={{ ...botonFila, height: 26, display: "flex", alignItems: "center", gap: 6, fontSize: "11.5px", fontWeight: 600, ...ocupadoStyle(probando || scanning) }}
+        >
+          <Play size={13} strokeWidth={2.2} />
+          {probando ? "Probando…" : prueba.estado === "hecha" ? "Probar otra vez" : "Probar formatos"}
+        </button>
+      </div>
+      {prueba.estado === "sinHacer" ? (
+        <p style={{ ...pStyle, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
+          {descartados.length
+            ? `Descartados en este equipo: ${descartados.map((e) => `.${e}`).join(", ")}.`
+            : "Todavía no se ha probado: Cantoral intenta reproducir todos los formatos."}
+        </p>
+      ) : (
+        <div aria-live="polite" style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px" }}>
+          {columna("Audio", "audio")}
+          {columna("Video", "video")}
+        </div>
+      )}
     </div>
   );
 }

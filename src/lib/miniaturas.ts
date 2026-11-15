@@ -48,6 +48,11 @@ export type Captura =
        * apunta en ninguno.
        */
       plataforma?: boolean;
+      /**
+       * Si el archivo se abrió bien pero no trae imagen: un `.mp4` o un
+       * `.mkv` con solo sonido. No es un fallo, es un audio.
+       */
+      sinImagen?: boolean;
     };
 
 /**
@@ -109,7 +114,7 @@ export async function capturarMiniatura(path: string): Promise<Captura> {
       const ancho = video.videoWidth;
       const alto = video.videoHeight;
       if (!ancho || !alto) {
-        finish({ imagen: null, motivo: "no video track" });
+        finish({ imagen: null, motivo: "no video track", sinImagen: true });
         return;
       }
       const escala = Math.min(1, LADO_PX / Math.max(ancho, alto));
@@ -171,6 +176,8 @@ export interface Dependencias {
   aplicar: (id: string, path: string, ruta: string) => void;
   /** Apunta en la base que de este video no sale miniatura. */
   marcarFallo: (id: string, path: string) => Promise<void>;
+  /** Apunta que el archivo no trae imagen: desde ahí suena como un audio. */
+  marcarSinImagen: (id: string, path: string) => Promise<void>;
   /** Si algo suena o se proyecta: entonces la cola espera. */
   ocupado: () => boolean;
   registrar: (nivel: "info" | "warn" | "error", mensaje: string) => void;
@@ -235,6 +242,17 @@ export function crearCola(d: Dependencias) {
       try {
         const captura = await d.capturar(t.path);
         const ms = Math.round(d.ahora() - antes);
+        if (captura.imagen === null && captura.sinImagen) {
+          // Se abrió bien: ni falla el archivo ni la plataforma. Es un audio
+          // con extensión de video, y desde ahora se trata como tal.
+          d.registrar("info", `video thumbnail: «${t.path}» has no picture, it plays as audio`);
+          try {
+            await d.marcarSinImagen(t.id, t.path);
+          } catch (err) {
+            d.registrar("error", `could not record «${t.path}» as audio only: ${String(err)}`);
+          }
+          continue;
+        }
         if (captura.imagen === null) {
           fallidas++;
           d.registrar("warn", `video thumbnail: could not make one for «${t.path}» (${captura.motivo}, ${ms} ms)`);
@@ -314,6 +332,7 @@ const cola = crearCola({
   guardar: saveVideoThumbnail,
   aplicar: (id, path, ruta) => loteDeMiniaturas.poner(claveDe(id, path), assetUrl(ruta)),
   marcarFallo: markVideoThumbnailFailed,
+  marcarSinImagen: (id, path) => useStore.getState().apuntarSinImagen(id, path),
   ocupado: () => {
     const s = useStore.getState();
     return s.proyectando || (s.playing && !!cur(s)?.video);

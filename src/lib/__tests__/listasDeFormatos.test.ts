@@ -7,14 +7,15 @@
 
 import { describe, expect, it, vi } from "vitest";
 import scannerRs from "../../../src-tauri/src/scanner.rs?raw";
-import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO, SIN_SOPORTE } from "../formatos";
+import { EXTENSIONES_AUDIO, EXTENSIONES_VIDEO } from "../formatos";
+import { MUESTRAS } from "../pruebaDeFormatos";
 
 const abrir = vi.hoisted(() => vi.fn((_opciones: unknown) => Promise.resolve(null)));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: abrir, save: vi.fn() }));
 
 /** Las cadenas de `const NOMBRE: &[&str] = &[...];` en `scanner.rs`. */
 function listaDeRust(nombre: string): string[] {
-  const m = scannerRs.match(new RegExp(`const ${nombre}: &\\[&str\\] = &\\[([^\\]]*)\\];`));
+  const m = scannerRs.match(new RegExp(`const ${nombre}: &\\[&str\\] =\\s*&\\[([^\\]]*)\\];`));
   if (!m) throw new Error(`no encuentro ${nombre} en scanner.rs`);
   return [...m[1].matchAll(/"([^"]+)"/g)].map((c) => c[1]);
 }
@@ -30,13 +31,20 @@ describe("formatos.ts y scanner.rs", () => {
     expect(ordenada(EXTENSIONES_VIDEO)).toEqual(ordenada(listaDeRust("VIDEO_EXTS")));
   });
 
-  it("y dejan fuera los mismos formatos", () => {
-    expect(ordenada(Object.keys(SIN_SOPORTE))).toEqual(ordenada(listaDeRust("SIN_SOPORTE")));
+  it("y la prueba de audio y video prueba justo lo que se indexa", () => {
+    // Un formato que se indexa y no se prueba no se podría descartar nunca;
+    // uno que se prueba y no se indexa, no haría falta.
+    const probadas = MUESTRAS.flatMap((m) => [m.ext, ...(m.tambien ?? [])]);
+    expect(ordenada(probadas)).toEqual(ordenada([...EXTENSIONES_AUDIO, ...EXTENSIONES_VIDEO]));
+    for (const m of MUESTRAS) {
+      const lista = m.tipo === "audio" ? EXTENSIONES_AUDIO : EXTENSIONES_VIDEO;
+      expect(lista, m.ext).toContain(m.ext);
+    }
   });
 });
 
 describe("«Localizar…»", () => {
-  it("ofrece justo lo que el escáner indexa, y nada de lo que omite", async () => {
+  it("ofrece justo lo que el escáner indexa", async () => {
     vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });
     const { pickMediaFile } = await import("../api");
     await pickMediaFile();
@@ -47,6 +55,5 @@ describe("«Localizar…»", () => {
     expect(ordenada(ofrecidas)).toEqual(
       ordenada([...listaDeRust("AUDIO_EXTS"), ...listaDeRust("VIDEO_EXTS")]),
     );
-    for (const ext of listaDeRust("SIN_SOPORTE")) expect(ofrecidas).not.toContain(ext);
   });
 });

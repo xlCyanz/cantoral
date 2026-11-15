@@ -26,8 +26,8 @@ export function detalleDeOmitidos(n: number, ilegibles = 0): string | undefined 
   if (n > 0) {
     partes.push(
       n === 1
-        ? "1 archivo se quedó fuera: Cantoral no reproduce su formato."
-        : `${n} archivos se quedaron fuera: Cantoral no reproduce su formato.`,
+        ? "1 archivo se quedó fuera: la prueba de audio y video dijo que este equipo no reproduce su formato."
+        : `${n} archivos se quedaron fuera: la prueba de audio y video dijo que este equipo no reproduce su formato.`,
     );
   }
   // Entraron, pero sin título ni duración: leerlos rompió el lector de

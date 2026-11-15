@@ -75,6 +75,7 @@ export default function DetailPanel() {
   // several times a second, and none of what it shows changes with it.
   const detailOpen = useStore((s) => s.detailOpen);
   const sel = useStore((s) => (s.selId ? (pistasPorId(s.tracks).get(s.selId) ?? null) : null));
+  const descartados = useStore((s) => s.formatosDescartados);
   const playlists = useStore((s) => s.playlists);
   const saveState = useStore((s) => s.saveState);
 
@@ -164,14 +165,15 @@ export default function DetailPanel() {
               </div>
             </div>
           )}
-          {/* Un archivo que está en el disco y que la app no puede abrir. Ya no
-              hay reproductor del sistema al que mandarlo, así que decirlo aquí
-              —con el formato, que es lo que hay que convertir— es todo lo que
-              se puede hacer por quien lo tiene en un culto del domingo. */}
-          {!sel.missing && motivoNoProyectable(sel) && (
+          {/* Un archivo que está en el disco y que este equipo no puede abrir
+              (lo dijo la prueba de audio y video). Ya no hay reproductor del
+              sistema al que mandarlo, así que decirlo aquí —con el formato,
+              que es lo que hay que convertir— es todo lo que se puede hacer
+              por quien lo tiene en un culto del domingo. */}
+          {!sel.missing && motivoNoProyectable(sel, descartados) && (
             <div style={{ marginTop: 12, width: "100%", display: "flex", alignItems: "center", gap: 9, background: "var(--surface-2)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 10, fontSize: "12.5px", fontWeight: 500, textAlign: "left", lineHeight: 1.35, border: "1px solid var(--border)" }}>
               <TriangleAlert size={18} strokeWidth={2} color="var(--text-3)" style={{ flex: "0 0 auto" }} />
-              {motivoNoProyectable(sel)}. Conviértelo a MP3 o MP4 y vuelve a escanear la carpeta.
+              {motivoNoProyectable(sel, descartados)}. Conviértelo a MP3 o MP4 y vuelve a escanear la carpeta.
             </div>
           )}
 

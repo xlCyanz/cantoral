@@ -8,9 +8,19 @@ import { closeProjectionCmd, onProjectionReady, onProjectionState, openProjectio
 import type { Contexto, Get, Set } from "./contexto";
 import { cur } from "./selectores";
 import { rutaProyectable, salidaDePista, volumenEfectivo } from "../lib/proyeccion";
+import { sondearImagen } from "../lib/sinImagen";
+import type { Track } from "../lib/types";
 
 /** Si ya se dijo en esta sesión que el video se queda en el panel por falta de otra pantalla. */
 let avisadoUnaPantalla = false;
+
+/**
+ * Los videos que ya se miró que traen imagen, en esta sesión, por `id:ruta`.
+ * Uno con miniatura también la trae, y ese ni se mira.
+ */
+const conImagen = new Set<string>();
+const claveDeImagen = (t: Track) => `${t.id}:${t.path}`;
+const imagenSabida = (t: Track) => !!t.cover || conImagen.has(claveDeImagen(t));
 
 // Parte del store (#134). Ver src/store/index.ts.
 // La salida al proyector.
@@ -86,6 +96,35 @@ export interface ProyeccionSlice {
 
 export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSlice {
   const { toast } = ctx;
+  /**
+   * Si la pista `id` trae imagen, mirándolo si no se sabe (`lib/sinImagen.ts`).
+   *
+   * Si resulta ser solo sonido, se apunta como audio —en la base y en
+   * pantalla— y se suelta la salida que se le había reservado: la barra la
+   * reproduce en el equipo. Si no se pudo saber, se proyecta como siempre y,
+   * si falla, lo dice la salida.
+   */
+  /** Si ya se sabe, sin esperar a nada, que `id` trae imagen. */
+  const imagenDe = (id: string): boolean => {
+    const t = get().tracks.find((x) => x.id === id);
+    return !t?.path || imagenSabida(t);
+  };
+
+  const traeImagen = async (id: string): Promise<boolean> => {
+    const t = get().tracks.find((x) => x.id === id);
+    if (!t?.path || imagenSabida(t)) return true;
+    const imagen = await sondearImagen(t.path).catch(() => null);
+    if (imagen !== false) {
+      conImagen.add(claveDeImagen(t));
+      return true;
+    }
+    if (get().proyeccionPista === id) set({ proyeccionPista: null });
+    await get()
+      .apuntarSinImagen(t.id, t.path)
+      .catch((err) => console.error("marcar_sin_imagen failed", err));
+    return false;
+  };
+
   return {
     monitores: [],
     monitorSalida: 0,
@@ -162,6 +201,14 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
 
       if (s.proyeccionPista) {
         if (t && proyectable) {
+          if (t.id !== s.proyeccionPista && !imagenSabida(t)) {
+            // Otro video, del que no se sabe si trae imagen: la salida se
+            // queda en negro mientras se mira, y `proyectarPista` decide.
+            set({ proyeccionPista: t.id });
+            get().proyectar({ vista: { modo: "negro" } });
+            void get().proyectarPista(t.id);
+            return;
+          }
           // Otro video de la cola, o el mismo en pausa o reanudado: la salida
           // sigue abierta y enseña lo que diga la barra.
           if (t.id !== s.proyeccionPista) set({ proyeccionPista: t.id });
@@ -185,15 +232,26 @@ export function crearProyeccion(set: Set, get: Get, ctx: Contexto): ProyeccionSl
     proyectarPista: async (id) => {
       if (get().proyectando) {
         // Ya está abierta —en negro por un audio, u otro video—: el video la
-        // ocupa ya, sin volver a abrirla.
+        // ocupa ya, sin volver a abrirla. Si resulta no traer imagen, la
+        // salida sigue en negro y suena en el equipo, como cualquier audio.
         set({ proyeccionPista: id });
+        if (!imagenDe(id) && !(await traeImagen(id))) {
+          get().proyectar({ vista: { modo: "negro" } });
+          return;
+        }
         const t = cur(get());
-        if (t) get().proyectar(salidaDePista(t, get().playing, volumenEfectivo(get())));
+        if (t && get().proyeccionPista === id) get().proyectar(salidaDePista(t, get().playing, volumenEfectivo(get())));
         return;
       }
       // Se apunta ya, antes de saber si hay dónde: el panel de detalle mira
       // esto para no arrancar el mismo video mientras se abre la salida.
       set({ proyeccionPista: id });
+      // Un archivo de video con solo sonido no abre el proyector: suena en
+      // el equipo, como un audio.
+      if (!imagenDe(id)) {
+        if (!(await traeImagen(id))) return;
+        if (get().proyeccionPista !== id) return; // se pasó a otra cosa mientras tanto
+      }
       await get().cargarMonitores();
       if (!get().proyeccionPista) return; // se pasó a otra cosa mientras tanto
 

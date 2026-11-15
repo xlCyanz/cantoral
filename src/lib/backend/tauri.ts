@@ -43,6 +43,8 @@ export const tauri: Backend = {
   onScanProgress: (cb) => api.onScanProgress(cb),
   onCaratulasReducidas: (cb) => api.onCaratulasReducidas(cb),
   removeFolder: (id) => api.removeFolderCmd(id),
+  descartarFormatos: (formatos, quitar) => api.descartarFormatosCmd(formatos, quitar),
+  marcarSinImagen: (id, path) => api.marcarSinImagenCmd(id, path),
   relocateFolder: async (id) => {
     const path = await api.pickFolder();
     return path ? api.relocateFolderCmd(id, path) : null;

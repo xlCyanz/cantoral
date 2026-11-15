@@ -9,6 +9,24 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Prueba de audio y video** en Configuración → Biblioteca: reproduce en
+  silencio un archivo de un segundo de cada formato en este equipo y marca
+  cuáles suenan. Los que no, se descartan: el escaneo deja de indexarlos y, si
+  ya había canciones en ellos, pregunta si quitarlas (con copia automática
+  antes). Si un códec nuevo hace que un formato vuelva a sonar, basta con
+  probar otra vez.
+
+### Cambiado
+
+- **WMA, WMV, AVI y MKV ya se indexan.** Antes se dejaban fuera en todos los
+  equipos; ahora decide la prueba de cada uno, porque lo que suena depende del
+  sistema y de sus códecs.
+- **Un archivo de video que solo trae sonido suena como un audio**: no abre el
+  proyector ni lo deja en negro. Se mira antes de proyectar, y también al
+  sacar las miniaturas.
+
 ## [0.8.0] - 2026-10-24
 
 **Quién canta hoy.** Se registran los cantantes de la iglesia y, canción por
