@@ -2980,7 +2980,7 @@ mod tests {
 
     #[test]
     fn list_playlists_reads_every_order_in_one_query() {
-        let conn = mem();
+        let mut conn = mem();
         let fid = add_folder(&conn, "/m", "m", true).unwrap();
         let a = add_track(&conn, fid, "/m/a.mp3", "A");
         let b = add_track(&conn, fid, "/m/b.mp3", "B");
@@ -3001,9 +3001,9 @@ mod tests {
 
         LECTURAS_DE_ORDEN.with(|c| c.set(0));
         let stmt = rusqlite::trace::TraceEventCodes::SQLITE_TRACE_STMT;
-        conn.trace_v2(stmt, Some(contar_lecturas_de_orden));
+        conn.trace_v2(stmt, Some(contar_lecturas_de_orden)).unwrap();
         let listas = list_playlists(&conn).unwrap();
-        conn.trace_v2(stmt, None);
+        conn.trace_v2(stmt, None::<fn(rusqlite::trace::TraceEvent<'_>)>).unwrap();
 
         assert_eq!(LECTURAS_DE_ORDEN.with(|c| c.get()), 1);
         let mut vistas: Vec<(String, Vec<String>)> =
