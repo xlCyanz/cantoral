@@ -699,14 +699,17 @@ fn folder_containing(conn: &Connection, path: &Path) -> Result<Option<i64>> {
 /// unchanged and does not re-read its metadata. If the new location falls inside
 /// another indexed folder, the track moves to it.
 ///
-/// Only formats the scanner indexes are accepted (#130): the native dialog
-/// filters them, but IPC does not go through the dialog, and a track pointed at
-/// a `.wma` looks healthy in the list and stays silent in the service.
+/// Only formats the scanner indexes are accepted (#130), and not one this
+/// machine's audio and video test discarded: the native dialog filters them,
+/// but IPC does not go through the dialog, and a track pointed at a file that
+/// does not play looks healthy in the list and stays silent in the service.
 pub fn relocate_track(conn: &Connection, id: i64, new_path: &Path) -> Result<()> {
     if !new_path.is_file() {
         bail!("«{}» no es un archivo.", new_path.display());
     }
-    if let Some(motivo) = crate::scanner::motivo_no_indexable(new_path) {
+    if let Some(motivo) =
+        crate::scanner::motivo_no_indexable(new_path, &formatos_descartados(conn)?)
+    {
         bail!(motivo);
     }
     let new_str = new_path.to_string_lossy().to_string();
@@ -1359,6 +1362,67 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- formatos descartados
+
+/// Los formatos que la prueba de audio y video de Configuración dio por no
+/// reproducibles en este equipo, como lista JSON de extensiones en minúscula.
+///
+/// Es de cada equipo, no del catálogo: el motor que reproduce es el del
+/// sistema, y el mismo `.wma` que no suena en un PC puede sonar en otro.
+const FORMATOS_DESCARTADOS: &str = "formatos_descartados";
+
+/// Las extensiones descartadas. Sin prueba hecha, ninguna: se intenta todo.
+pub fn formatos_descartados(conn: &Connection) -> Result<Vec<String>> {
+    let Some(json) = get_setting(conn, FORMATOS_DESCARTADOS)? else {
+        return Ok(Vec::new());
+    };
+    // Un valor ilegible no puede dejar al escáner sin indexar nada: se trata
+    // como si no hubiera prueba hecha.
+    let lista: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+    Ok(lista.into_iter().map(|e| e.trim().trim_start_matches('.').to_lowercase()).collect())
+}
+
+pub fn set_formatos_descartados(conn: &Connection, exts: &[String]) -> Result<()> {
+    let mut limpias: Vec<String> =
+        exts.iter().map(|e| e.trim().trim_start_matches('.').to_lowercase()).collect();
+    limpias.sort();
+    limpias.dedup();
+    set_setting(conn, FORMATOS_DESCARTADOS, &serde_json::to_string(&limpias)?)
+}
+
+/// Las pistas cuyo archivo tiene una de estas extensiones.
+///
+/// Por la columna `formato`, que el escáner llena con la extensión en
+/// mayúsculas: no hace falta recorrer las rutas.
+pub fn track_ids_por_formato(conn: &Connection, exts: &[String]) -> Result<Vec<i64>> {
+    let mut ids = Vec::new();
+    let mut stmt = conn.prepare("SELECT id FROM tracks WHERE formato=?1 ORDER BY id")?;
+    for ext in exts {
+        let filas = stmt.query_map(params![ext.to_uppercase()], |r| r.get::<_, i64>(0))?;
+        for id in filas {
+            ids.push(id?);
+        }
+    }
+    ids.sort_unstable();
+    ids.dedup();
+    Ok(ids)
+}
+
+/// Apuntar que el archivo de la pista `id` no trae imagen: un `.mp4` o un
+/// `.mkv` con solo sonido. Desde ese momento es un audio —suena en el equipo y
+/// no abre el proyector—.
+///
+/// Solo si sigue en esa ruta y sigue contando como video. Si el archivo cambia
+/// en el disco, el próximo escaneo lo vuelve a leer y decide por su extensión;
+/// mientras no cambie, el escaneo ni lo toca y esto se queda.
+pub fn marcar_sin_imagen(conn: &Connection, id: i64, path: &str) -> Result<bool> {
+    let n = conn.execute(
+        "UPDATE tracks SET video=0 WHERE id=?1 AND path=?2 AND video=1",
+        params![id, path],
+    )?;
+    Ok(n > 0)
+}
+
 // ---------------------------------------------------------------- duplicates
 
 /// Seconds two copies of the same song may differ by and still be grouped.
@@ -1800,6 +1864,53 @@ mod tests {
     fn add_track(conn: &Connection, fid: i64, path: &str, titulo: &str) -> i64 {
         upsert_track(conn, fid, path, titulo, "Artista", "Album", 120, "MP3", false, 10, 100)
             .unwrap()
+    }
+
+    #[test]
+    fn discarded_formats_are_read_back_clean_and_default_to_none() {
+        let conn = mem();
+        assert!(formatos_descartados(&conn).unwrap().is_empty(), "sin prueba hecha, ninguno");
+
+        set_formatos_descartados(&conn, &["WMA".into(), ".avi".into(), "wma".into()]).unwrap();
+        assert_eq!(
+            formatos_descartados(&conn).unwrap(),
+            vec!["avi".to_string(), "wma".to_string()]
+        );
+
+        set_setting(&conn, FORMATOS_DESCARTADOS, "no es json").unwrap();
+        assert!(formatos_descartados(&conn).unwrap().is_empty(), "ilegible cuenta como ninguno");
+    }
+
+    #[test]
+    fn tracks_are_found_by_format() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let mp3 = add_track(&conn, fid, "/m/a.mp3", "A");
+        let wma = upsert_track(&conn, fid, "/m/b.wma", "B", "", "", 0, "WMA", false, 1, 1).unwrap();
+        let avi = upsert_track(&conn, fid, "/m/c.avi", "C", "", "", 0, "AVI", true, 1, 1).unwrap();
+
+        let ids = track_ids_por_formato(&conn, &["wma".into(), "avi".into()]).unwrap();
+
+        assert_eq!(ids, vec![wma, avi]);
+        assert!(!ids.contains(&mp3));
+    }
+
+    #[test]
+    fn a_video_without_picture_becomes_audio_until_the_file_changes() {
+        let conn = mem();
+        let fid = add_folder(&conn, "/m", "m", true).unwrap();
+        let id = upsert_track(&conn, fid, "/m/coro.mp4", "Coro", "", "", 0, "MP4", true, 10, 100)
+            .unwrap();
+
+        assert!(!marcar_sin_imagen(&conn, id, "/m/otro.mp4").unwrap(), "otra ruta no");
+        assert!(marcar_sin_imagen(&conn, id, "/m/coro.mp4").unwrap());
+        assert!(!list_tracks(&conn).unwrap()[0].video, "ahora suena como un audio");
+        assert!(!marcar_sin_imagen(&conn, id, "/m/coro.mp4").unwrap(), "ya lo era");
+
+        // El archivo cambió en el disco: el escaneo lo vuelve a leer y decide
+        // por la extensión.
+        upsert_track(&conn, fid, "/m/coro.mp4", "Coro", "", "", 0, "MP4", true, 11, 200).unwrap();
+        assert!(list_tracks(&conn).unwrap()[0].video);
     }
 
     #[test]
@@ -3469,7 +3580,8 @@ mod tests {
 
     #[test]
     fn relocating_refuses_a_format_the_scanner_does_not_index_and_leaves_the_track_alone() {
-        // #130: «Localizar…» ofrecía `.wma`, y por IPC se puede mandar cualquier ruta.
+        // #130: «Localizar…» ofrecía lo que no suena, y por IPC se puede mandar
+        // cualquier ruta.
         let files = Files::new("track-format");
         let conn = mem();
         let fid = add_folder(&conn, &files.s("m"), "m", true).unwrap();
@@ -3477,10 +3589,14 @@ mod tests {
         let id = add_track(&conn, fid, &viejo, "A");
         conn.execute("UPDATE tracks SET missing=1", []).unwrap();
 
+        set_formatos_descartados(&conn, &["wma".into(), "avi".into()]).unwrap();
+
         let err = relocate_track(&conn, id, &files.file("m/a.wma")).unwrap_err().to_string();
-        assert!(err.contains(".wma no se pueden reproducir"), "{err}");
+        assert!(err.contains("Este equipo no reproduce los archivos .wma"), "{err}");
         assert!(err.contains("Conviértelo a MP3 o MP4"), "{err}");
-        for otro in ["m/a.mkv", "m/a.AVI", "m/a.wmv", "m/letra.txt", "m/sin-extension"] {
+        let err = relocate_track(&conn, id, &files.file("m/letra.txt")).unwrap_err().to_string();
+        assert!(err.contains(".txt no se pueden reproducir"), "{err}");
+        for otro in ["m/a.AVI", "m/sin-extension"] {
             assert!(relocate_track(&conn, id, &files.file(otro)).is_err(), "{otro}");
         }
 

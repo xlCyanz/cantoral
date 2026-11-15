@@ -508,6 +508,53 @@ fn quitar_carpeta(conn: &Connection, copias: &std::path::Path, id: i64) -> anyho
     db::remove_folder(conn, id)
 }
 
+/// Guardar los formatos que la prueba de audio y video dio por mudos en este
+/// equipo. A partir de ahí el escáner no los indexa.
+///
+/// Con `quitar`, además salen de la biblioteca las pistas que ya había en esos
+/// formatos, con la copia automática antes (#143): se llevan sus favoritos y
+/// su sitio en las listas. Los archivos del disco no se tocan.
+#[tauri::command(async)]
+pub fn descartar_formatos(
+    db: State<Db>,
+    db_path: State<DbPath>,
+    slot: State<ScanSlot>,
+    formatos: Vec<String>,
+    quitar: bool,
+) -> CmdResult<Parche> {
+    let _claim = tomar(&slot, Tarea::DescartarFormatos)?;
+    let conn = db.0.lock().map_err(e)?;
+    db::set_formatos_descartados(&conn, &formatos).map_err(e)?;
+    let descartados = db::formatos_descartados(&conn).map_err(e)?;
+    log::info!("formats discarded on this machine: {descartados:?}");
+    if !quitar {
+        return parche(&conn, &[], Vec::new(), false, false).map_err(e);
+    }
+    let se_van = db::track_ids_por_formato(&conn, &descartados).map_err(e)?;
+    if se_van.is_empty() {
+        return parche(&conn, &[], Vec::new(), false, false).map_err(e);
+    }
+    copias::guardar(&conn, &copias::carpeta(&db_path.0), Motivo::DescartarFormatos, None)
+        .map_err(e)?;
+    db::delete_tracks(&conn, &se_van).map_err(e)?;
+    log::info!("{} tracks in discarded formats removed", se_van.len());
+    parche(&conn, &se_van, Vec::new(), true, true).map_err(e)
+}
+
+/// Apuntar que un video no trae imagen, para que suene como un audio y no
+/// abra el proyector. Devuelve si se apuntó: `false` si la pista ya no es ese
+/// video.
+#[tauri::command(async)]
+pub fn marcar_sin_imagen(db: State<Db>, id: String, path: String) -> CmdResult<bool> {
+    let conn = db.0.lock().map_err(e)?;
+    let tid = id.parse::<i64>().map_err(e)?;
+    let hecho = db::marcar_sin_imagen(&conn, tid, &path).map_err(e)?;
+    if hecho {
+        log::info!("track {id} has no picture: it plays as audio");
+    }
+    Ok(hecho)
+}
+
 /// Point a track at the file's new location, keeping what it carries.
 #[tauri::command(async)]
 pub fn relocate_track(

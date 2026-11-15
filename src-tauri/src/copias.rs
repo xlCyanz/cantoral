@@ -30,16 +30,19 @@ pub enum Motivo {
     QuitarCarpeta,
     Restaurar,
     Fusionar,
+    DescartarFormatos,
 }
 
 impl Motivo {
-    const TODOS: [Motivo; 3] = [Motivo::QuitarCarpeta, Motivo::Restaurar, Motivo::Fusionar];
+    const TODOS: [Motivo; 4] =
+        [Motivo::QuitarCarpeta, Motivo::Restaurar, Motivo::Fusionar, Motivo::DescartarFormatos];
 
     fn clave(self) -> &'static str {
         match self {
             Motivo::QuitarCarpeta => "quitar-carpeta",
             Motivo::Restaurar => "restaurar",
             Motivo::Fusionar => "fusionar",
+            Motivo::DescartarFormatos => "descartar-formatos",
         }
     }
 
@@ -49,6 +52,7 @@ impl Motivo {
             Motivo::QuitarCarpeta => "no se quitó la carpeta",
             Motivo::Restaurar => "no se restauró el respaldo",
             Motivo::Fusionar => "no se fusionaron las copias",
+            Motivo::DescartarFormatos => "no se quitaron las pistas",
         }
     }
 }

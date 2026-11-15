@@ -23,12 +23,13 @@ function montar(respuestas: Record<string, Captura>, ocupado: () => boolean = ()
   const guardar = vi.fn(async (id: string): Promise<string | null> => `/covers/${id}.jpg`);
   const aplicar = vi.fn();
   const marcarFallo = vi.fn(async () => {});
+  const marcarSinImagen = vi.fn(async () => {});
   const registrar = vi.fn();
   const esperar = vi.fn(async (_ms: number) => {});
   const d: Dependencias = {
-    capturar, guardar, aplicar, marcarFallo, ocupado, registrar, esperar, ahora: () => reloj,
+    capturar, guardar, aplicar, marcarFallo, marcarSinImagen, ocupado, registrar, esperar, ahora: () => reloj,
   };
-  return { cola: crearCola(d), capturar, guardar, aplicar, marcarFallo, registrar, esperar };
+  return { cola: crearCola(d), capturar, guardar, aplicar, marcarFallo, marcarSinImagen, registrar, esperar };
 }
 
 /** Let the queue run to the end. */
@@ -37,6 +38,16 @@ const drenar = () => new Promise((r) => setTimeout(r, 0));
 const pista = (id: string, path: string) => ({ id, path });
 
 describe("video thumbnail queue", () => {
+  it("a video with only sound is recorded as audio, not as a failure", async () => {
+    const soloSonido: Captura = { imagen: null, motivo: "no video track", sinImagen: true };
+    const m = montar({ "/coro.mp4": soloSonido, "/b.mp4": ok });
+    m.cola.encolar([pista("1", "/coro.mp4"), pista("2", "/b.mp4")]);
+    await drenar();
+    expect(m.marcarSinImagen).toHaveBeenCalledWith("1", "/coro.mp4");
+    expect(m.marcarFallo).not.toHaveBeenCalled();
+    expect(m.guardar.mock.calls.map((c) => c[0])).toEqual(["2"]);
+  });
+
   it("makes one per video, in order, and shows what it stored", async () => {
     const m = montar({ "/a.mp4": ok, "/c.mp4": ok });
     m.cola.encolar([pista("1", "/a.mp4"), pista("2", "/b.mp4"), pista("3", "/c.mp4")]);
