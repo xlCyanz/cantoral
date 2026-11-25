@@ -2,7 +2,7 @@
 
 export type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type View = "biblioteca" | "colecciones" | "lista" | "config";
+export type View = "biblioteca" | "colecciones" | "lista" | "temporal" | "config";
 /** Las pestañas de Configuración. */
 export type PestanaConfig = "general" | "biblioteca" | "cantantes" | "proyeccion" | "copias" | "acerca";
 /**

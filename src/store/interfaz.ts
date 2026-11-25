@@ -22,7 +22,7 @@ export interface InterfazSlice {
   tamanoUi: TamanoUi;
 
   // ---- dialog / scan ----
-  dialog: "addFolder" | "newList" | "editList" | "help" | "addToList" | "agregarCanciones" | null;
+  dialog: "addFolder" | "newList" | "editList" | "help" | "addToList" | "agregarCanciones" | "guardarTemporal" | null;
 
   // ---- toast ----
   toast: ToastNotice | null;

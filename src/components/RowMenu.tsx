@@ -62,6 +62,7 @@ export default function RowMenu() {
   const sonando = useStore(cur);
   const closeRowMenu = useStore((s) => s.closeRowMenu);
   const openAddToList = useStore((s) => s.openAddToList);
+  const agregarATemporal = useStore((s) => s.agregarElegidasATemporal);
   const openDetail = useStore((s) => s.onRowClick);
   const revealTrack = useStore((s) => s.revealTrack);
   const bulkDelete = useStore((s) => s.bulkDelete);
@@ -162,6 +163,12 @@ export default function RowMenu() {
         <button role="menuitem" tabIndex={-1} onClick={hacer(openAddToList)} className="hb-s2" style={opcion()}>
           <span>Agregar a una lista…</span>
           <span style={atajo}>A</span>
+        </button>
+
+        {/* La otra vía a la lista temporal, para quien arrastrar no le resulta
+            fácil (#138, #230). */}
+        <button role="menuitem" tabIndex={-1} onClick={hacer(agregarATemporal)} className="hb-s2" style={opcion()}>
+          <span>Agregar a la lista temporal</span>
         </button>
 
         {!varias && (

@@ -1,6 +1,6 @@
-import { CalendarDays, CircleHelp, Clock, Heart, Library, Plus, Settings } from "lucide-react";
+import { CalendarDays, CircleHelp, Clock, Heart, Library, ListOrdered, Plus, Settings } from "lucide-react";
 import { useState } from "react";
-import { cuentasDePistas, cultos as cultosPorUso, useStore } from "../store";
+import { NOMBRE_TEMPORAL, cuentasDePistas, cultos as cultosPorUso, useStore } from "../store";
 import { navBtn, navCount, subBtn } from "../lib/styles";
 import type { CSSProperties } from "react";
 
@@ -55,6 +55,11 @@ export default function Sidebar() {
   const bulkAddToPlaylist = useStore((s) => s.bulkAddToPlaylist);
   const endLibraryDrag = useStore((s) => s.endLibraryDrag);
   const [sobre, setSobre] = useState<string | null>(null);
+  const enTemporal = useStore((s) => s.temporal.length);
+  const abrirTemporal = useStore((s) => s.abrirTemporal);
+  const agregarATemporal = useStore((s) => s.agregarATemporal);
+  const temporalActiva = view === "temporal";
+  const sobreTemporal = sobre === "temporal" && arrastrando > 0;
 
 
   const libActive = view === "biblioteca";
@@ -132,6 +137,41 @@ export default function Sidebar() {
             <span style={navCount(true)}>{missingCount}</span>
           </button>
         </div>
+
+        <div style={{ height: 6, flex: "0 0 auto" }} />
+
+        {/* La lista temporal (#230): siempre aquí para poder soltar en ella
+            desde la biblioteca sin cambiar de vista, como en los cultos de
+            abajo, y con la misma guarda: solo acepta lo que sale de la
+            biblioteca. */}
+        <button
+          onClick={abrirTemporal}
+          aria-current={temporalActiva ? "page" : undefined}
+          className={temporalActiva || sobreTemporal ? undefined : "hb-s2"}
+          onDragOver={(e) => {
+            if (arrastrando === 0) return;
+            e.preventDefault();
+            setSobre("temporal");
+          }}
+          onDragLeave={() => setSobre((v) => (v === "temporal" ? null : v))}
+          onDrop={(e) => {
+            if (arrastrando === 0) return;
+            e.preventDefault();
+            setSobre(null);
+            agregarATemporal(useStore.getState().dragFromLibrary);
+            endLibraryDrag();
+          }}
+          style={{
+            ...navBtn(temporalActiva),
+            ...(sobreTemporal ? { background: "var(--primary-soft)", color: "var(--primary)" } : {}),
+          }}
+        >
+          <span style={etiquetaFila}>
+            <ListOrdered size={14} style={{ flex: "0 0 auto" }} />
+            {NOMBRE_TEMPORAL}
+          </span>
+          <span style={navCount()}>{enTemporal}</span>
+        </button>
 
         <div style={{ height: 6, flex: "0 0 auto" }} />
 

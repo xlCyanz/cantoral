@@ -19,7 +19,7 @@ export interface ReproductorSlice {
    * puso a sonar. Se apunta al ponerla, que es el único momento en que se
    * sabe con seguridad.
    */
-  queueOrigen: "biblioteca" | "culto";
+  queueOrigen: "biblioteca" | "culto" | "temporal";
 
   // ---- player ----
   playerId: string;
@@ -106,7 +106,7 @@ export function crearReproductor(set: Set, get: Get, ctx: Contexto): Reproductor
       // Todo de una vez y no «play» y luego la pista: quien vigila el play
       // para sacar un video por el proyector vería un instante la pista de
       // antes sonando, y la proyectaría.
-      set({ sonadas: [], queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : "biblioteca", playing: true, ...patchDeIrA(id) });
+      set({ sonadas: [], queue: queue ?? queueForView(s), queueOrigen: s.view === "lista" ? "culto" : s.view === "temporal" ? "temporal" : "biblioteca", playing: true, ...patchDeIrA(id) });
       // Volver a darle al mismo video que ya estaba en el proyector lo empieza
       // otra vez, como a cualquier pista: la pista no cambia, así que la
       // salida no se entera sola.

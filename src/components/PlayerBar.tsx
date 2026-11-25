@@ -274,7 +274,7 @@ export default function PlayerBar() {
                 : { color: "var(--text-3)" }),
             }}
           >
-            Suena: {queueOrigen === "culto" ? "la lista" : "la biblioteca"}
+            Suena: {queueOrigen === "culto" ? "la lista" : queueOrigen === "temporal" ? "la lista temporal" : "la biblioteca"}
           </span>
         )}
         {proyectando && (

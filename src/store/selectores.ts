@@ -174,12 +174,17 @@ export const cultos = recordar(
 /** Ids that form the play queue for the view the user pressed play in. */
 export function queueForView(s: CantoralState): string[] {
   if (s.view === "lista") return (s.plOrder[s.curPlaylist] || []).slice();
+  if (s.view === "temporal") return s.temporal.slice();
   return applyFilters(s).map((t) => t.id);
 }
 
 /** Live play queue, minus ids whose track disappeared. Falls back to the library. */
 export function playQueue(s: CantoralState): string[] {
   const ids = new Set(s.tracks.map((t) => t.id));
+  // La lista temporal manda viva: lo que se añade o se mueve mientras suena
+  // cuenta para lo que viene (#230). Vacía, la cola se acaba y no salta a la
+  // biblioteca, que no es lo que se pidió.
+  if (s.queueOrigen === "temporal") return s.temporal.filter((id) => ids.has(id));
   const live = s.queue.filter((id) => ids.has(id));
   return live.length ? live : applyFilters(s).map((t) => t.id);
 }

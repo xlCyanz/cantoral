@@ -11,6 +11,7 @@ import { MODOS_REPETIR, type ModoRepetir } from "./cola";
 import { esIdentidad, type IdentidadPantalla } from "./pantallas";
 import { esTamano, type TamanoUi } from "./tamano";
 import type { Densidad, GroupBy, SortDir, SortKey, View } from "./types";
+import { esListaTemporal } from "./temporal";
 
 /** What is remembered between sessions. */
 export interface UiPrefs {
@@ -48,6 +49,8 @@ export interface UiPrefs {
    * mitad de un culto, es lo que se olvida.
    */
   askSingersAtEnd: boolean;
+  /** La lista temporal (#230), hasta que alguien la vacíe. */
+  temporal: string[];
 }
 
 /** The settings key it is stored under. */
@@ -60,7 +63,7 @@ const SORT_DIRS: SortDir[] = ["asc", "desc"];
 const GROUP_BYS: GroupBy[] = ["none", "album", "carpeta"];
 // «proyeccion» se fue con la vista de Proyección: una preferencia guardada con
 // ella no pasa de aquí y se abre en la biblioteca.
-const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "config"];
+const VIEWS: View[] = ["biblioteca", "colecciones", "lista", "temporal", "config"];
 const DENSIDADES: Densidad[] = ["comoda", "compacta"];
 // «salidaDeAudio», «transicionProyeccion» y «avanceProyeccion» se fueron con
 // la vista de Proyección: el proyector solo enseña el video que suena. Una
@@ -82,6 +85,7 @@ export const PREF_FIELDS = [
   "pantallaProyeccion",
   "tamanoUi",
   "askSingersAtEnd",
+  "temporal",
 ] as const;
 
 export function serialisePrefs(s: UiPrefs): string {
@@ -100,6 +104,7 @@ export function serialisePrefs(s: UiPrefs): string {
     pantallaProyeccion: s.pantallaProyeccion,
     tamanoUi: s.tamanoUi,
     askSingersAtEnd: s.askSingersAtEnd,
+    temporal: s.temporal,
   };
   return JSON.stringify(limpio);
 }
@@ -156,6 +161,7 @@ export function parsePrefs(raw: string | null | undefined): Partial<UiPrefs> {
   }
   if (esTamano(o.tamanoUi)) out.tamanoUi = o.tamanoUi;
   if (esBooleano(o.askSingersAtEnd)) out.askSingersAtEnd = o.askSingersAtEnd;
+  if (esListaTemporal(o.temporal)) out.temporal = o.temporal;
   return out;
 }
 

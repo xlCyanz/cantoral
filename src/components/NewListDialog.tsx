@@ -31,13 +31,15 @@ export default function NewListDialog() {
   const current = useStore((s) => s.playlists.find((p) => p.id === s.curPlaylist));
 
   const editing = dialog === "editList";
-  const open = dialog === "newList" || editing;
+  const desdeTemporal = dialog === "guardarTemporal";
+  const open = dialog === "newList" || editing || desdeTemporal;
   if (!open) return null;
 
   return (
     <ListForm
-      key={editing ? `edit:${current?.id ?? ""}` : "new"}
+      key={editing ? `edit:${current?.id ?? ""}` : desdeTemporal ? "temporal" : "new"}
       editing={editing}
+      desdeTemporal={desdeTemporal}
       initialNombre={editing ? current?.nombre ?? "" : ""}
     />
   );
@@ -45,20 +47,25 @@ export default function NewListDialog() {
 
 function ListForm({
   editing,
+  desdeTemporal,
   initialNombre,
 }: {
   editing: boolean;
+  /** Guardar la lista temporal como lista de canciones (#230). */
+  desdeTemporal: boolean;
   initialNombre: string;
 }) {
   const closeDialog = useStore((s) => s.closeDialog);
   const createList = useStore((s) => s.createList);
   const updateList = useStore((s) => s.updateList);
+  const guardarTemporal = useStore((s) => s.guardarTemporalComoLista);
 
   const [nombre, setNombre] = useState(initialNombre);
 
   const submit = () => {
     if (!nombre.trim()) return;
     if (editing) updateList(nombre);
+    else if (desdeTemporal) guardarTemporal(nombre);
     else createList(nombre);
   };
 
@@ -70,10 +77,14 @@ function ListForm({
         </div>
         <div>
           <h2 id="list-dialog-title" style={{ fontSize: 18, fontWeight: 700, margin: "0 0 2px" }}>
-            {editing ? "Editar lista" : "Nueva lista de canciones"}
+            {editing ? "Editar lista" : desdeTemporal ? "Guardar como lista" : "Nueva lista de canciones"}
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>
-            {editing ? "Cambia el nombre de la lista." : "Dale un nombre y arma el repertorio."}
+            {editing
+              ? "Cambia el nombre de la lista."
+              : desdeTemporal
+                ? "La lista temporal se guarda como una lista de canciones, en el mismo orden. La temporal no se vacía."
+                : "Dale un nombre y arma el repertorio."}
           </p>
         </div>
       </div>

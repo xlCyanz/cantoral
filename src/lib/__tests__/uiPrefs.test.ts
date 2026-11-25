@@ -41,6 +41,7 @@ const GUARDADAS: UiPrefs = {
   pantallaProyeccion: { sistema: "DELL P2219H", ancho: 1920, alto: 1080, x: 2560, y: 0 },
   tamanoUi: "muyGrande",
   askSingersAtEnd: true,
+  temporal: ["3", "1"],
 };
 
 /** What `setSetting` was last asked to store under the ui key. */
