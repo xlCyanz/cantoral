@@ -5,6 +5,7 @@ import { NoDisponible, backend } from "../lib/backend";
 import { prepararBusqueda } from "../lib/buscar";
 import type { CantoralState } from "./tipos";
 import { modulo } from "./contexto";
+import { CLAVE_FORMATOS_DESCARTADOS, leerDescartados } from "./formatos";
 import type { Contexto, Get, Set } from "./contexto";
 import { AVISO_COPIA_AUTOMATICA, detalleDeOmitidos, resolveTheme } from "./reglas";
 
@@ -222,6 +223,7 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         backend().getSetting("themeMode"),
         backend().getSetting("theme"),
         backend().getSetting(UI_PREFS_KEY),
+        backend().getSetting(CLAVE_FORMATOS_DESCARTADOS),
       ]);
       const catalogo = backend().getLibrary();
       // Si falla uno, el otro no se queda como un rechazo que nadie atiende.
@@ -235,8 +237,10 @@ export function crearEscaneo(set: Set, get: Get, ctx: Contexto): EscaneoSlice {
         }
       };
       try {
-        const [modeS, themeS, uiS] = await ajustes;
+        const [modeS, themeS, uiS, descartadosS] = await ajustes;
         const patch: Partial<CantoralState> = {};
+        const descartados = leerDescartados(descartadosS);
+        if (descartados.length) patch.formatosDescartados = descartados;
         const mode: ThemeMode | null =
           modeS === "light" || modeS === "dark" || modeS === "system"
             ? modeS

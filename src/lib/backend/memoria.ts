@@ -207,6 +207,22 @@ export function crearMemoria(semilla: Partial<Semilla> = {}): Backend {
     relocateFolder: async () => {
       throw new NoDisponible("Mover carpetas solo funciona en la app de escritorio");
     },
+    descartarFormatos: async (formatos, quitar) => {
+      const limpios = [...new Set(formatos.map((f) => f.replace(/^\./, "").toLowerCase()))].sort();
+      settings.set("formatos_descartados", JSON.stringify(limpios));
+      if (!quitar) return parche([], [], false);
+      // Como en SQLite: por la columna `formato`, la extensión en mayúsculas.
+      const fuera = tracks.filter((t) => limpios.includes(t.formato.toLowerCase())).map((t) => t.id);
+      if (fuera.length === 0) return parche([], [], false);
+      quitarPistas(fuera);
+      return parche(fuera, [], true);
+    },
+    marcarSinImagen: async (id, path) => {
+      const t = tracks.find((x) => x.id === id && x.path === path && x.video);
+      if (!t) return false;
+      t.video = false;
+      return true;
+    },
 
     getPlaylists: async () => listas(),
     createPlaylist: async (nombre) => {

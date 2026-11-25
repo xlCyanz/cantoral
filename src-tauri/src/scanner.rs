@@ -32,6 +32,7 @@ pub enum Tarea {
     Restaurar,
     QuitarCarpeta,
     ReapuntarCarpeta,
+    DescartarFormatos,
 }
 
 impl Tarea {
@@ -42,6 +43,7 @@ impl Tarea {
             Tarea::Restaurar => "una restauración",
             Tarea::QuitarCarpeta => "una carpeta quitándose",
             Tarea::ReapuntarCarpeta => "una carpeta cambiando de ubicación",
+            Tarea::DescartarFormatos => "una limpieza de formatos",
         }
     }
 
@@ -52,6 +54,7 @@ impl Tarea {
             Tarea::Restaurar => "restaurar una copia",
             Tarea::QuitarCarpeta => "quitar una carpeta",
             Tarea::ReapuntarCarpeta => "reapuntar una carpeta",
+            Tarea::DescartarFormatos => "quitar las pistas que no se reproducen",
         }
     }
 }
@@ -144,30 +147,21 @@ impl Drop for ScanClaim<'_> {
     }
 }
 
-// Lo que se indexa es lo que Cantoral puede reproducir.
+// Lo que se indexa es todo lo que algún motor puede llegar a reproducir.
 //
-// Antes se indexaba más de lo que la app sabe abrir, y funcionaba porque había
-// una salida de emergencia: la pista que no sonaba se le pasaba al reproductor
-// del sistema. Quitada esa salida (#81), indexar un `.wma` sería meter en la
-// biblioteca una pista muda, con aspecto de pista normal, que en mitad de un
-// culto no suena y no dice por qué.
+// Qué suena de verdad depende del motor del sistema —WebView2 en Windows,
+// WKWebView en macOS— y de los códecs instalados, así que no se decide aquí
+// con una lista fija: la prueba de audio y video de Configuración reproduce un
+// archivo de cada formato en este equipo, y los que no suenan quedan
+// descartados (`db::formatos_descartados`). Un formato descartado no se
+// indexa, y se cuenta para decirlo al terminar. Sin prueba hecha se intenta
+// todo, y lo que falle lo dice el reproductor al abrirlo.
 //
-// El recorte es solo de lo que **no decodifica ningún motor**, en ninguna
-// plataforma. `ogg`, `opus`, `aiff` y `mov` dependen del motor —WKWebView en
-// macOS y WebView2 en Windows no coinciden— y se siguen indexando: el
-// catálogo viaja entre máquinas (hay copia y restauración), y una lista de
-// formatos distinta en cada una haría que la misma biblioteca cambiara al
-// pasarla del Mac al PC. Lo que dependa del motor falla al abrirlo, con el
-// motivo que dé el reproductor.
-const AUDIO_EXTS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif"];
-const VIDEO_EXTS: &[&str] = &["mp4", "mov", "webm", "m4v"];
-
-/// Medios que se reconocen como tales para poder contarlos, pero no se indexan.
-///
-/// Se cuentan y se dicen al terminar el escaneo. Saltárselos en silencio sería
-/// peor que no tenerlos: quien ve que faltan tres canciones no tiene forma de
-/// saber si es por el formato o porque el escaneo se rompió.
-const SIN_SOPORTE: &[&str] = &["wma", "mkv", "avi", "wmv"];
+// El catálogo viaja entre máquinas (hay copia y restauración), y por eso el
+// descarte es de cada equipo y no del catálogo.
+const AUDIO_EXTS: &[&str] =
+    &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif", "wma"];
+const VIDEO_EXTS: &[&str] = &["mp4", "mov", "webm", "m4v", "mkv", "avi", "wmv"];
 
 fn ext_lower(p: &Path) -> Option<String> {
     p.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase())
@@ -175,11 +169,6 @@ fn ext_lower(p: &Path) -> Option<String> {
 
 fn is_media(ext: &str) -> bool {
     AUDIO_EXTS.contains(&ext) || VIDEO_EXTS.contains(&ext)
-}
-
-/// Un archivo de medios que la app reconoce y no puede reproducir.
-fn es_sin_soporte(ext: &str) -> bool {
-    SIN_SOPORTE.contains(&ext)
 }
 
 /// Si el escáner metería este archivo en la biblioteca, por su extensión.
@@ -194,17 +183,21 @@ pub fn es_indexable(path: &Path) -> bool {
 /// Por qué no se puede apuntar una pista a este archivo, o `None` si se puede.
 ///
 /// Dice lo mismo que el panel para un formato sin soporte, con la salida que
-/// tiene quien opera: convertirlo.
-pub fn motivo_no_indexable(path: &Path) -> Option<String> {
-    if es_indexable(path) {
-        return None;
-    }
-    Some(match ext_lower(path) {
+/// tiene quien opera: convertirlo. `descartados` son los formatos que la
+/// prueba de este equipo dio por mudos.
+pub fn motivo_no_indexable(path: &Path, descartados: &[String]) -> Option<String> {
+    match ext_lower(path) {
+        Some(ext) if descartados.contains(&ext) => Some(format!(
+            "Este equipo no reproduce los archivos .{ext}: lo dijo la prueba de audio y video de Configuración. Conviértelo a MP3 o MP4."
+        )),
+        _ if es_indexable(path) => None,
         Some(ext) => {
-            format!("Los archivos .{ext} no se pueden reproducir. Conviértelo a MP3 o MP4.")
+            Some(format!("Los archivos .{ext} no se pueden reproducir. Conviértelo a MP3 o MP4."))
         }
-        None => "Un archivo sin extensión no se puede reproducir. Conviértelo a MP3 o MP4.".into(),
-    })
+        None => Some(
+            "Un archivo sin extensión no se puede reproducir. Conviértelo a MP3 o MP4.".into(),
+        ),
+    }
 }
 
 /// (title, artist, album, dur_sec, the embedded cover's bytes as they come).
@@ -267,7 +260,7 @@ fn leer_a_salvo(leer: fn(&Path) -> Meta, path: &Path) -> Option<Meta> {
 struct Cuentas {
     /// Archivos indexados.
     added: i64,
-    /// Medios que se reconocen y no se indexan (`SIN_SOPORTE`).
+    /// Medios en un formato que la prueba de este equipo descartó.
     omitidos: i64,
     /// Archivos que se indexaron sin metadatos porque leerlos hizo *panic*.
     ilegibles: i64,
@@ -369,8 +362,9 @@ fn recorrer(
     db::marcar_inicio_de_escaneo(conn)?;
 
     // Collect media paths first so progress has a denominator. En la misma
-    // pasada se cuentan los que se reconocen y no se pueden reproducir, para
-    // poder decirlos al terminar en vez de dejar un hueco sin explicar.
+    // pasada se cuentan los de un formato descartado, para poder decirlos al
+    // terminar en vez de dejar un hueco sin explicar.
+    let descartados = db::formatos_descartados(conn)?;
     let mut omitidos: i64 = 0;
     let mut files: Vec<walkdir::DirEntry> = Vec::new();
     for entrada in WalkDir::new(root)
@@ -380,8 +374,8 @@ fn recorrer(
         .filter(|e| e.file_type().is_file())
     {
         match ext_lower(entrada.path()) {
+            Some(ext) if is_media(&ext) && descartados.contains(&ext) => omitidos += 1,
             Some(ext) if is_media(&ext) => files.push(entrada),
-            Some(ext) if es_sin_soporte(&ext) => omitidos += 1,
             _ => {}
         }
     }
@@ -613,12 +607,10 @@ mod tests {
     }
 
     #[test]
-    fn a_format_no_engine_decodes_is_not_indexed_but_is_counted() {
-        // Indexarlo metería en la biblioteca una pista muda con aspecto de
-        // pista normal, que en mitad de un culto no suena y no dice por qué.
-        // Saltárselo en silencio sería igual de malo: quien ve que faltan tres
-        // canciones no sabría si es por el formato o porque algo se rompió.
-        let tree = Tree::new("sin-soporte");
+    fn the_formats_that_used_to_be_left_out_are_indexed() {
+        // Si suenan o no lo dice la prueba de Configuración en cada equipo, no
+        // una lista fija: sin prueba hecha, entran.
+        let tree = Tree::new("antes-sin-soporte");
         for f in ["himno.wma", "testimonio.mkv", "boda.avi", "clip.wmv"] {
             tree.write(f);
         }
@@ -626,11 +618,34 @@ mod tests {
 
         let resumen = escanear_con_resumen(&conn, fid, &tree, &covers);
 
-        assert_eq!(resumen.added, 5, "los cinco wav del árbol, y nada más");
-        assert_eq!(resumen.omitidos, 4);
+        assert_eq!(resumen.added, 9, "los cinco wav del árbol y estos cuatro");
+        assert_eq!(resumen.omitidos, 0);
+        let pistas = db::list_tracks(&conn).unwrap();
+        let es_video = |titulo: &str| pistas.iter().find(|t| t.titulo == titulo).unwrap().video;
+        assert!(!es_video("himno"), "un .wma es audio");
+        assert!(es_video("testimonio") && es_video("boda") && es_video("clip"));
+    }
+
+    #[test]
+    fn a_discarded_format_is_not_indexed_but_is_counted() {
+        // Indexarlo metería en la biblioteca una pista muda con aspecto de
+        // pista normal, que en mitad de un culto no suena y no dice por qué.
+        // Saltárselo en silencio sería igual de malo: quien ve que faltan tres
+        // canciones no sabría si es por el formato o porque algo se rompió.
+        let tree = Tree::new("descartados");
+        for f in ["himno.wma", "testimonio.mkv", "boda.avi", "clip.wmv"] {
+            tree.write(f);
+        }
+        let (conn, fid, covers) = setup(&tree);
+        db::set_formatos_descartados(&conn, &["wma".into(), "avi".into()]).unwrap();
+
+        let resumen = escanear_con_resumen(&conn, fid, &tree, &covers);
+
+        assert_eq!(resumen.added, 7, "los cinco wav, el mkv y el wmv");
+        assert_eq!(resumen.omitidos, 2);
         let titulos: Vec<String> =
             db::list_tracks(&conn).unwrap().into_iter().map(|t| t.titulo).collect();
-        assert!(!titulos.iter().any(|t| t == "himno" || t == "testimonio"));
+        assert!(!titulos.iter().any(|t| t == "himno" || t == "boda"));
     }
 
     #[test]
@@ -638,6 +653,7 @@ mod tests {
         let tree = Tree::new("mayusculas");
         tree.write("HIMNO.WMA");
         let (conn, fid, covers) = setup(&tree);
+        db::set_formatos_descartados(&conn, &["WMA".into()]).unwrap();
 
         assert_eq!(escanear_con_resumen(&conn, fid, &tree, &covers).omitidos, 1);
     }

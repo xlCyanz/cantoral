@@ -14,6 +14,7 @@ import { crearProyeccion } from "./proyeccion";
 import { crearDuplicados } from "./duplicados";
 import { crearActualizaciones } from "./actualizaciones";
 import { crearSistema } from "./sistema";
+import { crearFormatos } from "./formatos";
 import { createSingers } from "./singers";
 import type { CantoralState } from "./tipos";
 
@@ -38,6 +39,7 @@ export type { DuplicadosSlice } from "./duplicados";
 export type { ActualizacionesSlice } from "./actualizaciones";
 export type { SistemaSlice } from "./sistema";
 export type { SingersSlice } from "./singers";
+export type { FormatosSlice } from "./formatos";
 
 export const useStore = create<CantoralState>((set, get) => {
   const ctx = crearContexto(set, get);
@@ -53,6 +55,7 @@ export const useStore = create<CantoralState>((set, get) => {
     ...crearActualizaciones(set, get, ctx),
     ...crearSistema(set, get, ctx),
     ...createSingers(set, get, ctx),
+    ...crearFormatos(set, get, ctx),
   };
 });
 

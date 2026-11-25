@@ -36,24 +36,15 @@ describe("extensionDe", () => {
 });
 
 describe("avisoDeFormato", () => {
-  it("avisa de los contenedores que no decodifica ningún motor", () => {
-    expect(avisoDeFormato("/m/testimonio.mkv")).toContain("no se puede reproducir");
-    expect(avisoDeFormato("/m/boda.avi")).toContain("no se puede reproducir");
-    expect(avisoDeFormato("/m/clip.WMV")).toContain("no se puede reproducir");
-    expect(avisoDeFormato("/m/himno.wma")).toContain("no se puede reproducir");
+  it("avisa de los formatos que la prueba descartó en este equipo", () => {
+    const descartados = ["wma", "avi"];
+    expect(avisoDeFormato("/m/himno.wma", descartados)).toBe("Este equipo no reproduce los archivos .wma");
+    expect(avisoDeFormato("/m/boda.AVI", descartados)).toBe("Este equipo no reproduce los archivos .avi");
+    expect(avisoDeFormato("/m/testimonio.mkv", descartados)).toBeNull();
   });
 
-  it("y se calla con lo que depende del motor", () => {
-    // `mov` lo reproduce WKWebView y `ogg` lo reproduce WebView2; marcarlos
-    // aquí sería decirle a media plataforma que su archivo no sirve cuando sí.
-    // Si alguno falla de verdad, lo dirá el elemento al intentarlo.
-    for (const ruta of ["/m/a.mov", "/m/a.ogg", "/m/a.opus", "/m/a.aiff", "/m/a.flac"]) {
-      expect(avisoDeFormato(ruta)).toBeNull();
-    }
-  });
-
-  it("ni estorba con lo que sí se reproduce en todas partes", () => {
-    for (const ruta of ["/m/a.mp4", "/m/a.m4v", "/m/a.webm", "/m/a.mp3", "/m/a.m4a", "/m/a.wav"]) {
+  it("y sin prueba hecha no avisa de nada: se intenta todo", () => {
+    for (const ruta of ["/m/a.wma", "/m/a.mkv", "/m/a.avi", "/m/a.wmv", "/m/a.mov", "/m/a.ogg", "/m/a.mp3"]) {
       expect(avisoDeFormato(ruta)).toBeNull();
     }
   });
@@ -90,7 +81,11 @@ describe("motivoNoProyectable", () => {
   it("falta el archivo manda sobre el formato", () => {
     // Un `.mkv` que además no está se arregla reapuntándolo o convirtiéndolo,
     // pero lo primero que hay que hacer es encontrarlo.
-    expect(motivoNoProyectable({ path: "/m/a.mkv", missing: true })).toBe("Falta el archivo");
+    expect(motivoNoProyectable({ path: "/m/a.mkv", missing: true }, ["mkv"])).toBe("Falta el archivo");
+  });
+
+  it("una en un formato descartado dice por qué", () => {
+    expect(motivoNoProyectable({ path: "/m/a.mkv" }, ["mkv"])).toBe("Este equipo no reproduce los archivos .mkv");
   });
 
   it("y una que está y se decodifica no tiene motivo", () => {

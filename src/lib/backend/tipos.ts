@@ -74,6 +74,14 @@ export interface Backend {
   /** Las carátulas que la pasada única del núcleo va reduciendo, por lotes. */
   onCaratulasReducidas(cb: (lote: CaratulaNueva[]) => void): Promise<() => void>;
   removeFolder(id: string): Promise<Parche>;
+  /**
+   * Guardar los formatos que la prueba de audio y video dio por mudos en este
+   * equipo; el escáner deja de indexarlos. Con `quitar`, también salen de la
+   * biblioteca las pistas que ya había en ellos, con copia automática antes.
+   */
+  descartarFormatos(formatos: string[], quitar: boolean): Promise<Parche>;
+  /** Apuntar que un video no trae imagen: suena como audio. `false` si ya no es ese video. */
+  marcarSinImagen(id: string, path: string): Promise<boolean>;
   /** Elige la ubicación nueva de una carpeta y la reapunta; null si se canceló. */
   relocateFolder(id: string): Promise<Parche | null>;
 

@@ -136,19 +136,19 @@ describe("el aviso de lo que el escaneo no indexó", () => {
   });
 
   it("con uno, en singular", () => {
-    expect(detalleDeOmitidos(1)).toBe("1 archivo se quedó fuera: Cantoral no reproduce su formato.");
+    expect(detalleDeOmitidos(1)).toBe("1 archivo se quedó fuera: la prueba de audio y video dijo que este equipo no reproduce su formato.");
   });
 
   it("con varios, en plural", () => {
     // Saltárselos en silencio sería peor que no tenerlos: quien ve que faltan
     // tres canciones no sabría si es por el formato o porque algo se rompió.
-    expect(detalleDeOmitidos(3)).toBe("3 archivos se quedaron fuera: Cantoral no reproduce su formato.");
+    expect(detalleDeOmitidos(3)).toBe("3 archivos se quedaron fuera: la prueba de audio y video dijo que este equipo no reproduce su formato.");
   });
 
   it("dice también los que no se pudieron leer (#131)", () => {
     expect(detalleDeOmitidos(0, 1)).toBe("1 archivo no se pudo leer y entró solo con su nombre.");
     expect(detalleDeOmitidos(2, 3)).toBe(
-      "2 archivos se quedaron fuera: Cantoral no reproduce su formato. 3 archivos no se pudieron leer y entraron solo con su nombre.",
+      "2 archivos se quedaron fuera: la prueba de audio y video dijo que este equipo no reproduce su formato. 3 archivos no se pudieron leer y entraron solo con su nombre.",
     );
   });
 });

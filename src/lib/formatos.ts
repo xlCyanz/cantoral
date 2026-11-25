@@ -9,13 +9,12 @@
 // La verdad sobre si un archivo se puede reproducir la tiene el elemento
 // `<video>` cuando falla, y esa es la que manda: la salida devuelve el error
 // real y la cola lo muestra en el elemento que lo dio. Lo de aquí es lo que se
-// puede decir *antes* de intentarlo, y solo cubre los contenedores que no
-// decodifica ningún motor, en ninguna plataforma.
+// puede decir *antes* de intentarlo: los formatos que la prueba de audio y
+// video de Configuración (`pruebaDeFormatos.ts`) descartó en este equipo.
 //
-// Deliberadamente corto. `mov`, `ogg`, `opus`, `aiff` y `flac` dependen del
-// motor —WKWebView en macOS y WebView2 en Windows no coinciden— y marcarlos
-// aquí sería decirle a quien opera en Windows que su `.mov` no se proyecta
-// cuando sí lo hace. Esos se dejan intentar y, si fallan, el fallo se ve.
+// No hay una lista fija de formatos sin soporte. Qué decodifica el motor
+// depende del sistema —WKWebView en macOS y WebView2 en Windows no coinciden—
+// y de los códecs instalados, así que lo decide la prueba en cada equipo.
 
 /**
  * Autoplay bloqueado por el sistema.
@@ -34,22 +33,9 @@ export const ERROR_AUTOPLAY = -1;
  * Un test compara estas listas con las de Rust para que no vuelvan a separarse.
  */
 export const EXTENSIONES_AUDIO: readonly string[] = [
-  "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif",
+  "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif", "wma",
 ];
-export const EXTENSIONES_VIDEO: readonly string[] = ["mp4", "mov", "webm", "m4v"];
-
-/**
- * Contenedores que no decodifica ningún motor de webview.
- *
- * Las mismas extensiones que `SIN_SOPORTE` en `scanner.rs`: el escáner las
- * cuenta como omitidas y aquí se les pone nombre.
- */
-export const SIN_SOPORTE: Readonly<Record<string, string>> = {
-  mkv: "Matroska (.mkv)",
-  avi: "AVI (.avi)",
-  wmv: "Windows Media (.wmv)",
-  wma: "Windows Media Audio (.wma)",
-};
+export const EXTENSIONES_VIDEO: readonly string[] = ["mp4", "mov", "webm", "m4v", "mkv", "avi", "wmv"];
 
 /** La extensión en minúsculas, sin punto. Cadena vacía si no tiene. */
 export function extensionDe(ruta: string | undefined | null): string {
@@ -64,13 +50,14 @@ export function extensionDe(ruta: string | undefined | null): string {
 /**
  * Por qué este archivo no se va a poder reproducir, si se sabe de antemano.
  *
- * `null` no promete que funcione: promete que no hay motivo conocido para que
- * no lo haga. Lo que falle por el códec de dentro del contenedor lo dirá la
- * salida al intentarlo.
+ * Solo lo sabe si la prueba de este equipo descartó su formato
+ * (`descartados`). `null` no promete que funcione: promete que no hay motivo
+ * conocido para que no lo haga. Lo que falle por el códec de dentro del
+ * contenedor lo dirá la salida al intentarlo.
  */
-export function avisoDeFormato(ruta: string | undefined | null): string | null {
-  const nombre = SIN_SOPORTE[extensionDe(ruta)];
-  return nombre ? `${nombre} no se puede reproducir` : null;
+export function avisoDeFormato(ruta: string | undefined | null, descartados: readonly string[] = []): string | null {
+  const ext = extensionDe(ruta);
+  return ext && descartados.includes(ext) ? `Este equipo no reproduce los archivos .${ext}` : null;
 }
 
 /**
@@ -104,12 +91,15 @@ export function motivoDeError(codigo: number | undefined, ruta?: string): string
  * Por qué esta pista no se va a poder reproducir, si se sabe de antemano.
  *
  * Los tres motivos que se pueden saber sin tocar el archivo: que no se haya
- * indexado con ruta, que la ruta ya no exista, y que el contenedor no lo
- * decodifique ningún motor. Lo demás —un códec raro dentro de un `.mp4`—
+ * indexado con ruta, que la ruta ya no exista, y que la prueba de este equipo
+ * haya descartado su formato. Lo demás —un códec raro dentro de un `.mp4`—
  * aparece al intentarlo.
  */
-export function motivoNoProyectable(t: { path?: string; missing?: boolean }): string | null {
+export function motivoNoProyectable(
+  t: { path?: string; missing?: boolean },
+  descartados: readonly string[] = [],
+): string | null {
   if (!t.path) return "Sin archivo";
   if (t.missing) return "Falta el archivo";
-  return avisoDeFormato(t.path);
+  return avisoDeFormato(t.path, descartados);
 }

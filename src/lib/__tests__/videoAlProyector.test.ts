@@ -15,7 +15,12 @@ const projectionMonitors = vi.fn<() => Promise<MonitorInfo[]>>();
 const openProjectionCmd = vi.fn<(m: number) => Promise<void>>();
 const closeProjectionCmd = vi.fn<() => Promise<void>>();
 const setProjectionCmd = vi.fn<(c: MensajeProyeccion) => Promise<void>>();
+const marcarSinImagenCmd = vi.fn<(id: string, path: string) => Promise<boolean>>();
 let contestar: ((e: EstadoProyeccion) => void) | null = null;
+
+/** Lo que contesta el sondeo de imagen: de fábrica, que la trae. */
+const sondearImagen = vi.fn<(path: string) => Promise<boolean | null>>();
+vi.mock("../sinImagen", () => ({ sondearImagen: (p: string) => sondearImagen(p) }));
 
 vi.mock("../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api")>()),
@@ -24,6 +29,7 @@ vi.mock("../api", async (importOriginal) => ({
   openProjectionCmd: (m: number) => openProjectionCmd(m),
   closeProjectionCmd: () => closeProjectionCmd(),
   setProjectionCmd: (c: MensajeProyeccion) => setProjectionCmd(c),
+  marcarSinImagenCmd: (id: string, path: string) => marcarSinImagenCmd(id, path),
   onProjectionState: (cb: (e: EstadoProyeccion) => void) => {
     contestar = cb;
     return Promise.resolve(() => (contestar = null));
@@ -75,6 +81,10 @@ const esperar = () => new Promise((r) => setTimeout(r, 0));
 beforeEach(async () => {
   useStore.setState(initial, true);
   for (const m of [projectionMonitors, openProjectionCmd, closeProjectionCmd, setProjectionCmd]) m.mockReset();
+  sondearImagen.mockReset();
+  sondearImagen.mockResolvedValue(true);
+  marcarSinImagenCmd.mockReset();
+  marcarSinImagenCmd.mockResolvedValue(true);
   projectionMonitors.mockResolvedValue([PORTATIL, TELE, PROYECTOR]);
   openProjectionCmd.mockResolvedValue(undefined);
   closeProjectionCmd.mockResolvedValue(undefined);
@@ -184,6 +194,74 @@ describe("poner un video a sonar lo proyecta", () => {
 
     expect(openProjectionCmd).not.toHaveBeenCalled();
     expect(ultimo()).toEqual({ vista: expect.objectContaining({ src: "/m/w.mp4", reproduciendo: true }) });
+  });
+});
+
+describe("un archivo de video con solo sonido", () => {
+  // Un himno exportado como `.mp4` sin imagen, o una grabación del culto en
+  // `.mkv`: la extensión dice video, pero no hay nada que enseñar. Cada prueba
+  // usa su propia pista: lo que ya se miró se recuerda en la sesión.
+
+  it("no abre el proyector: suena en el equipo, como un audio", async () => {
+    const soloSonido = pista("s1", { video: true, path: "/m/himno-sin-imagen.mp4", formato: "MP4" });
+    useStore.setState({ tracks: [CANCION, soloSonido] });
+    sondearImagen.mockResolvedValue(false);
+
+    useStore.getState().play("s1", ["s1"]);
+    await esperar();
+    await esperar();
+
+    const s = useStore.getState();
+    expect(openProjectionCmd).not.toHaveBeenCalled();
+    expect(s.proyeccionPista).toBeNull();
+    expect(s.playing).toBe(true);
+    expect(s.tracks.find((t) => t.id === "s1")?.video).toBe(false);
+    expect(marcarSinImagenCmd).toHaveBeenCalledWith("s1", "/m/himno-sin-imagen.mp4");
+  });
+
+  it("con el proyector ya abierto, la salida se queda en negro", async () => {
+    const soloSonido = pista("s2", { video: true, path: "/m/grabacion.mkv", formato: "MKV" });
+    useStore.setState({ tracks: [CANCION, VIDEO, soloSonido] });
+    useStore.getState().play("v", ["v", "s2"]);
+    await esperar();
+    expect(useStore.getState().proyectando).toBe(true);
+    sondearImagen.mockResolvedValue(false);
+
+    useStore.getState().next();
+    await esperar();
+    await esperar();
+
+    const s = useStore.getState();
+    expect(s.playerId).toBe("s2");
+    expect(s.proyeccionPista).toBeNull();
+    expect(ultimo()).toEqual({ vista: { modo: "negro" } });
+    const mandados = setProjectionCmd.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(mandados.some((m) => m.includes("grabacion.mkv"))).toBe(false);
+    expect(s.tracks.find((t) => t.id === "s2")?.video).toBe(false);
+  });
+
+  it("un video con miniatura ni se mira: ya se sabe que trae imagen", async () => {
+    const conMiniatura = pista("s3", { video: true, path: "/m/clip.mp4", formato: "MP4", cover: "/covers/s3.jpg" });
+    useStore.setState({ tracks: [CANCION, conMiniatura] });
+
+    useStore.getState().play("s3", ["s3"]);
+    await esperar();
+
+    expect(sondearImagen).not.toHaveBeenCalled();
+    expect(openProjectionCmd).toHaveBeenCalledTimes(1);
+  });
+
+  it("si no se pudo saber, se proyecta como siempre", async () => {
+    const dudoso = pista("s4", { video: true, path: "/m/raro.avi", formato: "AVI" });
+    useStore.setState({ tracks: [CANCION, dudoso] });
+    sondearImagen.mockResolvedValue(null);
+
+    useStore.getState().play("s4", ["s4"]);
+    await esperar();
+    await esperar();
+
+    expect(openProjectionCmd).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().tracks.find((t) => t.id === "s4")?.video).toBe(true);
   });
 });
 

@@ -379,6 +379,12 @@ export async function reconcileLibraryCmd(): Promise<Reconciliacion | null> {
 export async function removeFolderCmd(id: string): Promise<Parche> {
   return inv<Parche>("remove_folder", { id });
 }
+export async function descartarFormatosCmd(formatos: string[], quitar: boolean): Promise<Parche> {
+  return inv<Parche>("descartar_formatos", { formatos, quitar });
+}
+export async function marcarSinImagenCmd(id: string, path: string): Promise<boolean> {
+  return inv<boolean>("marcar_sin_imagen", { id, path });
+}
 /** Point a track at its file's new location, keeping what it carries. */
 export async function relocateTrackCmd(id: string, path: string): Promise<Parche> {
   return inv<Parche>("relocate_track", { id, path });
@@ -492,7 +498,7 @@ export interface CopiaAutomatica {
   ruta: string;
   /** Hora local del equipo, `YYYY-MM-DDTHH:MM:SS`. */
   fecha: string;
-  motivo: "quitar-carpeta" | "restaurar" | "fusionar";
+  motivo: "quitar-carpeta" | "restaurar" | "fusionar" | "descartar-formatos";
   tamano: number;
 }
 /** Las copias automáticas, de la más nueva a la más antigua. */
