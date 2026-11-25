@@ -9,6 +9,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ## [Sin publicar]
 
+## [0.9.0] - 2026-11-25
+
+**Lo que suena, armado sobre la marcha.** La lista temporal deja ir soltando
+canciones mientras el culto avanza, sin crear una lista. Y cada equipo
+prueba qué formatos de audio y video reproduce de verdad, en lugar de una
+lista fija que dejaba fuera archivos que sí sonaban.
+
 ### Añadido
 
 - **Lista temporal** (#230): una cola para armar sobre la marcha lo que va a
@@ -34,6 +41,13 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 - **Un archivo de video que solo trae sonido suena como un audio**: no abre el
   proyector ni lo deja en negro. Se mira antes de proyectar, y también al
   sacar las miniaturas.
+
+### Seguridad
+
+- Dependencias actualizadas por avisos de seguridad: la SQLite incluida
+  (RUSTSEC-2026-0459), `url` (RUSTSEC-2026-0592) y `cookie`
+  (RUSTSEC-2026-0594). El actualizador ya usa `zip` 9, así que no queda
+  ninguna excepción en la auditoría de dependencias.
 
 ## [0.8.0] - 2026-10-24
 
@@ -1435,7 +1449,8 @@ Primera versión. Todavía sin etiquetar ni publicar.
 - **Pipeline de compilación** en matriz macOS + Windows, con firma opcional y
   publicación del GitHub Release.
 
-[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.8.0...HEAD
+[Sin publicar]: https://github.com/xlCyanz/cantoral/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/xlCyanz/cantoral/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/xlCyanz/cantoral/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/xlCyanz/cantoral/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/xlCyanz/cantoral/compare/v0.5.0...v0.6.0
