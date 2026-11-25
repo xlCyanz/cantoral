@@ -10,6 +10,7 @@ import type { ActualizacionesSlice } from "./actualizaciones";
 import type { SistemaSlice } from "./sistema";
 import type { SingersSlice } from "./singers";
 import type { FormatosSlice } from "./formatos";
+import type { TemporalSlice } from "./temporal";
 
 // Parte del store (#134). Ver src/store/index.ts.
 
@@ -66,4 +67,5 @@ export type CantoralState = InterfazSlice &
   ActualizacionesSlice &
   SistemaSlice &
   SingersSlice &
-  FormatosSlice;
+  FormatosSlice &
+  TemporalSlice;

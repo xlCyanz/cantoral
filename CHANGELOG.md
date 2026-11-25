@@ -11,6 +11,14 @@ Secciones posibles: `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido`
 
 ### Añadido
 
+- **Lista temporal** (#230): una cola para armar sobre la marcha lo que va a
+  sonar, sin crear una lista de canciones. Se le arrastran canciones desde la
+  biblioteca —a la entrada «Lista temporal» de la barra lateral o a su vista—
+  o se usa «Agregar a la lista temporal» en el menú de cada canción. Suenan
+  una detrás de otra y lo que se añade o se mueve mientras suena cuenta para
+  lo que viene. Se reordena arrastrando, con los botones de cada fila o con
+  Alt + ↑/↓; Supr quita. Se recuerda al cerrar la app hasta que se vacía, y se
+  puede guardar como lista de canciones.
 - **Prueba de audio y video** en Configuración → Biblioteca: reproduce en
   silencio un archivo de un segundo de cada formato en este equipo y marca
   cuáles suenan. Los que no, se descartan: el escaneo deja de indexarlos y, si

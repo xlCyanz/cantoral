@@ -9,6 +9,7 @@ import TopBar from "./components/TopBar";
 import LibraryView from "./components/LibraryView";
 import CollectionsView from "./components/CollectionsView";
 import PlaylistView from "./components/PlaylistView";
+import TemporalView from "./components/TemporalView";
 import DetailPanel from "./components/DetailPanel";
 import PlayerBar from "./components/PlayerBar";
 import AddFolderDialog from "./components/AddFolderDialog";
@@ -152,6 +153,7 @@ export default function App() {
             {view === "biblioteca" && <LibraryView />}
             {view === "colecciones" && <CollectionsView />}
             {view === "lista" && <PlaylistView />}
+            {view === "temporal" && <TemporalView />}
             {view === "config" && <Diferido><ConfigView /></Diferido>}
           </main>
         </div>
